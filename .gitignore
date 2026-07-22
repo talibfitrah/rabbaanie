@@ -71,3 +71,7 @@ local-docs/
 
 # build-agent runtime logs (not versioned)
 .manus-logs/
+
+# local secrets — never commit
+.env
+.env.*
