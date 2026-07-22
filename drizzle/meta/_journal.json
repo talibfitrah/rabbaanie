@@ -1,0 +1,104 @@
+{
+  "version": "7",
+  "dialect": "mysql",
+  "entries": [
+    {
+      "idx": 0,
+      "version": "5",
+      "when": 1763372440610,
+      "tag": "0000_elite_eternals",
+      "breakpoints": true
+    },
+    {
+      "idx": 1,
+      "version": "5",
+      "when": 1782626573007,
+      "tag": "0001_wonderful_catseye",
+      "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "5",
+      "when": 1782635635414,
+      "tag": "0002_high_morgan_stark",
+      "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "5",
+      "when": 1782691725522,
+      "tag": "0003_vengeful_zarda",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "5",
+      "when": 1782692727725,
+      "tag": "0004_cute_vulcan",
+      "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "5",
+      "when": 1782709645287,
+      "tag": "0005_amusing_frog_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "5",
+      "when": 1782710449339,
+      "tag": "0006_special_vermin",
+      "breakpoints": true
+    },
+    {
+      "idx": 7,
+      "version": "5",
+      "when": 1782727115590,
+      "tag": "0007_slim_thor",
+      "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "5",
+      "when": 1782729416092,
+      "tag": "0008_salty_wonder_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "5",
+      "when": 1783197449057,
+      "tag": "0009_high_reavers",
+      "breakpoints": true
+    },
+    {
+      "idx": 10,
+      "version": "5",
+      "when": 1783446462911,
+      "tag": "0010_redundant_sage",
+      "breakpoints": true
+    },
+    {
+      "idx": 11,
+      "version": "5",
+      "when": 1784120641769,
+      "tag": "0011_narrow_absorbing_man",
+      "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "5",
+      "when": 1784305472930,
+      "tag": "0012_lush_sentry",
+      "breakpoints": true
+    },
+    {
+      "idx": 13,
+      "version": "5",
+      "when": 1784366827742,
+      "tag": "0013_useful_ikaris",
+      "breakpoints": true
+    }
+  ]
+}

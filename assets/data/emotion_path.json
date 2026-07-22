@@ -1,0 +1,390 @@
+{
+  "title": {
+    "ar": "مسار ضبط النفس والعواطف",
+    "nl": "Pad voor zelfbeheersing en emoties",
+    "en": "Path of Self-Control and Emotions"
+  },
+  "description": {
+    "ar": "برنامج 7 أسابيع لتعليم الطفل ضبط النفس والصبر وكظم الغيظ بمنهج إسلامي",
+    "nl": "7-weken programma om het kind zelfbeheersing, geduld en het beheersen van woede te leren via een islamitische methode",
+    "en": "7-week program to teach the child self-control, patience and anger management through an Islamic method"
+  },
+  "methodology": {
+    "ar": "المنهج: التصفية (تصحيح الفكر) → التزكية (تطهير القلب) → التربية (تقويم السلوك)",
+    "nl": "Methode: Tasfiya (denken corrigeren) → Tazkiya (hart zuiveren) → Tarbiya (gedrag vormen)",
+    "en": "Method: Tasfiya (correct thinking) → Tazkiya (purify heart) → Tarbiya (shape behavior)"
+  },
+  "weeks": [
+    {
+      "week": 1,
+      "title": {
+        "ar": "فهم العواطف: نعمة من الله",
+        "nl": "Emoties begrijpen: een zegen van Allaah",
+        "en": "Understanding emotions: a blessing from Allaah"
+      },
+      "domain": "tasfiya",
+      "focus": {
+        "ar": "تصحيح الفكر: العواطف ليست عيبًا بل نعمة يجب ضبطها",
+        "nl": "Denken corrigeren: emoties zijn geen gebrek maar een zegen die beheerst moet worden",
+        "en": "Correct thinking: emotions are not a flaw but a blessing that must be controlled"
+      },
+      "parent_tasks": [
+        {
+          "ar": "اجلس مع طفلك واشرح له أن الله خلق فينا المشاعر لحكمة: الغضب للدفاع عن الحق، والحزن للتوبة، والفرح لشكر الله",
+          "nl": "Ga met je kind zitten en leg uit dat Allaah gevoelens in ons heeft geschapen met wijsheid: woede om het recht te verdedigen, verdriet voor berouw, en vreugde om Allaah te danken",
+          "en": "Sit with your child and explain that Allaah created emotions in us with wisdom: anger to defend truth, sadness for repentance, and joy to thank Allaah"
+        },
+        {
+          "ar": "اذكر له قصة النبي ﷺ حين غضب لله (حديث: ما انتقم لنفسه قط إلا أن تُنتهك حرمات الله)",
+          "nl": "Vertel het verhaal van de Profeet ﷺ toen hij boos werd voor Allaah (hadieth: hij nam nooit wraak voor zichzelf, behalve wanneer de grenzen van Allaah werden overschreden)",
+          "en": "Tell the story of the Prophet ﷺ when he got angry for Allaah (hadith: he never took revenge for himself except when Allaah's limits were violated)"
+        },
+        {
+          "ar": "علّمه الفرق بين: غضب مذموم (لهوى النفس) وغضب محمود (لله)",
+          "nl": "Leer hem het verschil tussen: verwerpelijke woede (voor eigen begeerte) en prijzenswaardige woede (voor Allaah)",
+          "en": "Teach the difference between: blameworthy anger (for self-desire) and praiseworthy anger (for Allaah)"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "اكتب 3 مواقف شعرت فيها بالغضب: هل كان لله أم لنفسك؟",
+          "nl": "Schrijf 3 situaties op waarin je boos werd: was het voor Allaah of voor jezelf?",
+          "en": "Write 3 situations where you felt angry: was it for Allaah or for yourself?"
+        },
+        {
+          "ar": "احفظ: «لا تغضب» (وصية النبي ﷺ)",
+          "nl": "Memoriseer: 'Word niet boos' (advies van de Profeet ﷺ)",
+          "en": "Memorize: 'Do not get angry' (advice of the Prophet ﷺ)"
+        }
+      ],
+      "dhikr": {
+        "ar": "أعوذ بالله من الشيطان الرجيم",
+        "nl": "A'oedhu billaahi minash-shaytaanir-rajiem",
+        "en": "I seek refuge in Allaah from the accursed Shaytaan"
+      },
+      "evidence": {
+        "ar": "قال النبي ﷺ: «ليس الشديد بالصُّرَعة، إنما الشديد الذي يملك نفسه عند الغضب» (متفق عليه)",
+        "nl": "De Profeet ﷺ zei: 'De sterke is niet degene die wint in het worstelen, maar de sterke is degene die zichzelf beheerst bij woede' (Overeengekomen)",
+        "en": "The Prophet ﷺ said: 'The strong one is not the one who overcomes in wrestling, but the strong one is he who controls himself when angry' (Agreed upon)"
+      }
+    },
+    {
+      "week": 2,
+      "title": {
+        "ar": "كظم الغيظ: صفة أهل الجنة",
+        "nl": "Woede beheersen: eigenschap van de mensen van het Paradijs",
+        "en": "Suppressing anger: a quality of the people of Paradise"
+      },
+      "domain": "tazkiya",
+      "focus": {
+        "ar": "تزكية القلب: تحبيب كظم الغيظ وتبغيض الانفجار",
+        "nl": "Hart zuiveren: liefde voor het beheersen van woede en afkeer van uitbarsting",
+        "en": "Purify the heart: love for suppressing anger and hatred for outbursts"
+      },
+      "parent_tasks": [
+        {
+          "ar": "اقرأ مع طفلك آية: {والكاظمين الغيظ والعافين عن الناس والله يحب المحسنين}",
+          "nl": "Lees met je kind het vers: {En degenen die hun woede onderdrukken en de mensen vergeven, en Allaah houdt van de weldoeners}",
+          "en": "Read with your child the verse: {And those who suppress their anger and pardon people, and Allaah loves the doers of good}"
+        },
+        {
+          "ar": "مارس معه تمرين: عندما تغضب → توضأ + اجلس إن كنت قائمًا + قل أعوذ بالله من الشيطان الرجيم",
+          "nl": "Oefen met hem: wanneer je boos wordt → maak wudhu + ga zitten als je staat + zeg a'oedhu billaahi minash-shaytaanir-rajiem",
+          "en": "Practice with them: when angry → make wudu + sit if standing + say I seek refuge in Allaah from Shaytaan"
+        },
+        {
+          "ar": "كافئه عندما يكظم غيظه: «ما شاء الله، الله وفّقك لكظم غيظك — هذا عمل أهل الجنة»",
+          "nl": "Beloon hem wanneer hij zijn woede beheerst: 'Maashaa'llaah, Allaah heeft je geleid om je woede te beheersen — dit is het werk van de mensen van het Paradijs'",
+          "en": "Reward when they suppress anger: 'Maashaa'llaah, Allaah guided you to suppress your anger — this is the deed of the people of Paradise'"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "هذا الأسبوع: كلما غضبت، توضأ فورًا وسجّل ذلك",
+          "nl": "Deze week: elke keer dat je boos wordt, maak direct wudhu en noteer het",
+          "en": "This week: every time you get angry, make wudu immediately and record it"
+        },
+        {
+          "ar": "احفظ الآية: {والكاظمين الغيظ والعافين عن الناس}",
+          "nl": "Memoriseer het vers: {En degenen die hun woede onderdrukken en de mensen vergeven}",
+          "en": "Memorize the verse: {And those who suppress their anger and pardon people}"
+        }
+      ],
+      "dhikr": {
+        "ar": "اللهم إني أسألك كلمة الحق في الغضب والرضا",
+        "nl": "Allaahumma innie as'aluka kalimat al-haqq fil-ghadab war-ridaa",
+        "en": "O Allaah, I ask You for the word of truth in anger and in contentment"
+      },
+      "evidence": {
+        "ar": "قال النبي ﷺ: «من كظم غيظًا وهو قادر على أن يُنفذه دعاه الله على رؤوس الخلائق يوم القيامة حتى يُخيّره من الحور ما شاء» (أبو داود)",
+        "nl": "De Profeet ﷺ zei: 'Wie zijn woede onderdrukt terwijl hij in staat is het uit te voeren, Allaah zal hem op de Dag des Oordeels voor alle schepselen roepen totdat Hij hem laat kiezen van de hoer al-'ien wat hij wil' (Aboe Daawoed)",
+        "en": "The Prophet ﷺ said: 'Whoever suppresses anger while able to act upon it, Allaah will call him before all creation on the Day of Judgment until He lets him choose from the hoor al-'ayn what he wishes' (Abu Dawud)"
+      }
+    },
+    {
+      "week": 3,
+      "title": {
+        "ar": "الصبر: مفتاح النجاح",
+        "nl": "Geduld: de sleutel tot succes",
+        "en": "Patience: the key to success"
+      },
+      "domain": "tazkiya",
+      "focus": {
+        "ar": "تزكية القلب: غرس حب الصبر وفهم أنواعه الثلاثة",
+        "nl": "Hart zuiveren: liefde voor geduld planten en de drie soorten begrijpen",
+        "en": "Purify the heart: plant love for patience and understand its three types"
+      },
+      "parent_tasks": [
+        {
+          "ar": "علّم طفلك أنواع الصبر الثلاثة: صبر على الطاعة، صبر عن المعصية، صبر على القدر",
+          "nl": "Leer je kind de drie soorten geduld: geduld bij gehoorzaamheid, geduld bij het vermijden van zonde, geduld bij het lot",
+          "en": "Teach your child the three types of patience: patience in obedience, patience from sin, patience with decree"
+        },
+        {
+          "ar": "اذكر قصة يوسف عليه السلام: صبر عن المعصية رغم الإغراء → الله رفعه",
+          "nl": "Vertel het verhaal van Yoesoef (vrede zij met hem): geduld bij het vermijden van zonde ondanks verleiding → Allaah verhief hem",
+          "en": "Tell the story of Yusuf (peace be upon him): patience from sin despite temptation → Allaah elevated him"
+        },
+        {
+          "ar": "ضع مع طفلك تحديًا يوميًا للصبر (مثلاً: تأخير الحلوى بعد الأكل 10 دقائق)",
+          "nl": "Stel met je kind een dagelijkse geduld-uitdaging in (bijv.: snoep 10 minuten uitstellen na het eten)",
+          "en": "Set a daily patience challenge with your child (e.g.: delay sweets 10 minutes after eating)"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "سجّل كل يوم موقفًا صبرت فيه واكتب: أي نوع صبر كان؟",
+          "nl": "Noteer elke dag een situatie waarin je geduldig was en schrijf: welk type geduld was het?",
+          "en": "Record daily a situation where you were patient and write: which type of patience was it?"
+        },
+        {
+          "ar": "احفظ: {إنما يوفّى الصابرون أجرهم بغير حساب}",
+          "nl": "Memoriseer: {Voorwaar, de geduldigen zullen hun beloning zonder berekening ontvangen}",
+          "en": "Memorize: {Indeed, the patient will be given their reward without account}"
+        }
+      ],
+      "dhikr": {
+        "ar": "اللهم أعني على ذكرك وشكرك وحسن عبادتك",
+        "nl": "Allaahumma a'innie 'alaa dhikrika wa shukrika wa husni 'ibaadatik",
+        "en": "O Allaah, help me to remember You, thank You, and worship You well"
+      },
+      "evidence": {
+        "ar": "قال الله تعالى: {يا أيها الذين آمنوا اصبروا وصابروا ورابطوا واتقوا الله لعلكم تفلحون}",
+        "nl": "Allaah de Verhevene zei: {O jullie die geloven, wees geduldig en moedig geduld aan en wees standvastig en vrees Allaah opdat jullie zullen slagen}",
+        "en": "Allaah the Exalted said: {O you who believe, be patient and encourage patience and remain steadfast and fear Allaah that you may succeed}"
+      }
+    },
+    {
+      "week": 4,
+      "title": {
+        "ar": "الحلم: صفة يحبها الله",
+        "nl": "Verdraagzaamheid: een eigenschap die Allaah liefheeft",
+        "en": "Forbearance: a quality Allaah loves"
+      },
+      "domain": "tarbiya",
+      "focus": {
+        "ar": "تربية السلوك: التدرب على الحلم في المواقف اليومية",
+        "nl": "Gedrag vormen: oefenen met verdraagzaamheid in dagelijkse situaties",
+        "en": "Shape behavior: practicing forbearance in daily situations"
+      },
+      "parent_tasks": [
+        {
+          "ar": "اذكر حديث: «إن فيك خصلتين يحبهما الله: الحلم والأناة» (مسلم) — واشرح معناهما",
+          "nl": "Vertel de hadieth: 'Voorwaar, in jou zijn twee eigenschappen die Allaah liefheeft: verdraagzaamheid en bedachtzaamheid' (Moeslim) — en leg de betekenis uit",
+          "en": "Mention the hadith: 'Indeed, in you are two qualities that Allaah loves: forbearance and deliberateness' (Muslim) — and explain their meaning"
+        },
+        {
+          "ar": "تدرّب أنت أولاً: عندما يخطئ طفلك، تمهّل 5 ثوانٍ قبل الرد (كن قدوة)",
+          "nl": "Oefen eerst zelf: wanneer je kind een fout maakt, wacht 5 seconden voor je reageert (wees een voorbeeld)",
+          "en": "Practice first yourself: when your child makes a mistake, wait 5 seconds before responding (be a role model)"
+        },
+        {
+          "ar": "ضع قاعدة البيت: «نتكلم بهدوء — الصراخ ليس من أخلاق المسلم»",
+          "nl": "Stel een huisregel in: 'We praten rustig — schreeuwen hoort niet bij de manieren van een moslim'",
+          "en": "Set a house rule: 'We speak calmly — shouting is not from a Muslim's manners'"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "هذا الأسبوع: عندما يضايقك أحد، عُدّ إلى 10 قبل أن تردّ",
+          "nl": "Deze week: wanneer iemand je irriteert, tel tot 10 voordat je reageert",
+          "en": "This week: when someone annoys you, count to 10 before responding"
+        },
+        {
+          "ar": "سجّل: كم مرة نجحت في الحلم هذا الأسبوع؟",
+          "nl": "Noteer: hoe vaak ben je deze week verdraagzaam geweest?",
+          "en": "Record: how many times were you forbearing this week?"
+        }
+      ],
+      "dhikr": {
+        "ar": "اللهم اجعلني من الحلماء الأناة",
+        "nl": "Allaahumma-j'alnee minal-hulamaa'il-anaah",
+        "en": "O Allaah, make me among the forbearing and deliberate"
+      },
+      "evidence": {
+        "ar": "قال النبي ﷺ لأشج عبد القيس: «إن فيك خصلتين يحبهما الله: الحلم والأناة» (رواه مسلم)",
+        "nl": "De Profeet ﷺ zei tegen Ashajj 'Abd al-Qays: 'Voorwaar, in jou zijn twee eigenschappen die Allaah liefheeft: verdraagzaamheid en bedachtzaamheid' (Overgeleverd door Moeslim)",
+        "en": "The Prophet ﷺ said to Ashajj 'Abd al-Qays: 'Indeed, in you are two qualities that Allaah loves: forbearance and deliberateness' (Reported by Muslim)"
+      }
+    },
+    {
+      "week": 5,
+      "title": {
+        "ar": "العفو: أعلى من كظم الغيظ",
+        "nl": "Vergeven: hoger dan woede beheersen",
+        "en": "Pardoning: higher than suppressing anger"
+      },
+      "domain": "tazkiya",
+      "focus": {
+        "ar": "تزكية القلب: الارتقاء من كظم الغيظ إلى العفو عمن ظلمك",
+        "nl": "Hart zuiveren: stijgen van woede beheersen naar vergeven van wie je onrecht aandeed",
+        "en": "Purify the heart: rising from suppressing anger to pardoning those who wronged you"
+      },
+      "parent_tasks": [
+        {
+          "ar": "اشرح الفرق: كظم الغيظ (تحبسه) → العفو (تسامح) → الإحسان (تحسن لمن أساء إليك)",
+          "nl": "Leg het verschil uit: woede beheersen (je houdt het in) → vergeven (je scheldt kwijt) → ihsaan (je doet goed tegen wie je kwaad deed)",
+          "en": "Explain the difference: suppress anger (hold it in) → pardon (forgive) → ihsaan (do good to who wronged you)"
+        },
+        {
+          "ar": "اذكر قصة يوسف عليه السلام مع إخوته: {لا تثريب عليكم اليوم يغفر الله لكم}",
+          "nl": "Vertel het verhaal van Yoesoef met zijn broers: {Geen verwijt rust vandaag op jullie, moge Allaah jullie vergeven}",
+          "en": "Tell the story of Yusuf with his brothers: {No blame upon you today, may Allaah forgive you}"
+        },
+        {
+          "ar": "مارس العفو أمام طفلك: إذا أخطأ أحد في حقك، قل بصوت مسموع: «عفوت عنه لله»",
+          "nl": "Oefen vergeven voor je kind: als iemand je onrecht aandoet, zeg hardop: 'Ik heb hem vergeven voor Allaah'",
+          "en": "Practice pardoning in front of your child: if someone wrongs you, say aloud: 'I pardoned him for Allaah'"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "اختر شخصًا أساء إليك وسامحه في قلبك لله — واكتب: «عفوت عن فلان لله»",
+          "nl": "Kies iemand die je kwaad heeft gedaan en vergeef hem in je hart voor Allaah — schrijf: 'Ik heb die-en-die vergeven voor Allaah'",
+          "en": "Choose someone who wronged you and forgive them in your heart for Allaah — write: 'I pardoned so-and-so for Allaah'"
+        },
+        {
+          "ar": "احفظ: {وليعفوا وليصفحوا ألا تحبون أن يغفر الله لكم}",
+          "nl": "Memoriseer: {Laat hen vergeven en kwijtschelden, houden jullie er niet van dat Allaah jullie vergeeft?}",
+          "en": "Memorize: {Let them pardon and overlook, do you not love that Allaah should forgive you?}"
+        }
+      ],
+      "dhikr": {
+        "ar": "اللهم إنك عفوّ تحب العفو فاعفُ عني",
+        "nl": "Allaahumma innaka 'afuwwun tuhibbul-'afwa fa'fu 'annie",
+        "en": "O Allaah, You are Pardoning and love pardoning, so pardon me"
+      },
+      "evidence": {
+        "ar": "قال الله تعالى: {خذ العفو وأمر بالعرف وأعرض عن الجاهلين}",
+        "nl": "Allaah de Verhevene zei: {Neem het vergeven aan en beveel het goede en wend je af van de onwetenden}",
+        "en": "Allaah the Exalted said: {Take what is given freely, enjoin what is good, and turn away from the ignorant}"
+      }
+    },
+    {
+      "week": 6,
+      "title": {
+        "ar": "الرضا بالقدر: سكينة القلب",
+        "nl": "Tevredenheid met het lot: rust van het hart",
+        "en": "Contentment with decree: tranquility of the heart"
+      },
+      "domain": "tazkiya",
+      "focus": {
+        "ar": "تزكية القلب: الرضا بقضاء الله والثقة بحكمته",
+        "nl": "Hart zuiveren: tevredenheid met Allaah's besluit en vertrouwen in Zijn wijsheid",
+        "en": "Purify the heart: contentment with Allaah's decree and trust in His wisdom"
+      },
+      "parent_tasks": [
+        {
+          "ar": "علّم طفلك: كل ما يصيبك فيه خير — إن أصابته سراء شكر فكان خيرًا له، وإن أصابته ضراء صبر فكان خيرًا له",
+          "nl": "Leer je kind: alles wat je overkomt bevat goed — als hem iets goeds overkomt en hij dankt, is het goed voor hem; als hem iets slechts overkomt en hij is geduldig, is het goed voor hem",
+          "en": "Teach your child: everything that happens contains good — if good befalls and he thanks, it is good for him; if harm befalls and he is patient, it is good for him"
+        },
+        {
+          "ar": "عندما يفقد طفلك شيئًا أو يخسر: ذكّره «قدّر الله وما شاء فعل» ولا تقل «لو»",
+          "nl": "Wanneer je kind iets verliest: herinner hem 'Allaah heeft het bepaald en wat Hij wil doet Hij' en zeg niet 'als'",
+          "en": "When your child loses something: remind them 'Allaah decreed and what He wills He does' and don't say 'if only'"
+        },
+        {
+          "ar": "اذكر قصة أم سُليم: ابنها مات وأخبرت زوجها بحكمة ورضا",
+          "nl": "Vertel het verhaal van Umm Sulaym: haar zoon stierf en ze vertelde het haar man met wijsheid en tevredenheid",
+          "en": "Tell the story of Umm Sulaym: her son died and she told her husband with wisdom and contentment"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "هذا الأسبوع: كلما حدث شيء لم يعجبك، قل: «قدّر الله وما شاء فعل»",
+          "nl": "Deze week: elke keer dat iets gebeurt wat je niet bevalt, zeg: 'Allaah heeft het bepaald en wat Hij wil doet Hij'",
+          "en": "This week: every time something happens you don't like, say: 'Allaah decreed and what He wills He does'"
+        },
+        {
+          "ar": "اكتب 3 أشياء أنت راضٍ بها من قدر الله عليك",
+          "nl": "Schrijf 3 dingen op waar je tevreden mee bent van wat Allaah voor je heeft bepaald",
+          "en": "Write 3 things you are content with from what Allaah decreed for you"
+        }
+      ],
+      "dhikr": {
+        "ar": "رضيت بالله ربًا وبالإسلام دينًا وبمحمد ﷺ نبيًا",
+        "nl": "Radieetu billaahi Rabban wa bil-Islaami dienan wa bi-Muhammadin ﷺ nabiyyan",
+        "en": "I am pleased with Allaah as Lord, Islam as religion, and Muhammad ﷺ as Prophet"
+      },
+      "evidence": {
+        "ar": "قال النبي ﷺ: «عجبًا لأمر المؤمن، إن أمره كله خير، وليس ذاك لأحد إلا للمؤمن» (مسلم)",
+        "nl": "De Profeet ﷺ zei: 'Wonderbaarlijk is de zaak van de gelovige, al zijn zaken zijn goed, en dat is voor niemand behalve de gelovige' (Moeslim)",
+        "en": "The Prophet ﷺ said: 'Amazing is the affair of the believer, all his affairs are good, and that is for no one except the believer' (Muslim)"
+      }
+    },
+    {
+      "week": 7,
+      "title": {
+        "ar": "التوازن والاستمرار: بناء العادة",
+        "nl": "Balans en volharding: de gewoonte opbouwen",
+        "en": "Balance and persistence: building the habit"
+      },
+      "domain": "tarbiya",
+      "focus": {
+        "ar": "تربية السلوك: تثبيت ما تعلمه وبناء عادة يومية مستمرة",
+        "nl": "Gedrag vormen: bevestigen wat geleerd is en een dagelijkse gewoonte opbouwen",
+        "en": "Shape behavior: consolidate what was learned and build a daily ongoing habit"
+      },
+      "parent_tasks": [
+        {
+          "ar": "راجع مع طفلك ما تعلمه في الأسابيع الستة: الفهم → كظم الغيظ → الصبر → الحلم → العفو → الرضا",
+          "nl": "Herhaal met je kind wat hij in de zes weken heeft geleerd: begrip → woede beheersen → geduld → verdraagzaamheid → vergeven → tevredenheid",
+          "en": "Review with your child what was learned in six weeks: understanding → suppressing anger → patience → forbearance → pardoning → contentment"
+        },
+        {
+          "ar": "ضع معه برنامجًا يوميًا مستمرًا: ذكر الصباح + تحدي صبر واحد + محاسبة قبل النوم",
+          "nl": "Stel met hem een doorlopend dagelijks programma op: ochtend-dhikr + één geduld-uitdaging + zelfbeoordeling voor het slapen",
+          "en": "Set up an ongoing daily program: morning dhikr + one patience challenge + self-accounting before sleep"
+        },
+        {
+          "ar": "ذكّره: «أحب الأعمال إلى الله أدومها وإن قلّ» — الاستمرار أهم من الكثرة",
+          "nl": "Herinner hem: 'De meest geliefde daden bij Allaah zijn de meest constante, ook al zijn ze weinig' — volharding is belangrijker dan hoeveelheid",
+          "en": "Remind: 'The most beloved deeds to Allaah are the most consistent, even if small' — persistence is more important than quantity"
+        }
+      ],
+      "child_tasks": [
+        {
+          "ar": "اكتب خطتك الشخصية: ماذا ستفعل يوميًا لضبط نفسك؟",
+          "nl": "Schrijf je persoonlijke plan: wat ga je dagelijks doen voor zelfbeheersing?",
+          "en": "Write your personal plan: what will you do daily for self-control?"
+        },
+        {
+          "ar": "احفظ: «أحب الأعمال إلى الله أدومها وإن قلّ»",
+          "nl": "Memoriseer: 'De meest geliefde daden bij Allaah zijn de meest constante, ook al zijn ze weinig'",
+          "en": "Memorize: 'The most beloved deeds to Allaah are the most consistent, even if small'"
+        }
+      ],
+      "dhikr": {
+        "ar": "اللهم أعني على نفسي بما تعين به الصالحين على أنفسهم",
+        "nl": "Allaahumma a'innie 'alaa nafsie bimaa tu'ienu bihis-saalihiena 'alaa anfusihim",
+        "en": "O Allaah, help me against my self with what You help the righteous against their selves"
+      },
+      "evidence": {
+        "ar": "قال النبي ﷺ: «أحب الأعمال إلى الله أدومها وإن قلّ» (متفق عليه)",
+        "nl": "De Profeet ﷺ zei: 'De meest geliefde daden bij Allaah zijn de meest constante, ook al zijn ze weinig' (Overeengekomen)",
+        "en": "The Prophet ﷺ said: 'The most beloved deeds to Allaah are the most consistent, even if small' (Agreed upon)"
+      }
+    }
+  ]
+}

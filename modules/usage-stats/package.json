@@ -1,0 +1,9 @@
+{
+  "name": "expo-usage-stats",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Android UsageStatsManager native module for child app monitoring",
+  "keywords": ["expo", "android", "usage-stats", "parental-control"],
+  "license": "MIT"
+}

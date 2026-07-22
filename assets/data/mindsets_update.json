@@ -1,0 +1,554 @@
+{
+  "Jaar 2": [
+    {
+      "title": "التذكّر (gedenken) — 2 tot 2.5 jaar",
+      "description": "",
+      "title_nl": "Dhikr (gedenken) — 2 tot 2.5 jaar",
+      "description_nl": "",
+      "title_en": "Dhikr (remembrance) — 2 to 2.5 years",
+      "description_en": "",
+      "title_nl_en": "Dhikr (gedenken) — 2 tot 2.5 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الشكر (dankbaarheid) — 2.5 tot 3 jaar",
+      "description": "",
+      "title_nl": "Shukr (dankbaarheid) — 2.5 tot 3 jaar",
+      "description_nl": "",
+      "title_en": "Shukr (gratitude) — 2.5 to 3 years",
+      "description_en": "",
+      "title_nl_en": "Shukr (dankbaarheid) — 2.5 tot 3 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "المراقبة الحنونة (liefdevolle bewaking) — 3 tot 3.5 jaar",
+      "description": "",
+      "title_nl": "Muraqabah (liefdevolle bewaking) — 3 tot 3.5 jaar",
+      "description_nl": "",
+      "title_en": "Muraqabah (loving watchfulness) — 3 to 3.5 years",
+      "description_en": "",
+      "title_nl_en": "Muraqabah (liefdevolle bewaking) — 3 tot 3.5 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "السرور (vreugde over gehoorzaamheid) — 3.5 tot 4 jaar",
+      "description": "",
+      "title_nl": "Surur (vreugde over gehoorzaamheid) — 3.5 tot 4 jaar",
+      "description_nl": "",
+      "title_en": "Surur (joy in obedience) — 3.5 to 4 years",
+      "description_en": "",
+      "title_nl_en": "Surur (vreugde over gehoorzaamheid) — 3.5 tot 4 jaar",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 3": [
+    {
+      "title": "التذكّر (gedenken) — 2 tot 2.5 jaar",
+      "description": "",
+      "title_nl": "Dhikr (gedenken) — 2 tot 2.5 jaar",
+      "description_nl": "",
+      "title_en": "Dhikr (remembrance) — 2 to 2.5 years",
+      "description_en": "",
+      "title_nl_en": "Dhikr (gedenken) — 2 tot 2.5 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الشكر (dankbaarheid) — 2.5 tot 3 jaar",
+      "description": "",
+      "title_nl": "Shukr (dankbaarheid) — 2.5 tot 3 jaar",
+      "description_nl": "",
+      "title_en": "Shukr (gratitude) — 2.5 to 3 years",
+      "description_en": "",
+      "title_nl_en": "Shukr (dankbaarheid) — 2.5 tot 3 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "المراقبة الحنونة (liefdevolle bewaking) — 3 tot 3.5 jaar",
+      "description": "",
+      "title_nl": "Liefdevolle bewaking — 3 tot 3,5 jaar",
+      "description_nl": "",
+      "title_en": "Loving watchfulness — 3 to 3.5 years",
+      "description_en": "",
+      "title_nl_en": "Liefdevolle bewaking — 3 tot 3,5 jaar",
+      "description_nl_en": ""
+    },
+    {
+      "title": "السرور (vreugde over gehoorzaamheid) — 3.5 tot 4 jaar",
+      "description": "",
+      "title_nl": "Vreugde over gehoorzaamheid — 3,5 tot 4 jaar",
+      "description_nl": "",
+      "title_en": "Delight (joy over obedience) — 3.5 to 4 years",
+      "description_en": "",
+      "title_nl_en": "Vreugde over gehoorzaamheid — 3,5 tot 4 jaar",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 4": [
+    {
+      "title": "الخوف البسيط (eenvoudige vrees)",
+      "description": "",
+      "title_nl": "Eenvoudige vrees",
+      "description_nl": "",
+      "title_en": "Simple fear",
+      "description_en": "",
+      "title_nl_en": "Eenvoudige vrees",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء الأولي (eerste hoop)",
+      "description": "",
+      "title_nl": "Eerste hoop",
+      "description_nl": "",
+      "title_en": "Initial hope",
+      "description_en": "",
+      "title_nl_en": "Eerste hoop",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الحياء (schaamte/eerbied)",
+      "description": "",
+      "title_nl": "Haya (schaamte/eerbied)",
+      "description_nl": "",
+      "title_en": "Haya (modesty/reverence)",
+      "description_en": "",
+      "title_nl_en": "Haya (schaamte/eerbied)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "التواضع (nederigheid)",
+      "description": "",
+      "title_nl": "Tawadu' (nederigheid)",
+      "description_nl": "",
+      "title_en": "Tawadu' (humility)",
+      "description_en": "",
+      "title_nl_en": "Tawadu' (nederigheid)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق (waarachtigheid)",
+      "description": "",
+      "title_nl": "Waarachtigheid (as-sidq)",
+      "description_nl": "",
+      "title_en": "Truthfulness (as-sidq)",
+      "description_en": "",
+      "title_nl_en": "Waarachtigheid (as-sidq)",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 5": [
+    {
+      "title": "الخوف البسيط (eenvoudige vrees)",
+      "description": "",
+      "title_nl": "Eenvoudige vrees (al-khawf al-basit)",
+      "description_nl": "",
+      "title_en": "Simple fear (al-khawf al-basit)",
+      "description_en": "",
+      "title_nl_en": "Eenvoudige vrees (al-khawf al-basit)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء الأولي (eerste hoop)",
+      "description": "",
+      "title_nl": "Eerste hoop (al-rajaa al-awwali)",
+      "description_nl": "",
+      "title_en": "Initial hope (al-rajaa al-awwali)",
+      "description_en": "",
+      "title_nl_en": "Eerste hoop (al-rajaa al-awwali)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الحياء (schaamte/eerbied)",
+      "description": "",
+      "title_nl": "Schroom/eerbied (al-haya)",
+      "description_nl": "",
+      "title_en": "Modesty/shyness (al-haya)",
+      "description_en": "",
+      "title_nl_en": "Schroom/eerbied (al-haya)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "التواضع (nederigheid)",
+      "description": "",
+      "title_nl": "Nederigheid (al-tawadu')",
+      "description_nl": "",
+      "title_en": "Humility (al-tawadu')",
+      "description_en": "",
+      "title_nl_en": "Nederigheid (al-tawadu')",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق (waarachtigheid)",
+      "description": "",
+      "title_nl": "Waarachtigheid (as-sidq)",
+      "description_nl": "",
+      "title_en": "Truthfulness (as-sidq)",
+      "description_en": "",
+      "title_nl_en": "Waarachtigheid (as-sidq)",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 6": [
+    {
+      "title": "الخوف البسيط (eenvoudige vrees)",
+      "description": "",
+      "title_nl": "lichte vrees",
+      "description_nl": "",
+      "title_en": "light fear",
+      "description_en": "",
+      "title_nl_en": "lichte vrees",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء الأولي (eerste hoop)",
+      "description": "",
+      "title_nl": "eerste hoop",
+      "description_nl": "",
+      "title_en": "first hope",
+      "description_en": "",
+      "title_nl_en": "eerste hoop",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الحياء (schaamte/eerbied)",
+      "description": "",
+      "title_nl": "bescheidenheid",
+      "description_nl": "",
+      "title_en": "hayaa (modesty/reverence)",
+      "description_en": "",
+      "title_nl_en": "bescheidenheid",
+      "description_nl_en": ""
+    },
+    {
+      "title": "التواضع (nederigheid)",
+      "description": "",
+      "title_nl": "nederigheid",
+      "description_nl": "",
+      "title_en": "tawadu (humility)",
+      "description_en": "",
+      "title_nl_en": "nederigheid",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق (waarachtigheid)",
+      "description": "",
+      "title_nl": "waarachtigheid",
+      "description_nl": "",
+      "title_en": "sidq (truthfulness)",
+      "description_en": "",
+      "title_nl_en": "waarachtigheid",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 7": [
+    {
+      "title": "العزم (vastberadenheid)",
+      "description": "",
+      "title_nl": "vastberadenheid",
+      "description_nl": "",
+      "title_en": "azm (determination)",
+      "description_en": "",
+      "title_nl_en": "vastberadenheid",
+      "description_nl_en": ""
+    },
+    {
+      "title": "اليقظة (waakzaamheid)",
+      "description": "",
+      "title_nl": "Waakzaamheid (yaqaza)",
+      "description_nl": "",
+      "title_en": "Vigilance (yaqaza)",
+      "description_en": "",
+      "title_nl_en": "Vigilance (yaqaza)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الزهد والورع (zuhd/wara3)",
+      "description": "",
+      "title_nl": "Ascese en vroomheid (zuhd en wara')",
+      "description_nl": "",
+      "title_en": "Asceticism and piety (zuhd and wara')",
+      "description_en": "",
+      "title_nl_en": "Asceticism and piety (zuhd and wara')",
+      "description_nl_en": ""
+    },
+    {
+      "title": "تعظيم الحرمات (ta3dhiem voor heiligheden)",
+      "description": "",
+      "title_nl": "Eerbied voor heiligheden (ta'dhim al-haramat)",
+      "description_nl": "",
+      "title_en": "Respect for sacred things (ta'dhim al-haramat)",
+      "description_en": "",
+      "title_nl_en": "Respect for sacred things (ta'dhim al-haramat)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصبر (geduld)",
+      "description": "",
+      "title_nl": "Geduld (sabr)",
+      "description_nl": "",
+      "title_en": "Patience (sabr)",
+      "description_en": "",
+      "title_nl_en": "Patience (sabr)",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 8": [
+    {
+      "title": "العزم (vastberadenheid)",
+      "description": "",
+      "title_nl": "Vastberadenheid (azm)",
+      "description_nl": "",
+      "title_en": "Determination (azm)",
+      "description_en": "",
+      "title_nl_en": "Determination (azm)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "اليقظة (waakzaamheid)",
+      "description": "",
+      "title_nl": "Waakzaamheid (yaqaza)",
+      "description_nl": "",
+      "title_en": "Vigilance (yaqaza)",
+      "description_en": "",
+      "title_nl_en": "Vigilance (yaqaza)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الزهد والورع (zuhd/wara3)",
+      "description": "",
+      "title_nl": "Ascese en vroomheid (zuhd/wara3)",
+      "description_nl": "",
+      "title_en": "Asceticism and piety (zuhd/wara3)",
+      "description_en": "",
+      "title_nl_en": "Ascese en vroomheid (zuhd/wara3)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "تعظيم الحرمات (ta3dhiem voor heiligheden)",
+      "description": "",
+      "title_nl": "Eerbied voor heiligheden (ta3dhiem)",
+      "description_nl": "",
+      "title_en": "Reverence for sacred things (ta3dhiem)",
+      "description_en": "",
+      "title_nl_en": "Eerbied voor heiligheden (ta3dhiem)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصبر (geduld)",
+      "description": "",
+      "title_nl": "Geduld (sabr)",
+      "description_nl": "",
+      "title_en": "Patience (sabr)",
+      "description_en": "",
+      "title_nl_en": "Geduld (sabr)",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 9": [
+    {
+      "title": "العزم (vastberadenheid)",
+      "description": "",
+      "title_nl": "Vastberadenheid (azm)",
+      "description_nl": "",
+      "title_en": "Determination (azm)",
+      "description_en": "",
+      "title_nl_en": "Vastberadenheid (azm)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "اليقظة (waakzaamheid)",
+      "description": "",
+      "title_nl": "Waakzaamheid (yaqaza)",
+      "description_nl": "",
+      "title_en": "Vigilance (yaqaza)",
+      "description_en": "",
+      "title_nl_en": "Waakzaamheid (yaqaza)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الزهد والورع (zuhd/wara3)",
+      "description": "",
+      "title_nl": "Ascese en vroomheid (zuhd/wara3)",
+      "description_nl": "",
+      "title_en": "Asceticism and piety (zuhd/wara3)",
+      "description_en": "",
+      "title_nl_en": "Ascese en vroomheid (zuhd/wara3)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "تعظيم الحرمات (ta3dhiem voor heiligheden)",
+      "description": "",
+      "title_nl": "Ta'zim (eerbied voor heiligheden)",
+      "description_nl": "",
+      "title_en": "Ta'zim (honoring sacred things)",
+      "description_en": "",
+      "title_nl_en": "Ta'zim (eerbied voor heiligheden)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصبر (geduld)",
+      "description": "",
+      "title_nl": "Sabr (geduld)",
+      "description_nl": "",
+      "title_en": "Sabr (patience)",
+      "description_en": "",
+      "title_nl_en": "Sabr (geduld)",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 10": [
+    {
+      "title": "القصد (intentie)",
+      "description": "",
+      "title_nl": "Niyya (intentie)",
+      "description_nl": "",
+      "title_en": "Niyyah (intention)",
+      "description_en": "",
+      "title_nl_en": "Niyya (intentie)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "المراقبة الواعية (bewuste muraaqabah)",
+      "description": "",
+      "title_nl": "Muraqabah (bewuste waakzaamheid)",
+      "description_nl": "",
+      "title_en": "Muraqabah (conscious awareness of being observed)",
+      "description_en": "",
+      "title_nl_en": "Muraqabah (bewuste waakzaamheid)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق المتقدم (gevorderde waarachtigheid)",
+      "description": "",
+      "title_nl": "Sidq mutaqaddim (gevorderde waarachtigheid)",
+      "description_nl": "",
+      "title_en": "Sidq mutaqaddim (advanced truthfulness)",
+      "description_en": "",
+      "title_nl_en": "Sidq mutaqaddim (gevorderde waarachtigheid)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء والخوف (hoop en vrees)",
+      "description": "",
+      "title_nl": "Raja' en Khawf (hoop en vrees)",
+      "description_nl": "",
+      "title_en": "Raja' and Khawf (hope and fear)",
+      "description_en": "",
+      "title_nl_en": "Raja' en Khawf (hoop en vrees)",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الإشفاق والإخبات (vrees en nederigheid)",
+      "description": "",
+      "title_nl": "vrees en nederigheid",
+      "description_nl": "",
+      "title_en": "Compassion and Humility",
+      "description_en": "",
+      "title_nl_en": "vrees en nederigheid",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 11": [
+    {
+      "title": "القصد (intentie)",
+      "description": "",
+      "title_nl": "intentie",
+      "description_nl": "",
+      "title_en": "Intention",
+      "description_en": "",
+      "title_nl_en": "intentie",
+      "description_nl_en": ""
+    },
+    {
+      "title": "المراقبة الواعية (bewuste muraaqabah)",
+      "description": "",
+      "title_nl": "bewuste muraaqabah",
+      "description_nl": "",
+      "title_en": "Conscious muraaqabah",
+      "description_en": "",
+      "title_nl_en": "bewuste muraaqabah",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق المتقدم (gevorderde waarachtigheid)",
+      "description": "",
+      "title_nl": "gevorderde waarachtigheid",
+      "description_nl": "",
+      "title_en": "Advanced Truthfulness",
+      "description_en": "",
+      "title_nl_en": "gevorderde waarachtigheid",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء والخوف (hoop en vrees)",
+      "description": "",
+      "title_nl": "hoop en vrees",
+      "description_nl": "",
+      "title_en": "Hope and Fear",
+      "description_en": "",
+      "title_nl_en": "hoop en vrees",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الإشفاق والإخبات (vrees en nederigheid)",
+      "description": "",
+      "title_nl": "vrees en nederigheid",
+      "description_nl": "",
+      "title_en": "Compassion and Humility",
+      "description_en": "",
+      "title_nl_en": "vrees en nederigheid",
+      "description_nl_en": ""
+    }
+  ],
+  "Jaar 12": [
+    {
+      "title": "القصد (intentie)",
+      "description": "",
+      "title_nl": "Intentie",
+      "description_nl": "",
+      "title_en": "Intention (niyyah)",
+      "description_en": "",
+      "title_nl_en": "Intentie",
+      "description_nl_en": ""
+    },
+    {
+      "title": "المراقبة الواعية (bewuste muraaqabah)",
+      "description": "",
+      "title_nl": "Bewuste muraaqabah",
+      "description_nl": "",
+      "title_en": "Conscious muraaqabah (mindful watchfulness)",
+      "description_en": "",
+      "title_nl_en": "Bewuste muraaqabah",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الصدق المتقدم (gevorderde waarachtigheid)",
+      "description": "",
+      "title_nl": "Gevorderde waarachtigheid",
+      "description_nl": "",
+      "title_en": "Advanced truthfulness (sidq)",
+      "description_en": "",
+      "title_nl_en": "Gevorderde waarachtigheid",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الرجاء والخوف (hoop en vrees)",
+      "description": "",
+      "title_nl": "Hoop en vrees",
+      "description_nl": "",
+      "title_en": "Hope and fear (raja' and khawf)",
+      "description_en": "",
+      "title_nl_en": "Hoop en vrees",
+      "description_nl_en": ""
+    },
+    {
+      "title": "الإشفاق والإخبات (vrees en nederigheid)",
+      "description": "",
+      "title_nl": "Vrees en nederigheid",
+      "description_nl": "",
+      "title_en": "Compassion and humility (ishfaq and ikhbat)",
+      "description_en": "",
+      "title_nl_en": "Vrees en nederigheid",
+      "description_nl_en": ""
+    }
+  ]
+}

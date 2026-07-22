@@ -1,0 +1,2 @@
+ALTER TABLE `users` MODIFY COLUMN `role` enum('user','admin','super_admin','moderator','specialist','teacher') NOT NULL DEFAULT 'user';--> statement-breakpoint
+ALTER TABLE `users` ADD `pushToken` varchar(255);

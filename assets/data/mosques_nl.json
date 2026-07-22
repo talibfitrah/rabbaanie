@@ -1,0 +1,415 @@
+[
+  {
+    "name": "Mevlana moskee",
+    "lat": 51.9212485,
+    "lon": 4.4416565,
+    "city": "Rotterdam",
+    "address": "Mevlanaplein, 3022 EP, Rotterdam"
+  },
+  {
+    "name": "Mobarak Moskee",
+    "lat": 52.0952913,
+    "lon": 4.3131105,
+    "city": "Den Haag",
+    "address": "Oostduinlaan, 2596 JJ, Den Haag"
+  },
+  {
+    "name": "Ulu Moskee",
+    "lat": 52.0919619,
+    "lon": 5.1042993,
+    "city": "Utrecht",
+    "address": "Moskeeplein, 3531 BX, Utrecht"
+  },
+  {
+    "name": "HDV Mescid-I Aksa Camii",
+    "lat": 52.0749394,
+    "lon": 4.3132165,
+    "city": "Den Haag",
+    "address": "Nieuwe Molstraat, 2512 BK, Den Haag"
+  },
+  {
+    "name": "Al-Fourqaan moskee",
+    "lat": 51.4534391,
+    "lon": 5.469181,
+    "city": "Eindhoven",
+    "address": "Otterstraat, 5622 AL, Eindhoven"
+  },
+  {
+    "name": "Moskee El-Hijra",
+    "lat": 52.3760572,
+    "lon": 4.8283259,
+    "city": "Amsterdam",
+    "address": "Arthur van Schendelstraat, 1064 RP, Amsterdam"
+  },
+  {
+    "name": "Djame Masdjied Taibah",
+    "lat": 52.3157028,
+    "lon": 4.9797941,
+    "city": "Amsterdam",
+    "address": "Kempering, 1104 KG, Amsterdam"
+  },
+  {
+    "name": "Blauwe Moskee",
+    "lat": 52.3485227,
+    "lon": 4.831472,
+    "city": "Amsterdam",
+    "address": "Henri Dunantstraat, 1066 BG, Amsterdam"
+  },
+  {
+    "name": "Sultan Ahmet Moskee",
+    "lat": 52.4394803,
+    "lon": 4.8540173,
+    "city": "Zaandam",
+    "address": "Poelenburg, 1504 KL, Zaandam"
+  },
+  {
+    "name": "IGMG Mevlana Moskee",
+    "lat": 52.3769678,
+    "lon": 4.8407001,
+    "city": "Amsterdam",
+    "address": "Ernest Staesplein, 1061 DA, Amsterdam"
+  },
+  {
+    "name": "Emir Sultan Moskee",
+    "lat": 52.4004573,
+    "lon": 4.9438933,
+    "city": "Amsterdam",
+    "address": "Savelsbos, 1025 BL, Amsterdam"
+  },
+  {
+    "name": "Al Houda Moskee",
+    "lat": 52.4015254,
+    "lon": 4.944053,
+    "city": "Amsterdam",
+    "address": "Mariëndaal, 1025 BZ, Amsterdam"
+  },
+  {
+    "name": "Moskee Al-Ihsane",
+    "lat": 52.3766593,
+    "lon": 4.7988086,
+    "city": "Amsterdam",
+    "address": "Mendes da Costahof, 1067 ZN, Amsterdam"
+  },
+  {
+    "name": "Moskee Suleymaniye",
+    "lat": 52.3651171,
+    "lon": 4.8000935,
+    "city": "Amsterdam",
+    "address": "Ookmeerweg, 1068 AZ, Amsterdam"
+  },
+  {
+    "name": "Cafer-i Sadik Moskee",
+    "lat": 52.3613062,
+    "lon": 4.8057131,
+    "city": "Amsterdam",
+    "address": "Groenpad, 1068 LE, Amsterdam"
+  },
+  {
+    "name": "Moskee Stichting Faried-Ul-Islam",
+    "lat": 52.3632277,
+    "lon": 4.8001022,
+    "city": "Amsterdam",
+    "address": "Vrijburg, 1068 PR, Amsterdam"
+  },
+  {
+    "name": "Mescid-I-Aksa Moskee",
+    "lat": 52.3805182,
+    "lon": 4.8334681,
+    "city": "Amsterdam",
+    "address": "Johannes Poststraat, 1063 TK, Amsterdam"
+  },
+  {
+    "name": "Moskee Taqwa",
+    "lat": 52.3947334,
+    "lon": 4.8530008,
+    "city": "Amsterdam",
+    "address": "Generatorstraat, 1014 AT, Amsterdam"
+  },
+  {
+    "name": "Moskee an-Nour",
+    "lat": 52.3685192,
+    "lon": 4.8593269,
+    "city": "Amsterdam",
+    "address": "Van Kinsbergenstraat, 1057 PS, Amsterdam"
+  },
+  {
+    "name": "Kuba Camii Moskee",
+    "lat": 52.3940584,
+    "lon": 4.913034,
+    "city": "Amsterdam",
+    "address": "Ribesstraat, 1032 JS, Amsterdam"
+  },
+  {
+    "name": "Assoena Moskee",
+    "lat": 52.3771418,
+    "lon": 4.8747473,
+    "city": "Amsterdam",
+    "address": "Frederik Hendrikstraat, 1052 HJ, Amsterdam"
+  },
+  {
+    "name": "Moskee Badr",
+    "lat": 52.3839035,
+    "lon": 4.8467181,
+    "city": "Amsterdam",
+    "address": "Willem Leevendstraat, 1055 KB, Amsterdam"
+  },
+  {
+    "name": "Wicaksono Moskee",
+    "lat": 52.3205732,
+    "lon": 4.9683426,
+    "city": "Amsterdam",
+    "address": "Bijlmerdreef, 1103 TD, Amsterdam"
+  },
+  {
+    "name": "Ulu Camii Moskee",
+    "lat": 52.366316,
+    "lon": 4.9389546,
+    "city": "Amsterdam",
+    "address": "Zeeburgerdijk, 1094 AD, Amsterdam"
+  },
+  {
+    "name": "Stichting Kümbet Moskee",
+    "lat": 52.3767249,
+    "lon": 4.8058705,
+    "city": "Amsterdam",
+    "address": "Nicolaas Ruychaverstraat, 1067 NC, Amsterdam"
+  },
+  {
+    "name": "Moskee Arrayan",
+    "lat": 52.3964819,
+    "lon": 4.9557494,
+    "city": "Amsterdam",
+    "address": "Ganzenveldstraat, 1024 CN, Amsterdam"
+  },
+  {
+    "name": "Faried-ul-Islam Moskee",
+    "lat": 52.3567403,
+    "lon": 4.7969033,
+    "city": "Amsterdam",
+    "address": "Ekingenstraat, 1069 GV, Amsterdam"
+  },
+  {
+    "name": "Moskee Al Kabir",
+    "lat": 52.3534873,
+    "lon": 4.9103047,
+    "city": "Amsterdam",
+    "address": "Weesperzijde, 1091 EL, Amsterdam"
+  },
+  {
+    "name": "Erdem Moskee",
+    "lat": 52.3793709,
+    "lon": 4.8069196,
+    "city": "Amsterdam",
+    "address": "Doctor H. Colijnstraat, 1067 CH, Amsterdam"
+  },
+  {
+    "name": "Moskee Al Fath Al Moebien",
+    "lat": 52.3533648,
+    "lon": 4.9172045,
+    "city": "Amsterdam",
+    "address": "Joubertstraat, 1091 XN, Amsterdam"
+  },
+  {
+    "name": "Al Madinah Moskee",
+    "lat": 52.0699969,
+    "lon": 4.2795291,
+    "city": "Den Haag",
+    "address": "Fahrenheitstraat, 2561 EC, Den Haag"
+  },
+  {
+    "name": "Mimar Sinan Camii Moskee",
+    "lat": 52.068842,
+    "lon": 4.3050452,
+    "city": "Den Haag",
+    "address": "Rubensstraat, 2526 PK, Den Haag"
+  },
+  {
+    "name": "Isn Ahi Evran Camii Moskee",
+    "lat": 52.0445435,
+    "lon": 4.2555152,
+    "city": "Den Haag",
+    "address": "Vredeoord, 2544 TT, Den Haag"
+  },
+  {
+    "name": "Moskee El Mouhsinin",
+    "lat": 52.0723967,
+    "lon": 4.319317,
+    "city": "Den Haag",
+    "address": "Stationsweg, 2515 BR, Den Haag"
+  },
+  {
+    "name": "Moskee Annour",
+    "lat": 52.0384596,
+    "lon": 4.2702677,
+    "city": "Den Haag",
+    "address": "De Gaarde, 2542 CB, Den Haag"
+  },
+  {
+    "name": "As-Soennah moskee",
+    "lat": 52.0603128,
+    "lon": 4.307411,
+    "city": "Den Haag",
+    "address": "Fruitweg, 2525 KE, Den Haag"
+  },
+  {
+    "name": "Moskee el Oemma",
+    "lat": 52.0536631,
+    "lon": 4.3168351,
+    "city": "Den Haag",
+    "address": "Guido Gezellestraat, 2524 XT, Den Haag"
+  },
+  {
+    "name": "Moskee El Ferdous",
+    "lat": 52.0657995,
+    "lon": 4.2958829,
+    "city": "Den Haag",
+    "address": "Fischerstraat, 2572 RE, Den Haag"
+  },
+  {
+    "name": "Moskee At-Tahweed",
+    "lat": 52.0721909,
+    "lon": 4.279193,
+    "city": "Den Haag",
+    "address": "Newtonplein, 2562 JZ, Den Haag"
+  },
+  {
+    "name": "Moskee El Fath",
+    "lat": 52.0632232,
+    "lon": 4.3070584,
+    "city": "Den Haag",
+    "address": "Vermeerstraat, 2525 VE, Den Haag"
+  },
+  {
+    "name": "Moskee Ehl-i-beyt",
+    "lat": 52.0633371,
+    "lon": 4.288832,
+    "city": "Den Haag",
+    "address": "Terletstraat, 2573 EW, Den Haag"
+  },
+  {
+    "name": "Ayasofya Moskee",
+    "lat": 52.0696039,
+    "lon": 4.2873253,
+    "city": "Den Haag",
+    "address": "Paul Krugerlaan, 2571 HC, Den Haag"
+  },
+  {
+    "name": "Moskee Quba",
+    "lat": 52.0718486,
+    "lon": 4.2835655,
+    "city": "Den Haag",
+    "address": "Beeklaan, 2562 AB, Den Haag"
+  },
+  {
+    "name": "Jamaat Al-Imaan moskee",
+    "lat": 52.07091,
+    "lon": 4.309248,
+    "city": "Den Haag",
+    "address": "Hooftskade, 2512 ZK, Den Haag"
+  },
+  {
+    "name": "Moskee Al Ichlaas",
+    "lat": 52.0726203,
+    "lon": 4.2931182,
+    "city": "Den Haag",
+    "address": "Rozenburgstraat, 2512 SN, Den Haag"
+  },
+  {
+    "name": "Moskee el Islam",
+    "lat": 52.0669352,
+    "lon": 4.2993605,
+    "city": "Den Haag",
+    "address": "Seghersstraat, 2525 BM, Den Haag"
+  },
+  {
+    "name": "Moskee Anware Mustafa",
+    "lat": 52.0732727,
+    "lon": 4.277794,
+    "city": "Den Haag",
+    "address": "Herschelstraat, 2562 JN, Den Haag"
+  },
+  {
+    "name": "Gültepe Moskee",
+    "lat": 51.9311541,
+    "lon": 4.482562,
+    "city": "Rotterdam",
+    "address": "Erasmusstraat, 3035 LE, Rotterdam"
+  },
+  {
+    "name": "Islamitisch Centrum",
+    "lat": 52.069545,
+    "lon": 4.2981658,
+    "city": "Den Haag",
+    "address": "Delftselaan, 2512 RG, Den Haag"
+  },
+  {
+    "name": "Islamitisch Centrum",
+    "lat": 51.9638596,
+    "lon": 5.9124249,
+    "city": "Arnhem",
+    "address": "Fluitekruidstraat, 6832 EA, Arnhem"
+  },
+  {
+    "name": "Bonaire Islamic Center",
+    "lat": 12.1572993,
+    "lon": -68.267838,
+    "city": "Kralendijk",
+    "address": "Hanchi Amboina, Kralendijk"
+  },
+  {
+    "name": "Islamitisch Centrum van St Maarten",
+    "lat": 18.0291802,
+    "lon": -63.0700555,
+    "city": "Philipsburg",
+    "address": "Puma Road, Philipsburg"
+  },
+  {
+    "name": "Alaaddin Mosque",
+    "lat": 52.7135403,
+    "lon": 5.2754031,
+    "city": "Enkhuizen",
+    "address": "Tureluurshof, 1602 NL, Enkhuizen"
+  },
+  {
+    "name": "Baitul Mahmood",
+    "lat": 52.4159748,
+    "lon": 4.9477925,
+    "city": "Amsterdam",
+    "address": "Termieterweg, 1027 AZ, Amsterdam"
+  },
+  {
+    "name": "Baitul Afiyat Moskee",
+    "lat": 52.3493424,
+    "lon": 5.1614706,
+    "city": "Almere",
+    "address": "Siliciumstraat, 1362 JC, Almere"
+  },
+  {
+    "name": "Moskee & Multicultureel centrum Zevenkamp",
+    "lat": 51.9639268,
+    "lon": 4.5705274,
+    "city": "Rotterdam",
+    "address": "Imkerstraat, 3068 GX, Rotterdam"
+  },
+  {
+    "name": "Ulu Moskee",
+    "lat": 52.0299915,
+    "lon": 5.6559426,
+    "city": "Ede",
+    "address": "Verlengde Blokkenweg, 6717 AD, Ede"
+  },
+  {
+    "name": "Al Mohsinien",
+    "lat": 52.7051366,
+    "lon": 6.195542,
+    "city": "Meppel",
+    "address": "Groen van Prinstererstraat, 7942 CW, Meppel"
+  },
+  {
+    "name": "Bait-un-Noor",
+    "lat": 52.3744262,
+    "lon": 5.7972982,
+    "city": "Nunspeet",
+    "address": "Groenelaantje, 8072 DD, Nunspeet"
+  }
+]

@@ -1,0 +1,45 @@
+version: "3.8"
+
+services:
+  app:
+    build: .
+    ports:
+      - "3000:3000"
+    environment:
+      - DATABASE_URL=postgresql://opvoedadvies:${DB_PASSWORD:-securepassword}@db:5432/opvoedadvies?sslmode=disable
+      - NODE_ENV=production
+      - JWT_SECRET=${JWT_SECRET:-change-this-in-production}
+      - PORT=3000
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - app-network
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      - POSTGRES_DB=opvoedadvies
+      - POSTGRES_USER=opvoedadvies
+      - POSTGRES_PASSWORD=${DB_PASSWORD:-securepassword}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U opvoedadvies"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+    networks:
+      - app-network
+
+volumes:
+  pgdata:
+    driver: local
+
+networks:
+  app-network:
+    driver: bridge

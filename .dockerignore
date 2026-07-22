@@ -1,0 +1,12 @@
+node_modules
+.expo
+dist
+dist-web
+.manus-logs
+*.log
+.git
+.gitignore
+.env
+.env.local
+README.md
+DEPLOYMENT.md
