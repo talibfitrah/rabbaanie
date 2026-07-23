@@ -16,7 +16,6 @@ export interface UpdateState {
   isDownloading: boolean;
   isUpdateAvailable: boolean;
   currentVersion: string;
-  latestVersion: string | null;
   lastChecked: Date | null;
   downloadProgress: number;
   error: string | null;
@@ -34,7 +33,6 @@ export function useUpdates(language: string = "ar") {
     isDownloading: false,
     isUpdateAvailable: false,
     currentVersion: Application.nativeApplicationVersion ?? "dev",
-    latestVersion: null,
     lastChecked: null,
     downloadProgress: 0,
     error: null,
@@ -135,14 +133,17 @@ export function useUpdates(language: string = "ar") {
         const latest = parseTag(release.tag_name);
         const apkUrl = latest ? pickApkAsset(release.assets ?? []) : null;
         const current = Application.nativeApplicationVersion ?? "0.0.0";
-        const hasUpdate = latest !== null && apkUrl !== null && isNewerVersion(latest, current);
 
-        pendingRef.current = hasUpdate && latest && apkUrl ? { version: latest, apkUrl } : null;
+        if (latest !== null && apkUrl !== null && isNewerVersion(latest, current)) {
+          pendingRef.current = { version: latest, apkUrl };
+        } else {
+          pendingRef.current = null;
+        }
+        const hasUpdate = pendingRef.current !== null;
         setState((s) => ({
           ...s,
           isChecking: false,
           isUpdateAvailable: hasUpdate,
-          latestVersion: latest,
           lastChecked: new Date(),
         }));
 
