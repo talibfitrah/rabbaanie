@@ -8,8 +8,9 @@ import { evaluateRelease, type PendingUpdate } from "@/lib/app-version";
 const LATEST_RELEASE_URL =
   "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
 const CHECK_TIMEOUT_MS = 10_000;
-// A stalled download must not pin isDownloading forever.
-const DOWNLOAD_TIMEOUT_MS = 300_000;
+// Cancel only a STALLED download (no bytes for this long) — a big APK on a slow
+// connection may legitimately take many minutes, so we don't bound total time.
+const DOWNLOAD_STALL_MS = 60_000;
 // Cached download filename convention. Downloads go to <name>.apk.part and are
 // renamed to <name>.apk on success, so a file ending in .apk is always complete.
 const APK_PREFIX = "rabbaanie-v";
@@ -78,11 +79,13 @@ async function downloadAndApplyUpdate() {
       try {
         await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
         let lastPercent = -1;
+        let stallTimer: ReturnType<typeof setTimeout> | undefined;
         const download = FileSystem.createDownloadResumable(
           pending.apkUrl,
           partUri,
           {},
           (p) => {
+            resetStall(); // bytes arrived — not stalled
             const total = p.totalBytesExpectedToWrite;
             if (total <= 0) return;
             // Update at whole-percent steps only — every tick would re-render
@@ -94,14 +97,18 @@ async function downloadAndApplyUpdate() {
             }
           }
         );
-        const timeout = setTimeout(() => {
-          download.cancelAsync().catch(() => {});
-        }, DOWNLOAD_TIMEOUT_MS);
+        function resetStall() {
+          clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            download.cancelAsync().catch(() => {});
+          }, DOWNLOAD_STALL_MS);
+        }
+        resetStall();
         let result;
         try {
           result = await download.downloadAsync();
         } finally {
-          clearTimeout(timeout);
+          clearTimeout(stallTimer);
         }
         if (!result || result.status !== 200) {
           throw new Error(`Download failed with status ${result?.status ?? "unknown"}`);
@@ -227,7 +234,10 @@ async function checkForUpdate(silent: boolean = false) {
       );
     }
   } catch (e: any) {
-    set({ isChecking: false, error: e.message || "Unknown error" });
+    // A silent launch check must not leave an error banner for an attempt the
+    // user never made (offline at launch, rate limit); only user-initiated
+    // checks record the error.
+    set({ isChecking: false, ...(silent ? {} : { error: e.message || "Unknown error" }) });
     if (!silent) {
       Alert.alert(
         tx("Fout", "Error", "خطأ"),
@@ -248,7 +258,9 @@ async function checkForUpdate(silent: boolean = false) {
  */
 export function useUpdates(language: string = "ar", autoCheck: boolean = false) {
   currentLanguage = language;
-  const snapshot = useSyncExternalStore(subscribe, getSnapshot);
+  // Third arg (server snapshot) is required: web.output is "static", so routes
+  // are server-rendered at export time and React demands getServerSnapshot.
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
 
   // Launch instance only: sweep leftover APK downloads, then check silently
   // after a 3s delay so the app finishes loading first. Guarded to run once.
@@ -282,5 +294,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
     return () => clearTimeout(timer);
   }, [autoCheck]);
 
-  return { ...snapshot, checkForUpdate, downloadAndApplyUpdate };
+  // downloadAndApplyUpdate is not returned: it is invoked directly from the
+  // "Update Now" alert action, and no consumer calls it via the hook.
+  return { ...snapshot, checkForUpdate };
 }
