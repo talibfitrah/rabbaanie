@@ -1,6 +1,14 @@
 import type { CreateExpressContextOptions } from "@trpc/server/adapters/express";
-import type { User } from "../../drizzle/schema";
-import { sdk } from "./sdk";
+import * as jose from "jose";
+import { ENV } from "./env";
+
+export interface User {
+  id: number;
+  openId: string;
+  name: string | null;
+  email: string | null;
+  role: string;
+}
 
 export type TrpcContext = {
   req: CreateExpressContextOptions["req"];
@@ -8,19 +16,42 @@ export type TrpcContext = {
   user: User | null;
 };
 
-export async function createContext(opts: CreateExpressContextOptions): Promise<TrpcContext> {
-  let user: User | null = null;
+const COOKIE_NAME = "rabbaanie_session";
 
+async function getSessionUser(req: any): Promise<User | null> {
   try {
-    user = await sdk.authenticateRequest(opts.req);
-  } catch (error) {
-    // Authentication is optional for public procedures.
-    user = null;
+    let token: string | null = null;
+    const cookieHeader = req.headers?.cookie || "";
+    const cookies = Object.fromEntries(
+      cookieHeader.split(";").map((c: string) => {
+        const [key, ...val] = c.trim().split("=");
+        return [key, val.join("=")];
+      })
+    );
+    token = cookies[COOKIE_NAME] || null;
+    if (!token) {
+      const authHeader = req.headers?.authorization;
+      if (authHeader?.startsWith("Bearer ")) {
+        token = authHeader.slice(7);
+      }
+    }
+    if (!token) return null;
+    const secret = new TextEncoder().encode(ENV.cookieSecret);
+    const { payload } = await jose.jwtVerify(token, secret);
+    if (!payload.sub) return null;
+    return {
+      id: Number(payload.sub),
+      openId: (payload as any).openId || `user_${payload.sub}`,
+      name: (payload as any).name || null,
+      email: (payload as any).email || null,
+      role: (payload as any).role || "user",
+    };
+  } catch {
+    return null;
   }
+}
 
-  return {
-    req: opts.req,
-    res: opts.res,
-    user,
-  };
+export async function createContext(opts: CreateExpressContextOptions): Promise<TrpcContext> {
+  const user = await getSessionUser(opts.req);
+  return { req: opts.req, res: opts.res, user };
 }

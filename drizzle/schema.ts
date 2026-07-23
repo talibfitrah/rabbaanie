@@ -1,10 +1,23 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean } from "drizzle-orm/mysql-core";
+import { integer, pgEnum, pgTable, text, timestamp, varchar, json, boolean, serial } from "drizzle-orm/pg-core";
+
+// Enum definitions
+export const roleEnum = pgEnum("role", ["admin", "doctor", "kennisdrager", "moderator", "specialist", "super_admin", "teacher", "user"]);
+export const categoryEnum = pgEnum("category", ["doctor", "kennisdrager", "specialist", "teacher"]);
+export const functionRoleEnum = pgEnum("functionRole", ["arts", "imam", "kennisdrager", "leraar", "maatschappelijk_werker", "moeder", "opvoedkundige_begeleider", "specialist", "therapeut", "vader"]);
+export const appSectionEnum = pgEnum("appSection", ["begrippen", "behandelingen", "fitrah", "general", "tips", "weekprogramma"]);
+export const contentTypeEnum = pgEnum("contentType", ["article", "audio", "fatwa", "tip", "video"]);
+export const statusEnum = pgEnum("status", ["draft", "published"]);
+export const originalLanguageEnum = pgEnum("originalLanguage", ["ar", "en", "nl"]);
+export const languageEnum = pgEnum("language", ["ar", "en", "nl"]);
+export const fileTypeEnum = pgEnum("fileType", ["excel", "image", "other", "pdf", "word"]);
+export const targetLangEnum = pgEnum("targetLang", ["en", "nl"]);
+
 
 // ============================================================
 // 1. USERS TABLE (existing, extended with profile fields)
 // ============================================================
-export const users = mysqlTable("users", {
-  id: int("id").autoincrement().primaryKey(),
+export const users = pgTable("users", {
+  id: serial("id").primaryKey(),
   openId: varchar("openId", { length: 64 }).notNull().unique(),
   /** Public visible ID: format UXXXX-YYYYMMDD (volgnummer + geboortedatum) */
   publicId: varchar("publicId", { length: 32 }).unique(),
@@ -13,7 +26,7 @@ export const users = mysqlTable("users", {
   name: text("name"),
   email: varchar("email", { length: 320 }),
   loginMethod: varchar("loginMethod", { length: 64 }),
-  role: mysqlEnum("role", ["user", "admin", "super_admin", "moderator", "specialist", "teacher", "kennisdrager", "doctor"]).default("user").notNull(),
+  role: roleEnum("role").default("user").notNull(),
   /** User's preferred language: nl, en, ar */
   language: varchar("language", { length: 5 }).default("nl"),
   /** Profile data (parent profile JSON) */
@@ -29,7 +42,7 @@ export const users = mysqlTable("users", {
   /** Last active timestamp for inactivity tracking */
   lastActive: timestamp("lastActive").defaultNow(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   lastSignedIn: timestamp("lastSignedIn").defaultNow().notNull(),
   /** Gender: male, female */
   gender: varchar("gender", { length: 10 }),
@@ -49,16 +62,16 @@ export type InsertUser = typeof users.$inferInsert;
 // ============================================================
 // 2. FAMILIES - Multi-user shared family unit
 // ============================================================
-export const families = mysqlTable("families", {
-  id: int("id").autoincrement().primaryKey(),
+export const families = pgTable("families", {
+  id: serial("id").primaryKey(),
   /** Family name (e.g. "Familie Ahmed") */
   name: varchar("name", { length: 255 }).notNull(),
   /** Invite code for joining the family */
   inviteCode: varchar("inviteCode", { length: 32 }).notNull().unique(),
   /** Creator of the family */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Family = typeof families.$inferSelect;
@@ -67,10 +80,10 @@ export type InsertFamily = typeof families.$inferInsert;
 // ============================================================
 // 3. FAMILY MEMBERS - Roles within a family
 // ============================================================
-export const familyMembers = mysqlTable("family_members", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
-  userId: int("userId").notNull(),
+export const familyMembers = pgTable("family_members", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
+  userId: integer("userId").notNull(),
   /** Role: vader, moeder, leraar, specialist, familielid */
   role: varchar("role", { length: 32 }).notNull().default("familielid"),
   /** Display name within the family context */
@@ -88,11 +101,11 @@ export type InsertFamilyMember = typeof familyMembers.$inferInsert;
 // ============================================================
 // 4. CHILDREN - Shared child profiles within a family
 // ============================================================
-export const children = mysqlTable("children", {
-  id: int("id").autoincrement().primaryKey(),
+export const children = pgTable("children", {
+  id: serial("id").primaryKey(),
   /** Public visible ID: format KXXXX-YYYYMMDD (volgnummer + geboortedatum) */
   publicId: varchar("publicId", { length: 32 }).unique(),
-  familyId: int("familyId").notNull(),
+  familyId: integer("familyId").notNull(),
   name: varchar("name", { length: 128 }).notNull(),
   birthDate: varchar("birthDate", { length: 10 }), // YYYY-MM-DD
   gender: varchar("gender", { length: 16 }),
@@ -102,9 +115,9 @@ export const children = mysqlTable("children", {
   environmentData: json("environmentData"),
   /** Whether profile is completed */
   profileCompleted: boolean("profileCompleted").default(false),
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   /** Soft delete: when set, child is considered deleted but data is preserved */
   deletedAt: timestamp("deletedAt"),
 });
@@ -115,10 +128,10 @@ export type InsertChild = typeof children.$inferInsert;
 // ============================================================
 // 5. CHILD OBSERVATIONS - Notes/observations by family members
 // ============================================================
-export const childObservations = mysqlTable("child_observations", {
-  id: int("id").autoincrement().primaryKey(),
-  childId: int("childId").notNull(),
-  authorId: int("authorId").notNull(),
+export const childObservations = pgTable("child_observations", {
+  id: serial("id").primaryKey(),
+  childId: integer("childId").notNull(),
+  authorId: integer("authorId").notNull(),
   /** Category: behavior, mood, milestone, concern, prayer, achievement, health */
   category: varchar("category", { length: 32 }).notNull(),
   title: varchar("title", { length: 255 }).notNull(),
@@ -139,14 +152,14 @@ export type InsertChildObservation = typeof childObservations.$inferInsert;
 // ============================================================
 // 6. MESSAGES - In-app communication between family members
 // ============================================================
-export const messages = mysqlTable("messages", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
-  senderId: int("senderId").notNull(),
+export const messages = pgTable("messages", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
+  senderId: integer("senderId").notNull(),
   /** Recipient: null = broadcast to all family members */
-  recipientId: int("recipientId"),
+  recipientId: integer("recipientId"),
   /** Optional: related child */
-  childId: int("childId"),
+  childId: integer("childId"),
   /** Message type: text, advice, alert, system */
   type: varchar("type", { length: 32 }).notNull().default("text"),
   subject: varchar("subject", { length: 255 }),
@@ -164,10 +177,10 @@ export type InsertMessage = typeof messages.$inferInsert;
 // ============================================================
 // 7. WEEKLY GOALS PROGRESS - Track goal completion per child
 // ============================================================
-export const goalProgress = mysqlTable("goal_progress", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
-  childId: int("childId").notNull(),
+export const goalProgress = pgTable("goal_progress", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
+  childId: integer("childId").notNull(),
   /** Week identifier: YYYY-Wnn */
   weekId: varchar("weekId", { length: 10 }).notNull(),
   /** Goal ID from weekly_advice.json */
@@ -177,7 +190,7 @@ export const goalProgress = mysqlTable("goal_progress", {
   /** Notes from parent/teacher */
   notes: text("notes"),
   /** Who marked it */
-  markedBy: int("markedBy"),
+  markedBy: integer("markedBy"),
   completedAt: timestamp("completedAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
@@ -188,8 +201,8 @@ export type InsertGoalProgress = typeof goalProgress.$inferInsert;
 // ============================================================
 // 8. CONTENT - CMS for managing advice, goals, articles
 // ============================================================
-export const content = mysqlTable("content", {
-  id: int("id").autoincrement().primaryKey(),
+export const content = pgTable("content", {
+  id: serial("id").primaryKey(),
   /** Content type: weekly_goal, article, tip, hadith, concept */
   type: varchar("type", { length: 32 }).notNull(),
   /** Category: tasfiya, tazkiya, tarbiya, aqeedah, ibadah, akhlaq */
@@ -223,11 +236,11 @@ export const content = mysqlTable("content", {
   /** Whether published */
   published: boolean("published").default(true),
   /** Sort order */
-  sortOrder: int("sortOrder").default(0),
+  sortOrder: integer("sortOrder").default(0),
   /** Author/editor */
-  authorId: int("authorId"),
+  authorId: integer("authorId"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Content = typeof content.$inferSelect;
@@ -236,8 +249,8 @@ export type InsertContent = typeof content.$inferInsert;
 // ============================================================
 // 9. NEWSLETTERS - Interactive newsletter system
 // ============================================================
-export const newsletters = mysqlTable("newsletters", {
-  id: int("id").autoincrement().primaryKey(),
+export const newsletters = pgTable("newsletters", {
+  id: serial("id").primaryKey(),
   /** Title */
   titleNl: varchar("titleNl", { length: 255 }),
   titleEn: varchar("titleEn", { length: 255 }),
@@ -256,7 +269,7 @@ export const newsletters = mysqlTable("newsletters", {
   scheduledAt: timestamp("scheduledAt"),
   sentAt: timestamp("sentAt"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Newsletter = typeof newsletters.$inferSelect;
@@ -265,9 +278,9 @@ export type InsertNewsletter = typeof newsletters.$inferInsert;
 // ============================================================
 // 10. NEWSLETTER SUBSCRIBERS
 // ============================================================
-export const newsletterSubscribers = mysqlTable("newsletter_subscribers", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId"),
+export const newsletterSubscribers = pgTable("newsletter_subscribers", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId"),
   email: varchar("email", { length: 320 }).notNull(),
   name: varchar("name", { length: 128 }),
   language: varchar("language", { length: 5 }).default("nl"),
@@ -283,10 +296,10 @@ export type InsertNewsletterSubscriber = typeof newsletterSubscribers.$inferInse
 // ============================================================
 // 11. NEWSLETTER INTERACTIONS - Track poll answers, quiz results
 // ============================================================
-export const newsletterInteractions = mysqlTable("newsletter_interactions", {
-  id: int("id").autoincrement().primaryKey(),
-  newsletterId: int("newsletterId").notNull(),
-  subscriberId: int("subscriberId").notNull(),
+export const newsletterInteractions = pgTable("newsletter_interactions", {
+  id: serial("id").primaryKey(),
+  newsletterId: integer("newsletterId").notNull(),
+  subscriberId: integer("subscriberId").notNull(),
   /** Interaction type: opened, poll_answer, quiz_result, link_click */
   type: varchar("type", { length: 32 }).notNull(),
   /** Interaction data (JSON) */
@@ -300,14 +313,14 @@ export type InsertNewsletterInteraction = typeof newsletterInteractions.$inferIn
 // ============================================================
 // 12. ADMIN STATISTICS - Aggregated stats for dashboard
 // ============================================================
-export const adminStats = mysqlTable("admin_stats", {
-  id: int("id").autoincrement().primaryKey(),
+export const adminStats = pgTable("admin_stats", {
+  id: serial("id").primaryKey(),
   /** Stat type: daily_active, weekly_active, new_users, goals_completed, etc. */
   type: varchar("type", { length: 32 }).notNull(),
   /** Date for this stat */
   date: varchar("date", { length: 10 }).notNull(), // YYYY-MM-DD
   /** Numeric value */
-  value: int("value").notNull().default(0),
+  value: integer("value").notNull().default(0),
   /** Additional metadata (JSON) */
   metadata: json("metadata"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -319,16 +332,16 @@ export type InsertAdminStat = typeof adminStats.$inferInsert;
 // ============================================================
 // 13. AI CONVERSATIONS (moved from ai-schema.ts)
 // ============================================================
-export const aiConversations = mysqlTable("ai_conversations", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const aiConversations = pgTable("ai_conversations", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
   childId: varchar("childId", { length: 64 }),
   type: varchar("type", { length: 32 }).notNull().default("freeform"),
   title: varchar("title", { length: 255 }),
   language: varchar("language", { length: 5 }).default("nl"),
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type AIConversation = typeof aiConversations.$inferSelect;
@@ -337,14 +350,14 @@ export type InsertAIConversation = typeof aiConversations.$inferInsert;
 // ============================================================
 // 14. AI MESSAGES
 // ============================================================
-export const aiMessages = mysqlTable("ai_messages", {
-  id: int("id").autoincrement().primaryKey(),
-  conversationId: int("conversationId").notNull(),
+export const aiMessages = pgTable("ai_messages", {
+  id: serial("id").primaryKey(),
+  conversationId: integer("conversationId").notNull(),
   role: varchar("role", { length: 16 }).notNull(),
   content: text("content").notNull(),
   provider: varchar("provider", { length: 16 }),
   model: varchar("model", { length: 64 }),
-  tokensUsed: int("tokensUsed"),
+  tokensUsed: integer("tokensUsed"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -354,12 +367,12 @@ export type InsertAIMessage = typeof aiMessages.$inferInsert;
 // ============================================================
 // 15. TREATMENT PLANS - Specialist-managed treatment plans
 // ============================================================
-export const treatmentPlans = mysqlTable("treatment_plans", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
-  childId: int("childId").notNull(),
+export const treatmentPlans = pgTable("treatment_plans", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
+  childId: integer("childId").notNull(),
   /** Specialist who created/manages this plan */
-  specialistId: int("specialistId").notNull(),
+  specialistId: integer("specialistId").notNull(),
   /** Title of the treatment plan */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description of the issue/concern */
@@ -381,7 +394,7 @@ export const treatmentPlans = mysqlTable("treatment_plans", {
   /** Actual end date */
   completedDate: varchar("completedDate", { length: 10 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type TreatmentPlan = typeof treatmentPlans.$inferSelect;
@@ -390,11 +403,11 @@ export type InsertTreatmentPlan = typeof treatmentPlans.$inferInsert;
 // ============================================================
 // 16. SPECIALIST NOTES - Feedback and guidance on treatment plans
 // ============================================================
-export const specialistNotes = mysqlTable("specialist_notes", {
-  id: int("id").autoincrement().primaryKey(),
-  treatmentPlanId: int("treatmentPlanId").notNull(),
+export const specialistNotes = pgTable("specialist_notes", {
+  id: serial("id").primaryKey(),
+  treatmentPlanId: integer("treatmentPlanId").notNull(),
   /** Author (specialist or family member) */
-  authorId: int("authorId").notNull(),
+  authorId: integer("authorId").notNull(),
   /** Note type: progress, feedback, guidance, observation, milestone, concern */
   type: varchar("type", { length: 32 }).notNull().default("feedback"),
   /** Note content */
@@ -414,10 +427,10 @@ export type InsertSpecialistNote = typeof specialistNotes.$inferInsert;
 // ============================================================
 // 17. SPECIALIST ASSIGNMENTS - Link specialists to families
 // ============================================================
-export const specialistAssignments = mysqlTable("specialist_assignments", {
-  id: int("id").autoincrement().primaryKey(),
-  specialistId: int("specialistId").notNull(),
-  familyId: int("familyId").notNull(),
+export const specialistAssignments = pgTable("specialist_assignments", {
+  id: serial("id").primaryKey(),
+  specialistId: integer("specialistId").notNull(),
+  familyId: integer("familyId").notNull(),
   /** Status: pending, active, completed, declined */
   status: varchar("status", { length: 16 }).notNull().default("pending"),
   /** Specialist's area of expertise */
@@ -425,7 +438,7 @@ export const specialistAssignments = mysqlTable("specialist_assignments", {
   /** Notes about the assignment */
   assignmentNotes: text("assignmentNotes"),
   /** Who assigned (admin or family request) */
-  assignedBy: int("assignedBy"),
+  assignedBy: integer("assignedBy"),
   assignedAt: timestamp("assignedAt").defaultNow().notNull(),
   acceptedAt: timestamp("acceptedAt"),
 });
@@ -436,9 +449,9 @@ export type InsertSpecialistAssignment = typeof specialistAssignments.$inferInse
 // ============================================================
 // 18. AUTHORS - Expert profiles for blog/articles
 // ============================================================
-export const authors = mysqlTable("authors", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId"),
+export const authors = pgTable("authors", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId"),
   nameNl: varchar("nameNl", { length: 128 }),
   nameEn: varchar("nameEn", { length: 128 }),
   nameAr: varchar("nameAr", { length: 128 }),
@@ -452,10 +465,10 @@ export const authors = mysqlTable("authors", {
   expertise: json("expertise"),
   avatarUrl: varchar("avatarUrl", { length: 500 }),
   socialLinks: json("socialLinks"),
-  articleCount: int("articleCount").default(0),
+  articleCount: integer("articleCount").default(0),
   featured: boolean("featured").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Author = typeof authors.$inferSelect;
@@ -465,12 +478,12 @@ export type InsertAuthor = typeof authors.$inferInsert;
 // 19. PARENT-CHILD LINKS - Support blended families
 // Links a parent (user) directly to a child, independent of family unit
 // ============================================================
-export const parentChildLinks = mysqlTable("parent_child_links", {
-  id: int("id").autoincrement().primaryKey(),
+export const parentChildLinks = pgTable("parent_child_links", {
+  id: serial("id").primaryKey(),
   /** Parent user ID */
-  parentId: int("parentId").notNull(),
+  parentId: integer("parentId").notNull(),
   /** Child ID */
-  childId: int("childId").notNull(),
+  childId: integer("childId").notNull(),
   /** Relationship: biological_father, biological_mother, stepfather, stepmother, guardian */
   relationship: varchar("relationship", { length: 32 }).notNull().default("parent"),
   /** Whether this parent has edit permissions for this child */
@@ -478,7 +491,7 @@ export const parentChildLinks = mysqlTable("parent_child_links", {
   /** Whether this link is confirmed by both parties */
   confirmed: boolean("confirmed").default(false),
   /** Who created this link */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   linkedAt: timestamp("linkedAt").defaultNow().notNull(),
 });
 
@@ -489,10 +502,10 @@ export type InsertParentChildLink = typeof parentChildLinks.$inferInsert;
 // ============================================================
 // 20. SPECIALIST PROFILES - Location, availability, and contact info
 // ============================================================
-export const specialistProfiles = mysqlTable("specialist_profiles", {
-  id: int("id").autoincrement().primaryKey(),
+export const specialistProfiles = pgTable("specialist_profiles", {
+  id: serial("id").primaryKey(),
   /** User ID (must have role=specialist) */
-  userId: int("userId").notNull().unique(),
+  userId: integer("userId").notNull().unique(),
   /** Display name */
   displayName: varchar("displayName", { length: 128 }),
   /** Bio / introduction */
@@ -516,33 +529,33 @@ export const specialistProfiles = mysqlTable("specialist_profiles", {
   /** Whether currently accepting new clients */
   isAvailable: boolean("isAvailable").default(true),
   /** Maximum number of active families */
-  maxFamilies: int("maxFamilies").default(10),
+  maxFamilies: integer("maxFamilies").default(10),
   /** Current active family count (cached) */
-  activeFamilyCount: int("activeFamilyCount").default(0),
+  activeFamilyCount: integer("activeFamilyCount").default(0),
   /** Rating (1-5, cached average) */
   rating: varchar("rating", { length: 5 }),
   /** Total ratings count */
-  ratingCount: int("ratingCount").default(0),
+  ratingCount: integer("ratingCount").default(0),
   /** Whether profile is verified by admin */
   verified: boolean("verified").default(false),
   /** Online status */
   lastOnline: timestamp("lastOnline"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type SpecialistProfile = typeof specialistProfiles.$inferSelect;
 export type InsertSpecialistProfile = typeof specialistProfiles.$inferInsert;
 
 /** Invitation codes for specialist registration */
-export const invitationCodes = mysqlTable("invitation_codes", {
-  id: int("id").autoincrement().primaryKey(),
+export const invitationCodes = pgTable("invitation_codes", {
+  id: serial("id").primaryKey(),
   /** The unique invitation code */
   code: varchar("code", { length: 32 }).notNull().unique(),
   /** Who created this code (admin user ID) */
-  createdBy: int("createdBy"),
+  createdBy: integer("createdBy"),
   /** Who used this code (specialist user ID, null if unused) */
-  usedBy: int("usedBy"),
+  usedBy: integer("usedBy"),
   /** Whether the code has been used */
   isUsed: boolean("isUsed").default(false),
   /** Optional: restrict to specific email */
@@ -560,10 +573,10 @@ export type InsertInvitationCode = typeof invitationCodes.$inferInsert;
 // ============================================================
 // AUDIT LOG - Track all admin actions
 // ============================================================
-export const auditLog = mysqlTable("audit_log", {
-  id: int("id").autoincrement().primaryKey(),
+export const auditLog = pgTable("audit_log", {
+  id: serial("id").primaryKey(),
   /** User who performed the action */
-  userId: int("userId").notNull(),
+  userId: integer("userId").notNull(),
   /** User's name at time of action */
   userName: varchar("userName", { length: 255 }),
   /** User's role at time of action */
@@ -573,7 +586,7 @@ export const auditLog = mysqlTable("audit_log", {
   /** Entity type: user, family, child, content, message, notification, settings */
   entityType: varchar("entityType", { length: 64 }),
   /** Entity ID affected */
-  entityId: int("entityId"),
+  entityId: integer("entityId"),
   /** Human-readable description */
   description: text("description"),
   /** Additional metadata (JSON) */
@@ -589,9 +602,9 @@ export type InsertAuditLog = typeof auditLog.$inferInsert;
 // ============================================================
 // ADMIN 2FA - TOTP secrets for admin accounts
 // ============================================================
-export const admin2fa = mysqlTable("admin_2fa", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull().unique(),
+export const admin2fa = pgTable("admin_2fa", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull().unique(),
   /** TOTP secret (base32 encoded) */
   secret: varchar("secret", { length: 128 }).notNull(),
   /** Whether 2FA is verified and active */
@@ -599,7 +612,7 @@ export const admin2fa = mysqlTable("admin_2fa", {
   /** Backup codes (JSON array of hashed codes) */
   backupCodes: json("backupCodes"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type Admin2FA = typeof admin2fa.$inferSelect;
@@ -608,10 +621,10 @@ export type InsertAdmin2FA = typeof admin2fa.$inferInsert;
 // ============================================================
 // NETWORK CONTACTS - Specialists, Teachers, Scholars, Doctors
 // ============================================================
-export const networkContacts = mysqlTable("network_contacts", {
-  id: int("id").autoincrement().primaryKey(),
+export const networkContacts = pgTable("network_contacts", {
+  id: serial("id").primaryKey(),
   /** Category: specialist, teacher, kennisdrager, doctor */
-  category: mysqlEnum("category", ["specialist", "teacher", "kennisdrager", "doctor"]).notNull(),
+  category: categoryEnum("category").notNull(),
   /** Full name */
   name: varchar("name", { length: 128 }).notNull(),
   /** Email address */
@@ -631,11 +644,11 @@ export const networkContacts = mysqlTable("network_contacts", {
   /** Whether currently available */
   isAvailable: boolean("isAvailable").default(true),
   /** Linked user ID (if they have an account) */
-  userId: int("userId"),
+  userId: integer("userId"),
   /** Added by admin ID */
-  addedBy: int("addedBy"),
+  addedBy: integer("addedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type NetworkContact = typeof networkContacts.$inferSelect;
@@ -645,13 +658,13 @@ export type InsertNetworkContact = typeof networkContacts.$inferInsert;
 // USER AUTHORIZATION ROLES (what a user is allowed to do in the system)
 // A user can have multiple authorization roles simultaneously
 // ============================================================
-export const userAuthorizationRoles = mysqlTable("user_authorization_roles", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const userAuthorizationRoles = pgTable("user_authorization_roles", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
   /** Authorization role: determines system permissions */
-  role: mysqlEnum("role", ["super_admin", "admin", "moderator", "user"]).notNull(),
+  role: roleEnum("role").notNull(),
   /** Who assigned this role */
-  assignedBy: int("assignedBy"),
+  assignedBy: integer("assignedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -662,11 +675,11 @@ export type InsertUserAuthorizationRole = typeof userAuthorizationRoles.$inferIn
 // USER FUNCTIONS (what a user does in practice - their professional role)
 // A user can have multiple functions simultaneously
 // ============================================================
-export const userFunctions = mysqlTable("user_functions", {
-  id: int("id").autoincrement().primaryKey(),
-  userId: int("userId").notNull(),
+export const userFunctions = pgTable("user_functions", {
+  id: serial("id").primaryKey(),
+  userId: integer("userId").notNull(),
   /** Functional role: what the user does in practice */
-  functionRole: mysqlEnum("functionRole", ["vader", "moeder", "specialist", "leraar", "kennisdrager", "arts", "imam", "therapeut", "maatschappelijk_werker", "opvoedkundige_begeleider"]).notNull(),
+  functionRole: functionRoleEnum("functionRole").notNull(),
   /** Optional specialization details */
   specialization: varchar("specialization", { length: 255 }),
   /** City where they practice */
@@ -674,7 +687,7 @@ export const userFunctions = mysqlTable("user_functions", {
   /** Whether currently active in this function */
   isActive: boolean("isActive").default(true),
   /** Who assigned this function */
-  assignedBy: int("assignedBy"),
+  assignedBy: integer("assignedBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -686,46 +699,46 @@ export type InsertUserFunction = typeof userFunctions.$inferInsert;
 // Full CMS with multi-language support, categories, file uploads
 // ============================================================
 
-export const contentCategories = mysqlTable("content_categories", {
-  id: int("id").autoincrement().primaryKey(),
+export const contentCategories = pgTable("content_categories", {
+  id: serial("id").primaryKey(),
   slug: varchar("slug", { length: 100 }).notNull().unique(),
   nameNl: varchar("nameNl", { length: 255 }).notNull(),
   nameEn: varchar("nameEn", { length: 255 }).notNull(),
   nameAr: varchar("nameAr", { length: 255 }).notNull(),
   /** Where this content appears in the app: fitrah, weekprogramma, tips, begrippen, behandelingen, general */
-  appSection: mysqlEnum("appSection", ["fitrah", "weekprogramma", "tips", "begrippen", "behandelingen", "general"]).default("general"),
+  appSection: appSectionEnum("appSection").default("general"),
   /** Optional: age group for fitrah content */
   ageGroup: varchar("ageGroup", { length: 50 }),
-  sortOrder: int("sortOrder").default(0),
+  sortOrder: integer("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
-export const contentItems = mysqlTable("content_items", {
-  id: int("id").autoincrement().primaryKey(),
-  categoryId: int("categoryId"),
+export const contentItems = pgTable("content_items", {
+  id: serial("id").primaryKey(),
+  categoryId: integer("categoryId"),
   /** Content type: article, video, audio, tip, fatwa */
-  contentType: mysqlEnum("contentType", ["article", "video", "audio", "tip", "fatwa"]).notNull(),
+  contentType: contentTypeEnum("contentType").notNull(),
   /** Status: draft or published */
-  status: mysqlEnum("status", ["draft", "published"]).default("draft").notNull(),
+  status: statusEnum("status").default("draft").notNull(),
   /** Original language the content was written in */
-  originalLanguage: mysqlEnum("originalLanguage", ["nl", "en", "ar"]).default("nl").notNull(),
+  originalLanguage: originalLanguageEnum("originalLanguage").default("nl").notNull(),
   /** Tags as JSON array */
   tags: text("tags"),
   /** Author/creator user ID */
-  authorId: int("authorId"),
+  authorId: integer("authorId"),
   /** For video/audio: external URL */
   mediaUrl: varchar("mediaUrl", { length: 1024 }),
   /** Sort order within category */
-  sortOrder: int("sortOrder").default(0),
+  sortOrder: integer("sortOrder").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   publishedAt: timestamp("publishedAt"),
 });
 
-export const contentTranslations = mysqlTable("content_translations", {
-  id: int("id").autoincrement().primaryKey(),
-  contentId: int("contentId").notNull(),
-  language: mysqlEnum("language", ["nl", "en", "ar"]).notNull(),
+export const contentTranslations = pgTable("content_translations", {
+  id: serial("id").primaryKey(),
+  contentId: integer("contentId").notNull(),
+  language: languageEnum("language").notNull(),
   title: varchar("title", { length: 500 }).notNull(),
   /** Short summary/excerpt */
   summary: text("summary"),
@@ -738,19 +751,19 @@ export const contentTranslations = mysqlTable("content_translations", {
   updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
-export const contentFiles = mysqlTable("content_files", {
-  id: int("id").autoincrement().primaryKey(),
-  contentId: int("contentId").notNull(),
+export const contentFiles = pgTable("content_files", {
+  id: serial("id").primaryKey(),
+  contentId: integer("contentId").notNull(),
   /** Original filename */
   fileName: varchar("fileName", { length: 500 }).notNull(),
   /** File type: word, pdf, excel, image, other */
-  fileType: mysqlEnum("fileType", ["word", "pdf", "excel", "image", "other"]).notNull(),
+  fileType: fileTypeEnum("fileType").notNull(),
   /** Storage path or URL */
   filePath: varchar("filePath", { length: 1024 }).notNull(),
   /** File size in bytes */
-  fileSize: int("fileSize"),
+  fileSize: integer("fileSize"),
   /** Language of the file */
-  language: mysqlEnum("language", ["nl", "en", "ar"]).default("nl"),
+  language: languageEnum("language").default("nl"),
   uploadedAt: timestamp("uploadedAt").defaultNow().notNull(),
 });
 
@@ -759,20 +772,20 @@ export const contentFiles = mysqlTable("content_files", {
 // Allows creating codes that auto-assign specific functions
 // ============================================================
 
-export const functionInvitationCodes = mysqlTable("function_invitation_codes", {
-  id: int("id").autoincrement().primaryKey(),
+export const functionInvitationCodes = pgTable("function_invitation_codes", {
+  id: serial("id").primaryKey(),
   code: varchar("code", { length: 20 }).notNull().unique(),
   /** Which function this code assigns */
-  functionRole: mysqlEnum("functionRole", ["vader", "moeder", "specialist", "leraar", "kennisdrager", "arts", "imam", "therapeut", "maatschappelijk_werker", "opvoedkundige_begeleider"]).notNull(),
+  functionRole: functionRoleEnum("functionRole").notNull(),
   /** Optional: restrict to specific email */
   restrictedEmail: varchar("restrictedEmail", { length: 255 }),
   /** Max number of uses (null = unlimited) */
-  maxUses: int("maxUses"),
+  maxUses: integer("maxUses"),
   /** Current number of uses */
-  usedCount: int("usedCount").default(0).notNull(),
+  usedCount: integer("usedCount").default(0).notNull(),
   /** Whether the code is still active */
   isActive: boolean("isActive").default(true).notNull(),
-  createdBy: int("createdBy"),
+  createdBy: integer("createdBy"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   expiresAt: timestamp("expiresAt"),
 });
@@ -791,12 +804,12 @@ export type InsertFunctionInvitationCode = typeof functionInvitationCodes.$infer
 // ============================================================
 // SPOUSE ADVICE - AI-generated advice between spouses
 // ============================================================
-export const spouseAdvice = mysqlTable("spouse_advice", {
-  id: int("id").autoincrement().primaryKey(),
+export const spouseAdvice = pgTable("spouse_advice", {
+  id: serial("id").primaryKey(),
   /** The user who receives this advice (about their spouse) */
-  recipientId: int("recipientId").notNull(),
+  recipientId: integer("recipientId").notNull(),
   /** The spouse this advice is about */
-  aboutSpouseId: int("aboutSpouseId").notNull(),
+  aboutSpouseId: integer("aboutSpouseId").notNull(),
   /** Advice content (generated by AI) */
   content: text("content").notNull(),
   /** Category: communication, parenting, faith, emotional, practical */
@@ -818,12 +831,12 @@ export type InsertSpouseAdvice = typeof spouseAdvice.$inferInsert;
 // ============================================================
 // TRANSLATION CACHE - Persistent translation cache shared across all users
 // ============================================================
-export const translationCache = mysqlTable("translation_cache", {
-  id: int("id").autoincrement().primaryKey(),
+export const translationCache = pgTable("translation_cache", {
+  id: serial("id").primaryKey(),
   /** Hash of source text (SHA-256 first 64 chars) for fast lookup */
   sourceHash: varchar("sourceHash", { length: 64 }).notNull(),
   /** Target language */
-  targetLang: mysqlEnum("targetLang", ["nl", "en"]).notNull(),
+  targetLang: targetLangEnum("targetLang").notNull(),
   /** Original source text (Arabic) */
   sourceText: text("sourceText").notNull(),
   /** Translated text */
@@ -831,7 +844,7 @@ export const translationCache = mysqlTable("translation_cache", {
   /** Context category: names_of_allah, mindsets, library, general */
   category: varchar("category", { length: 50 }).default("general"),
   /** Number of times this translation was served from cache */
-  hitCount: int("hitCount").default(0).notNull(),
+  hitCount: integer("hitCount").default(0).notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -841,20 +854,20 @@ export type InsertTranslationCache = typeof translationCache.$inferInsert;
 // ============================================================
 // PARTNERSHIPS - Direct partner links (persists across app reinstalls)
 // ============================================================
-export const partnerships = mysqlTable("partnerships", {
-  id: int("id").autoincrement().primaryKey(),
+export const partnerships = pgTable("partnerships", {
+  id: serial("id").primaryKey(),
   /** First user in the partnership */
-  userId1: int("userId1").notNull(),
+  userId1: integer("userId1").notNull(),
   /** Second user in the partnership */
-  userId2: int("userId2").notNull(),
+  userId2: integer("userId2").notNull(),
   /** Status: active, dissolved */
   status: varchar("status", { length: 16 }).notNull().default("active"),
   /** Who initiated the link */
-  initiatedBy: int("initiatedBy").notNull(),
+  initiatedBy: integer("initiatedBy").notNull(),
   /** Whether the partner confirmed */
   confirmed: boolean("confirmed").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   dissolvedAt: timestamp("dissolvedAt"),
 });
 
@@ -865,14 +878,14 @@ export type InsertPartnership = typeof partnerships.$inferInsert;
 // ============================================================
 // CHILD ACCOUNTS - Login accounts for children aged 12+
 // ============================================================
-export const childAccounts = mysqlTable("child_accounts", {
-  id: int("id").autoincrement().primaryKey(),
+export const childAccounts = pgTable("child_accounts", {
+  id: serial("id").primaryKey(),
   /** The user record for this child (created on account creation) */
-  userId: int("userId").notNull(),
+  userId: integer("userId").notNull(),
   /** Parent who created this account */
-  parentId: int("parentId").notNull(),
+  parentId: integer("parentId").notNull(),
   /** Link to child profile in children table */
-  childProfileId: int("childProfileId"),
+  childProfileId: integer("childProfileId"),
   /** Age group: 12-14, 15-17, 18+ */
   ageGroup: varchar("ageGroup", { length: 8 }).notNull(),
   /** Access code for child login (6-digit) */
@@ -884,13 +897,13 @@ export const childAccounts = mysqlTable("child_accounts", {
   /** Whether parent can see advisor conversations */
   parentCanSeeAdvisor: boolean("parentCanSeeAdvisor").default(true),
   /** Screen time limit in minutes (0 = unlimited) */
-  screenTimeLimit: int("screenTimeLimit").default(0),
+  screenTimeLimit: integer("screenTimeLimit").default(0),
   /** Last active timestamp */
   lastActive: timestamp("lastActive"),
   /** Whether account is active */
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type ChildAccount = typeof childAccounts.$inferSelect;
@@ -899,12 +912,12 @@ export type InsertChildAccount = typeof childAccounts.$inferInsert;
 // ============================================================
 // ENVIRONMENT ANALYSIS - Auto-generated from conversations & plans
 // ============================================================
-export const environmentAnalysis = mysqlTable("environment_analysis", {
-  id: int("id").autoincrement().primaryKey(),
+export const environmentAnalysis = pgTable("environment_analysis", {
+  id: serial("id").primaryKey(),
   /** User who owns this analysis */
-  userId: int("userId").notNull(),
+  userId: integer("userId").notNull(),
   /** Child this analysis is about (null = general family) */
-  childId: int("childId"),
+  childId: integer("childId"),
   /** Analysis data (JSON: strengths, weaknesses, risks, recommendations) */
   analysisData: json("analysisData"),
   /** Sources used: conversations, weekly_plans, observations, manual */
@@ -912,11 +925,11 @@ export const environmentAnalysis = mysqlTable("environment_analysis", {
   /** Whether auto-generated or manually edited */
   autoGenerated: boolean("autoGenerated").default(true),
   /** Version number (increments on update) */
-  version: int("version").default(1),
+  version: integer("version").default(1),
   /** Last analysis date */
   analyzedAt: timestamp("analyzedAt").defaultNow().notNull(),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type EnvironmentAnalysis = typeof environmentAnalysis.$inferSelect;
@@ -925,8 +938,8 @@ export type InsertEnvironmentAnalysis = typeof environmentAnalysis.$inferInsert;
 // ============================================================
 // NEIGHBORHOOD GROUPS - Local community groups
 // ============================================================
-export const neighborhoodGroups = mysqlTable("neighborhood_groups", {
-  id: int("id").autoincrement().primaryKey(),
+export const neighborhoodGroups = pgTable("neighborhood_groups", {
+  id: serial("id").primaryKey(),
   /** Group name */
   name: varchar("name", { length: 255 }).notNull(),
   /** City */
@@ -938,19 +951,19 @@ export const neighborhoodGroups = mysqlTable("neighborhood_groups", {
   /** Longitude center */
   lon: varchar("lon", { length: 20 }),
   /** Radius in km */
-  radiusKm: int("radiusKm").default(5),
+  radiusKm: integer("radiusKm").default(5),
   /** Invite code for joining */
   inviteCode: varchar("inviteCode", { length: 32 }).notNull().unique(),
   /** Description */
   description: text("description"),
   /** Creator user ID */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   /** Max members (0 = unlimited) */
-  maxMembers: int("maxMembers").default(50),
+  maxMembers: integer("maxMembers").default(50),
   /** Whether group is active */
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 
 export type NeighborhoodGroup = typeof neighborhoodGroups.$inferSelect;
@@ -959,10 +972,10 @@ export type InsertNeighborhoodGroup = typeof neighborhoodGroups.$inferInsert;
 // ============================================================
 // NEIGHBORHOOD MEMBERS
 // ============================================================
-export const neighborhoodMembers = mysqlTable("neighborhood_members", {
-  id: int("id").autoincrement().primaryKey(),
-  groupId: int("groupId").notNull(),
-  userId: int("userId").notNull(),
+export const neighborhoodMembers = pgTable("neighborhood_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("groupId").notNull(),
+  userId: integer("userId").notNull(),
   /** Role: admin, member */
   role: varchar("role", { length: 16 }).default("member"),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
@@ -974,9 +987,9 @@ export type InsertNeighborhoodMember = typeof neighborhoodMembers.$inferInsert;
 // ============================================================
 // NEIGHBORHOOD ACTIVITIES
 // ============================================================
-export const neighborhoodActivities = mysqlTable("neighborhood_activities", {
-  id: int("id").autoincrement().primaryKey(),
-  groupId: int("groupId").notNull(),
+export const neighborhoodActivities = pgTable("neighborhood_activities", {
+  id: serial("id").primaryKey(),
+  groupId: integer("groupId").notNull(),
   /** Title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description */
@@ -988,11 +1001,11 @@ export const neighborhoodActivities = mysqlTable("neighborhood_activities", {
   /** Location description */
   location: varchar("location", { length: 255 }),
   /** Creator */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   /** Status: proposed, confirmed, completed, cancelled */
   status: varchar("status", { length: 16 }).default("proposed"),
   /** Max participants (0 = unlimited) */
-  maxParticipants: int("maxParticipants").default(0),
+  maxParticipants: integer("maxParticipants").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -1002,16 +1015,16 @@ export type InsertNeighborhoodActivity = typeof neighborhoodActivities.$inferIns
 // ============================================================
 // CHILD ACTIVITY LOG - Track child app usage
 // ============================================================
-export const childActivityLog = mysqlTable("child_activity_log", {
-  id: int("id").autoincrement().primaryKey(),
+export const childActivityLog = pgTable("child_activity_log", {
+  id: serial("id").primaryKey(),
   /** Child account ID */
-  childAccountId: int("childAccountId").notNull(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Activity type: app_open, advice_read, challenge_completed, advisor_question, emergency_pressed, wird_completed */
   activityType: varchar("activityType", { length: 32 }).notNull(),
   /** Additional data (JSON) */
   data: json("data"),
   /** Duration in seconds (for timed activities) */
-  durationSeconds: int("durationSeconds"),
+  durationSeconds: integer("durationSeconds"),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 
@@ -1021,9 +1034,9 @@ export type InsertChildActivityLog = typeof childActivityLog.$inferInsert;
 // ============================================================
 // CHILD ACHIEVEMENTS - Gamification for children
 // ============================================================
-export const childAchievements = mysqlTable("child_achievements", {
-  id: int("id").autoincrement().primaryKey(),
-  childAccountId: int("childAccountId").notNull(),
+export const childAchievements = pgTable("child_achievements", {
+  id: serial("id").primaryKey(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description */
@@ -1041,9 +1054,9 @@ export type InsertChildAchievement = typeof childAchievements.$inferInsert;
 // ============================================================
 // CHILD CHALLENGES - Daily/weekly challenges for children
 // ============================================================
-export const childChallenges = mysqlTable("child_challenges", {
-  id: int("id").autoincrement().primaryKey(),
-  childAccountId: int("childAccountId").notNull(),
+export const childChallenges = pgTable("child_challenges", {
+  id: serial("id").primaryKey(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Challenge title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description */
@@ -1065,8 +1078,8 @@ export type InsertChildChallenge = typeof childChallenges.$inferInsert;
 // ============================================================
 // PEER GROUPS - Groups for children of similar age
 // ============================================================
-export const peerGroups = mysqlTable("peer_groups", {
-  id: int("id").autoincrement().primaryKey(),
+export const peerGroups = pgTable("peer_groups", {
+  id: serial("id").primaryKey(),
   /** Group name */
   name: varchar("name", { length: 255 }).notNull(),
   /** Age range: 12-14, 15-17, 18+ */
@@ -1076,11 +1089,11 @@ export const peerGroups = mysqlTable("peer_groups", {
   /** Invite code */
   inviteCode: varchar("inviteCode", { length: 32 }).notNull().unique(),
   /** Parent who created this group */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   /** Whether parent approval is required for messages */
   parentApproval: boolean("parentApproval").default(true),
   /** Max members */
-  maxMembers: int("maxMembers").default(20),
+  maxMembers: integer("maxMembers").default(20),
   /** Whether active */
   isActive: boolean("isActive").default(true),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
@@ -1092,12 +1105,12 @@ export type InsertPeerGroup = typeof peerGroups.$inferInsert;
 // ============================================================
 // PEER GROUP MEMBERS
 // ============================================================
-export const peerGroupMembers = mysqlTable("peer_group_members", {
-  id: int("id").autoincrement().primaryKey(),
-  groupId: int("groupId").notNull(),
-  childAccountId: int("childAccountId").notNull(),
+export const peerGroupMembers = pgTable("peer_group_members", {
+  id: serial("id").primaryKey(),
+  groupId: integer("groupId").notNull(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Parent who approved */
-  approvedByParentId: int("approvedByParentId"),
+  approvedByParentId: integer("approvedByParentId"),
   /** Whether approved */
   approved: boolean("approved").default(false),
   joinedAt: timestamp("joinedAt").defaultNow().notNull(),
@@ -1109,12 +1122,12 @@ export type InsertPeerGroupMember = typeof peerGroupMembers.$inferInsert;
 // ============================================================
 // SHARED CHILD UPDATES - Updates between divorced parents
 // ============================================================
-export const sharedChildUpdates = mysqlTable("shared_child_updates", {
-  id: int("id").autoincrement().primaryKey(),
+export const sharedChildUpdates = pgTable("shared_child_updates", {
+  id: serial("id").primaryKey(),
   /** Child ID */
-  childId: int("childId").notNull(),
+  childId: integer("childId").notNull(),
   /** Author (parent who wrote the update) */
-  authorId: int("authorId").notNull(),
+  authorId: integer("authorId").notNull(),
   /** Update type: daily_report, achievement, concern, wird, behavior, health */
   updateType: varchar("updateType", { length: 32 }).notNull(),
   /** Content */
@@ -1131,11 +1144,11 @@ export type InsertSharedChildUpdate = typeof sharedChildUpdates.$inferInsert;
 // ============================================================
 // FAMILY REMINDERS - Shared reminders within family
 // ============================================================
-export const familyReminders = mysqlTable("family_reminders", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
+export const familyReminders = pgTable("family_reminders", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
   /** Creator */
-  createdBy: int("createdBy").notNull(),
+  createdBy: integer("createdBy").notNull(),
   /** Title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description */
@@ -1157,11 +1170,11 @@ export type InsertFamilyReminder = typeof familyReminders.$inferInsert;
 // ============================================================
 // FAMILY ACTIVITIES - Proposed activities with voting
 // ============================================================
-export const familyActivities = mysqlTable("family_activities", {
-  id: int("id").autoincrement().primaryKey(),
-  familyId: int("familyId").notNull(),
+export const familyActivities = pgTable("family_activities", {
+  id: serial("id").primaryKey(),
+  familyId: integer("familyId").notNull(),
   /** Proposer */
-  proposedBy: int("proposedBy").notNull(),
+  proposedBy: integer("proposedBy").notNull(),
   /** Title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Description */
@@ -1183,13 +1196,13 @@ export type InsertFamilyActivity = typeof familyActivities.$inferInsert;
 // ============================================================
 // CHILD DAILY SUMMARY - Aggregated daily stats for parent monitoring
 // ============================================================
-export const childDailySummary = mysqlTable("child_daily_summary", {
-  id: int("id").autoincrement().primaryKey(),
-  childAccountId: int("childAccountId").notNull(),
+export const childDailySummary = pgTable("child_daily_summary", {
+  id: serial("id").primaryKey(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Date string YYYY-MM-DD */
   date: varchar("date", { length: 10 }).notNull(),
   /** Total app usage in seconds */
-  totalAppUsageSeconds: int("totalAppUsageSeconds").default(0),
+  totalAppUsageSeconds: integer("totalAppUsageSeconds").default(0),
   /** Morning adhkar completed */
   morningAdhkarDone: boolean("morningAdhkarDone").default(false),
   /** Evening adhkar completed */
@@ -1199,13 +1212,13 @@ export const childDailySummary = mysqlTable("child_daily_summary", {
   /** Waking adhkar completed */
   wakingAdhkarDone: boolean("wakingAdhkarDone").default(false),
   /** Number of custom tasks completed */
-  customTasksCompleted: int("customTasksCompleted").default(0),
+  customTasksCompleted: integer("customTasksCompleted").default(0),
   /** Total custom tasks assigned */
-  customTasksTotal: int("customTasksTotal").default(0),
+  customTasksTotal: integer("customTasksTotal").default(0),
   /** Number of challenges completed */
-  challengesCompleted: int("challengesCompleted").default(0),
+  challengesCompleted: integer("challengesCompleted").default(0),
   /** Number of AI questions asked */
-  aiQuestionsAsked: int("aiQuestionsAsked").default(0),
+  aiQuestionsAsked: integer("aiQuestionsAsked").default(0),
   /** Screens visited (JSON: { screenName: durationSeconds }) */
   screensVisited: json("screensVisited"),
   /** First app open time */
@@ -1213,19 +1226,19 @@ export const childDailySummary = mysqlTable("child_daily_summary", {
   /** Last app close time */
   lastCloseAt: varchar("lastCloseAt", { length: 8 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type ChildDailySummary = typeof childDailySummary.$inferSelect;
 export type InsertChildDailySummary = typeof childDailySummary.$inferInsert;
 // ============================================================
 // CUSTOM TASKS - Tasks assigned by parent to child
 // ============================================================
-export const customTasks = mysqlTable("custom_tasks", {
-  id: int("id").autoincrement().primaryKey(),
+export const customTasks = pgTable("custom_tasks", {
+  id: serial("id").primaryKey(),
   /** Parent who created the task */
-  parentId: int("parentId").notNull(),
+  parentId: integer("parentId").notNull(),
   /** Child account this task is for */
-  childAccountId: int("childAccountId").notNull(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Task title */
   title: varchar("title", { length: 255 }).notNull(),
   /** Task description */
@@ -1251,19 +1264,19 @@ export const customTasks = mysqlTable("custom_tasks", {
   /** Whether parent verified completion */
   parentVerified: boolean("parentVerified").default(false),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type CustomTask = typeof customTasks.$inferSelect;
 export type InsertCustomTask = typeof customTasks.$inferInsert;
 // ============================================================
 // FAMILY CHAT MESSAGES - Direct chat between parent and child
 // ============================================================
-export const familyChatMessages = mysqlTable("family_chat_messages", {
-  id: int("id").autoincrement().primaryKey(),
+export const familyChatMessages = pgTable("family_chat_messages", {
+  id: serial("id").primaryKey(),
   /** Parent user ID */
-  parentId: int("parentId").notNull(),
+  parentId: integer("parentId").notNull(),
   /** Child account ID */
-  childAccountId: int("childAccountId").notNull(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Sender: 'parent' or 'child' */
   senderType: varchar("senderType", { length: 10 }).notNull(),
   /** Message content */
@@ -1283,15 +1296,15 @@ export type InsertFamilyChatMessage = typeof familyChatMessages.$inferInsert;
 // ============================================================
 // CHILD AI CONVERSATIONS - Child's conversations with AI advisor
 // ============================================================
-export const childAiConversations = mysqlTable("child_ai_conversations", {
-  id: int("id").autoincrement().primaryKey(),
-  childAccountId: int("childAccountId").notNull(),
+export const childAiConversations = pgTable("child_ai_conversations", {
+  id: serial("id").primaryKey(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Conversation title (auto-generated from first question) */
   title: varchar("title", { length: 255 }),
   /** Messages (JSON array: [{role, content, timestamp}]) */
   messages: json("messages"),
   /** Total messages in conversation */
-  messageCount: int("messageCount").default(0),
+  messageCount: integer("messageCount").default(0),
   /** Whether parent has reviewed this conversation */
   parentReviewed: boolean("parentReviewed").default(false),
   /** Whether flagged for parent attention */
@@ -1299,16 +1312,16 @@ export const childAiConversations = mysqlTable("child_ai_conversations", {
   /** Flag reason */
   flagReason: varchar("flagReason", { length: 255 }),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type ChildAiConversation = typeof childAiConversations.$inferSelect;
 export type InsertChildAiConversation = typeof childAiConversations.$inferInsert;
 // ============================================================
 // CHILD APP USAGE - Phone app usage tracking (Android)
 // ============================================================
-export const childAppUsage = mysqlTable("child_app_usage", {
-  id: int("id").autoincrement().primaryKey(),
-  childAccountId: int("childAccountId").notNull(),
+export const childAppUsage = pgTable("child_app_usage", {
+  id: serial("id").primaryKey(),
+  childAccountId: integer("childAccountId").notNull(),
   /** Date (YYYY-MM-DD) */
   date: varchar("date", { length: 10 }).notNull(),
   /** App package name (e.g., com.google.youtube) */
@@ -1316,11 +1329,11 @@ export const childAppUsage = mysqlTable("child_app_usage", {
   /** App display name */
   appName: varchar("appName", { length: 255 }),
   /** Usage duration in seconds */
-  usageSeconds: int("usageSeconds").default(0),
+  usageSeconds: integer("usageSeconds").default(0),
   /** Category: social, games, education, video, other */
   category: varchar("category", { length: 32 }),
   /** Number of times opened */
-  openCount: int("openCount").default(0),
+  openCount: integer("openCount").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
 });
 export type ChildAppUsage = typeof childAppUsage.$inferSelect;
@@ -1328,10 +1341,10 @@ export type InsertChildAppUsage = typeof childAppUsage.$inferInsert;
 // ============================================================
 // PARENT AI CONSULTATIONS - Parent consulting AI about family members
 // ============================================================
-export const parentAiConsultations = mysqlTable("parent_ai_consultations", {
-  id: int("id").autoincrement().primaryKey(),
+export const parentAiConsultations = pgTable("parent_ai_consultations", {
+  id: serial("id").primaryKey(),
   /** Parent user ID */
-  parentId: int("parentId").notNull(),
+  parentId: integer("parentId").notNull(),
   /** Consultation type: child, spouse */
   consultationType: varchar("consultationType", { length: 10 }).notNull(),
   /** Target: child profile ID or 'spouse' */
@@ -1347,9 +1360,10 @@ export const parentAiConsultations = mysqlTable("parent_ai_consultations", {
   /** Messages (JSON array: [{role, content, timestamp}]) */
   messages: json("messages"),
   /** Total messages */
-  messageCount: int("messageCount").default(0),
+  messageCount: integer("messageCount").default(0),
   createdAt: timestamp("createdAt").defaultNow().notNull(),
-  updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type ParentAiConsultation = typeof parentAiConsultations.$inferSelect;
 export type InsertParentAiConsultation = typeof parentAiConsultations.$inferInsert;
+

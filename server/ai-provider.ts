@@ -1,22 +1,128 @@
 /**
- * AI Provider Abstraction Layer
+ * Hybride AI Provider — OpenRouter (3 modellen)
  * 
- * Supports two providers:
- * 1. "builtin" - Uses the Manus Forge API (gemini-2.5-flash) - no extra config needed
- * 2. "openai" - Uses OpenAI API (gpt-4o-mini or gpt-4o) - requires OPENAI_API_KEY env var
- * 
- * To switch providers, set the AI_PROVIDER env var:
- * - AI_PROVIDER=builtin (default)
- * - AI_PROVIDER=openai
- * 
- * To set OpenAI model:
- * - AI_MODEL=gpt-4o-mini (default, cheaper)
- * - AI_MODEL=gpt-4o (better quality, more expensive)
+ * Routing: Easy → Gemini Flash | Medium → Claude Sonnet 4 | Hard → Claude Opus 4.8
+ * Fallback: Hard → Medium → Easy bij fouten
  */
 
-import { invokeLLM, type Message } from "./_core/llm";
+export type TaskType =
+  | "adhkar" | "search_knowledge"
+  | "daily_advice" | "daily_goals" | "weekly_plan" | "spouse_advice" | "simple_chat"
+  | "chat_complex" | "treatment_plan" | "fitrah_analysis" | "crisis_question" | "difficult_parenting"
+  | "general";
 
-// Types
+type TaskDifficulty = "easy" | "medium" | "hard";
+
+interface AIResponse {
+  content: string;
+  model: string;
+  tokensUsed: { input: number; output: number };
+}
+
+function getTaskDifficulty(taskType: TaskType): TaskDifficulty {
+  switch (taskType) {
+    case "adhkar":
+    case "search_knowledge":
+      return "easy";
+    case "daily_advice":
+    case "daily_goals":
+    case "weekly_plan":
+    case "spouse_advice":
+    case "simple_chat":
+      return "medium";
+    case "chat_complex":
+    case "treatment_plan":
+    case "fitrah_analysis":
+    case "crisis_question":
+    case "difficult_parenting":
+      return "hard";
+    default:
+      return "medium";
+  }
+}
+
+function getModelForDifficulty(difficulty: TaskDifficulty): string {
+  const models = {
+    easy: process.env.OPENROUTER_MODEL_EASY || "google/gemini-3.5-flash",
+    medium: process.env.OPENROUTER_MODEL_MEDIUM || "anthropic/claude-sonnet-4",
+    hard: process.env.OPENROUTER_MODEL_HARD || "anthropic/claude-opus-4.8",
+  };
+  return models[difficulty];
+}
+
+function getFallbackDifficulty(difficulty: TaskDifficulty): TaskDifficulty | null {
+  switch (difficulty) {
+    case "hard": return "medium";
+    case "medium": return "easy";
+    case "easy": return null;
+  }
+}
+
+async function callOpenRouter(model: string, messages: any[], options?: { temperature?: number; maxTokens?: number }): Promise<AIResponse> {
+  const apiKey = process.env.OPENROUTER_API_KEY;
+  const baseUrl = process.env.OPENROUTER_BASE_URL || "https://openrouter.ai/api/v1";
+
+  if (!apiKey) throw new Error("OPENROUTER_API_KEY is not set");
+
+  const response = await fetch(`${baseUrl}/chat/completions`, {
+    method: "POST",
+    headers: {
+      "Authorization": `Bearer ${apiKey}`,
+      "Content-Type": "application/json",
+      "HTTP-Referer": "https://rabbaanie.com",
+      "X-Title": "Rabbaanie",
+    },
+    body: JSON.stringify({
+      model,
+      messages,
+      temperature: options?.temperature ?? 0.7,
+      max_tokens: options?.maxTokens ?? 4096,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    throw new Error(`OpenRouter error (${response.status}): ${errorText}`);
+  }
+
+  const data = await response.json() as any;
+  return {
+    content: data.choices?.[0]?.message?.content || "",
+    model: data.model || model,
+    tokensUsed: {
+      input: data.usage?.prompt_tokens || 0,
+      output: data.usage?.completion_tokens || 0,
+    },
+  };
+}
+
+export async function generateAI(
+  taskType: TaskType,
+  messages: Array<{ role: "system" | "user" | "assistant"; content: string }>,
+  options?: { temperature?: number; maxTokens?: number }
+): Promise<AIResponse> {
+  const difficulty = getTaskDifficulty(taskType);
+  let currentDifficulty: TaskDifficulty | null = difficulty;
+
+  while (currentDifficulty) {
+    const model = getModelForDifficulty(currentDifficulty);
+    try {
+      console.log(`[AI] Task: ${taskType} → ${currentDifficulty} → ${model}`);
+      const result = await callOpenRouter(model, messages, options);
+      console.log(`[AI] Success: ${model} (${result.tokensUsed.input}+${result.tokensUsed.output} tokens)`);
+      return result;
+    } catch (error: any) {
+      console.error(`[AI] Error with ${model}:`, error.message);
+      currentDifficulty = getFallbackDifficulty(currentDifficulty);
+      if (!currentDifficulty) throw error;
+      console.log(`[AI] Falling back to ${currentDifficulty}`);
+    }
+  }
+
+  throw new Error("All AI models failed");
+}
+
+// Compatibility exports for ai-chat.ts
 export interface AIMessage {
   role: "system" | "user" | "assistant";
   content: string;
@@ -30,154 +136,49 @@ export interface AIResponse {
 }
 
 export interface AIProviderConfig {
-  provider: "builtin" | "openai";
-  model?: string;
-  maxTokens?: number;
+  provider: "openrouter";
+  model: string;
+  taskType?: TaskType;
   temperature?: number;
+  maxTokens?: number;
 }
 
-// Get current provider configuration
-function getProviderConfig(): AIProviderConfig {
-  const provider = (process.env.AI_PROVIDER || "builtin") as "builtin" | "openai";
-  const model = process.env.AI_MODEL || (provider === "openai" ? "gpt-4o-mini" : "gemini-2.5-flash");
-  return { provider, model };
-}
-
-// Check if OpenAI is configured
-function isOpenAIConfigured(): boolean {
-  return !!process.env.OPENAI_API_KEY;
-}
-
-// Call OpenAI API directly
-async function callOpenAI(messages: AIMessage[], config: AIProviderConfig): Promise<AIResponse> {
-  const apiKey = process.env.OPENAI_API_KEY;
-  if (!apiKey) {
-    throw new Error("OPENAI_API_KEY is not set. Switch to builtin provider or set the key.");
-  }
-
-  const response = await fetch("https://api.openai.com/v1/chat/completions", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
-    },
-    body: JSON.stringify({
-      model: config.model || "gpt-4o-mini",
-      messages: messages.map(m => ({ role: m.role, content: m.content })),
-      max_tokens: config.maxTokens || 4096,
-      temperature: config.temperature ?? 0.7,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorText = await response.text();
-    throw new Error(`OpenAI API error: ${response.status} - ${errorText}`);
-  }
-
-  const data = await response.json() as any;
-  const content = data.choices?.[0]?.message?.content || "";
-  const tokensUsed = data.usage?.total_tokens;
-
-  return {
-    content,
-    provider: "openai",
-    model: config.model || "gpt-4o-mini",
-    tokensUsed,
-  };
-}
-
-// Call built-in Manus Forge API
-async function callBuiltin(messages: AIMessage[], config: AIProviderConfig): Promise<AIResponse> {
-  const llmMessages: Message[] = messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }));
-
-  const result = await invokeLLM({ messages: llmMessages });
-  const rawContent = result.choices[0]?.message?.content;
-  const content = typeof rawContent === "string"
-    ? rawContent
-    : Array.isArray(rawContent)
-      ? rawContent.map((c: any) => "text" in c ? c.text : "").join("")
-      : "";
-
-  return {
-    content,
-    provider: "builtin",
-    model: "gemini-2.5-flash",
-  };
-}
-
-/**
- * Main AI invocation function - automatically routes to the configured provider
- * 
- * Usage:
- * ```ts
- * const response = await invokeAI([
- *   { role: "system", content: "You are a parenting advisor..." },
- *   { role: "user", content: "How do I handle tantrums?" },
- * ]);
- * console.log(response.content);
- * ```
- */
 export async function invokeAI(
   messages: AIMessage[],
   configOverride?: Partial<AIProviderConfig>
 ): Promise<AIResponse> {
-  const baseConfig = getProviderConfig();
-  const config: AIProviderConfig = { ...baseConfig, ...configOverride };
-
-  // If OpenAI is requested but not configured, fall back to builtin
-  if (config.provider === "openai" && !isOpenAIConfigured()) {
-    console.warn("[AI Provider] OpenAI requested but OPENAI_API_KEY not set. Falling back to builtin.");
-    config.provider = "builtin";
-  }
-
-  try {
-    if (config.provider === "openai") {
-      return await callOpenAI(messages, config);
-    } else {
-      return await callBuiltin(messages, config);
-    }
-  } catch (error) {
-    // If primary provider fails and we have a fallback, try it
-    if (config.provider === "openai") {
-      console.warn("[AI Provider] OpenAI failed, falling back to builtin:", error);
-      return await callBuiltin(messages, { ...config, provider: "builtin" });
-    }
-    throw error;
-  }
+  const taskType = configOverride?.taskType || "general";
+  const result = await generateAI(taskType, messages, {
+    temperature: configOverride?.temperature,
+    maxTokens: configOverride?.maxTokens,
+  });
+  return {
+    content: result.content,
+    provider: "openrouter" as any,
+    model: result.model,
+    tokensUsed: result.tokensUsed.input + result.tokensUsed.output,
+  };
 }
 
-/**
- * Invoke AI with conversation history (for chat-like interactions)
- * Automatically manages context window by trimming old messages if needed
- */
 export async function invokeAIChat(
   systemPrompt: string,
   conversationHistory: AIMessage[],
   userMessage: string,
   configOverride?: Partial<AIProviderConfig>
 ): Promise<AIResponse> {
-  // Build messages array with system prompt + history + new message
   const messages: AIMessage[] = [
     { role: "system", content: systemPrompt },
-    ...conversationHistory.slice(-20), // Keep last 20 messages for context
+    ...conversationHistory,
     { role: "user", content: userMessage },
   ];
-
   return invokeAI(messages, configOverride);
 }
 
-/**
- * Get current provider status for admin dashboard
- */
 export function getAIProviderStatus() {
-  const config = getProviderConfig();
   return {
-    activeProvider: config.provider,
-    model: config.model,
-    openaiConfigured: isOpenAIConfigured(),
+    activeProvider: "openrouter",
+    model: process.env.OPENROUTER_MODEL_MEDIUM || "anthropic/claude-sonnet-4",
+    openaiConfigured: false,
     builtinAvailable: true,
   };
 }

@@ -85,7 +85,7 @@ export function registerAdhkarRoutes(app: Express) {
       const ageGroup = (req.query.age_group || req.query.group) as string;
       let query = "SELECT * FROM misconceptions";
       if (ageGroup) {
-        query += ` WHERE age_group = '${ageGroup.replace(/'/g, "''")}'`;
+        query += ` WHERE age_group = '${ageGroup.replace(/'/g, "''")}' `;
       }
       query += " ORDER BY sort_order ASC";
 

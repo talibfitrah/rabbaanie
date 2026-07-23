@@ -141,7 +141,10 @@ export function registerWebAuthRoutes(app: Express) {
 
       // Create session token
       const sessionToken = await sdk.createSessionToken(user.openId, {
+        id: user.id,
         name: user.name || "",
+        email: user.email,
+        role: user.role,
         expiresInMs: ONE_YEAR_MS,
       });
 
@@ -170,6 +173,263 @@ export function registerWebAuthRoutes(app: Express) {
     const cookieOptions = getSessionCookieOptions(req);
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     res.redirect("/auth/login");
+  });
+  // ─── Google OAuth for Mobile App ──────────────────────────────────
+
+  // ─── Password Reset (Forgot Password) ─────────────────────────────
+  // POST /auth/forgot-password - Send reset code via email
+  app.post("/auth/forgot-password", async (req: Request, res: Response) => {
+    try {
+      const { email } = req.body;
+      if (!email) {
+        res.status(400).json({ error: "Email is required" });
+        return;
+      }
+
+      const db = await getDb();
+      const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+      
+      // Always return success (don't reveal if email exists)
+      if (!user) {
+        res.json({ success: true, message: "If the email exists, a reset code has been sent" });
+        return;
+      }
+
+      // Generate 6-digit reset code
+      const resetCode = Math.floor(100000 + Math.random() * 900000).toString();
+      const expiresAt = new Date(Date.now() + 15 * 60 * 1000); // 15 minutes
+
+      // Store reset code in user record (using profileData temporarily)
+      const existingProfile = (user.profileData as any) || {};
+      await db.update(users).set({
+        profileData: { ...existingProfile, _resetCode: resetCode, _resetExpires: expiresAt.toISOString() },
+        updatedAt: new Date(),
+      }).where(eq(users.id, user.id));
+
+      // Send email via Brevo
+      const { sendEmail } = await import("./_core/email");
+      const emailSent = await sendEmail({
+        to: email.toLowerCase().trim(),
+        subject: "Rabbaanie - Password Reset Code",
+        html: `
+          <div style="font-family: Arial, sans-serif; max-width: 480px; margin: 0 auto; padding: 24px;">
+            <div style="text-align: center; margin-bottom: 24px;">
+              <h2 style="color: #1B4332; margin: 0;">Rabbaanie</h2>
+              <p style="color: #687076; font-size: 14px;">Password Reset</p>
+            </div>
+            <div style="background: #f5f5f5; border-radius: 12px; padding: 24px; text-align: center;">
+              <p style="color: #333; font-size: 14px; margin-bottom: 16px;">Your password reset code is:</p>
+              <div style="background: #1B4332; color: white; font-size: 32px; font-weight: bold; letter-spacing: 8px; padding: 16px 24px; border-radius: 8px; display: inline-block;">
+                ${resetCode}
+              </div>
+              <p style="color: #687076; font-size: 12px; margin-top: 16px;">This code expires in 15 minutes.</p>
+            </div>
+            <p style="color: #687076; font-size: 12px; text-align: center; margin-top: 24px;">
+              If you did not request this, please ignore this email.
+            </p>
+          </div>
+        `,
+      });
+
+      if (!emailSent) {
+        console.error("[Auth] Failed to send reset email to:", email);
+      }
+
+      res.json({ success: true, message: "If the email exists, a reset code has been sent" });
+    } catch (error: any) {
+      console.error("[Auth] Forgot password error:", error);
+      res.status(500).json({ error: "Failed to process request" });
+    }
+  });
+
+  // POST /auth/reset-password - Verify code and set new password
+  app.post("/auth/reset-password", async (req: Request, res: Response) => {
+    try {
+      const { email, code, newPassword } = req.body;
+      if (!email || !code || !newPassword) {
+        res.status(400).json({ error: "Email, code, and new password are required" });
+        return;
+      }
+
+      if (newPassword.length < 6) {
+        res.status(400).json({ error: "Password must be at least 6 characters" });
+        return;
+      }
+
+      const db = await getDb();
+      const [user] = await db.select().from(users).where(eq(users.email, email.toLowerCase().trim())).limit(1);
+      
+      if (!user) {
+        res.status(400).json({ error: "Invalid code or email" });
+        return;
+      }
+
+      const profile = (user.profileData as any) || {};
+      const storedCode = profile._resetCode;
+      const expiresStr = profile._resetExpires;
+
+      if (!storedCode || !expiresStr) {
+        res.status(400).json({ error: "No reset code found. Please request a new one." });
+        return;
+      }
+
+      if (new Date(expiresStr) < new Date()) {
+        res.status(400).json({ error: "Reset code has expired. Please request a new one." });
+        return;
+      }
+
+      if (storedCode !== code.trim()) {
+        res.status(400).json({ error: "Invalid reset code" });
+        return;
+      }
+
+      // Hash new password and update
+      const newHash = await bcrypt.hash(newPassword, 10);
+      const { _resetCode, _resetExpires, ...cleanProfile } = profile;
+      
+      await db.update(users).set({
+        passwordHash: newHash,
+        authMethod: "email",
+        profileData: cleanProfile,
+        updatedAt: new Date(),
+      }).where(eq(users.id, user.id));
+
+      res.json({ success: true, message: "Password has been reset successfully" });
+    } catch (error: any) {
+      console.error("[Auth] Reset password error:", error);
+      res.status(500).json({ error: "Failed to reset password" });
+    }
+  });
+  // GET /auth/google/redirect - Redirects to Google OAuth consent screen
+  app.get("/auth/google/redirect", (req: Request, res: Response) => {
+    const redirectUri = req.query.redirect_uri as string;
+    const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+    
+    if (!GOOGLE_CLIENT_ID) {
+      res.status(500).json({ error: "Google OAuth not configured" });
+      return;
+    }
+    
+    // Store the app's redirect URI in state so we can redirect back after auth
+    const state = Buffer.from(JSON.stringify({ redirect_uri: redirectUri })).toString("base64url");
+    
+    const googleAuthUrl = new URL("https://accounts.google.com/o/oauth2/v2/auth");
+    googleAuthUrl.searchParams.set("client_id", GOOGLE_CLIENT_ID);
+    googleAuthUrl.searchParams.set("redirect_uri", `${process.env.APP_URL || "https://api.rabbaanie.com"}/auth/google/callback`);
+    googleAuthUrl.searchParams.set("response_type", "code");
+    googleAuthUrl.searchParams.set("scope", "openid email profile");
+    googleAuthUrl.searchParams.set("state", state);
+    googleAuthUrl.searchParams.set("access_type", "offline");
+    googleAuthUrl.searchParams.set("prompt", "select_account");
+    
+    res.redirect(googleAuthUrl.toString());
+  });
+
+  // GET /auth/google/callback - Handles Google OAuth callback
+  app.get("/auth/google/callback", async (req: Request, res: Response) => {
+    try {
+      const { code, state } = req.query;
+      const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || "";
+      const GOOGLE_CLIENT_SECRET = process.env.GOOGLE_CLIENT_SECRET || "";
+      
+      if (!code || !state) {
+        res.status(400).json({ error: "Missing code or state" });
+        return;
+      }
+      
+      // Decode state to get the app's redirect URI
+      let appRedirectUri = "";
+      try {
+        const stateData = JSON.parse(Buffer.from(state as string, "base64url").toString());
+        appRedirectUri = stateData.redirect_uri || "";
+      } catch { /* ignore */ }
+      
+      // Exchange code for tokens
+      const tokenResponse = await fetch("https://oauth2.googleapis.com/token", {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({
+          code: code as string,
+          client_id: GOOGLE_CLIENT_ID,
+          client_secret: GOOGLE_CLIENT_SECRET,
+          redirect_uri: `${process.env.APP_URL || "https://api.rabbaanie.com"}/auth/google/callback`,
+          grant_type: "authorization_code",
+        }),
+      });
+      
+      const tokenData = await tokenResponse.json() as any;
+      if (!tokenData.access_token) {
+        console.error("[GoogleAuth] Token exchange failed:", tokenData);
+        res.status(400).json({ error: "Failed to exchange code for token" });
+        return;
+      }
+      
+      // Get user info from Google
+      const userInfoResponse = await fetch("https://www.googleapis.com/oauth2/v2/userinfo", {
+        headers: { Authorization: `Bearer ${tokenData.access_token}` },
+      });
+      const googleUser = await userInfoResponse.json() as any;
+      
+      if (!googleUser.email) {
+        res.status(400).json({ error: "Failed to get user info from Google" });
+        return;
+      }
+      
+      const db = await getDb();
+      if (!db) { res.status(500).json({ error: "Database unavailable" }); return; }
+      
+      // Check if user exists
+      let [user] = await db.select().from(users).where(eq(users.email, googleUser.email)).limit(1);
+      
+      if (!user) {
+        // Create new user
+        const openId = `google_${googleUser.id}`;
+        await db.insert(users).values({
+          openId,
+          name: googleUser.name || googleUser.email.split("@")[0],
+          email: googleUser.email,
+          authMethod: "google",
+          loginMethod: "google",
+          role: "user",
+          lastSignedIn: new Date(),
+        });
+        [user] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+      } else {
+        // Update last signed in
+        await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, user.id));
+      }
+      
+      // Create session token
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        expiresInMs: ONE_YEAR_MS,
+      });
+      
+      // Redirect back to the mobile app with token and user info
+      const userInfo = encodeURIComponent(JSON.stringify({
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        openId: user.openId,
+        role: user.role,
+      }));
+      
+      if (appRedirectUri) {
+        const separator = appRedirectUri.includes("?") ? "&" : "?";
+        res.redirect(`${appRedirectUri}${separator}token=${sessionToken}&user=${userInfo}`);
+      } else {
+        // Fallback: set cookie and redirect to dashboard
+        const cookieOptions = getSessionCookieOptions(req);
+        res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+        res.redirect("/dashboard");
+      }
+    } catch (error: any) {
+      console.error("[GoogleAuth] Callback error:", error);
+      res.status(500).json({ error: "Google authentication failed" });
+    }
   });
 }
 

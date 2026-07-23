@@ -458,6 +458,88 @@ function getMawsouahContext(focus: "general" | "treatment" | "weekplan", lang: s
   return context;
 }
 
+
+// ===== LIBRARY BOOK CONTEXT (سلسلة فقه الأسرة - 45 books) =====
+let cachedLibraryIndex: any[] | null = null;
+let cachedLibraryBooks: Map<number, any> = new Map();
+
+function getLibraryIndex(): any[] {
+  if (!cachedLibraryIndex) {
+    try {
+      const indexPath = resolveDataPath("library/index.json");
+      cachedLibraryIndex = JSON.parse(fs.readFileSync(indexPath, "utf-8"));
+    } catch (error) {
+      console.error("Failed to load library index:", error);
+      cachedLibraryIndex = [];
+    }
+  }
+  return cachedLibraryIndex!;
+}
+
+function getLibraryBook(bookId: number): any {
+  if (!cachedLibraryBooks.has(bookId)) {
+    try {
+      const bookPath = resolveDataPath(`library/book_${bookId}.json`);
+      cachedLibraryBooks.set(bookId, JSON.parse(fs.readFileSync(bookPath, "utf-8")));
+    } catch (error) {
+      return null;
+    }
+  }
+  return cachedLibraryBooks.get(bookId);
+}
+
+/**
+ * Get relevant library book context based on topic.
+ * Topics: "marriage" | "child" | "self" | "general" | "dawah"
+ * Returns relevant chapters from the 45-book library.
+ */
+export function getLibraryContext(topic: "marriage" | "child" | "self" | "general" | "dawah", childAge?: number): string {
+  const index = getLibraryIndex();
+  if (!index.length) return "";
+
+  // Map topics to book categories and IDs
+  const topicToBooks: Record<string, number[]> = {
+    self: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10],
+    marriage: [11, 12, 13, 14, 15, 16, 17, 18],
+    child: [19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 39, 40, 41, 42, 43],
+    dawah: [44],
+    general: [1, 4, 5, 7, 10, 19, 20, 25, 45],
+  };
+
+  const relevantBookIds = topicToBooks[topic] || topicToBooks.general;
+  let context = "\n=== مكتبة سلسلة فقه الأسرة (LIBRARY REFERENCE) ===\n";
+  let totalChars = 0;
+  const MAX_CHARS = 4000; // Limit context size
+
+  for (const bookId of relevantBookIds) {
+    if (totalChars >= MAX_CHARS) break;
+    const book = getLibraryBook(bookId);
+    if (!book) continue;
+
+    context += `\n--- كتاب ${book.id}: ${book.title_ar} ---\n`;
+    totalChars += 50;
+
+    // For each chapter, include title and first section content (truncated)
+    for (const chapter of (book.chapters || []).slice(0, 5)) {
+      if (totalChars >= MAX_CHARS) break;
+      if (chapter.title) {
+        context += `[${chapter.title}]\n`;
+        totalChars += chapter.title.length;
+      }
+      for (const section of (chapter.sections || []).slice(0, 3)) {
+        if (totalChars >= MAX_CHARS) break;
+        const content = (section.content || "").substring(0, 300);
+        if (content) {
+          context += content + "...\n";
+          totalChars += content.length;
+        }
+      }
+    }
+  }
+
+  return context;
+}
+
 // Load Hijri calendar data once and cache
 let cachedHijriCalendar: any = null;
 function getHijriCalendar() {
@@ -687,8 +769,7 @@ function loadTadhiemContext(ageYears: number, lang: string = "nl"): string {
       : "\n=== الطرق العملية التربوية الربانية لغرس تعظيم الله (METHODEN TA'DHIEM PER LEEFTIJD) ===\n";
     
     let ageGroup = "";
-    if (ageYears <= 2) ageGroup = "0-2";
-    else if (ageYears <= 4) ageGroup = "2-4";
+    if (ageYears <= 4) ageGroup = "2-4";
     else if (ageYears <= 6) ageGroup = "4-6";
     else if (ageYears <= 9) ageGroup = "7-9";
     else if (ageYears <= 12) ageGroup = "10-12";
@@ -729,31 +810,6 @@ function loadCorrectionContext(lang: string = "nl"): string {
   return context;
 }
 
-// Load book sources context for AI prompts
-function loadBookSourcesContext(lang: string = "nl"): string {
-  const kb = getKnowledgeBase();
-  const isAr = lang === "ar";
-  const isEn = lang === "en";
-  let context = "";
-
-  if (kb.books_sources && Array.isArray(kb.books_sources)) {
-    context += isAr
-      ? "\n=== الكتب المصدرية المعتمدة في التطبيق ===\n"
-      : isEn
-      ? "\n=== APPROVED SOURCE BOOKS IN THE APPLICATION ===\n"
-      : "\n=== GOEDGEKEURDE BRONBOEKEN IN DE APPLICATIE ===\n";
-    for (const book of kb.books_sources) {
-      const title = isAr ? book.title_ar : isEn ? book.title_en : book.title_nl;
-      context += `\n- ${title}: ${book.description}\n`;
-      if (book.topics) {
-        context += `  ${isAr ? "المواضيع" : isEn ? "Topics" : "Onderwerpen"}: ${book.topics.join(", ")}\n`;
-      }
-    }
-  }
-
-  return context;
-}
-
 // Build comprehensive knowledge context for weekly plan
 function buildWeekPlanContext(yearKey: string, ageYears: number, lang: string = "nl"): string {
   let context = "";
@@ -763,7 +819,6 @@ function buildWeekPlanContext(yearKey: string, ageYears: number, lang: string = 
   ], lang);
   context += loadYearContext(yearKey, lang);
   context += loadTadhiemContext(ageYears, lang);
-  context += loadBookSourcesContext(lang);
   return context.substring(0, 45000);
 }
 
@@ -779,7 +834,6 @@ function buildTreatmentContext(yearKey: string, ageYears: number, issue: string,
   context += loadCorrectionContext(lang);
   context += loadTadhiemContext(ageYears, lang);
   context += loadYearContext(yearKey, lang);
-  context += loadBookSourcesContext(lang);
   return context.substring(0, 50000);
 }
 
@@ -975,11 +1029,6 @@ export const adviceRouter = router({
         openAnswer: z.string().optional(),
         timestamp: z.string(),
       })).optional(),
-      childrenEnvironments: z.array(z.object({
-        childName: z.string(),
-        childAge: z.string().optional(),
-        environment: environmentSchema,
-      })).optional(),
     }))
     .mutation(async ({ input }) => {
       const kb = getKnowledgeBase();
@@ -1021,19 +1070,8 @@ export const adviceRouter = router({
           ` (${missedCount}/${recentPrayers.length} dagen niet alle 5 op tijd)`;
       }
       
-            // Build children environment context
-      let childrenEnvContext = "";
-      if (input.childrenEnvironments && input.childrenEnvironments.length > 0) {
-        const isAr2 = lang === "ar";
-        const isEn2 = lang === "en";
-        childrenEnvContext = "\n" + (isAr2 ? "=== تحليل بيئة الأطفال ===" : isEn2 ? "=== CHILDREN ENVIRONMENT ANALYSIS ===" : "=== OMGEVINGSANALYSE KINDEREN ===") + "\n";
-        for (const ce of input.childrenEnvironments) {
-          childrenEnvContext += `\n--- ${ce.childName} (${ce.childAge || ""}) ---\n`;
-          childrenEnvContext += buildFullEnvironmentInfo(ce.environment, lang);
-        }
-      }
-
       const mawsouahContext = getMawsouahContext("general", lang);
+      const libraryContext = getLibraryContext("general");
       
       const isEn = lang === "en";
       const isAr = lang === "ar";
@@ -1085,6 +1123,7 @@ export const adviceRouter = router({
 ${gezinskundeContext.substring(0, 2500)}
 
 ${mawsouahContext}
+${libraryContext}
 
 ${hijriCalendarContext}` : isEn ? `You are an Islamic parenting advisor. You provide GENERAL FAMILY ADVICE specific to this family, taking into account:
 - The time of year (season: ${input.season})
@@ -1126,6 +1165,7 @@ Use the methodology from Islamic Family Science:
 ${gezinskundeContext.substring(0, 2500)}
 
 ${mawsouahContext}
+${libraryContext}
 
 ${hijriCalendarContext}` : `Je bent een islamitische opvoedingsadviseur. Je geeft ALGEMENE GEZINSADVIEZEN die specifiek zijn voor dit gezin, rekening houdend met:
 - De tijd van het jaar (seizoen: ${input.season})
@@ -1167,6 +1207,7 @@ Gebruik de methodiek uit de Islamitische Gezinskunde:
 ${gezinskundeContext.substring(0, 2500)}
 
 ${mawsouahContext}
+${libraryContext}
 
 ${hijriCalendarContext}`;
 
@@ -1228,175 +1269,70 @@ Titelregels:
 - Voorbeelden: "Uw gebed vandaag... de sleutel tot barakah in uw gezin", "De schat van deze gezegende maand", "Pas op! Fitan die uw kinderen omringen"
 - icon moet een van deze zijn: mosque, star, shield, family, book, heart`;
 
-      const userPrompt = isAr ? `قدّم نصيحة شخصية مفصّلة ودقيقة جداً لهذه الأسرة لهذا اليوم.
+      const userPrompt = isAr ? `قدّم نصيحة عامة شخصية ومحددة للأسرة لهذا اليوم.
 
 ${parentInfo}
-${childrenEnvContext}
 ${checkinContext}
 
 عدد الأطفال: ${input.childrenCount}
-تفاصيل الأطفال: ${input.childrenAges.join("، ")}
+الأعمار: ${input.childrenAges.join("، ")}
 الموسم: ${input.season}
 الموقع: ${input.location}
 السياق الإسلامي اليوم: ${input.islamicContext || "لا يوجد يوم محدد"}
 التاريخ: ${new Date().toLocaleDateString("ar-SA", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
 الوقت: ${new Date().toLocaleTimeString("ar-SA", { hour: "2-digit", minute: "2-digit" })}
 
-أنشئ 6-8 أقسام مفصّلة بناءً على منهجية التصفية والتزكية والتربية:
+أنشئ 5-6 أقسام:
+1. صلتهم بالله اليوم (بناءً على حال صلاتهم واليوم الإسلامي ونتائج الاستبيان اليومي)
+2. توصيات محددة لهذا اليوم/الشهر الإسلامي (صيام، ذكر، صدقة، إلخ)
+3. أفعال ملموسة لليوم مع أطفالهم
+4. تحذير الفتن: حذّر من الفتن العامة في ${input.location} للسمع والبصر والقلب
+5. الأماكن الطيبة: أوصِ بالمساجد ودروس القرآن والحلقات في ${input.location}
+6. الحماية: كيف يحمون أنفسهم وأطفالهم
 
-1. تصفية الوالد (العقل/المعتقدات):
-   - افحص إجابات هذا الوالد أعلاه (دنكويزة الوالد)
-   - حدّد مبدأً خاطئاً محدداً يحمله هذا الوالد (من إجاباته الفعلية)
-   - قدّم المبدأ الصحيح بدليل من القرآن أو السنة
-   - اشرح كيف يطبّق هذا المبدأ اليوم بالضبط
-
-2. تزكية الوالد (القلب/المشاعر):
-   - افحص مشاعره تجاه الله والشريك والأولاد (من إجاباته)
-   - حدّد شعوراً يحتاج تطهيراً أو تقويةً
-   - أعطِ عملاً قلبياً محدداً لليوم
-
-3. تربية الوالد (السلوك/الأفعال):
-   - بناءً على إجاباته عن كلامه وسلوكه، حدّد سلوكاً يجب تغييره اليوم
-   - أعطِ فعلاً ملموساً مع الشريك ومع كل طفل باسمه
-
-4. التصفية للأطفال:
-   - لكل طفل باسمه وعمره: ما المبدأ الذي يجب تعليمه اليوم؟
-   - استخدم تحليل بيئة الطفل للتخصيص
-   - اذكر الطريقة العملية (متى، كيف، ماذا يقول)
-
-5. التزكية للأطفال:
-   - لكل طفل: ما الشعور الذي يجب تقويته في قلبه اليوم؟
-   - استخدم صفاته الجيدة والسيئة من تحليل البيئة
-
-6. التربية للأطفال (أفعال ملموسة):
-   - لكل طفل باسمه: فعل محدد يستخدم هواياته/اهتماماته
-   - اذكر الوقت والمكان والطريقة المناسبة
-
-7. تحذير الفتن:
-   - حذّر من فتن محددة في ${input.location} للسمع والبصر والقلب
-   - اربط بعمر كل طفل وبيئته الخاصة (استخدام الإعلام، الأصدقاء)
-
-8. الأماكن الطيبة والحماية:
-   - أوصِ بالمساجد والدروس والحلقات في ${input.location}
-
-قواعد صارمة:
-- كل قسم يجب أن يكون فقرتين على الأقل
-- اذكر أسماء الأطفال في كل قسم
-- استخدم كل إجابات الوالد وبيانات بيئة الأطفال
-- لا تكن عاماً أبداً - كل جملة يجب أن تكون خاصة بهذه الأسرة
-- اربط كل شيء برضا الله أو سخطه.${jsonFormatInstruction}` : isEn ? `Give a PERSONAL, SPECIFIC, and DETAILED family advice for today.
+كن محددًا وليس عامًا. استخدم وضعهم وسياق التقويم الإسلامي ونتائج الاستبيان اليومي.${jsonFormatInstruction}` : isEn ? `Give a PERSONAL and SPECIFIC general family advice for today.
 
 ${parentInfo}
-${childrenEnvContext}
 ${checkinContext}
 
 Number of children: ${input.childrenCount}
-Children details: ${input.childrenAges.join(", ")}
+Ages: ${input.childrenAges.join(", ")}
 Season: ${input.season}
 Location: ${input.location}
 Islamic context today: ${input.islamicContext || "no specific day"}
 Date: ${new Date().toLocaleDateString("en-US", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
 Time: ${new Date().toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit" })}
 
-Required: Create 6-8 DETAILED sections based on Tasfiya, Tazkiya, and Tarbiya methodology:
+Create 5-6 sections:
+1. Their bond with Allaah today (based on prayer situation, Islamic day, and daily check-in results)
+2. Specific recommendations for THIS Islamic day/month (fasting, dhikr, sadaqah, etc.)
+3. Concrete actions for today with their children
+4. FITAN WARNING: Warn against general fitan in ${input.location} for hearing, sight and heart
+5. GOOD PLACES: Recommend mosques, Qur’aan lessons, halaqaat in ${input.location}
+6. Protection: How to protect themselves and their children
 
-1. TASFIYA for the parent (mind/beliefs):
-   - Examine this parent's beliefs based on their answers above
-   - Identify a SPECIFIC wrong principle they hold (from their actual answers)
-   - Provide the correct principle with evidence from Qur'aan or Sunnah
-   - Explain how to apply this correct principle TODAY
-
-2. TAZKIYA for the parent (heart/feelings):
-   - Examine feelings towards Allaah, spouse, and children (from their answers)
-   - Identify a feeling that needs purification or strengthening
-   - Give a specific heart-action for today
-
-3. TARBIYA for the parent (behavior/actions):
-   - Based on their answers about speech and actions, identify a behavior to change today
-   - Give a concrete action with spouse and with each child by name
-
-4. TASFIYA for the children:
-   - For EACH child by name and age: what principle must be taught today?
-   - Use the child's environment analysis to personalize
-   - State the practical method (when, how, what to say)
-
-5. TAZKIYA for the children:
-   - For each child: what feeling must be strengthened in their heart today?
-   - Use their specific qualities and weaknesses from the environment analysis
-
-6. TARBIYA for the children (concrete actions):
-   - For each child by name: a specific action using their hobbies/interests
-   - State the appropriate time, place, and method
-
-7. FITAN WARNING:
-   - Warn against specific fitan in ${input.location} for hearing, sight, and heart
-   - Connect to each child's age and their specific environment (media use, friends)
-
-8. GOOD PLACES and Protection:
-   - Recommend mosques, lessons, halaqaat in ${input.location}
-
-STRICT RULES:
-- Each section must be AT LEAST two paragraphs
-- Mention children's names in every section
-- Use ALL the parent's answers AND children's environment data
-- NEVER be generic - every sentence must be specific to THIS family
-- Connect everything to Allaah's pleasure or displeasure.${jsonFormatInstruction}` : `Geef een PERSOONLIJK, SPECIFIEK en GEDETAILLEERD gezinsadvies voor vandaag.
+Be specific, not generic. Use their situation, Islamic calendar context, and daily check-in results.${jsonFormatInstruction}` : `Geef een PERSOONLIJK en SPECIFIEK algemeen gezinsadvies voor vandaag.
 
 ${parentInfo}
-${childrenEnvContext}
 ${checkinContext}
 
 Aantal kinderen: ${input.childrenCount}
-Kinderen in detail: ${input.childrenAges.join(", ")}
+Leeftijden: ${input.childrenAges.join(", ")}
 Seizoen: ${input.season}
 Locatie: ${input.location}
 Islamitische context vandaag: ${input.islamicContext || "geen specifieke dag"}
 Datum: ${new Date().toLocaleDateString("nl-NL", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
 Tijd: ${new Date().toLocaleTimeString("nl-NL", { hour: "2-digit", minute: "2-digit" })}
 
-Vereist: Maak 6-8 GEDETAILLEERDE secties gebaseerd op Tasfiya, Tazkiya en Tarbiya methodiek:
+Maak 5-6 secties:
+1. Hun band met Allaah vandaag (gebaseerd op gebedsituatie, islamitische dag, en dagelijkse check-in resultaten)
+2. Specifieke aanbevelingen voor DEZE islamitische dag/maand (vasten, dhikr, sadaqah, etc.)
+3. Concrete acties voor vandaag met hun kinderen
+4. FITAN-WAARSCHUWING: Waarschuw tegen fitan in ${input.location} voor gehoor, zicht en hart
+5. GOEDE PLEKKEN: Raad moskee\u00ebn, Qur’aan-lessen, halaqaat aan in ${input.location}
+6. Bescherming: Hoe zij zichzelf en hun kinderen moeten weren
 
-1. TASFIYA voor de ouder (verstand/overtuigingen):
-   - Onderzoek de overtuigingen op basis van hun antwoorden hierboven
-   - Identificeer een SPECIFIEK verkeerd principe (uit hun daadwerkelijke antwoorden)
-   - Geef het juiste principe met bewijs uit Qur'aan of Soennah
-   - Leg uit hoe dit VANDAAG toe te passen
-
-2. TAZKIYA voor de ouder (hart/gevoelens):
-   - Onderzoek de gevoelens jegens Allaah, partner en kinderen (uit hun antwoorden)
-   - Identificeer een gevoel dat gezuiverd of versterkt moet worden
-   - Geef een specifieke hart-actie voor vandaag
-
-3. TARBIYA voor de ouder (gedrag/acties):
-   - Identificeer een gedrag dat vandaag moet veranderen (uit hun antwoorden)
-   - Geef een concrete actie (met partner en met elk kind bij naam)
-
-4. TASFIYA voor de kinderen:
-   - Voor ELK kind bij naam en leeftijd: welk principe moet vandaag geleerd worden?
-   - Gebruik de omgevingsanalyse van het kind om te personaliseren
-   - Noem de praktische methode (wanneer, hoe, wat te zeggen)
-
-5. TAZKIYA voor de kinderen:
-   - Voor elk kind: welk gevoel moet vandaag versterkt worden in hun hart?
-   - Gebruik hun specifieke eigenschappen en zwaktes uit de omgevingsanalyse
-
-6. TARBIYA voor de kinderen (concrete acties):
-   - Voor elk kind bij naam: een specifieke actie met hun hobby's/interesses
-   - Noem het geschikte tijdstip, de plaats en de methode
-
-7. FITAN-WAARSCHUWING:
-   - Waarschuw tegen specifieke fitan in ${input.location} voor gehoor, zicht en hart
-   - Verbind aan de leeftijd van elk kind en hun specifieke omgeving (mediagebruik, vrienden)
-
-8. GOEDE PLEKKEN en Bescherming:
-   - Raad moskeeen, lessen, halaqaat aan in ${input.location}
-
-STRIKTE REGELS:
-- Elke sectie moet MINSTENS twee alinea's zijn
-- Noem namen van kinderen in elke sectie
-- Gebruik ALLE antwoorden van de ouder EN omgevingsdata van de kinderen
-- Wees NOOIT generiek - elke zin moet specifiek zijn voor DIT gezin
-- Verbind alles aan Allaah's tevredenheid of ongenoegen.${jsonFormatInstruction}`;
+Wees specifiek, niet generiek. Gebruik hun situatie, islamitische kalendercontext, en dagelijkse check-in resultaten.${jsonFormatInstruction}`;
 
       try {
         const result = await invokeLLM({
@@ -1406,7 +1342,7 @@ STRIKTE REGELS:
           ],
         });
 
-        const content = result.choices[0]?.message?.content;
+        const content = result;
         let rawText = typeof content === "string" ? content : Array.isArray(content) ? content.map((c: any) => "text" in c ? c.text : "").join("") : "";
         
         // Post-process Arabic to remove Dutch transliterations
@@ -1459,6 +1395,7 @@ STRIKTE REGELS:
       const ageYears = parseInt(input.childAge) || 5;
       const knowledgeContext = buildWeekPlanContext(input.yearKey, ageYears, lang);
       const mawsouahContext = getMawsouahContext("weekplan", lang);
+      const libraryContext = getLibraryContext("child");
       const parentInfo = buildFullParentInfo(input.parentProfile, lang);
       const environmentInfo = buildFullEnvironmentInfo(input.environment, lang);
 
@@ -1539,28 +1476,11 @@ STRIKTE REGELS:
 - ضمّن تأثير الوالد على الطفل (تفكير، شعور، كلام، سلوك)
 - استخدم نقاط قوة الوالد في النصيحة
 
-الخصال الفطرية حسب الفئات العمرية:
-راعِ المرحلة العمرية للطفل وخصائصها الفطرية:
-1. مرحلة الفطرة (0-7 سنوات): الطفل على فطرته النقية. التركيز على غرس حب الله ورسوله بالقدوة والقصة، تعليم الأذكار والآداب بالتكرار اللطيف، اللعب الهادف، عدم التشديد في العبادات بل التحبيب، تسيير خصلة الفضول بالإجابة الصادقة المبسطة، تسيير خصلة الحركة بالنشاط البدني المباح.
-2. مرحلة التمييز (7-10 سنوات): بداية التكليف التدريجي. التركيز على أمره بالصلاة، بناء عادة القرآن اليومي، تعليم الحلال والحرام بالدليل، تسيير خصلة المنافسة بالتحفيز الإيجابي، تسيير خصلة الاستقلال بإعطاء مسؤوليات مناسبة، التفريق في المضاجع.
-3. مرحلة التهيئة للبلوغ (10-14 سنة): بناء الهوية. التركيز على تعليم أحكام البلوغ والطهارة، بناء الولاء والبراء، تسيير خصلة البحث عن الهوية بربطه بالقدوات الإسلامية، تسيير خصلة الانتماء بتقوية صحبة الخير، ضربه على الصلاة إن تركها، حمايته من الشبهات والشهوات بالعلم والحوار.
-4. مرحلة التأسيس والزواج (15+ سنة): الرشد والمسؤولية. التركيز على تعليم العقيدة المفصلة والرد على الشبهات، إعداده للمسؤولية المالية والاجتماعية، تسيير خصلة الاستقلال الكامل بالمشورة لا الإجبار، تهيئته للزواج والأسرة، تقوية علاقته بأهل العلم.
-
-المصادر المعتمدة حصراً:
-لا تستشهد إلا بالمصادر التالية:
-- كتاب تعظيم الله (النسخة المنقحة) — المصدر الأساسي للتطبيقات العملية حسب الفئات العمرية (0-2، 2-4، 4-6، 7-9، 10-12، 13-15، 16-18)، أسماء الله الحسنى لكل فئة، الخصال الفطرية، المسارات الأربعة (التصفية، التزكية، تربية اللسان، تربية الجوارح)، أعمال القلوب ومنازلها
-- الكتب المرفوعة في قاعدة المعرفة (knowledge_base, gezinskunde, mawsouah)
-- كتب شيخ الإسلام ابن تيمية (مجموع الفتاوى، منهاج السنة، الاستقامة، تحفة المودود)
-- كتب ابن القيم الجوزية (تحفة المودود، مفتاح دار السعادة، إغاثة اللهفان، الجواب الكافي، مدارج السالكين)
-- كتب الشيخ محمد صالح المنجد (موقع الإسلام سؤال وجواب، سلسلة أعمال القلوب)
-- كتب الشيخ عبد الرزاق البدر (فقه الأدعية والأذكار، التبيان في آداب حملة القرآن)
-- القرآن الكريم والسنة النبوية الصحيحة وآثار السلف الصالح
-ممنوع منعاً باتاً الاستشهاد بعلم النفس الغربي أو نظرياته أو كتب التربية الحديثة الغربية أو أي مصدر غير إسلامي.
-
 قاعدة المعرفة:
 ${knowledgeContext}
 
 ${mawsouahContext}
+${libraryContext}
 
 قواعد إلزامية صارمة (يجب تطبيقها بدون استثناء):
 - يُحظر استخدام أي مصطلح من علم النفس الغربي أو الفلسفة أو البوذية أو الهندوسية أو العصر الجديد أو التربية الغربية. استخدم البدائل الإسلامية فقط: الروحانية→الإيمان، الذكاء العاطفي→الحلم وحسن الخلق، الاكتئاب→الحزن وضيق الصدر، التنمر→الظلم والإيذاء، الثقة بالنفس→الثقة بالله ثم بالنفس، إدارة الغضب→كظم الغيظ، التربية الإيجابية→التربية بالحب والحزم، النرجسية→الكبر والعجب، الفوبيا→الخوف الشديد، التأمل→التفكر والتدبر، قانون الجذب→الدعاء والأخذ بالأسباب.
@@ -1642,6 +1562,7 @@ KNOWLEDGE BASE:
 ${knowledgeContext}
 
 ${mawsouahContext}
+${libraryContext}
 
 IMPORTANT: You MUST respond ENTIRELY in English. Do not use any Dutch.` : `Je bent een islamitische opvoedingsadviseur gespecialiseerd in het programma "Islamitische Gezinskunde" (feb 2022 - juni 2025). 
 
@@ -1710,6 +1631,7 @@ KENNISBANK:
 ${knowledgeContext}
 
 ${mawsouahContext}
+${libraryContext}
 
 BELANGRIJK: Je MOET volledig in het Nederlands antwoorden.`;
 
@@ -1883,7 +1805,7 @@ BELANGRIJK - WERKVORMEN:
         ],
       });
 
-      const content = result.choices[0]?.message?.content;
+      const content = result;
       let plan = typeof content === "string" ? content : Array.isArray(content) ? content.map((c: any) => "text" in c ? c.text : "").join("") : "";
 
       // Post-process Arabic weekplan to remove Dutch transliterations
@@ -1980,7 +1902,7 @@ Retourneer een JSON object met sleutel "question" met alleen de eerste vraag.`;
           response_format: { type: "json_object" },
         });
 
-        const rawContent = qResult.choices[0]?.message?.content;
+        const rawContent = qResult;
         const qContent: string = typeof rawContent === "string" ? rawContent : Array.isArray(rawContent) ? rawContent.map((c: any) => "text" in c ? c.text : "").join("") : "";
         try {
           const parsed = JSON.parse(qContent);
@@ -2077,7 +1999,7 @@ Retourneer een JSON object met sleutel "question" met alleen de vraag.`;
             messages: [{ role: "user", content: refinePrompt }],
             response_format: { type: "json_object" },
           });
-          const rawRef = refineResult.choices[0]?.message?.content;
+          const rawRef = refineResult;
           const refContent: string = typeof rawRef === "string" ? rawRef : Array.isArray(rawRef) ? rawRef.map((c: any) => "text" in c ? c.text : "").join("") : "";
           const parsed = JSON.parse(refContent);
           let refinedQuestion = parsed.question || parsed.vraag || Object.values(parsed)[0] || "";
@@ -2153,7 +2075,7 @@ Als onvoldoende: return {"rootCauseFound": false, "missingInfo": "wat we nog moe
             messages: [{ role: "user", content: checkPrompt }],
             response_format: { type: "json_object" },
           });
-          const rawCheck = checkResult.choices[0]?.message?.content;
+          const rawCheck = checkResult;
           const checkContent: string = typeof rawCheck === "string" ? rawCheck : Array.isArray(rawCheck) ? rawCheck.map((c: any) => "text" in c ? c.text : "").join("") : "";
           const parsed = JSON.parse(checkContent);
           // Ensure nextQuestion is always a plain string
@@ -2183,6 +2105,7 @@ Als onvoldoende: return {"rootCauseFound": false, "missingInfo": "wat we nog moe
       const ageYears = parseInt(input.childAge) || 5;
       const treatmentContext = buildTreatmentContext(input.yearKey, ageYears, input.issue, lang);
       const mawsouahContext = getMawsouahContext("treatment", lang);
+      const libraryContext = getLibraryContext("child");
       const parentInfo = buildFullParentInfo(input.parentProfile, lang);
       const environmentInfo = buildFullEnvironmentInfo(input.environment, lang);
 
@@ -2581,7 +2504,7 @@ Neem de volledige gezinssituatie integraal mee.`;
         ],
       });
 
-      const content = result.choices[0]?.message?.content;
+      const content = result;
       let plan = typeof content === "string" ? content : Array.isArray(content) ? content.map((c: any) => "text" in c ? c.text : "").join("") : "";
 
       // Post-process Arabic plans to remove any Dutch transliterations that slipped through
@@ -2842,7 +2765,7 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
           { role: "user", content: userPrompt },
         ],
       });
-      const adviceContent = result.choices[0]?.message?.content;
+      const adviceContent = result;
       let adviceText = typeof adviceContent === "string" ? adviceContent : Array.isArray(adviceContent) ? adviceContent.map((c: any) => "text" in c ? c.text : "").join("") : "";
       // Post-process Arabic to remove Dutch transliterations
       if (isAr) {
@@ -2889,12 +2812,6 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
       return { success: true };
     }),
 
-  /**
-   * AI-generated quick tips (replaces hardcoded localAdvice).
-   * Uses: parent profile, children ages/environments, location, Hijri month,
-   * time of day, recent check-ins, unresolved issues, daily tip completions.
-   * Returns 5-7 short, actionable, personalized tips.
-   */
   getQuickTips: publicProcedure
     .input(z.object({
       parentProfile: parentProfileSchema,
@@ -2938,110 +2855,59 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
       let envInfo = "";
       if (input.childrenEnvironments && input.childrenEnvironments.length > 0) {
         for (const ce of input.childrenEnvironments) {
-          envInfo += `\n--- ${ce.childName} (${ce.childAge || "?"}) ---\n`;
+          envInfo += "\n--- " + ce.childName + " (" + (ce.childAge || "?") + ") ---\n";
           envInfo += buildFullEnvironmentInfo(ce.environment, lang);
         }
       }
 
-      // Build check-in context
       let checkinContext = "";
       if (input.dailyCheckin) {
         const c = input.dailyCheckin;
         checkinContext = isAr
-          ? `\nتقرير اليوم: الصلاة=${c.prayer}، المزاج=${c.mood}${c.openAnswer ? `، ملاحظة: ${c.openAnswer}` : ""}`
+          ? "\n\u062a\u0642\u0631\u064a\u0631 \u0627\u0644\u064a\u0648\u0645: \u0627\u0644\u0635\u0644\u0627\u0629=" + c.prayer + "\u060c \u0627\u0644\u0645\u0632\u0627\u062c=" + c.mood + (c.openAnswer ? "\u060c \u0645\u0644\u0627\u062d\u0638\u0629: " + c.openAnswer : "")
           : isEn
-          ? `\nToday's check-in: prayer=${c.prayer}, mood=${c.mood}${c.openAnswer ? `, note: ${c.openAnswer}` : ""}`
-          : `\nCheck-in vandaag: gebed=${c.prayer}, stemming=${c.mood}${c.openAnswer ? `, notitie: ${c.openAnswer}` : ""}`;
+          ? "\nToday check-in: prayer=" + c.prayer + ", mood=" + c.mood + (c.openAnswer ? ", note: " + c.openAnswer : "")
+          : "\nCheck-in vandaag: gebed=" + c.prayer + ", stemming=" + c.mood + (c.openAnswer ? ", notitie: " + c.openAnswer : "");
       }
       if (input.recentCheckins && input.recentCheckins.length > 1) {
-        const prayers = input.recentCheckins.map(c => c.prayer).join(", ");
-        const moods = input.recentCheckins.map(c => c.mood).join(", ");
+        const prayers = input.recentCheckins.map((c: any) => c.prayer).join(", ");
+        const moods = input.recentCheckins.map((c: any) => c.mood).join(", ");
         checkinContext += isAr
-          ? `\nآخر ${input.recentCheckins.length} أيام - الصلاة: ${prayers} | المزاج: ${moods}`
+          ? "\n\u0622\u062e\u0631 " + input.recentCheckins.length + " \u0623\u064a\u0627\u0645 - \u0627\u0644\u0635\u0644\u0627\u0629: " + prayers + " | \u0627\u0644\u0645\u0632\u0627\u062c: " + moods
           : isEn
-          ? `\nLast ${input.recentCheckins.length} days - prayer: ${prayers} | mood: ${moods}`
-          : `\nLaatste ${input.recentCheckins.length} dagen - gebed: ${prayers} | stemming: ${moods}`;
+          ? "\nLast " + input.recentCheckins.length + " days - prayer: " + prayers + " | mood: " + moods
+          : "\nLaatste " + input.recentCheckins.length + " dagen - gebed: " + prayers + " | stemming: " + moods;
       }
 
-      // Unresolved issues
       let issuesContext = "";
       if (input.unresolvedIssues && input.unresolvedIssues.length > 0) {
         issuesContext = isAr
-          ? `\nمشكلات لم تُحل بعد: ${input.unresolvedIssues.join(" | ")}`
+          ? "\n\u0645\u0634\u0643\u0644\u0627\u062a \u0644\u0645 \u062a\u064f\u062d\u0644 \u0628\u0639\u062f: " + input.unresolvedIssues.join(" | ")
           : isEn
-          ? `\nUnresolved issues: ${input.unresolvedIssues.join(" | ")}`
-          : `\nOnopgeloste problemen: ${input.unresolvedIssues.join(" | ")}`;
+          ? "\nUnresolved issues: " + input.unresolvedIssues.join(" | ")
+          : "\nOnopgeloste problemen: " + input.unresolvedIssues.join(" | ");
       }
 
-      // Time/location context
-      const hour = new Date().getHours();
       const timeLabel = isAr
-        ? (input.timeOfDay === "morning" ? "صباح" : input.timeOfDay === "afternoon" ? "ظهر" : "مساء")
+        ? (input.timeOfDay === "morning" ? "\u0635\u0628\u0627\u062d" : input.timeOfDay === "afternoon" ? "\u0638\u0647\u0631" : "\u0645\u0633\u0627\u0621")
         : isEn
         ? input.timeOfDay
         : (input.timeOfDay === "morning" ? "ochtend" : input.timeOfDay === "afternoon" ? "middag" : "avond");
 
-      // Hijri calendar context
       let hijriContext = "";
       if (input.hijriMonth) {
         hijriContext = getHijriCalendarContext(input.hijriMonth, input.hijriDay || 1, input.dayOfWeek || 0, lang);
       }
 
-      const systemPrompt = isAr ? `أنت مستشار تربوي إسلامي. مهمتك إنتاج 5-7 نصائح سريعة وعملية ومحددة جدًا.
-
-القواعد:
-- كل نصيحة جملة أو جملتان فقط (قصيرة جدًا)
-- كل نصيحة فعل ملموس يمكن تنفيذه الآن أو اليوم
-- النصائح مبنية على بيانات الوالد الحقيقية (صلاته، مزاجه، أطفاله، بيئتهم، مشاكلهم)
-- النصائح مناسبة للوقت الحالي (${timeLabel}) والموسم (${input.season}) والمكان (${input.location})
-- اذكر اسم المدينة (${input.location}) صراحةً في النصائح. اذكر مساجد معروفة في هذه المدينة بأسمائها، ومؤسسات إسلامية، وحلقات علم، ودروس قرآن في هذه المدينة
-- استخدم أسماء الأطفال الحقيقية
-- علّق كل نصيحة بالله (رضا الله، ثواب، حسنات)
-- لا تكرر نصائح عامة (لا "اقرأ القرآن" بدون تحديد)
-- كل نصيحة فريدة ومختلفة عن الأخرى
-- لا تستخدم أي حروف لاتينية أو رموز تنسيق
-- اكتب "الله" وليس "Allaah"
-
-أجب بصيغة JSON فقط:
-{"tips": ["نصيحة 1", "نصيحة 2", ...]}`
-      : isEn ? `You are an Islamic parenting advisor. Your task is to produce 5-7 quick, practical, highly specific tips.
-
-Rules:
-- Each tip is 1-2 sentences only (very short)
-- Each tip is a concrete action doable NOW or TODAY
-- Tips are based on the parent's real data (prayer, mood, children, environment, issues)
-- Tips are appropriate for current time (${timeLabel}), season (${input.season}), location (${input.location})
-- Mention the city name (${input.location}) explicitly in tips. Mention well-known mosques in this city by name, Islamic institutions, knowledge circles, and Qur'aan lessons in this city
-- Use the children's real names
-- Connect each tip to Allaah (His pleasure, reward, hasanaat)
-- No generic tips (not "read Qur'aan" without specifics)
-- Each tip is unique and different
-- Write "Allaah" with double 'a'. Arabic letter ع = '3'.
-
-Respond in JSON only:
-{"tips": ["tip 1", "tip 2", ...]}`
-      : `Je bent een islamitische opvoedadviseur. Je taak is 5-7 snelle, praktische, zeer specifieke tips te geven.
-
-Regels:
-- Elke tip is 1-2 zinnen (zeer kort)
-- Elke tip is een concrete actie die NU of VANDAAG uitvoerbaar is
-- Tips zijn gebaseerd op de echte data van de ouder (gebed, stemming, kinderen, omgeving, problemen)
-- Tips zijn passend bij het huidige moment (${timeLabel}), seizoen (${input.season}), locatie (${input.location})
-- Noem de stadsnaam (${input.location}) expliciet in tips. Noem bekende moskeeën in deze stad bij naam, islamitische instellingen, kenniskringen en Qur'aan-lessen in deze stad
-- Gebruik de echte namen van de kinderen
-- Verbind elke tip aan Allaah (Zijn tevredenheid, beloning, hasanaat)
-- Geen generieke tips (niet "lees Qur'aan" zonder specificatie)
-- Elke tip is uniek en anders
-- Schrijf "Allaah" met dubbele 'a'. Arabische letter ع = '3'.
-
-Antwoord alleen in JSON:
-{"tips": ["tip 1", "tip 2", ...]}`;
+      const systemPrompt = isAr ? "\u0623\u0646\u062a \u0645\u0633\u062a\u0634\u0627\u0631 \u062a\u0631\u0628\u0648\u064a \u0625\u0633\u0644\u0627\u0645\u064a. \u0645\u0647\u0645\u062a\u0643 \u0625\u0646\u062a\u0627\u062c 5-7 \u0646\u0635\u0627\u0626\u062d \u0633\u0631\u064a\u0639\u0629 \u0648\u0639\u0645\u0644\u064a\u0629 \u0648\u0645\u062d\u062f\u062f\u0629 \u062c\u062f\u064b\u0627.\n\n\u0627\u0644\u0642\u0648\u0627\u0639\u062f:\n- \u0643\u0644 \u0646\u0635\u064a\u062d\u0629 \u062c\u0645\u0644\u0629 \u0623\u0648 \u062c\u0645\u0644\u062a\u0627\u0646 \u0641\u0642\u0637\n- \u0643\u0644 \u0646\u0635\u064a\u062d\u0629 \u0641\u0639\u0644 \u0645\u0644\u0645\u0648\u0633 \u064a\u0645\u0643\u0646 \u062a\u0646\u0641\u064a\u0630\u0647 \u0627\u0644\u0622\u0646\n- \u0627\u0633\u062a\u062e\u062f\u0645 \u0623\u0633\u0645\u0627\u0621 \u0627\u0644\u0623\u0637\u0641\u0627\u0644 \u0627\u0644\u062d\u0642\u064a\u0642\u064a\u0629\n- \u0639\u0644\u0651\u0642 \u0643\u0644 \u0646\u0635\u064a\u062d\u0629 \u0628\u0627\u0644\u0644\u0647\n- \u0644\u0627 \u062a\u0643\u0631\u0631 \u0646\u0635\u0627\u0626\u062d \u0639\u0627\u0645\u0629\n- \u0627\u0643\u062a\u0628 \u0627\u0644\u0644\u0647 \u0648\u0644\u064a\u0633 Allaah\n\n\u0623\u062c\u0628 \u0628\u0635\u064a\u063a\u0629 JSON \u0641\u0642\u0637:\n{\"tips\": [\"\u0646\u0635\u064a\u062d\u0629 1\", \"\u0646\u0635\u064a\u062d\u0629 2\", ...]}"
+        : isEn ? "You are an Islamic parenting advisor. Produce 5-7 quick, practical, specific tips.\n\nRules:\n- Each tip 1-2 sentences only\n- Concrete action doable NOW\n- Use children real names\n- Connect to Allaah\n- No generic tips\n- Write Allaah with double a\n\nRespond JSON only:\n{\"tips\": [\"tip 1\", \"tip 2\", ...]}"
+        : "Je bent een islamitische opvoedadviseur. Geef 5-7 snelle, praktische, specifieke tips.\n\nRegels:\n- Elke tip 1-2 zinnen\n- Concrete actie NU uitvoerbaar\n- Gebruik echte namen kinderen\n- Verbind aan Allaah\n- Geen generieke tips\n- Schrijf Allaah met dubbele a\n\nAntwoord alleen JSON:\n{\"tips\": [\"tip 1\", \"tip 2\", ...]}";
 
       const userPrompt = isAr
-        ? `بناءً على المعلومات التالية، أعطني 5-7 نصائح سريعة عملية الآن:\n\nالوقت: ${timeLabel}\nالموسم: ${input.season}\nالمكان: ${input.location}\nالأطفال: ${input.childrenAges.join("، ")}\n${parentInfo}\n${envInfo}${checkinContext}${issuesContext}${hijriContext}`
+        ? "\u0628\u0646\u0627\u0621\u064b \u0639\u0644\u0649 \u0627\u0644\u0645\u0639\u0644\u0648\u0645\u0627\u062a \u0627\u0644\u062a\u0627\u0644\u064a\u0629\u060c \u0623\u0639\u0637\u0646\u064a 5-7 \u0646\u0635\u0627\u0626\u062d \u0633\u0631\u064a\u0639\u0629:\n\n\u0627\u0644\u0648\u0642\u062a: " + timeLabel + "\n\u0627\u0644\u0645\u0648\u0633\u0645: " + input.season + "\n\u0627\u0644\u0645\u0643\u0627\u0646: " + input.location + "\n\u0627\u0644\u0623\u0637\u0641\u0627\u0644: " + input.childrenAges.join(", ") + "\n" + parentInfo + "\n" + envInfo + checkinContext + issuesContext + hijriContext
         : isEn
-        ? `Based on the following, give me 5-7 quick practical tips for right now:\n\nTime: ${timeLabel}\nSeason: ${input.season}\nLocation: ${input.location}\nChildren: ${input.childrenAges.join(", ")}\n${parentInfo}\n${envInfo}${checkinContext}${issuesContext}${hijriContext}`
-        : `Op basis van het volgende, geef mij 5-7 snelle praktische tips voor nu:\n\nTijd: ${timeLabel}\nSeizoen: ${input.season}\nLocatie: ${input.location}\nKinderen: ${input.childrenAges.join(", ")}\n${parentInfo}\n${envInfo}${checkinContext}${issuesContext}${hijriContext}`;
+        ? "Based on the following, give 5-7 quick practical tips:\n\nTime: " + timeLabel + "\nSeason: " + input.season + "\nLocation: " + input.location + "\nChildren: " + input.childrenAges.join(", ") + "\n" + parentInfo + "\n" + envInfo + checkinContext + issuesContext + hijriContext
+        : "Op basis van het volgende, geef 5-7 snelle praktische tips:\n\nTijd: " + timeLabel + "\nSeizoen: " + input.season + "\nLocatie: " + input.location + "\nKinderen: " + input.childrenAges.join(", ") + "\n" + parentInfo + "\n" + envInfo + checkinContext + issuesContext + hijriContext;
 
       try {
         const result = await invokeLLM({
@@ -3054,14 +2920,12 @@ Antwoord alleen in JSON:
         const content = result;
         let rawText = typeof content === "string" ? content : "";
 
-        // Post-process
         if (isAr) {
           rawText = sanitizeArabicText(rawText);
         } else {
           rawText = correctTranscription(rawText, isEn ? "en" : "nl");
         }
 
-        // Parse JSON tips
         try {
           let jsonStr = rawText.trim();
           if (jsonStr.startsWith("```")) {
@@ -3072,17 +2936,18 @@ Antwoord alleen in JSON:
             return { tips: parsed.tips };
           }
         } catch (parseErr) {
-          // Fallback: split by newlines
-          const lines = rawText.split("\n").filter(l => l.trim().length > 10).map(l => l.replace(/^[\d\-\*\.]+\s*/, "").trim());
+          const lines = rawText.split("\n").filter((l: string) => l.trim().length > 10).map((l: string) => l.replace(/^[\d\-\*\.]+\s*/, "").trim());
           if (lines.length > 0) {
             return { tips: lines.slice(0, 7) };
           }
         }
 
-        return { tips: [isAr ? "ابدأ يومك بذكر الله والدعاء لأولادك بالهداية والصلاح." : isEn ? "Start your day by remembering Allaah and making du'aa for your children's guidance." : "Begin uw dag met het gedenken van Allaah en maak du'aa voor de leiding van uw kinderen."] };
+        return { tips: [isAr ? "\u0627\u0628\u062f\u0623 \u064a\u0648\u0645\u0643 \u0628\u0630\u0643\u0631 \u0627\u0644\u0644\u0647 \u0648\u0627\u0644\u062f\u0639\u0627\u0621 \u0644\u0623\u0648\u0644\u0627\u062f\u0643." : isEn ? "Start your day by remembering Allaah and making du'aa for your children." : "Begin uw dag met het gedenken van Allaah en maak du'aa voor uw kinderen."] };
       } catch (error) {
         console.error("Quick tips error:", error);
-        return { tips: [isAr ? "ابدأ يومك بذكر الله والدعاء لأولادك بالهداية والصلاح." : isEn ? "Start your day by remembering Allaah and making du'aa for your children's guidance." : "Begin uw dag met het gedenken van Allaah en maak du'aa voor de leiding van uw kinderen."] };
+        return { tips: [isAr ? "\u0627\u0628\u062f\u0623 \u064a\u0648\u0645\u0643 \u0628\u0630\u0643\u0631 \u0627\u0644\u0644\u0647." : isEn ? "Start your day by remembering Allaah." : "Begin uw dag met het gedenken van Allaah."] };
       }
     }),
+
+
 });

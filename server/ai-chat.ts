@@ -9,8 +9,24 @@
  */
 
 import { z } from "zod";
+import { getLibraryContext } from "./advice";
 import { router, publicProcedure } from "./_core/trpc";
 import { invokeAI, invokeAIChat, getAIProviderStatus, type AIMessage as ProviderMessage } from "./ai-provider";
+
+// Determine library topic from user message for context injection
+function detectLibraryTopic(message: string): "marriage" | "child" | "self" | "general" | "dawah" {
+  const marriageKeywords = ["زواج", "زوج", "زوجة", "خطبة", "طلاق", "نكاح", "مهر", "عقد", "huwelijk", "marriage", "echtgenoot", "trouwen", "scheiding"];
+  const childKeywords = ["طفل", "ولد", "تربية", "أطفال", "ابن", "بنت", "مراهق", "رضيع", "kind", "opvoeding", "child", "kinderen", "baby", "puber"];
+  const selfKeywords = ["نفس", "إخلاص", "صبر", "توحيد", "إيمان", "تعظيم", "قلب", "zelf", "geduld", "self", "iman", "tawheed"];
+  const dawahKeywords = ["دعوة", "أمر بالمعروف", "نهي عن المنكر", "dawah", "da3wa"];
+  
+  const lower = message.toLowerCase();
+  if (marriageKeywords.some(k => lower.includes(k))) return "marriage";
+  if (childKeywords.some(k => lower.includes(k))) return "child";
+  if (selfKeywords.some(k => lower.includes(k))) return "self";
+  if (dawahKeywords.some(k => lower.includes(k))) return "dawah";
+  return "general";
+}
 
 // ============================================================
 // SYSTEM PROMPTS
@@ -479,8 +495,20 @@ export const aiChatRouter = router({
       }));
 
       // Get AI response with conversation history
-      const response = await invokeAIChat(
-        systemPrompt,
+      // Inject library book context based on user's question topic
+      const userMsgForTopic = input.message || "";
+      const libTopic = (() => {
+        const lower = userMsgForTopic.toLowerCase();
+        const marriageKw = ["زواج", "زوج", "زوجة", "خطبة", "طلاق", "نكاح", "huwelijk", "marriage", "trouwen", "scheiding"];
+        const childKw = ["طفل", "ولد", "تربية", "أطفال", "ابن", "بنت", "مراهق", "kind", "opvoeding", "child", "kinderen", "puber"];
+        const selfKw = ["نفس", "إخلاص", "صبر", "توحيد", "إيمان", "تعظيم", "zelf", "geduld", "self", "iman"];
+        if (marriageKw.some(k => lower.includes(k))) return "marriage" as const;
+        if (childKw.some(k => lower.includes(k))) return "child" as const;
+        if (selfKw.some(k => lower.includes(k))) return "self" as const;
+        return "general" as const;
+      })();
+      const libraryBookContext = getLibraryContext(libTopic);
+      const response = await invokeAIChat(systemPrompt + "\n" + libraryBookContext,
         history,
         input.message
       );

@@ -75,3 +75,10 @@ local-docs/
 # local secrets — never commit
 .env
 .env.*
+!.env.example
+
+# Large asset data (~168MB) — synced from the production VM via
+# scripts/sync-local-data.sh, NOT versioned (see LOCAL_SETUP.md).
+/assets/data/library/
+/assets/data/tarbiya/
+/assets/data/years/
