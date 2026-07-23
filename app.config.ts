@@ -38,18 +38,21 @@ const env = {
   androidPackage: bundleId,
 };
 
-// Dev-build fallbacks when no release tag drives the build. versionCode uses
-// the same formula as the release workflow so the two can never diverge.
-const FALLBACK_VERSION = "1.2.0";
-const [fbMajor, fbMinor, fbPatch] = FALLBACK_VERSION.split(".").map(Number);
-const FALLBACK_VERSION_CODE = fbMajor * 1_000_000 + fbMinor * 1_000 + fbPatch;
+// APP_VERSION comes from the release tag in CI (see release.yml); the fallback
+// applies to local dev builds only. Numbering continues from Manus 1.1.29.
+// versionCode is ALWAYS derived from the version here, so name and code can
+// never diverge and a missing/empty env var can't yield an invalid 0.
+const APP_VERSION = process.env.APP_VERSION ?? "1.2.0";
+const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
+if (![vMajor, vMinor, vPatch].every((n) => Number.isInteger(n))) {
+  throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH, got "${APP_VERSION}"`);
+}
+const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
 
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  // Version comes from the release tag in CI (see .github/workflows/release.yml);
-  // fallbacks apply to local dev builds only. Numbering continues from Manus 1.1.29.
-  version: process.env.APP_VERSION ?? FALLBACK_VERSION,
+  version: APP_VERSION,
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
@@ -72,7 +75,7 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
-    versionCode: Number(process.env.APP_VERSION_CODE ?? FALLBACK_VERSION_CODE),
+    versionCode: APP_VERSION_CODE,
     permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES"],
     intentFilters: [
       {
