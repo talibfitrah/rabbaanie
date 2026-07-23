@@ -29,3 +29,21 @@ export function pickApkAsset(assets: ReleaseAsset[]): string | null {
   const apk = assets.find((a) => a.name.endsWith(".apk"));
   return apk ? apk.browser_download_url : null;
 }
+
+export type PendingUpdate = { version: string; apkUrl: string };
+
+/**
+ * The full update decision: given the GitHub "latest release" payload and the
+ * installed version, return what to download — or null when there is nothing
+ * newer, the tag is malformed, or the release carries no APK.
+ */
+export function evaluateRelease(
+  release: { tag_name: string; assets?: ReleaseAsset[] },
+  currentVersion: string
+): PendingUpdate | null {
+  const version = parseTag(release.tag_name);
+  if (version === null) return null;
+  const apkUrl = pickApkAsset(release.assets ?? []);
+  if (apkUrl === null) return null;
+  return isNewerVersion(version, currentVersion) ? { version, apkUrl } : null;
+}

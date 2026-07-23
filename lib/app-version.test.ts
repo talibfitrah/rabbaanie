@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { isNewerVersion, parseTag, pickApkAsset } from "./app-version";
+import { evaluateRelease, isNewerVersion, parseTag, pickApkAsset } from "./app-version";
 
 describe("parseTag", () => {
   it("strips the v prefix from a release tag", () => {
@@ -45,5 +45,29 @@ describe("pickApkAsset", () => {
   it("returns null when no .apk asset exists", () => {
     expect(pickApkAsset([])).toBeNull();
     expect(pickApkAsset([{ name: "notes.md", browser_download_url: "https://x/notes.md" }])).toBeNull();
+  });
+});
+
+describe("evaluateRelease", () => {
+  const asset = { name: "rabbaanie-v1.3.0.apk", browser_download_url: "https://x/rabbaanie-v1.3.0.apk" };
+
+  it("returns the pending update when the release is newer and has an APK", () => {
+    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [asset] }, "1.2.0")).toEqual({
+      version: "1.3.0",
+      apkUrl: asset.browser_download_url,
+    });
+  });
+  it("returns null for a malformed tag", () => {
+    expect(evaluateRelease({ tag_name: "nightly", assets: [asset] }, "1.2.0")).toBeNull();
+  });
+  it("returns null when the release has no APK asset", () => {
+    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [] }, "1.2.0")).toBeNull();
+  });
+  it("returns null when assets are missing from the API payload", () => {
+    expect(evaluateRelease({ tag_name: "v1.3.0" }, "1.2.0")).toBeNull();
+  });
+  it("returns null when the release is equal or older", () => {
+    expect(evaluateRelease({ tag_name: "v1.2.0", assets: [asset] }, "1.2.0")).toBeNull();
+    expect(evaluateRelease({ tag_name: "v1.1.9", assets: [asset] }, "1.2.0")).toBeNull();
   });
 });

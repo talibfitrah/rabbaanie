@@ -21,7 +21,8 @@ import * as Notifications from "expo-notifications";
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
 import { AppProvider } from "@/lib/app-context";
-import { I18nProvider } from "@/lib/i18n";
+import { I18nProvider, useI18n } from "@/lib/i18n";
+import { useUpdates } from "@/hooks/use-updates";
 import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { scheduleIqamahSilence, handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { setupDailyAdviceChannel, scheduleDailyAdviceNotification, showAdviceWidget } from "@/lib/daily-advice-notification";
@@ -141,6 +142,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }
 
   return <View style={{ flex: 1 }}>{children}</View>;
+}
+
+// Mounts the silent launch check for APK updates (dialog on new release).
+// The Settings screen mounts its own useUpdates instance for the manual check.
+function UpdateCheck() {
+  const { language } = useI18n();
+  useUpdates(language, true);
+  return null;
 }
 
 export default function RootLayout() {
@@ -470,6 +479,7 @@ export default function RootLayout() {
       <trpc.Provider client={trpcClient} queryClient={queryClient}>
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
+            <UpdateCheck />
             <AppProvider>
               <AuthProvider>
               <AuthGate>

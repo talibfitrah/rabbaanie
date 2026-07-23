@@ -3,13 +3,20 @@ import { Alert, Platform } from "react-native";
 import * as Application from "expo-application";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import { isNewerVersion, parseTag, pickApkAsset, type ReleaseAsset } from "@/lib/app-version";
+import { evaluateRelease, type PendingUpdate } from "@/lib/app-version";
 
 const LATEST_RELEASE_URL =
   "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
 const CHECK_TIMEOUT_MS = 10_000;
+// Cached download filename convention — the cleanup on launch must match
+// whatever downloadAndApplyUpdate writes.
+const APK_PREFIX = "rabbaanie-v";
 // Android grants read access on the content:// URI to the installer.
 const FLAG_GRANT_READ_URI_PERMISSION = 1;
+
+// Shared across hook instances (root layout + settings screen): never run two
+// downloads writing the same file, no matter which screen started the first.
+let downloadInFlight = false;
 
 export interface UpdateState {
   isChecking: boolean;
@@ -21,13 +28,15 @@ export interface UpdateState {
   error: string | null;
 }
 
-type PendingUpdate = { version: string; apkUrl: string };
-
 /**
- * In-app APK updater. Checks the repo's latest GitHub Release on mount and
- * on demand; on confirmation downloads the APK and opens Android's installer.
+ * In-app APK updater. Checks the repo's latest GitHub Release and, on
+ * confirmation, downloads the APK and opens Android's installer.
+ *
+ * Mount with autoCheck=true exactly once (root layout) — that instance runs
+ * the silent launch check and cleans up leftover APK downloads. Other mounts
+ * (Settings) provide the manual check button and status display.
  */
-export function useUpdates(language: string = "ar") {
+export function useUpdates(language: string = "ar", autoCheck: boolean = false) {
   const [state, setState] = useState<UpdateState>({
     isChecking: false,
     isDownloading: false,
@@ -38,35 +47,43 @@ export function useUpdates(language: string = "ar") {
     error: null,
   });
   const pendingRef = useRef<PendingUpdate | null>(null);
-  const downloadInFlightRef = useRef(false);
+  // Alerts can fire long after mount (3s launch check, slow network); read the
+  // language at alert time, not at closure-creation time.
+  const languageRef = useRef(language);
+  languageRef.current = language;
 
-  const tx = (nl: string, en: string, ar: string) =>
-    language === "ar" ? ar : language === "en" ? en : nl;
+  const tx = (nl: string, en: string, ar: string) => {
+    const lang = languageRef.current;
+    return lang === "ar" ? ar : lang === "en" ? en : nl;
+  };
 
   const downloadAndApplyUpdate = useCallback(async () => {
     const pending = pendingRef.current;
     if (__DEV__ || Platform.OS !== "android" || !pending) return;
-    // The launch-check dialog and a manual Settings check can both be open;
-    // never run two downloads writing the same file.
-    if (downloadInFlightRef.current) return;
-    downloadInFlightRef.current = true;
+    if (downloadInFlight) return;
+    downloadInFlight = true;
 
     setState((s) => ({ ...s, isDownloading: true, downloadProgress: 0, error: null }));
 
-    const fileUri = `${FileSystem.cacheDirectory}rabbaanie-v${pending.version}.apk`;
+    const fileUri = `${FileSystem.cacheDirectory}${APK_PREFIX}${pending.version}.apk`;
     try {
       const info = await FileSystem.getInfoAsync(fileUri);
       if (!info.exists) {
+        let lastPercent = -1;
         const download = FileSystem.createDownloadResumable(
           pending.apkUrl,
           fileUri,
           {},
           (p) => {
             const total = p.totalBytesExpectedToWrite;
-            setState((s) => ({
-              ...s,
-              downloadProgress: total > 0 ? p.totalBytesWritten / total : 0,
-            }));
+            if (total <= 0) return;
+            // Update at whole-percent steps only — every tick would re-render
+            // the consuming screen hundreds of times per download.
+            const percent = Math.floor((p.totalBytesWritten / total) * 100);
+            if (percent !== lastPercent) {
+              lastPercent = percent;
+              setState((s) => ({ ...s, downloadProgress: percent / 100 }));
+            }
           }
         );
         const result = await download.downloadAsync();
@@ -76,7 +93,8 @@ export function useUpdates(language: string = "ar") {
       }
 
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
-      // Not in the ActivityAction enum; the raw Android action string is accepted.
+      // INSTALL_PACKAGE is not in the ActivityAction enum; the raw Android
+      // action string is accepted.
       await IntentLauncher.startActivityAsync(
         "android.intent.action.INSTALL_PACKAGE",
         {
@@ -101,23 +119,34 @@ export function useUpdates(language: string = "ar") {
         )
       );
     } finally {
-      downloadInFlightRef.current = false;
+      downloadInFlight = false;
       setState((s) => ({ ...s, isDownloading: false }));
     }
-  }, [language]);
+  }, []);
 
   const checkForUpdate = useCallback(
     async (silent: boolean = false) => {
       if (__DEV__ || Platform.OS !== "android") {
         if (!silent) {
-          Alert.alert(
-            tx("Ontwikkelmodus", "Development Mode", "وضع التطوير"),
-            tx(
-              "Updates zijn niet beschikbaar in de ontwikkelmodus.",
-              "Updates are not available in development mode.",
-              "التحديثات غير متاحة في وضع التطوير."
-            )
-          );
+          if (__DEV__) {
+            Alert.alert(
+              tx("Ontwikkelmodus", "Development Mode", "وضع التطوير"),
+              tx(
+                "Updates zijn niet beschikbaar in de ontwikkelmodus.",
+                "Updates are not available in development mode.",
+                "التحديثات غير متاحة في وضع التطوير."
+              )
+            );
+          } else {
+            Alert.alert(
+              tx("Niet beschikbaar", "Not Available", "غير متاح"),
+              tx(
+                "Updates zijn alleen beschikbaar in de Android-app.",
+                "Updates are only available in the Android app.",
+                "التحديثات متاحة فقط في تطبيق أندرويد."
+              )
+            );
+          }
         }
         return;
       }
@@ -127,7 +156,7 @@ export function useUpdates(language: string = "ar") {
       try {
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
-        let release: { tag_name: string; assets: ReleaseAsset[] };
+        let release: { tag_name: string; assets?: { name: string; browser_download_url: string }[] };
         try {
           const res = await fetch(LATEST_RELEASE_URL, {
             signal: controller.signal,
@@ -139,24 +168,17 @@ export function useUpdates(language: string = "ar") {
           clearTimeout(timeout);
         }
 
-        const latest = parseTag(release.tag_name);
-        const apkUrl = latest ? pickApkAsset(release.assets ?? []) : null;
         const current = Application.nativeApplicationVersion ?? "0.0.0";
-
-        if (latest !== null && apkUrl !== null && isNewerVersion(latest, current)) {
-          pendingRef.current = { version: latest, apkUrl };
-        } else {
-          pendingRef.current = null;
-        }
-        const hasUpdate = pendingRef.current !== null;
+        const pending = evaluateRelease(release, current);
+        pendingRef.current = pending;
         setState((s) => ({
           ...s,
           isChecking: false,
-          isUpdateAvailable: hasUpdate,
+          isUpdateAvailable: pending !== null,
           lastChecked: new Date(),
         }));
 
-        if (hasUpdate) {
+        if (pending !== null) {
           Alert.alert(
             tx("Update beschikbaar", "Update Available", "تحديث متاح"),
             tx(
@@ -196,13 +218,13 @@ export function useUpdates(language: string = "ar") {
         }
       }
     },
-    [language, downloadAndApplyUpdate]
+    [downloadAndApplyUpdate]
   );
 
-  // On launch: clean up APKs left by previous sessions, then check silently
-  // after a 3s delay so the app finishes loading first.
+  // Launch instance only: clean up APKs left by previous sessions, then check
+  // silently after a 3s delay so the app finishes loading first.
   useEffect(() => {
-    if (__DEV__ || Platform.OS !== "android") return;
+    if (!autoCheck || __DEV__ || Platform.OS !== "android") return;
 
     (async () => {
       try {
@@ -211,7 +233,7 @@ export function useUpdates(language: string = "ar") {
         const entries = await FileSystem.readDirectoryAsync(dir);
         await Promise.all(
           entries
-            .filter((name) => /^rabbaanie-v.+\.apk$/.test(name))
+            .filter((name) => name.startsWith(APK_PREFIX) && name.endsWith(".apk"))
             .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }))
         );
       } catch {
