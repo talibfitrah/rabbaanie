@@ -49,7 +49,9 @@ let store: UpdateState = {
 let pending: PendingUpdate | null = null;
 // Updated on every render; alerts fire in whatever language the app is in now.
 let currentLanguage = "ar";
-let launchCheckStarted = false;
+// Set true only when the silent launch check actually fires, so a remount
+// before the 3s delay re-arms the timer instead of losing the check.
+let launchCheckDone = false;
 
 const listeners = new Set<() => void>();
 const subscribe = (l: () => void) => {
@@ -277,8 +279,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
   // Launch instance only: sweep leftover APK downloads, then check silently
   // after a 3s delay so the app finishes loading first. Guarded to run once.
   useEffect(() => {
-    if (!autoCheck || __DEV__ || Platform.OS !== "android" || launchCheckStarted) return;
-    launchCheckStarted = true;
+    if (!autoCheck || __DEV__ || Platform.OS !== "android" || launchCheckDone) return;
 
     (async () => {
       try {
@@ -307,6 +308,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
     })();
 
     const timer = setTimeout(() => {
+      launchCheckDone = true;
       checkForUpdate(true);
     }, 3000);
     return () => clearTimeout(timer);
