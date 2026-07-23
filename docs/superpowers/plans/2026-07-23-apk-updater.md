@@ -672,6 +672,44 @@ Run the full pipeline over the cumulative diff `main...telegram-dev` before anyt
 - Extra prerequisite commit: `assets/data/library/` (45 book JSONs + index + covers, 33 MB) was never committed to the repo and was restored from the production checkout `/home/murabbie/rabbaanie-api/assets/data/library/` — without it Metro cannot bundle any release.
 - Pre-existing, unrelated to this feature (left for the review-pipeline findings list): 16 failing tests in `tests/` (content-enrichment assertions against data that was never committed, plus 2 env/network-dependent `api-base-url` tests).
 
+### Review outcome (9-stage pipeline, 2026-07-23)
+
+All coding tasks (1-5) implemented and put through the mandatory 9-stage review:
+bloat audit (pre/post), baseline (tsc clean, 14 updater tests green, 16
+pre-existing data/network failures unchanged), code review + 2 specialists,
+`/cso` security review, two adversarial passes (Claude subagent + codex), and
+7 cubic rounds. Cubic reached no-new-P0/P1 from round 3 onward (the one P1 —
+a `useSyncExternalStore` server-snapshot regression breaking the web static
+export — was found and fixed in round 2). ~15 findings were fixed across the
+fix batches; the commits above record them.
+
+**Documented deferrals (non-blocking, no P0/P1 open):**
+- **versionCode / signing continuity from Manus 1.1.29 (P2):** moot. Our new
+  signing key differs from Manus's, so Android forces the accepted uninstall/
+  reinstall migration regardless of versionCode; all our future versionCodes
+  are monotonic from 1002000. Nothing to install "over". Verify against a real
+  1.1.29 APK only if the migration model ever changes.
+- **`assets/data/library/cover_urls.json` completeness (P2/P3):** pre-existing.
+  Byte-identical to the production API data; only ~9-14 of 45 books have covers
+  there too. Restored verbatim so the app builds (lib/book-data.ts imports it).
+  Completing the covers is a separate data task for the owner, not updater scope.
+- **Manual check during the 3s launch-check window (P3):** a manual "Check for
+  Updates" tapped in the brief window while the silent launch check runs shares
+  its in-flight state and may not show its own "up to date" confirmation (the
+  button still shows "Checking…", and an available update still alerts). Narrow;
+  a correct fix risks reintroducing double-alerts. Follow-up if it bites.
+- **Unauthenticated GitHub API rate limit, 60/hr/IP (P3):** fine at current
+  scale; add `If-None-Match`/ETag or a min-interval throttle before growth.
+- **"Update available" re-prompts each launch after "Later" (P3):** acceptable
+  for the rollout (we want prompt updates); add a snooze/"skip this version"
+  later if reflexive dismissal becomes a problem.
+- **Signer-fingerprint pin in CI:** cannot pin before v1.2.0 exists. After the
+  first release, add the `apksigner verify` fingerprint assertion (commented in
+  release.yml) so a wrong/rotated keystore fails the build.
+- **Pre-existing, flagged for owner (not touched):** unused `isEn` prop on
+  `UpdateSection` in settings.tsx; 16 pre-existing failing tests in `tests/`
+  (content-enrichment data + env/network `api-base-url`), unrelated to this work.
+
 ### Task 7: Ship v1.2.0
 
 **Depends on:** the user having added the four GitHub secrets (Task 4 Step 3).
