@@ -70,11 +70,15 @@ const tx = (nl: string, en: string, ar: string) =>
   currentLanguage === "ar" ? ar : currentLanguage === "en" ? en : nl;
 
 async function downloadAndApplyUpdate() {
-  if (__DEV__ || Platform.OS !== "android" || !pending) return;
+  // Snapshot the target: a check completing mid-download can reassign or null
+  // the module-level `pending`, and we must not mix one version's URL with
+  // another version's filename.
+  const target = pending;
+  if (__DEV__ || Platform.OS !== "android" || !target) return;
   if (store.isDownloading) return;
   set({ isDownloading: true, downloadProgress: 0, error: null });
 
-  const fileUri = `${FileSystem.cacheDirectory}${APK_PREFIX}${pending.version}.apk`;
+  const fileUri = `${FileSystem.cacheDirectory}${APK_PREFIX}${target.version}.apk`;
   const partUri = `${fileUri}.part`;
 
   try {
@@ -85,7 +89,7 @@ async function downloadAndApplyUpdate() {
         let lastPercent = -1;
         let stallTimer: ReturnType<typeof setTimeout> | undefined;
         const download = FileSystem.createDownloadResumable(
-          pending.apkUrl,
+          target.apkUrl,
           partUri,
           {},
           (p) => {

@@ -43,10 +43,13 @@ const env = {
 // versionCode is ALWAYS derived from the version here, so name and code can
 // never diverge and a missing/empty env var can't yield an invalid 0.
 const APP_VERSION = process.env.APP_VERSION ?? "1.2.0";
-const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
-if (![vMajor, vMinor, vPatch].every((n) => Number.isInteger(n))) {
-  throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH, got "${APP_VERSION}"`);
+// Same shape the release workflow enforces on the tag: three parts, minor/patch
+// 0-999 (the versionCode formula collides beyond that), no leading zeros. This
+// makes a bad local APP_VERSION fail loudly instead of shipping a wrong code.
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})$/.test(APP_VERSION)) {
+  throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH with minor/patch 0-999, got "${APP_VERSION}"`);
 }
+const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
 const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
 
 const config: ExpoConfig = {
