@@ -2617,7 +2617,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
 
 // ============ UPDATE SECTION ============
 function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; language: string; isRTL: boolean; isEn: boolean }) {
-  const { isChecking, isDownloading, isUpdateAvailable, currentVersion, lastChecked, downloadProgress, checkForUpdate } = useUpdates(language);
+  const { isChecking, isDownloading, isUpdateAvailable, currentVersion, lastChecked, downloadProgress, error, checkForUpdate } = useUpdates(language);
 
   const tx = (nl: string, en: string, ar: string) =>
     language === "ar" ? ar : language === "en" ? en : nl;
@@ -2700,6 +2700,20 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
             : tx("Controleer op updates", "Check for Updates", "التحقق من التحديثات")}
         </Text>
       </Pressable>
+
+      {/* Last error (persists after the alert is dismissed) */}
+      {!!error && !isChecking && !isDownloading && (
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
+          <MaterialIcons name="error-outline" size={16} color={colors.destructive} />
+          <Text style={{ flex: 1, fontSize: 12, color: colors.destructive, textAlign: isRTL ? "right" : "left" }}>
+            {tx(
+              "Laatste poging is mislukt. Probeer het opnieuw.",
+              "The last attempt failed. Please try again.",
+              "فشلت المحاولة الأخيرة. يرجى إعادة المحاولة."
+            )}
+          </Text>
+        </View>
+      )}
 
       {/* Info Text */}
       <View style={{ backgroundColor: colors.primary + "08", borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.primary + "20" }}>

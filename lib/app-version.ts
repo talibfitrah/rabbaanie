@@ -25,18 +25,13 @@ export function isNewerVersion(latest: string, current: string): boolean {
 }
 
 /**
- * Download URL of the release APK.
- * When `version` is given, require the exact asset our workflow publishes
- * (`rabbaanie-v<version>.apk`) — never install a lookalike or stray APK.
- * Without a version, fall back to the first `.apk` (used by unit tests).
+ * Download URL of the exact release APK our workflow publishes
+ * (`rabbaanie-v<version>.apk`), or null. Requiring the exact name means a
+ * lookalike or stray APK in the release is never installed.
  */
-export function pickApkAsset(assets: ReleaseAsset[], version?: string): string | null {
-  if (version) {
-    const exact = assets.find((a) => a.name === `rabbaanie-v${version}.apk`);
-    return exact ? exact.browser_download_url : null;
-  }
-  const apk = assets.find((a) => a.name.endsWith(".apk"));
-  return apk ? apk.browser_download_url : null;
+export function pickApkAsset(assets: ReleaseAsset[], version: string): string | null {
+  const exact = assets.find((a) => a.name === `rabbaanie-v${version}.apk`);
+  return exact ? exact.browser_download_url : null;
 }
 
 export type PendingUpdate = { version: string; apkUrl: string };

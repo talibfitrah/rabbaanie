@@ -34,17 +34,24 @@ describe("isNewerVersion", () => {
 });
 
 describe("pickApkAsset", () => {
-  it("returns the download URL of the first .apk asset", () => {
+  it("returns the URL of the asset that exactly matches the version", () => {
     expect(
-      pickApkAsset([
-        { name: "checksums.txt", browser_download_url: "https://x/checksums.txt" },
-        { name: "rabbaanie-v1.2.0.apk", browser_download_url: "https://x/rabbaanie-v1.2.0.apk" },
-      ])
+      pickApkAsset(
+        [
+          { name: "checksums.txt", browser_download_url: "https://x/checksums.txt" },
+          { name: "rabbaanie-v1.2.0.apk", browser_download_url: "https://x/rabbaanie-v1.2.0.apk" },
+        ],
+        "1.2.0"
+      )
     ).toBe("https://x/rabbaanie-v1.2.0.apk");
   });
-  it("returns null when no .apk asset exists", () => {
-    expect(pickApkAsset([])).toBeNull();
-    expect(pickApkAsset([{ name: "notes.md", browser_download_url: "https://x/notes.md" }])).toBeNull();
+  it("returns null when no asset matches the expected name", () => {
+    expect(pickApkAsset([], "1.2.0")).toBeNull();
+    expect(pickApkAsset([{ name: "notes.md", browser_download_url: "https://x/notes.md" }], "1.2.0")).toBeNull();
+    // A differently-versioned or lookalike APK is not accepted.
+    expect(
+      pickApkAsset([{ name: "rabbaanie-v9.9.9.apk", browser_download_url: "https://x/wrong.apk" }], "1.2.0")
+    ).toBeNull();
   });
 });
 
