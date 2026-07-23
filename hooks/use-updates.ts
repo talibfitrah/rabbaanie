@@ -1,9 +1,10 @@
 import { useEffect, useSyncExternalStore } from "react";
 import { Alert, Platform } from "react-native";
 import * as Application from "expo-application";
+import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import { evaluateRelease, type PendingUpdate } from "@/lib/app-version";
+import { evaluateRelease, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
 
 const LATEST_RELEASE_URL =
   "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
@@ -16,9 +17,10 @@ const DOWNLOAD_STALL_MS = 60_000;
 const APK_PREFIX = "rabbaanie-v";
 // Android grants read access on the content:// URI to the installer.
 const FLAG_GRANT_READ_URI_PERMISSION = 1;
-// Android always sets versionName; the fallback only applies to non-Android /
-// dev builds, which never reach the update check anyway.
-const INSTALLED_VERSION = Application.nativeApplicationVersion ?? "0.0.0";
+// Android always sets versionName; on web/dev it is null, so fall back to the
+// configured app version (Settings displays this) rather than a bogus 0.0.0.
+const INSTALLED_VERSION =
+  Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "0.0.0";
 
 export interface UpdateState {
   isChecking: boolean;
@@ -209,7 +211,12 @@ async function checkForUpdate(silent: boolean = false) {
     }
 
     pending = evaluateRelease(release, INSTALLED_VERSION);
-    set({ isChecking: false, isUpdateAvailable: pending !== null, lastChecked: new Date() });
+    set({
+      isChecking: false,
+      isUpdateAvailable: pending !== null,
+      lastChecked: new Date(),
+      error: null,
+    });
 
     if (pending !== null) {
       Alert.alert(
@@ -234,10 +241,15 @@ async function checkForUpdate(silent: boolean = false) {
       );
     }
   } catch (e: any) {
-    // A silent launch check must not leave an error banner for an attempt the
-    // user never made (offline at launch, rate limit); only user-initiated
-    // checks record the error.
-    set({ isChecking: false, ...(silent ? {} : { error: e.message || "Unknown error" }) });
+    // A check was attempted, so record the time (avoids "Never checked" showing
+    // above the error banner). A silent launch check must not leave an error
+    // banner for an attempt the user never made (offline, rate limit); only
+    // user-initiated checks record the error.
+    set({
+      isChecking: false,
+      lastChecked: new Date(),
+      ...(silent ? {} : { error: e.message || "Unknown error" }),
+    });
     if (!silent) {
       Alert.alert(
         tx("Fout", "Error", "خطأ"),
@@ -274,14 +286,20 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
         const dir = FileSystem.cacheDirectory;
         if (!dir) return;
         const entries = await FileSystem.readDirectoryAsync(dir);
+        const stale = entries.filter((name) => {
+          if (!name.startsWith(APK_PREFIX)) return false;
+          // Orphaned partial downloads are always stale.
+          if (name.endsWith(".apk.part")) return true;
+          if (!name.endsWith(".apk")) return false;
+          // Keep an APK newer than what's installed: the user may have
+          // downloaded it and be mid-retry (e.g. after granting install
+          // permission, which force-restarts the app). Delete already-installed
+          // or unparseable ones.
+          const version = name.slice(APK_PREFIX.length, -".apk".length);
+          return !isNewerVersion(version, INSTALLED_VERSION);
+        });
         await Promise.all(
-          entries
-            .filter(
-              (name) =>
-                name.startsWith(APK_PREFIX) &&
-                (name.endsWith(".apk") || name.endsWith(".apk.part"))
-            )
-            .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }))
+          stale.map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }))
         );
       } catch {
         // Cleanup is best-effort; never block or crash on it.
