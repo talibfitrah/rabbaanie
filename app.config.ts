@@ -41,19 +41,14 @@ const env = {
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.0",
-  runtimeVersion: "1.0.0",
+  // Version comes from the release tag in CI (see .github/workflows/release.yml);
+  // fallbacks apply to local dev builds only. Numbering continues from Manus 1.1.29.
+  version: process.env.APP_VERSION ?? "1.2.0",
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: false,
-  updates: {
-    enabled: true,
-    checkAutomatically: "ON_LOAD",
-    fallbackToCacheTimeout: 5000,
-    url: "https://u.expo.dev/" + (process.env.EAS_PROJECT_ID || "opvoedadvies_apk"),
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -71,7 +66,8 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK"],
+    versionCode: Number(process.env.APP_VERSION_CODE ?? 1002000),
+    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES"],
     intentFilters: [
       {
         action: "VIEW",
@@ -93,7 +89,6 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    "expo-updates",
     [
       "react-native-android-widget/app.plugin",
       {
