@@ -665,6 +665,13 @@ Run the full pipeline over the cumulative diff `main...telegram-dev` before anyt
 
 ---
 
+### Execution notes (deviations discovered while implementing)
+
+- The repo is a **pnpm** project (`packageManager: pnpm@9.12.0`, `pnpm-lock.yaml`, `.npmrc` `node-linker=hoisted`) — every `npm ci`/`npx` in this plan was executed as `pnpm install --frozen-lockfile`/`pnpm exec`, and the workflow uses `pnpm/action-setup@v4` + `cache: pnpm`.
+- `IntentLauncher.ActivityAction.INSTALL_PACKAGE` does not exist in expo-intent-launcher v13; the hook passes the raw string `"android.intent.action.INSTALL_PACKAGE"` instead.
+- Extra prerequisite commit: `assets/data/library/` (45 book JSONs + index + covers, 33 MB) was never committed to the repo and was restored from the production checkout `/home/murabbie/rabbaanie-api/assets/data/library/` — without it Metro cannot bundle any release.
+- Pre-existing, unrelated to this feature (left for the review-pipeline findings list): 16 failing tests in `tests/` (content-enrichment assertions against data that was never committed, plus 2 env/network-dependent `api-base-url` tests).
+
 ### Task 7: Ship v1.2.0
 
 **Depends on:** the user having added the four GitHub secrets (Task 4 Step 3).
