@@ -38,6 +38,7 @@ export function useUpdates(language: string = "ar") {
     error: null,
   });
   const pendingRef = useRef<PendingUpdate | null>(null);
+  const downloadInFlightRef = useRef(false);
 
   const tx = (nl: string, en: string, ar: string) =>
     language === "ar" ? ar : language === "en" ? en : nl;
@@ -45,11 +46,15 @@ export function useUpdates(language: string = "ar") {
   const downloadAndApplyUpdate = useCallback(async () => {
     const pending = pendingRef.current;
     if (__DEV__ || Platform.OS !== "android" || !pending) return;
+    // The launch-check dialog and a manual Settings check can both be open;
+    // never run two downloads writing the same file.
+    if (downloadInFlightRef.current) return;
+    downloadInFlightRef.current = true;
 
     setState((s) => ({ ...s, isDownloading: true, downloadProgress: 0, error: null }));
 
+    const fileUri = `${FileSystem.cacheDirectory}rabbaanie-v${pending.version}.apk`;
     try {
-      const fileUri = `${FileSystem.cacheDirectory}rabbaanie-v${pending.version}.apk`;
       const info = await FileSystem.getInfoAsync(fileUri);
       if (!info.exists) {
         const download = FileSystem.createDownloadResumable(
@@ -83,6 +88,9 @@ export function useUpdates(language: string = "ar") {
       // If the user cancels the installer, the cached APK is reused on the
       // next attempt; leftovers are cleaned up on the next app launch.
     } catch (e: any) {
+      // A failed download can leave a partial file at fileUri; if kept, the
+      // "reuse cached APK" branch would feed the installer a corrupt file.
+      await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
       setState((s) => ({ ...s, error: e.message || "Download failed" }));
       Alert.alert(
         tx("Fout", "Error", "خطأ"),
@@ -93,6 +101,7 @@ export function useUpdates(language: string = "ar") {
         )
       );
     } finally {
+      downloadInFlightRef.current = false;
       setState((s) => ({ ...s, isDownloading: false }));
     }
   }, [language]);
