@@ -2617,7 +2617,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
 
 // ============ UPDATE SECTION ============
 function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; language: string; isRTL: boolean; isEn: boolean }) {
-  const { isChecking, isDownloading, isUpdateAvailable, currentVersion, lastChecked, checkForUpdate } = useUpdates(language);
+  const { isChecking, isDownloading, isUpdateAvailable, currentVersion, lastChecked, downloadProgress, checkForUpdate } = useUpdates(language);
 
   const tx = (nl: string, en: string, ar: string) =>
     language === "ar" ? ar : language === "en" ? en : nl;
@@ -2696,7 +2696,7 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
           {isChecking
             ? tx("Controleren...", "Checking...", "جارٍ التحقق...")
             : isDownloading
-            ? tx("Downloaden...", "Downloading...", "جارٍ التنزيل...")
+            ? `${tx("Downloaden...", "Downloading...", "جارٍ التنزيل...")}${downloadProgress > 0 ? ` ${Math.round(downloadProgress * 100)}%` : ""}`
             : tx("Controleer op updates", "Check for Updates", "التحقق من التحديثات")}
         </Text>
       </Pressable>

@@ -24,8 +24,17 @@ export function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
-/** Download URL of the first .apk asset in a GitHub release, or null. */
-export function pickApkAsset(assets: ReleaseAsset[]): string | null {
+/**
+ * Download URL of the release APK.
+ * When `version` is given, require the exact asset our workflow publishes
+ * (`rabbaanie-v<version>.apk`) — never install a lookalike or stray APK.
+ * Without a version, fall back to the first `.apk` (used by unit tests).
+ */
+export function pickApkAsset(assets: ReleaseAsset[], version?: string): string | null {
+  if (version) {
+    const exact = assets.find((a) => a.name === `rabbaanie-v${version}.apk`);
+    return exact ? exact.browser_download_url : null;
+  }
   const apk = assets.find((a) => a.name.endsWith(".apk"));
   return apk ? apk.browser_download_url : null;
 }
@@ -43,7 +52,7 @@ export function evaluateRelease(
 ): PendingUpdate | null {
   const version = parseTag(release.tag_name);
   if (version === null) return null;
-  const apkUrl = pickApkAsset(release.assets ?? []);
+  const apkUrl = pickApkAsset(release.assets ?? [], version);
   if (apkUrl === null) return null;
   return isNewerVersion(version, currentVersion) ? { version, apkUrl } : null;
 }

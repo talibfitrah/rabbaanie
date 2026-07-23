@@ -8,6 +8,8 @@ import { evaluateRelease, type PendingUpdate } from "@/lib/app-version";
 const LATEST_RELEASE_URL =
   "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
 const CHECK_TIMEOUT_MS = 10_000;
+// A stalled download must not pin isDownloading/downloadInFlight forever.
+const DOWNLOAD_TIMEOUT_MS = 300_000;
 // Cached download filename convention — the cleanup on launch must match
 // whatever downloadAndApplyUpdate writes.
 const APK_PREFIX = "rabbaanie-v";
@@ -17,6 +19,10 @@ const FLAG_GRANT_READ_URI_PERMISSION = 1;
 // Shared across hook instances (root layout + settings screen): never run two
 // downloads writing the same file, no matter which screen started the first.
 let downloadInFlight = false;
+
+// Android always sets versionName; the fallback only applies to non-Android /
+// dev builds, which never reach the update check anyway.
+const INSTALLED_VERSION = Application.nativeApplicationVersion ?? "0.0.0";
 
 export interface UpdateState {
   isChecking: boolean;
@@ -41,7 +47,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
     isChecking: false,
     isDownloading: false,
     isUpdateAvailable: false,
-    currentVersion: Application.nativeApplicationVersion ?? "dev",
+    currentVersion: INSTALLED_VERSION,
     lastChecked: null,
     downloadProgress: 0,
     error: null,
@@ -66,32 +72,69 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
     setState((s) => ({ ...s, isDownloading: true, downloadProgress: 0, error: null }));
 
     const fileUri = `${FileSystem.cacheDirectory}${APK_PREFIX}${pending.version}.apk`;
+    // Download to a .part file and rename on success, so a file at fileUri is
+    // ALWAYS complete — a killed/aborted download can never be reused as if
+    // whole, and launch cleanup (which matches .apk) skips in-flight .part.
+    const partUri = `${fileUri}.part`;
+
     try {
       const info = await FileSystem.getInfoAsync(fileUri);
       if (!info.exists) {
-        let lastPercent = -1;
-        const download = FileSystem.createDownloadResumable(
-          pending.apkUrl,
-          fileUri,
-          {},
-          (p) => {
-            const total = p.totalBytesExpectedToWrite;
-            if (total <= 0) return;
-            // Update at whole-percent steps only — every tick would re-render
-            // the consuming screen hundreds of times per download.
-            const percent = Math.floor((p.totalBytesWritten / total) * 100);
-            if (percent !== lastPercent) {
-              lastPercent = percent;
-              setState((s) => ({ ...s, downloadProgress: percent / 100 }));
+        try {
+          await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+          let lastPercent = -1;
+          const download = FileSystem.createDownloadResumable(
+            pending.apkUrl,
+            partUri,
+            {},
+            (p) => {
+              const total = p.totalBytesExpectedToWrite;
+              if (total <= 0) return;
+              // Update at whole-percent steps only — every tick would re-render
+              // the consuming screen hundreds of times per download.
+              const percent = Math.floor((p.totalBytesWritten / total) * 100);
+              if (percent !== lastPercent) {
+                lastPercent = percent;
+                setState((s) => ({ ...s, downloadProgress: percent / 100 }));
+              }
             }
+          );
+          const timeout = setTimeout(() => {
+            download.cancelAsync().catch(() => {});
+          }, DOWNLOAD_TIMEOUT_MS);
+          let result;
+          try {
+            result = await download.downloadAsync();
+          } finally {
+            clearTimeout(timeout);
           }
-        );
-        const result = await download.downloadAsync();
-        if (!result || result.status !== 200) {
-          throw new Error(`Download failed with status ${result?.status ?? "unknown"}`);
+          if (!result || result.status !== 200) {
+            throw new Error(`Download failed with status ${result?.status ?? "unknown"}`);
+          }
+          await FileSystem.moveAsync({ from: partUri, to: fileUri });
+        } catch (e: any) {
+          await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+          throw e;
         }
       }
+    } catch (e: any) {
+      downloadInFlight = false;
+      setState((s) => ({ ...s, isDownloading: false, error: e.message || "Download failed" }));
+      Alert.alert(
+        tx("Fout", "Error", "خطأ"),
+        tx(
+          "Het downloaden van de update is mislukt. Probeer het later opnieuw.",
+          "Failed to download the update. Please try again later.",
+          "فشل تنزيل التحديث. يرجى المحاولة لاحقاً."
+        )
+      );
+      return;
+    }
 
+    // The APK is complete and valid. A failure launching the installer (intent
+    // unavailable, "install unknown apps" not granted) must NOT delete it — the
+    // user can retry or grant permission and the cached file is reused.
+    try {
       const contentUri = await FileSystem.getContentUriAsync(fileUri);
       // INSTALL_PACKAGE is not in the ActivityAction enum; the raw Android
       // action string is accepted.
@@ -103,19 +146,14 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
           flags: FLAG_GRANT_READ_URI_PERMISSION,
         }
       );
-      // If the user cancels the installer, the cached APK is reused on the
-      // next attempt; leftovers are cleaned up on the next app launch.
     } catch (e: any) {
-      // A failed download can leave a partial file at fileUri; if kept, the
-      // "reuse cached APK" branch would feed the installer a corrupt file.
-      await FileSystem.deleteAsync(fileUri, { idempotent: true }).catch(() => {});
-      setState((s) => ({ ...s, error: e.message || "Download failed" }));
+      setState((s) => ({ ...s, error: e.message || "Install failed" }));
       Alert.alert(
-        tx("Fout", "Error", "خطأ"),
+        tx("Installatie", "Installation", "التثبيت"),
         tx(
-          "Het downloaden van de update is mislukt. Probeer het later opnieuw.",
-          "Failed to download the update. Please try again later.",
-          "فشل تنزيل التحديث. يرجى المحاولة لاحقاً."
+          "De update is gedownload maar kon niet worden geopend. Sta 'onbekende apps installeren' toe en probeer opnieuw.",
+          "The update was downloaded but could not be opened. Allow 'install unknown apps' and try again.",
+          "تم تنزيل التحديث لكن تعذّر فتحه. اسمح بتثبيت التطبيقات غير المعروفة ثم أعد المحاولة."
         )
       );
     } finally {
@@ -168,8 +206,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
           clearTimeout(timeout);
         }
 
-        const current = Application.nativeApplicationVersion ?? "0.0.0";
-        const pending = evaluateRelease(release, current);
+        const pending = evaluateRelease(release, INSTALLED_VERSION);
         pendingRef.current = pending;
         setState((s) => ({
           ...s,
@@ -228,12 +265,19 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
 
     (async () => {
       try {
+        // Never delete a file an in-flight download or a just-launched
+        // installer may still be using.
+        if (downloadInFlight) return;
         const dir = FileSystem.cacheDirectory;
         if (!dir) return;
         const entries = await FileSystem.readDirectoryAsync(dir);
         await Promise.all(
           entries
-            .filter((name) => name.startsWith(APK_PREFIX) && name.endsWith(".apk"))
+            .filter(
+              (name) =>
+                name.startsWith(APK_PREFIX) &&
+                (name.endsWith(".apk") || name.endsWith(".apk.part"))
+            )
             .map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }))
         );
       } catch {

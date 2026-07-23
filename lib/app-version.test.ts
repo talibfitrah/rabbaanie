@@ -70,4 +70,8 @@ describe("evaluateRelease", () => {
     expect(evaluateRelease({ tag_name: "v1.2.0", assets: [asset] }, "1.2.0")).toBeNull();
     expect(evaluateRelease({ tag_name: "v1.1.9", assets: [asset] }, "1.2.0")).toBeNull();
   });
+  it("ignores an APK whose name does not match the tag version", () => {
+    const wrong = { name: "rabbaanie-v9.9.9.apk", browser_download_url: "https://x/wrong.apk" };
+    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [wrong] }, "1.2.0")).toBeNull();
+  });
 });
