@@ -75,3 +75,6 @@ local-docs/
 # local secrets — never commit
 .env
 .env.*
+
+# gstack local security reports
+.gstack/
