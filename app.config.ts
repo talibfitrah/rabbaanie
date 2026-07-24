@@ -38,22 +38,29 @@ const env = {
   androidPackage: bundleId,
 };
 
+// APP_VERSION comes from the release tag in CI (see release.yml); the fallback
+// applies to local dev builds only. Numbering continues from Manus 1.1.29.
+// versionCode is ALWAYS derived from the version here, so name and code can
+// never diverge and a missing/empty env var can't yield an invalid 0.
+const APP_VERSION = process.env.APP_VERSION ?? "1.2.0";
+// Same shape the release workflow enforces on the tag: three parts, minor/patch
+// 0-999 (the versionCode formula collides beyond that), no leading zeros. This
+// makes a bad local APP_VERSION fail loudly instead of shipping a wrong code.
+if (!/^(0|[1-9]\d*)\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})$/.test(APP_VERSION)) {
+  throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH with minor/patch 0-999, got "${APP_VERSION}"`);
+}
+const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
+const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
+
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
-  version: "1.0.0",
-  runtimeVersion: "1.0.0",
+  version: APP_VERSION,
   orientation: "portrait",
   icon: "./assets/images/icon.png",
   scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: false,
-  updates: {
-    enabled: true,
-    checkAutomatically: "ON_LOAD",
-    fallbackToCacheTimeout: 5000,
-    url: "https://u.expo.dev/" + (process.env.EAS_PROJECT_ID || "opvoedadvies_apk"),
-  },
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
@@ -71,7 +78,8 @@ const config: ExpoConfig = {
     predictiveBackGestureEnabled: false,
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
-    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK"],
+    versionCode: APP_VERSION_CODE,
+    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES"],
     intentFilters: [
       {
         action: "VIEW",
@@ -93,7 +101,6 @@ const config: ExpoConfig = {
   },
   plugins: [
     "expo-router",
-    "expo-updates",
     [
       "react-native-android-widget/app.plugin",
       {

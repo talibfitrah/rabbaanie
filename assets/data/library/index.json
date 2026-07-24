@@ -1,0 +1,872 @@
+[
+  {
+    "id": 1,
+    "title_ar": "قيادة النفس وطلب العلم",
+    "title_en": "Self-Leadership and Seeking Knowledge",
+    "title_nl": "Zelfleiderschap en het zoeken van kennis",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 1,
+    "category": "قيادة النفس",
+    "total_chapters": 17,
+    "total_words": 21720,
+    "chapter_titles": [
+      "قيادةُ النفسِ، وطلبُ العلمِ",
+      "تمهيد",
+      "المقدمة",
+      "الفصلُ الأوّلُ: تحصيلُ العلمِ",
+      "هداياتُ الفصلِ الأوّلِ",
+      "الفصلُ الثاني: آثارُ الإخلاصِ",
+      "هداياتُ الفصلِ الثاني",
+      "الفصلُ الثالثُ: المرحلةُ الأولى — تعلُّمُ كيف نقودُ أنفسَنا (انطلاقًا من الفطرةِ)",
+      "هداياتُ الفصلِ الثالثِ",
+      "خاتمةُ الكتابِ"
+    ],
+    "chapters": 10,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 2,
+    "title_ar": "الخصال الفطرية في القرآن",
+    "title_en": "Innate Traits (Fitrah) in the Quran",
+    "title_nl": "Aangeboren eigenschappen (Fitrah) in de Koran",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 2,
+    "category": "الفطرة",
+    "total_chapters": 19,
+    "total_words": 3115,
+    "chapter_titles": [
+      "الخِصَالُ الفِطْرِيَّةُ فِي القُرْآنِ الكَرِيمِ",
+      "المُقَدِّمَةُ ومَنْهَجُ الجَمْعِ",
+      "القِسْمُ الأَوَّلُ: الخِصَالُ العَامَّةُ",
+      "القِسْمُ الثَّانِي: الخِصَالُ الخَاصَّةُ بالرِّجَالِ",
+      "القِسْمُ الثَّالِثُ: الخِصَالُ الخَاصَّةُ بالنِّسَاءِ",
+      "القِسْمُ الرَّابِعُ: الخِصَالُ الخَاصَّةُ بالأَطْفَالِ",
+      "القِسْمُ الخَامِسُ: الخِصَالُ الخَاصَّةُ بالمُسْلِمِينَ والمُؤْمِنِينَ",
+      "القِسْمُ السَّادِسُ: الخِصَالُ الخَاصَّةُ بالكُفَّارِ",
+      "القِسْمُ السَّابِعُ: الخِصَالُ الخَاصَّةُ بالمُنَافِقِينَ",
+      "القِسْمُ الثَّامِنُ: الخِصَالُ الخَاصَّةُ بالأَزْوَاجِ",
+      "القِسْمُ التَّاسِعُ: الخِصَالُ الخَاصَّةُ بالزَّوْجَاتِ",
+      "القِسْمُ العَاشِرُ: الخِصَالُ الخَاصَّةُ بالدُّعَاةِ",
+      "القِسْمُ الحَادِي عَشَرَ: الخِصَالُ الخَاصَّةُ بالأَبْنَاءِ",
+      "القِسْمُ الثَّانِي عَشَرَ: الخِصَالُ الخَاصَّةُ بالبَنَاتِ",
+      "القِسْمُ الثَّالِثُ عَشَرَ: الخِصَالُ الخَاصَّةُ بالكَذَّابِينَ",
+      "القِسْمُ الرَّابِعُ عَشَرَ: الخِصَالُ الخَاصَّةُ بالتَّائِبِينَ",
+      "القِسْمُ الخَامِسُ عَشَرَ: الخِصَالُ الخَاصَّةُ بالمُصِرِّينَ على المَعْصِيَةِ",
+      "القِسْمُ السَّادِسُ عَشَرَ: الخِصَالُ الخَاصَّةُ بالفَتَّانِينَ",
+      "خَاتِمَةٌ"
+    ],
+    "chapters": 19,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 3,
+    "title_ar": "المنهجية الربانية لتفعيل تعظيم الله في تسيير الخصال الفطرية بأسس التوحيد",
+    "title_en": "The Divine Methodology for Activating Glorification of Allah in Guiding Innate Traits through Tawheed",
+    "title_nl": "De goddelijke methodologie voor het activeren van de verheerlijking van Allah bij het begeleiden van aangeboren eigenschappen door Tawheed",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 3,
+    "category": "التوحيد",
+    "total_chapters": 5,
+    "total_words": 50669,
+    "chapter_titles": [
+      "مقدمة:",
+      "الباب الأول: الأسس الشرعية لتعظيم الله تعالى",
+      "الباب الثاني: الأسس المتعلقة بقواعد التربية وطرق تنفيذها",
+      "الضوابط العملية في التربية الربانية لتنزيل\nتعظيم الله سبحانه وتعالى وضبط وتسيير أعمال القلوب",
+      "الباب الثالث: التطبيقات العملية لغرس التعظيم بحسب الفئات العمرية"
+    ],
+    "chapters": 5,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 4,
+    "title_ar": "تعظيم الله",
+    "title_en": "Glorifying Allah",
+    "title_nl": "De verheerlijking van Allah",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 4,
+    "category": "قيادة النفس",
+    "total_chapters": 6,
+    "total_words": 78716,
+    "chapter_titles": [
+      "المقدّمة",
+      "مقدمة:",
+      "الباب الأول: الأسس الشرعية لتعظيم الله تعالى",
+      "الباب الثاني: الأسس المتعلقة بقواعد التربية وطرق تنفيذها",
+      "الضوابط العملية في التربية الربانية لتنزيل\nتعظيم الله سبحانه وتعالى وضبط وتسيير أعمال القلوب",
+      "الباب الثالث: التطبيقات العملية لغرس التعظيم بحسب الفئات العمرية"
+    ],
+    "chapters": 6,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 5,
+    "title_ar": "الإخلاص تأصيلاً وتطبيقاً وتمريناً",
+    "title_en": "Sincerity (Ikhlas): Foundation, Application, and Practice",
+    "title_nl": "Oprechtheid (Ikhlas): Fundament, toepassing en oefening",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 5,
+    "category": "قيادة النفس",
+    "total_chapters": 32,
+    "total_words": 61115,
+    "chapter_titles": [
+      "بِسْمِ اللَّهِ الرَّحْمَٰنِ الرَّحِيمِ",
+      "تَمْهِيد",
+      "تمهيد",
+      "المبحث الأول: التعريف",
+      "خامسًا: ركنا الإخلاص — النفي والإثبات",
+      "سادسًا: تحرير الفروق",
+      "المبحث الثاني: الأركان والشروط",
+      "المبحث الثالث: مستويات الإخلاص ووُسْعُه",
+      "المبحث الرابع: علامات الإخلاص",
+      "المبحث الخامس: آثارُ الإخلاص",
+      "المبحث السادس: طرق الابتلاء وطرق الثبات",
+      "المبحث السابع: تربية الله لنبيه صلى الله عليه وسلم على الإخلاص",
+      "المبحث الثامن: تربية النبي صلى الله عليه وسلم لأصحابه على الإخلاص",
+      "المبحث التاسع: تربية الصحابة لغيرهم على الإخلاص",
+      "المبحث العاشر: شبهاتٌ حول الإخلاص والرد عليها",
+      "الخاتمة",
+      "الفصل الثاني",
+      "نَظرةٌ مُختصَرة على حديث «إنّما الأَعمالُ بالنيّات»",
+      "الجزء الأول — أهمية الحديث وعظمته",
+      "الجزء الثاني — مقدّمات في معنى النية",
+      "الجزء الثالث — مراتب وأنواع النية",
+      "الجزء الرابع — حِكَم الإخلاص وثمراته",
+      "الجزء الخامس — فساد النية وعلاماته",
+      "الجزء السادس — أحكامٌ وفقهٌ في النية",
+      "الجزء السابع — علاج فساد النية",
+      "الجزء الثامن — التربية والتواصل والحكم",
+      "خاتمة",
+      "فهرس الموضوعات"
+    ],
+    "chapters": 28
+  },
+  {
+    "id": 6,
+    "title_ar": "المحبة والخوف والولاء والبراء",
+    "title_en": "Love, Fear, Loyalty, and Disavowal",
+    "title_nl": "Liefde, vrees, loyaliteit en afstand nemen",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 6,
+    "category": "قيادة النفس",
+    "total_chapters": 24,
+    "total_words": 58432,
+    "chapter_titles": [
+      "وَالوَلَاءُ وَالبَرَاءُ",
+      "خُطْبَةُ الحَاجَة",
+      "القسمُ الأول: المحبةُ والبُغضُ والخوفُ والخشيةُ والرجاء",
+      "والوَلَاءُ وَالبَرَاءُ",
+      "القسمُ الثاني: الولاءُ والبراء",
+      "الخواتيم",
+      "في المحبةِ والولاءِ والبراء",
+      "المُقَدِّمَةُ",
+      "التَّمْهِيدُ: المَفَاهِيمُ وَالتَّأْصِيلُ المُصْطَلَحِيُّ",
+      "البَابُ الأَوَّلُ: التَّأْصِيلُ — الأَدِلَّةُ وَالمَقَاصِدُ وَالأَحْكَامُ وَالقَوَاعِدُ",
+      "البَابُ الثَّانِي: التَّفْصِيلُ بِاعْتِبَارِ المَهْجُورِ",
+      "البَابُ الثَّالِثُ: مُسْتَوَيَاتُ الهَجْرِ وَمَرَاتِبُهُ",
+      "البَابُ الرَّابِعُ: أَحْكَامُ الهَجْرِ بِاعْتِبَارِ الحَالِ وَالزَّمَانِ وَالمَكَانِ",
+      "البَابُ الخَامِسُ: التَّمْثِيلُ — نَمَاذِجُ تَطْبِيقِيَّةٌ",
+      "البَابُ السَّادِسُ: التَّطْبِيقُ المُعَاصِرُ وَكَيْفِيَّةُ التَّنْزِيلِ",
+      "البَابُ السَّابِعُ: تَفْعِيلُ الهَجْرِ فِي التَّرْبِيَةِ",
+      "الخَاتِمَةُ",
+      "الفَهَارِسُ العِلْمِيَّةُ الجَامِعَةُ"
+    ],
+    "chapters": 18
+  },
+  {
+    "id": 7,
+    "title_ar": "الصبر - تربية النفس على الصبر ومراتبه",
+    "title_en": "Patience (Sabr): Training the Self on Patience and Its Levels",
+    "title_nl": "Geduld (Sabr): Het trainen van de ziel in geduld en de niveaus ervan",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 7,
+    "category": "قيادة النفس",
+    "total_chapters": 30,
+    "total_words": 20842,
+    "chapter_titles": [
+      "الصَّبْرُ",
+      "الصَّبْرُ",
+      "مقدّمةُ الكتابِ",
+      "كيفيّةُ الاستفادةِ من الكتابِ",
+      "القسمُ الأوّل",
+      "حقيقةُ الصبر",
+      "مراتبُ الصبر",
+      "الدعاءُ للصبر",
+      "الصبرُ عند الأطفال",
+      "أهمّيّةُ الصبرِ وفوائدُه",
+      "مراتبُ الصبرِ على وجهِ التفصيل",
+      "مراجعةُ درسِ ١٢ يونيو",
+      "أقسامُ الصبر",
+      "التمكُّنُ من الصبرِ عملاً وتطبيقاً",
+      "المقدِّمة",
+      "البابُ الأوّلُ: التأصيل",
+      "البابُ الثاني: التمكُّنُ من الصبرِ عملاً — الأسبابُ الجالبةُ له",
+      "البابُ الثالثُ: التنزيلُ التطبيقيُّ",
+      "البابُ الرابعُ: من توجيهاتِ ابنِ بازٍ وابنِ عثيمين العمليّةِ",
+      "البابُ الخامسُ: تحريراتٌ مختارةٌ من كلامِ ابنِ رجبٍ وابنِ الجوزي",
+      "البابُ السادسُ: تحريرٌ من كلامِ شيخِ الإسلامِ ابنِ تيمية",
+      "الخاتمة",
+      "ثَبَتُ المصادرِ المعتمَدةِ",
+      "التمرينُ الختاميُّ: تطبيقُ سورةِ العصرِ",
+      "فهرسُ الموضوعات"
+    ],
+    "chapters": 25
+  },
+  {
+    "id": 8,
+    "title_ar": "النصيحة - القسم الأول",
+    "title_en": "The Advice (Nasiha) - Volume 1",
+    "title_nl": "Het advies (Nasiha) - Deel 1",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 8,
+    "category": "النصيحة",
+    "total_chapters": 20,
+    "total_words": 36746,
+    "chapter_titles": [
+      "النصيحة",
+      "خطبةُ الحاجة",
+      "الباب الأول: حقيقةُ النصيحة وأهميتها وحكمها",
+      "الباب الثاني: أركانُ النصيحة وشروطها وآدابها",
+      "الباب الثالث: النصيحةُ وأساليبُ التربية",
+      "الباب الرابع: النصيحةُ في الأسرة",
+      "الباب الخامس: نوازلُ النصح في البيت (مسائلُ وحلول)",
+      "الباب السادس: ما يُفسِدُ النصيحةَ وما يُكمِّلها",
+      "الباب السابع: تحليلُ المجتمع وتمييزُ النصيحة",
+      "الخاتمة",
+      "مُلحَق (أ): مِن هَدْيِ النبيِّ ﷺ في النصح",
+      "مُلحَق (ب): مِن نُصحِ الصحابة والسلف",
+      "فهرس الآيات",
+      "فهرس الأحاديث والآثار",
+      "فهرس الأعلام",
+      "فهرس المصادر والمراجع",
+      "فهرس الموضوعات"
+    ],
+    "chapters": 17
+  },
+  {
+    "id": 9,
+    "title_ar": "أعداؤنا",
+    "title_en": "Our Enemies",
+    "title_nl": "Onze vijanden",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 9,
+    "category": "قيادة النفس",
+    "total_chapters": 13,
+    "total_words": 18805,
+    "chapter_titles": [
+      "تمهيد تعريفي بالكتاب",
+      "كيف أستطيع أن أستفيد من الكتاب بطريقة علمية وعملية وتمرينية؟",
+      "المقدمة العلمية",
+      "تقديمٌ جامعٌ: الأعداء الثلاثة منظومةً واحدة",
+      "الشيطان",
+      "الهوى (الشهوة)",
+      "الدنيا",
+      "فهرس الموضوعات"
+    ],
+    "chapters": 8
+  },
+  {
+    "id": 10,
+    "title_ar": "الطرق والوسائل التربوية",
+    "title_en": "Educational Methods and Means",
+    "title_nl": "Opvoedkundige methoden en middelen",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 10,
+    "category": "الطرق التربوية",
+    "total_chapters": 17,
+    "total_words": 161249,
+    "chapter_titles": [
+      "الطرق والوسائل التربوية",
+      "تمهيدُ الكتاب",
+      "مقدمات تأصيلية للتعليم الربَّاني",
+      "طرق التذكير المستنبطة من الكتاب والسنة وفهم الصحابة",
+      "طرق الوعظ المستنبطة من الكتاب والسنة وفهم الصحابة",
+      "طرق الزجر المستنبطة من الكتاب والسنة وفهم الصحابة",
+      "القِسْمُ الأوَّل: المُقَدِّماتُ التَّأْصيليَّةُ لِلزَّجْرِ الرَّبَّاني",
+      "القِسْمُ الثاني: الطُّرُقُ العَمَليَّةُ لِلزَّجْرِ المُستنبَطةُ من الكتابِ والسُّنَّةِ وفَهْمِ الصَّحابة",
+      "القِسْمُ الثالث: تنزيلُ الطُّرُقِ على الفِئاتِ والطَّبائعِ والمَيادين",
+      "القِسْمُ الرابع: الحَدُّ الفاصِلُ بين الزَّجْرِ والعِقاب — الخُطوةُ الخامِسة",
+      "مقدمةُ الدراسة",
+      "القسمُ الأول: المقدماتُ التأصيليةُ للعقابِ الرباني",
+      "القسمُ الثاني: الطرقُ والوسائلُ العمليةُ للعقاب",
+      "القسمُ الثالث: تنزيلُ الطرقِ على الفئاتِ والطبائعِ والميادين",
+      "القسمُ الرابع: ما بعد العقاب — الترميمُ والمتابعةُ والحدُّ الأخير",
+      "الخاتمة",
+      "ملحقٌ: الشبهاتُ الواردةُ على بابِ العقابِ والردودُ عليها"
+    ],
+    "chapters": 17,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 11,
+    "title_ar": "الزواج اختيار الزوج ومدخل حكم الزواج وفوائده",
+    "title_en": "Marriage: Choosing a Spouse",
+    "title_nl": "Het huwelijk: de keuze van de echtgenoot",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 8,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 23922,
+    "chapter_titles": [
+      "المرحلة الثانية: الزواج"
+    ],
+    "chapters": 19,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 12,
+    "title_ar": "الخطبة والأسئلة عند التعارف",
+    "title_en": "The Engagement and Questions",
+    "title_nl": "Het huwelijksaanzoek en de vragen bij het kennismaken",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 9,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 6798,
+    "chapter_titles": [
+      "الخِطبة"
+    ],
+    "chapters": 12,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 13,
+    "title_ar": "الإعداد للزفاف والوليمة وعقد الزواج والمهر",
+    "title_en": "Preparing for the Wedding",
+    "title_nl": "De voorbereiding op de bruiloft",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 10,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 4563,
+    "chapter_titles": [
+      "التهيُّؤ لزواج"
+    ],
+    "chapters": 5,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 14,
+    "title_ar": "الليلة الأولى وأنواع الزيجات",
+    "title_en": "The First Night and Types of Marriages",
+    "title_nl": "De eerste nacht en soorten huwelijken",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 11,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 5173,
+    "chapter_titles": [
+      "الليلة الأولى"
+    ],
+    "chapters": 5,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 15,
+    "title_ar": "بناء العلاقة الزوجية",
+    "title_en": "Building the Marital Relationship",
+    "title_nl": "Het opbouwen van de echtelijke relatie",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 12,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 103663,
+    "chapter_titles": [
+      "المراحل في الزواج"
+    ],
+    "chapters": 48,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 16,
+    "title_ar": "التواصل والتربية بين الزوجين",
+    "title_en": "Communication Between Spouses",
+    "title_nl": "Communicatie en opvoeding tussen echtgenoten",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 13,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 57595,
+    "chapter_titles": [
+      "التواصل والتربية بين الزوجَين"
+    ],
+    "chapters": 123,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 17,
+    "title_ar": "مشكلات الزواج وحلولها",
+    "title_en": "Marriage Problems and Solutions",
+    "title_nl": "Huwelijksproblemen en oplossingen",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 14,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 27542,
+    "chapter_titles": [
+      "حَلُّ المشكلات"
+    ],
+    "chapters": 38,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 18,
+    "title_ar": "الطلاق وفسخ الزواج",
+    "title_en": "Divorce and Annulment",
+    "title_nl": "Echtscheiding en ontbinding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 15,
+    "category": "الزواج",
+    "total_chapters": 1,
+    "total_words": 8690,
+    "chapter_titles": [
+      "الفَسخُ [حَلُّ الزواج]"
+    ],
+    "chapters": 34,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 19,
+    "title_ar": "الولد: تمهيد ما التربية والوسائل والتهيؤ وصفات المربي",
+    "title_en": "The Child: Introduction to Education",
+    "title_nl": "Het kind: inleiding over opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 16,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 26958,
+    "chapter_titles": [
+      "الجزءُ الثالثُ من تعليمِ علمِ شؤونِ الأسرة: الولد"
+    ],
+    "chapters": 50,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 20,
+    "title_ar": "مجالات التربية وعوامل التأثير",
+    "title_en": "Areas of Education and Factors of Influence",
+    "title_nl": "Opvoedingsgebieden en invloedsfactoren",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 17,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 8249,
+    "chapter_titles": [
+      "مجالاتُ التربية"
+    ],
+    "chapters": 80,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 21,
+    "title_ar": "حقوق الولد الاثنا عشر حقاً وتطبيقها",
+    "title_en": "The Twelve Rights of the Child",
+    "title_nl": "De twaalf rechten van het kind",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 18,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 15681,
+    "chapter_titles": [
+      "حقوقُ الولد"
+    ],
+    "chapters": 8,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 22,
+    "title_ar": "صفات الولد حسب المراحل العمرية",
+    "title_en": "Child Characteristics by Age",
+    "title_nl": "Eigenschappen van het kind per leeftijdsfase",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 19,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 7380,
+    "chapter_titles": [
+      "الصفاتُ المُحَدَّدةُ للولد؛ من الولادةِ إلى البُلوغ"
+    ],
+    "chapters": 20,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 23,
+    "title_ar": "الحمل والولادة",
+    "title_en": "Pregnancy and Childbirth",
+    "title_nl": "Zwangerschap en bevalling",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 20,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 13892,
+    "chapter_titles": [
+      "الحَملُ والولادة"
+    ],
+    "chapters": 43,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 24,
+    "title_ar": "تنظيم الحمل والرضاعة والإجهاض",
+    "title_en": "Birth Control, Breastfeeding, Abortion",
+    "title_nl": "Geboorteregeling, borstvoeding, abortus",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 21,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 10368,
+    "chapter_titles": [
+      "تنظيمُ الحَمل"
+    ],
+    "chapters": 13,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 25,
+    "title_ar": "تربية العقيدة",
+    "title_en": "Education in Creed",
+    "title_nl": "Opvoeding in geloofsleer",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 22,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 27225,
+    "chapter_titles": [
+      "تربيةُ العقيدة"
+    ],
+    "chapters": 13,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 26,
+    "title_ar": "تربية العبادة",
+    "title_en": "Education in Worship",
+    "title_nl": "Opvoeding in aanbidding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 23,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 28401,
+    "chapter_titles": [
+      "تربيةُ العبادة"
+    ],
+    "chapters": 15,
+    "has_nl": true,
+    "has_en": true
+  },
+  {
+    "id": 27,
+    "title_ar": "التربية الاجتماعية",
+    "title_en": "Social Education",
+    "title_nl": "Sociale opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 24,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 11912,
+    "chapter_titles": [
+      "التربيةُ الاجتماعيَّة"
+    ],
+    "chapters": 6
+  },
+  {
+    "id": 28,
+    "title_ar": "التربية السلوكية",
+    "title_en": "Behavioral Education",
+    "title_nl": "Gedragsopvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 25,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 20412,
+    "chapter_titles": [
+      "التربيةُ السُّلوكيَّة"
+    ],
+    "chapters": 9
+  },
+  {
+    "id": 29,
+    "title_ar": "التربية العاطفية",
+    "title_en": "Emotional Education",
+    "title_nl": "Emotionele opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 26,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 6601,
+    "chapter_titles": [
+      "التربيةُ العاطفيَّة"
+    ],
+    "chapters": 4
+  },
+  {
+    "id": 30,
+    "title_ar": "التربية البدنية",
+    "title_en": "Physical Education",
+    "title_nl": "Lichamelijke opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 27,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 7000,
+    "chapter_titles": [
+      "التربيةُ البَدَنيَّة"
+    ],
+    "chapters": 6
+  },
+  {
+    "id": 31,
+    "title_ar": "التربية الفكرية",
+    "title_en": "Intellectual Education",
+    "title_nl": "Intellectuele opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 28,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 9922,
+    "chapter_titles": [
+      "التربيةُ الفِكريَّة"
+    ],
+    "chapters": 4
+  },
+  {
+    "id": 32,
+    "title_ar": "التربية الصحية",
+    "title_en": "Health Education",
+    "title_nl": "Gezondheidsopvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 29,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 3658,
+    "chapter_titles": [
+      "التربيةُ الصِّحِّيَّة"
+    ],
+    "chapters": 2
+  },
+  {
+    "id": 33,
+    "title_ar": "التعليم المنزلي",
+    "title_en": "Home Education",
+    "title_nl": "Thuisonderwijs",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 30,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 4400,
+    "chapter_titles": [
+      "التَّعليمُ المنزليّ"
+    ],
+    "chapters": 11
+  },
+  {
+    "id": 34,
+    "title_ar": "التربية الجنسية",
+    "title_en": "Sexual Education (Islamic)",
+    "title_nl": "Seksuele opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 31,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 5685,
+    "chapter_titles": [
+      "التربيةُ الجِنسيَّة"
+    ],
+    "chapters": 6
+  },
+  {
+    "id": 35,
+    "title_ar": "التربية المالية",
+    "title_en": "Financial Education",
+    "title_nl": "Financiële opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 32,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 2340,
+    "chapter_titles": [
+      "التربيةُ المالِيَّة"
+    ],
+    "chapters": 3
+  },
+  {
+    "id": 36,
+    "title_ar": "تربية وسائل الإعلام",
+    "title_en": "Media Education",
+    "title_nl": "Media-opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 33,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 3502,
+    "chapter_titles": [
+      "تربيةُ وسائلِ الإعلام"
+    ],
+    "chapters": 2
+  },
+  {
+    "id": 37,
+    "title_ar": "تربية النقاش",
+    "title_en": "Education in Discussion",
+    "title_nl": "Opvoeding in discussie",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 34,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 1395,
+    "chapter_titles": [
+      "تربيةُ النِّقاش"
+    ],
+    "chapters": 3
+  },
+  {
+    "id": 38,
+    "title_ar": "تربية الوقت",
+    "title_en": "Time Management Education",
+    "title_nl": "Tijdmanagement-opvoeding",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 35,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 5157,
+    "chapter_titles": [
+      "تربيةُ الوقت"
+    ],
+    "chapters": 2
+  },
+  {
+    "id": 39,
+    "title_ar": "أساليب التحفيز وإدارة النزاعات",
+    "title_en": "Motivation and Conflict Management",
+    "title_nl": "Motivatietechnieken en conflictbeheersing",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 36,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 11088,
+    "chapter_titles": [
+      "نِظامُ المُكافَآت"
+    ],
+    "chapters": 6
+  },
+  {
+    "id": 40,
+    "title_ar": "العقاب وأنواعه",
+    "title_en": "Punishment and Its Types",
+    "title_nl": "Straf en de soorten",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 37,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 18052,
+    "chapter_titles": [
+      "العِقاب"
+    ],
+    "chapters": 11
+  },
+  {
+    "id": 41,
+    "title_ar": "طرق التأثير في السلوك وتشكيل العقل",
+    "title_en": "Methods of Influencing Behavior",
+    "title_nl": "Methoden om gedrag te beïnvloeden",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 38,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 37655,
+    "chapter_titles": [
+      "طُرُقُ التأثيرِ في السلوك"
+    ],
+    "chapters": 7
+  },
+  {
+    "id": 42,
+    "title_ar": "التزكية وتشكيل القلب",
+    "title_en": "Purification and Shaping the Heart",
+    "title_nl": "Zuivering en vorming van het hart",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 39,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 8472,
+    "chapter_titles": [
+      "التَّزكية (تَشكيلُ القَلب)"
+    ],
+    "chapters": 4
+  },
+  {
+    "id": 43,
+    "title_ar": "تطبيقات المراحل والمشكلات السلوكية",
+    "title_en": "Applications by Stage and Behavioral Problems",
+    "title_nl": "Toepassingen per fase en gedragsproblemen",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 40,
+    "category": "تربية الولد",
+    "total_chapters": 1,
+    "total_words": 15679,
+    "chapter_titles": [
+      "المرحلة ٣ التربية"
+    ],
+    "chapters": 2
+  },
+  {
+    "id": 44,
+    "title_ar": "الدعوة",
+    "title_en": "The Call to Islam (Da'wah)",
+    "title_nl": "De uitnodiging tot de Islam",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 41,
+    "category": "الدعوة",
+    "total_chapters": 1,
+    "total_words": 691,
+    "chapter_titles": [
+      "الدعوة"
+    ],
+    "chapters": 1
+  },
+  {
+    "id": 45,
+    "title_ar": "السنن الكونية موسوعة علمية",
+    "title_en": "The Cosmic Laws: A Scientific Encyclopedia",
+    "title_nl": "De kosmische wetten: een wetenschappelijke encyclopedie",
+    "series": "سلسلة فقه الأسرة",
+    "series_num": 45,
+    "category": "السنن الكونية",
+    "total_chapters": 11,
+    "total_words": 18228,
+    "chapter_titles": [
+      "السنن الكونية موسوعة علمية",
+      "خطبة الحاجة",
+      "المقدمة",
+      "فهرس المحتويات",
+      "الباب الأول: مفهوم السنن الكونية وخصائصها",
+      "الباب الثاني: القواعد العشرون في فهم السنن الكونية وتطبيقها",
+      "الباب الثالث: السنن الكونية العامة لجميع الناس",
+      "الباب الرابع: السنن الكونية الخاصة بالفئات",
+      "الباب الخامس: السنن الكونية في الميادين العشرة (١٧١ — ٢٠٠)",
+      "الخاتمة",
+      "فهرس المصادر والمراجع"
+    ],
+    "chapters": 11
+  }
+]
