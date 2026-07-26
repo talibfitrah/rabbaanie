@@ -4,10 +4,10 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import { evaluateRelease, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
+import { evaluateLatest, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
 
-const LATEST_RELEASE_URL =
-  "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
+// Our own update manifest, served from the app's server (no third-party/GitHub).
+const LATEST_JSON_URL = "https://api.rabbaanie.com/downloads/latest.json";
 const CHECK_TIMEOUT_MS = 10_000;
 // Cancel only a STALLED download (no bytes for this long) — a big APK on a slow
 // connection may legitimately take many minutes, so we don't bound total time.
@@ -204,26 +204,25 @@ async function checkForUpdate(silent: boolean = false) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
-    let release: { tag_name: string; assets?: { name: string; browser_download_url: string }[] };
+    let latest: { version?: string; apkUrl?: string };
     try {
-      const res = await fetch(LATEST_RELEASE_URL, {
+      const res = await fetch(LATEST_JSON_URL, {
         signal: controller.signal,
-        headers: { Accept: "application/vnd.github+json" },
+        headers: { Accept: "application/json" },
       });
       if (res.status === 404) {
-        // No release has been published yet — there is simply nothing to update
-        // to, so treat it as "up to date" rather than surfacing an error.
-        release = { tag_name: "" };
+        // No manifest yet — nothing to update to; treat as "up to date".
+        latest = {};
       } else if (!res.ok) {
-        throw new Error(`GitHub API responded ${res.status}`);
+        throw new Error(`Update server responded ${res.status}`);
       } else {
-        release = await res.json();
+        latest = await res.json();
       }
     } finally {
       clearTimeout(timeout);
     }
 
-    pending = evaluateRelease(release, INSTALLED_VERSION);
+    pending = evaluateLatest(latest, INSTALLED_VERSION);
     set({
       isChecking: false,
       isUpdateAvailable: pending !== null,

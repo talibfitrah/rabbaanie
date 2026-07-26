@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { evaluateRelease, isNewerVersion, parseTag, pickApkAsset } from "./app-version";
+import { evaluateLatest, isNewerVersion, parseTag } from "./app-version";
 
 describe("parseTag", () => {
   it("strips the v prefix from a release tag", () => {
@@ -33,52 +33,24 @@ describe("isNewerVersion", () => {
   });
 });
 
-describe("pickApkAsset", () => {
-  it("returns the URL of the asset that exactly matches the version", () => {
-    expect(
-      pickApkAsset(
-        [
-          { name: "checksums.txt", browser_download_url: "https://x/checksums.txt" },
-          { name: "rabbaanie-v1.2.0.apk", browser_download_url: "https://x/rabbaanie-v1.2.0.apk" },
-        ],
-        "1.2.0"
-      )
-    ).toBe("https://x/rabbaanie-v1.2.0.apk");
-  });
-  it("returns null when no asset matches the expected name", () => {
-    expect(pickApkAsset([], "1.2.0")).toBeNull();
-    expect(pickApkAsset([{ name: "notes.md", browser_download_url: "https://x/notes.md" }], "1.2.0")).toBeNull();
-    // A differently-versioned or lookalike APK is not accepted.
-    expect(
-      pickApkAsset([{ name: "rabbaanie-v9.9.9.apk", browser_download_url: "https://x/wrong.apk" }], "1.2.0")
-    ).toBeNull();
-  });
-});
+describe("evaluateLatest", () => {
+  const apkUrl = "https://api.rabbaanie.com/downloads/rabbaanie-v1.3.0.apk";
 
-describe("evaluateRelease", () => {
-  const asset = { name: "rabbaanie-v1.3.0.apk", browser_download_url: "https://x/rabbaanie-v1.3.0.apk" };
-
-  it("returns the pending update when the release is newer and has an APK", () => {
-    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [asset] }, "1.2.0")).toEqual({
-      version: "1.3.0",
-      apkUrl: asset.browser_download_url,
-    });
+  it("returns the pending update when the manifest names a newer version with a url", () => {
+    expect(evaluateLatest({ version: "1.3.0", apkUrl }, "1.2.0")).toEqual({ version: "1.3.0", apkUrl });
   });
-  it("returns null for a malformed tag", () => {
-    expect(evaluateRelease({ tag_name: "nightly", assets: [asset] }, "1.2.0")).toBeNull();
+  it("returns null when the manifest version equals or is older than installed", () => {
+    expect(evaluateLatest({ version: "1.2.0", apkUrl }, "1.2.0")).toBeNull();
+    expect(evaluateLatest({ version: "1.1.9", apkUrl }, "1.2.0")).toBeNull();
   });
-  it("returns null when the release has no APK asset", () => {
-    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [] }, "1.2.0")).toBeNull();
+  it("returns null when version or apkUrl is missing", () => {
+    expect(evaluateLatest({ apkUrl }, "1.2.0")).toBeNull();
+    expect(evaluateLatest({ version: "1.3.0" }, "1.2.0")).toBeNull();
+    expect(evaluateLatest({}, "1.2.0")).toBeNull();
+    expect(evaluateLatest(null, "1.2.0")).toBeNull();
   });
-  it("returns null when assets are missing from the API payload", () => {
-    expect(evaluateRelease({ tag_name: "v1.3.0" }, "1.2.0")).toBeNull();
-  });
-  it("returns null when the release is equal or older", () => {
-    expect(evaluateRelease({ tag_name: "v1.2.0", assets: [asset] }, "1.2.0")).toBeNull();
-    expect(evaluateRelease({ tag_name: "v1.1.9", assets: [asset] }, "1.2.0")).toBeNull();
-  });
-  it("ignores an APK whose name does not match the tag version", () => {
-    const wrong = { name: "rabbaanie-v9.9.9.apk", browser_download_url: "https://x/wrong.apk" };
-    expect(evaluateRelease({ tag_name: "v1.3.0", assets: [wrong] }, "1.2.0")).toBeNull();
+  it("returns null for a malformed version", () => {
+    expect(evaluateLatest({ version: "nightly", apkUrl }, "1.2.0")).toBeNull();
+    expect(evaluateLatest({ version: "1.3", apkUrl }, "1.2.0")).toBeNull();
   });
 });

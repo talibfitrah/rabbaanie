@@ -1,5 +1,3 @@
-export type ReleaseAsset = { name: string; browser_download_url: string };
-
 const TAG_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
 
 /** "v1.2.0" -> "1.2.0"; null for anything that is not exactly vMAJOR.MINOR.PATCH. */
@@ -24,30 +22,19 @@ export function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
-/**
- * Download URL of the exact release APK our workflow publishes
- * (`rabbaanie-v<version>.apk`), or null. Requiring the exact name means a
- * lookalike or stray APK in the release is never installed.
- */
-export function pickApkAsset(assets: ReleaseAsset[], version: string): string | null {
-  const exact = assets.find((a) => a.name === `rabbaanie-v${version}.apk`);
-  return exact ? exact.browser_download_url : null;
-}
-
 export type PendingUpdate = { version: string; apkUrl: string };
 
 /**
- * The full update decision: given the GitHub "latest release" payload and the
- * installed version, return what to download — or null when there is nothing
- * newer, the tag is malformed, or the release carries no APK.
+ * Evaluate the update manifest served from our own server
+ * (api.rabbaanie.com/downloads/latest.json): { version, apkUrl }. Returns what
+ * to download when the manifest names a newer version with a download URL.
  */
-export function evaluateRelease(
-  release: { tag_name: string; assets?: ReleaseAsset[] },
+export function evaluateLatest(
+  latest: { version?: string; apkUrl?: string } | null | undefined,
   currentVersion: string
 ): PendingUpdate | null {
-  const version = parseTag(release.tag_name);
-  if (version === null) return null;
-  const apkUrl = pickApkAsset(release.assets ?? [], version);
-  if (apkUrl === null) return null;
+  const version = latest?.version;
+  const apkUrl = latest?.apkUrl;
+  if (!version || !apkUrl || parseTag(`v${version}`) === null) return null;
   return isNewerVersion(version, currentVersion) ? { version, apkUrl } : null;
 }
