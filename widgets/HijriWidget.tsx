@@ -24,16 +24,27 @@ interface HijriWidgetProps {
   lang?: string;
 }
 
-function getFontSize(base: number, size: WidgetAppearanceSettings["fontSize"], fontScale?: number): number {
-  let result = base;
-  if (size === "large") result = base + 6;
-  else if (size === "medium") result = base + 4;
-  const scale = (fontScale || 100) / 100;
-  return Math.round(result * scale);
+/** Font size that scales with the widget's ACTUAL size (matches PrayerWidget). */
+function getDynamicFontSize(
+  base: number,
+  sizeSetting: WidgetAppearanceSettings["fontSize"],
+  widgetWidth?: number,
+  widgetHeight?: number,
+  fontScale?: number
+): number {
+  const refDimension = 200;
+  const minDim = Math.min(widgetWidth || refDimension, widgetHeight || refDimension);
+  const scaleFactor = Math.max(0.8, Math.min(2.0, minDim / refDimension));
+  let sizeMultiplier = 1.0;
+  if (sizeSetting === "medium") sizeMultiplier = 1.15;
+  if (sizeSetting === "large") sizeMultiplier = 1.3;
+  const percentageScale = (fontScale || 100) / 100;
+  return Math.round(base * scaleFactor * sizeMultiplier * percentageScale);
 }
 
 export function buildHijriWidgetTree(props: HijriWidgetProps) {
   const { hijriDate, gregorianDate, dayName, event, tarbiyaTip, nextPrayerAr, nextPrayerTime, countdown, appearance, content, widgetWidth, widgetHeight, lang } = props;
+  const fs = (base: number) => getDynamicFontSize(base, appearance.fontSize, widgetWidth, widgetHeight, appearance.fontScale);
   const refreshLabel = lang === "nl" ? "Vernieuwen" : lang === "en" ? "Refresh" : "تحديث";
   const bg = appearance.backgroundColor;
   const fg = appearance.textColor;
@@ -75,16 +86,16 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
         >
           <TextWidget
             text={dayName}
-            style={{ fontSize: getFontSize(14, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "80"), fontWeight: "bold" }}
+            style={{ fontSize: fs(14), color: withAlpha(fg, "80"), fontWeight: "bold" }}
           />
           <TextWidget
             text={hijriDate || "--"}
-            style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold", textAlign: "center" }}
+            style={{ fontSize: fs(16), color: fg, fontWeight: "bold", textAlign: "center" }}
           />
           {content.hijriShowGregorian ? (
             <TextWidget
               text={gregorianDate}
-              style={{ fontSize: getFontSize(11, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "60") }}
+              style={{ fontSize: fs(11), color: withAlpha(fg, "60") }}
             />
           ) : null}
         </FlexWidget>
@@ -104,7 +115,7 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
           >
             <TextWidget
               text={`✦ ${fillerText}`}
-              style={{ fontSize: getFontSize(12, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold", textAlign: "center" }}
+              style={{ fontSize: fs(12), color: GOLD, fontWeight: "bold", textAlign: "center" }}
             />
           </FlexWidget>
         ) : (
@@ -128,10 +139,10 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
         >
           {nextPrayerAr && nextPrayerTime ? (
             <FlexWidget style={{ flexDirection: "column", alignItems: "center", flexGap: 2 }}>
-              <TextWidget text={nextPrayerAr} style={{ fontSize: getFontSize(12, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }} />
-              <TextWidget text={nextPrayerTime} style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD }} />
+              <TextWidget text={nextPrayerAr} style={{ fontSize: fs(12), color: GOLD, fontWeight: "bold" }} />
+              <TextWidget text={nextPrayerTime} style={{ fontSize: fs(13), color: GOLD }} />
               {countdown ? (
-                <TextWidget text={countdown} style={{ fontSize: getFontSize(10, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "60") }} />
+                <TextWidget text={countdown} style={{ fontSize: fs(10), color: withAlpha(fg, "60") }} />
               ) : null}
             </FlexWidget>
           ) : null}
@@ -180,12 +191,12 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
           {countdown ? (
             <TextWidget
               text={countdown}
-              style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70") }}
+              style={{ fontSize: fs(16), color: withAlpha(fg, "70") }}
             />
           ) : null}
           <TextWidget
             text={`${nextPrayerAr} ${nextPrayerTime}`}
-            style={{ fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+            style={{ fontSize: fs(18), color: GOLD, fontWeight: "bold" }}
           />
         </FlexWidget>
       ) : null}
@@ -193,14 +204,14 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
       {/* Day name */}
       <TextWidget
         text={dayName}
-        style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "80"), fontWeight: "bold" }}
+        style={{ fontSize: fs(16), color: withAlpha(fg, "80"), fontWeight: "bold" }}
       />
 
       {/* Hijri date - main content */}
       <TextWidget
         text={hijriDate || "--"}
         style={{
-          fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale),
+          fontSize: fs(16),
           color: fg,
           fontWeight: "bold",
           textAlign: "center",
@@ -211,7 +222,7 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
       {content.hijriShowGregorian ? (
         <TextWidget
           text={gregorianDate}
-          style={{ fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70"), textAlign: "center" }}
+          style={{ fontSize: fs(18), color: withAlpha(fg, "70"), textAlign: "center" }}
         />
       ) : null}
 
@@ -227,7 +238,7 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
         >
           <TextWidget
             text={`✦ ${fillerText}`}
-            style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold", textAlign: "center" }}
+            style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold", textAlign: "center" }}
           />
         </FlexWidget>
       ) : null}
@@ -248,22 +259,22 @@ export function buildHijriWidgetTree(props: HijriWidgetProps) {
           style={{ backgroundColor: withAlpha(fg, "10"), borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}
           clickAction="REFRESH_WIDGET"
         >
-          <TextWidget text="→" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: fg }} />
+          <TextWidget text="→" style={{ fontSize: fs(16), color: fg }} />
         </FlexWidget>
 
         <FlexWidget
           style={{ backgroundColor: withAlpha(fg, "08"), borderRadius: 10, paddingHorizontal: 10, paddingVertical: 3, flexDirection: "row", alignItems: "center", flexGap: 4 }}
           clickAction="REFRESH_WIDGET"
         >
-          <TextWidget text="↻" style={{ fontSize: getFontSize(15, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }} />
-          <TextWidget text={refreshLabel} style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70") }} />
+          <TextWidget text="↻" style={{ fontSize: fs(15), color: GOLD, fontWeight: "bold" }} />
+          <TextWidget text={refreshLabel} style={{ fontSize: fs(16), color: withAlpha(fg, "70") }} />
         </FlexWidget>
 
         <FlexWidget
           style={{ backgroundColor: withAlpha(GOLD, "20"), borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 }}
           clickAction="REFRESH_WIDGET"
         >
-          <TextWidget text="←" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: GOLD }} />
+          <TextWidget text="←" style={{ fontSize: fs(16), color: GOLD }} />
         </FlexWidget>
       </FlexWidget>
     </FlexWidget>
