@@ -278,7 +278,10 @@ export default function NotificationSettingsScreen() {
   // Iqamah timing change
   const handleIqamahTimingChange = useCallback(async (field: "minutesAfterAdhan" | "silenceDurationMinutes", delta: number) => {
     const current = iqamahPrefs[field];
-    const newVal = Math.max(1, Math.min(60, current + delta));
+    // minutesAfterAdhan may be 0 → silence right at adhan (prayer) time; the
+    // silence duration must stay at least 1 minute.
+    const min = field === "minutesAfterAdhan" ? 0 : 1;
+    const newVal = Math.max(min, Math.min(60, current + delta));
     const newPrefs = { ...iqamahPrefs, [field]: newVal };
     setIqamahPrefs(newPrefs);
     await saveIqamahSilencePrefs(newPrefs);

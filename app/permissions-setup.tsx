@@ -102,16 +102,21 @@ export default function PermissionsSetupScreen() {
       status: notifStatus === "granted" ? "granted" : notifStatus, // Tied to notification permission
     });
 
-    // 4. Do Not Disturb (DND) / Phone Silence
+    // 4. Do Not Disturb (DND) / Phone Silence.
+    // Silencing the ringer at prayer time needs Android's "Do Not Disturb
+    // access" (ACCESS_NOTIFICATION_POLICY). react-native-volume-manager can
+    // actually report whether it's granted, so detect it instead of guessing.
     let dndStatus: PermissionStatus = "undetermined";
     if (Platform.OS === "android") {
-      // Android needs NOTIFICATION_POLICY_ACCESS for DND
-      // We can't check this directly from Expo, mark as undetermined
-      dndStatus = "undetermined";
-    } else if (Platform.OS === "ios") {
-      // iOS doesn't have DND permission API - it's managed by Focus modes
-      dndStatus = "unavailable";
+      try {
+        const { VolumeManager } = require("react-native-volume-manager");
+        const hasAccess = await VolumeManager.checkDndAccess();
+        dndStatus = hasAccess ? "granted" : "denied";
+      } catch {
+        dndStatus = "undetermined";
+      }
     } else {
+      // iOS DND is managed by system Focus modes, no app-grantable permission.
       dndStatus = "unavailable";
     }
     items.push({
