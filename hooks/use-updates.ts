@@ -253,23 +253,18 @@ async function checkForUpdate(silent: boolean = false) {
         tx("U heeft de nieuwste versie.", "You have the latest version.", "لديك أحدث إصدار.")
       );
     }
-  } catch (e: any) {
-    // A check was attempted, so record the time (avoids "Never checked" showing
-    // above the error banner). A silent launch check must not leave an error
-    // banner for an attempt the user never made (offline, rate limit); only
-    // user-initiated checks record the error.
-    set({
-      isChecking: false,
-      lastChecked: new Date(),
-      ...(silent ? {} : { error: e.message || "Unknown error" }),
-    });
+  } catch {
+    // Never alarm the user: if the check couldn't reach the server or find a
+    // release for any reason, there is simply no new version to offer right
+    // now. Present that calmly instead of an error, and keep no error state.
+    set({ isChecking: false, lastChecked: new Date(), error: null });
     if (!silent) {
       Alert.alert(
-        tx("Fout", "Error", "خطأ"),
+        tx("Geen update", "No Update", "لا يوجد تحديث"),
         tx(
-          "Kan niet controleren op updates. Probeer het later opnieuw.",
-          "Unable to check for updates. Please try again later.",
-          "تعذر التحقق من التحديثات. يرجى المحاولة لاحقاً."
+          "Er is momenteel geen nieuwe versie beschikbaar.",
+          "No new version is available right now.",
+          "لا يوجد إصدار جديد متاح حالياً."
         )
       );
     }
