@@ -1,0 +1,53 @@
+lib/weekly-goals-notification.ts
+  s_168adbdaf097e9::t_9469cf89186fd2 49
+  s_168adbdaf097e9::t_51e21fab29c533 7
+lib/notification-channels.ts
+  s_168adbdaf097e9::t_8663751634d8ac 2
+  s_168adbdaf097e9::t_6bf00cc116efa1 1,3-34
+lib/notifications.ts
+  s_168adbdaf097e9::t_e341de3fc67ff6 664
+  s_168adbdaf097e9::t_9c607a729ce396 133,138,141-154
+  s_168adbdaf097e9::t_43d515716a7646 77-79
+  s_168adbdaf097e9::t_4659b3faa41996 624
+  s_168adbdaf097e9::t_a66529a5eaaa2f 592
+  s_168adbdaf097e9::t_49f65139d3249d 46
+lib/iman-notifications.ts
+  s_168adbdaf097e9::t_1e8b3755fcdafb 44
+lib/spouse-advice-notification.ts
+  s_168adbdaf097e9::t_20d187549bbe99 7
+  s_168adbdaf097e9::t_a1106d1cd6732d 60
+app/(tabs)/notification-settings.tsx
+  s_168adbdaf097e9::t_5a6ebeb03d2f10 84-85,89,99,106-109,111-120
+  s_168adbdaf097e9::t_26a7e0d75f8355 391
+  s_168adbdaf097e9::t_1ece022e2c981b 174-175,177,179-180
+tests/notifications.test.ts
+  s_168adbdaf097e9::t_9db1f9f9e0377b 133,142-144
+  s_168adbdaf097e9::t_84920b33fa03c1 53
+  s_168adbdaf097e9::t_ae4b92f04d06e8 99,103
+app/_layout.tsx
+  s_168adbdaf097e9::t_b01635b6148afd 344-346
+  s_168adbdaf097e9::t_df13888a2e91f2 28
+lib/iqamah-silence.ts
+  s_168adbdaf097e9::t_166a8127a9a130 78
+lib/daily-advice-notification.ts
+  s_168adbdaf097e9::t_b8bb7e1a920a2d 11
+  s_168adbdaf097e9::t_78a69297705ec5 23
+lib/islamic-reminders.ts
+  s_168adbdaf097e9::t_0250017cf1fbb7 26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "303bd002b87fbaaceeb026e71d7e2b50adb24d1d",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
