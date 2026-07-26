@@ -21,6 +21,9 @@ import {
 // ============ STORAGE KEYS ============
 
 export const IQAMAH_SILENCE_PREFS_KEY = "@iqamah_silence_prefs";
+// Remembers the phone's ringer mode from just before we silenced it, so restore
+// returns it to exactly that (vibrate stays vibrate, etc.) instead of forcing normal.
+export const IQAMAH_PRIOR_RINGER_KEY = "@iqamah_prior_ringer_mode";
 
 // ============ TYPES ============
 
@@ -265,14 +268,26 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
         await VolumeManager.requestDndAccess();
         return;
       }
-      // Set to silent mode
+      // Capture the current ringer mode BEFORE muting, so we can put it back
+      // exactly as it was (silent / vibrate / normal).
+      try {
+        const current = await VolumeManager.getRingerMode();
+        if (current !== undefined && current !== null) {
+          await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+        }
+      } catch {}
+      // Mute the ringer for the iqamah period.
       await VolumeManager.setRingerMode(RINGER_MODE.silent);
     } else if (action === "restore") {
       const hasAccess = await VolumeManager.checkDndAccess();
-      if (hasAccess) {
-        // Restore to normal mode
-        await VolumeManager.setRingerMode(RINGER_MODE.normal);
-      }
+      if (!hasAccess) return;
+      // Restore to the exact mode the phone was in before we silenced it.
+      // Fall back to normal only if nothing was captured.
+      const stored = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+      const priorMode =
+        stored !== null ? (Number(stored) as typeof RINGER_MODE.normal) : RINGER_MODE.normal;
+      await VolumeManager.setRingerMode(priorMode);
+      await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
     }
   } catch (err) {
     console.warn("Failed to change ringer mode:", err);

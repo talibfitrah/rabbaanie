@@ -79,7 +79,7 @@ const config: ExpoConfig = {
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
     versionCode: APP_VERSION_CODE,
-    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES"],
+    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES", "ACCESS_NOTIFICATION_POLICY"],
     intentFilters: [
       {
         action: "VIEW",
