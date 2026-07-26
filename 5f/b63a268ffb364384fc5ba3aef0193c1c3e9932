@@ -1,0 +1,31 @@
+widgets/widgetTaskHandler.tsx
+  s_168adbdaf097e9::t_a33f2c1edd9169 100,102-108
+  s_168adbdaf097e9::t_5fb4ecf6515de0 17-18
+lib/widget-settings.ts
+  s_168adbdaf097e9::t_17e3c26348c08e 6-11
+  s_168adbdaf097e9::t_1ba6b3229e735e 174-178
+  s_168adbdaf097e9::t_707179b17b6975 76,78-79
+  s_168adbdaf097e9::t_8b10a0574bca8a 91
+  s_168adbdaf097e9::t_402df76b70f94d 146-157,159-160
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_e48e9b0148b434 2767-2782
+  s_168adbdaf097e9::t_4e0b8f5b6a9f87 2747-2748
+  s_168adbdaf097e9::t_b33766ba1e9991 2740,2742-2743
+  s_168adbdaf097e9::t_5298925f9acba9 3019-3035,3041,3043-3045,3047,3051,3053-3054,3059,3061-3063,3065
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5fb63a268ffb364384fc5ba3aef0193c1c3e9932",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
