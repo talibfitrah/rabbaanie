@@ -2737,11 +2737,15 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
 function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; language: string; isRTL: boolean }) {
   const isEn = language === "en";
   const tx = (nl: string, en: string, ar: string) => language === "ar" ? ar : isEn ? en : nl;
-  const { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS, BACKGROUND_COLORS, TEXT_COLORS, BORDER_COLORS } = require("@/lib/widget-settings");
+  const { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS, appearanceFor, BACKGROUND_COLORS, TEXT_COLORS, BORDER_COLORS } = require("@/lib/widget-settings");
   type FullWidgetSettings = import("@/lib/widget-settings").FullWidgetSettings;
+  type WidgetType = import("@/lib/widget-settings").WidgetType;
+  type WidgetAppearanceSettings = import("@/lib/widget-settings").WidgetAppearanceSettings;
 
   const [ws, setWs] = React.useState<FullWidgetSettings>(DEFAULT_WIDGET_SETTINGS);
   const [activeTab, setActiveTab] = React.useState<"appearance" | "timing" | "content" | "behavior">("content");
+  // The appearance tab edits one widget type at a time so each can be styled independently.
+  const [activeWidgetType, setActiveWidgetType] = React.useState<WidgetType>("combined");
 
   React.useEffect(() => {
     loadWidgetSettings().then((s: FullWidgetSettings) => setWs(s));
@@ -2759,6 +2763,22 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
     }
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  // Appearance is edited per widget type. Reads resolve the type's own override (or
+  // the global default); writes are scoped to appearanceByType[activeWidgetType].
+  const activeAppearance: WidgetAppearanceSettings = appearanceFor(ws, activeWidgetType);
+  const updateAppearance = (patch: Partial<WidgetAppearanceSettings>) => {
+    const base = ws.appearanceByType?.[activeWidgetType] ?? ws.appearance;
+    updateSettings({ appearanceByType: { ...(ws.appearanceByType ?? {}), [activeWidgetType]: { ...base, ...patch } } });
+  };
+
+  const widgetTypeLabels: { key: WidgetType; label: string }[] = [
+    { key: "prayer", label: tx("Gebed", "Prayer", "الصلاة") },
+    { key: "dhikr", label: tx("Dhikr", "Dhikr", "الذكر") },
+    { key: "goal", label: tx("Doel", "Goal", "الهدف") },
+    { key: "hijri", label: tx("Hijri", "Hijri", "التاريخ") },
+    { key: "combined", label: tx("Alles", "Combined", "الشامل") },
+  ];
 
   const ToggleRow = ({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) => (
     <Pressable
@@ -2996,37 +3016,53 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
       {/* ===== APPEARANCE TAB ===== */}
       {activeTab === "appearance" && (
         <View>
-          <OptionRow label={tx("Thema", "Theme Mode", "الوضع")} value={ws.appearance.themeMode}
+          {/* Per-widget-type selector — appearance below applies to the chosen type */}
+          <Text style={{ fontSize: 12, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {tx("Widgettype (elk apart)", "Widget type (each separate)", "نوع الودجت (كل نوع على حدة)")}
+          </Text>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {widgetTypeLabels.map((wt) => (
+              <Pressable key={wt.key} onPress={() => setActiveWidgetType(wt.key)} style={({ pressed }) => [{
+                backgroundColor: activeWidgetType === wt.key ? colors.primary : colors.surface,
+                borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12,
+                borderWidth: 1, borderColor: activeWidgetType === wt.key ? colors.primary : colors.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: activeWidgetType === wt.key ? "#fff" : colors.foreground }}>{wt.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <OptionRow label={tx("Thema", "Theme Mode", "الوضع")} value={activeAppearance.themeMode}
             options={[
               { key: "light", label: tx("Licht", "Light", "فاتح") },
               { key: "dark", label: tx("Donker", "Dark", "داكن") },
               { key: "system", label: tx("Systeem", "System", "تلقائي") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, themeMode: v as any } })}
+            onChange={(v) => updateAppearance({ themeMode: v as any })}
           />
-          <ColorPicker label={tx("Achtergrondkleur", "Background Color", "لون الخلفية")} colors={BACKGROUND_COLORS} value={ws.appearance.backgroundColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, backgroundColor: v as `#${string}` } })} />
-          <ColorPicker label={tx("Tekstkleur", "Text Color", "لون النص")} colors={TEXT_COLORS} value={ws.appearance.textColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, textColor: v as `#${string}` } })} />
-          <OptionRow label={tx("Lettergrootte", "Font Size", "حجم الخط")} value={ws.appearance.fontSize}
+          <ColorPicker label={tx("Achtergrondkleur", "Background Color", "لون الخلفية")} colors={BACKGROUND_COLORS} value={activeAppearance.backgroundColor} onChange={(v) => updateAppearance({ backgroundColor: v as `#${string}` })} />
+          <ColorPicker label={tx("Tekstkleur", "Text Color", "لون النص")} colors={TEXT_COLORS} value={activeAppearance.textColor} onChange={(v) => updateAppearance({ textColor: v as `#${string}` })} />
+          <OptionRow label={tx("Lettergrootte", "Font Size", "حجم الخط")} value={activeAppearance.fontSize}
             options={[
+              { key: "auto", label: tx("Automatisch", "Auto", "تلقائي") },
               { key: "small", label: tx("Klein", "Small", "صغير") },
-              { key: "medium", label: tx("Middel", "Medium", "متوسط") },
               { key: "large", label: tx("Groot", "Large", "كبير") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, fontSize: v as any } })}
+            onChange={(v) => updateAppearance({ fontSize: v as any })}
           />
-          <SliderRow label={tx("Schaal lettergrootte %", "Font Scale %", "نسبة تكبير الخط %")} value={(ws.appearance.fontScale || 100)} min={80} max={150} step={10} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, fontScale: v } })} />
-          <OptionRow label={tx("Hoeken", "Corners", "الزوايا")} value={ws.appearance.cornerStyle}
+          <SliderRow label={tx("Schaal lettergrootte %", "Font Scale %", "نسبة تكبير الخط %")} value={(activeAppearance.fontScale || 100)} min={80} max={150} step={10} onChange={(v) => updateAppearance({ fontScale: v })} />
+          <OptionRow label={tx("Hoeken", "Corners", "الزوايا")} value={activeAppearance.cornerStyle}
             options={[
               { key: "rounded", label: tx("Afgerond", "Rounded", "مستديرة") },
               { key: "sharp", label: tx("Scherp", "Sharp", "حادة") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, cornerStyle: v as any } })}
+            onChange={(v) => updateAppearance({ cornerStyle: v as any })}
           />
-          <ToggleRow label={tx("Toon rand", "Show border", "عرض الحدود")} value={ws.appearance.showBorder} onToggle={() => updateSettings({ appearance: { ...ws.appearance, showBorder: !ws.appearance.showBorder } })} />
-          {ws.appearance.showBorder && (
-            <ColorPicker label={tx("Randkleur", "Border Color", "لون الحد")} colors={BORDER_COLORS} value={ws.appearance.borderColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, borderColor: v as `#${string}` } })} />
+          <ToggleRow label={tx("Toon rand", "Show border", "عرض الحدود")} value={activeAppearance.showBorder} onToggle={() => updateAppearance({ showBorder: !activeAppearance.showBorder })} />
+          {activeAppearance.showBorder && (
+            <ColorPicker label={tx("Randkleur", "Border Color", "لون الحد")} colors={BORDER_COLORS} value={activeAppearance.borderColor} onChange={(v) => updateAppearance({ borderColor: v as `#${string}` })} />
           )}
-          <SliderRow label={tx("Transparantie", "Opacity", "الشفافية")} value={ws.appearance.opacity} min={0.5} max={1} step={0.1} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, opacity: v } })} />
+          <SliderRow label={tx("Transparantie", "Opacity", "الشفافية")} value={activeAppearance.opacity} min={0.5} max={1} step={0.1} onChange={(v) => updateAppearance({ opacity: v })} />
         </View>
       )}
 

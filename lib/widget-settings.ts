@@ -3,7 +3,12 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 // ============ Types ============
 
 export type WidgetThemeMode = "light" | "dark" | "system";
-export type WidgetFontSize = "small" | "medium" | "large";
+// "auto" scales the font with the widget's own size; small/medium/large are fixed.
+export type WidgetFontSize = "auto" | "small" | "medium" | "large";
+
+/** The five widget types, each independently configurable. */
+export type WidgetType = "prayer" | "dhikr" | "goal" | "hijri" | "combined";
+export const WIDGET_TYPES: WidgetType[] = ["prayer", "dhikr", "goal", "hijri", "combined"];
 export type WidgetCornerStyle = "rounded" | "sharp";
 export type DhikrInterval = "hourly" | "every_prayer" | "daily";
 export type WidgetTapAction = "home" | "prayer" | "dhikr" | "goals" | "calendar";
@@ -68,7 +73,10 @@ export interface WidgetBehaviorSettings {
 
 /** الإعدادات الكاملة */
 export interface FullWidgetSettings {
+  /** Global default appearance; used for any widget type without its own override. */
   appearance: WidgetAppearanceSettings;
+  /** Per-widget-type appearance overrides — each type can be styled independently. */
+  appearanceByType?: Partial<Record<WidgetType, WidgetAppearanceSettings>>;
   timing: WidgetTimingSettings;
   content: WidgetContentSettings;
   behavior: WidgetBehaviorSettings;
@@ -80,7 +88,7 @@ export const DEFAULT_APPEARANCE: WidgetAppearanceSettings = {
   themeMode: "light",
   backgroundColor: "#FFFFFF" as HexColor,
   textColor: "#1B4332" as HexColor,
-  fontSize: "medium",
+  fontSize: "auto", // scale with the widget's size by default
   fontScale: 100,
   cornerStyle: "rounded",
   showBorder: true,
@@ -135,8 +143,21 @@ export async function loadWidgetSettings(): Promise<FullWidgetSettings> {
     const raw = await AsyncStorage.getItem(STORAGE_KEY);
     if (!raw) return DEFAULT_WIDGET_SETTINGS;
     const parsed = JSON.parse(raw);
+    const appearance = { ...DEFAULT_APPEARANCE, ...parsed.appearance };
+    // Older installs stored the default "medium", which already scaled with the
+    // widget size; keep that behavior under the new explicit "auto" option.
+    if (parsed.appearance?.fontSize === "medium") appearance.fontSize = "auto";
+    const appearanceByType: Partial<Record<WidgetType, WidgetAppearanceSettings>> = {};
+    if (parsed.appearanceByType && typeof parsed.appearanceByType === "object") {
+      for (const t of WIDGET_TYPES) {
+        if (parsed.appearanceByType[t]) {
+          appearanceByType[t] = { ...DEFAULT_APPEARANCE, ...parsed.appearanceByType[t] };
+        }
+      }
+    }
     return {
-      appearance: { ...DEFAULT_APPEARANCE, ...parsed.appearance },
+      appearance,
+      appearanceByType,
       timing: { ...DEFAULT_TIMING, ...parsed.timing },
       content: { ...DEFAULT_CONTENT, ...parsed.content },
       behavior: { ...DEFAULT_BEHAVIOR, ...parsed.behavior },
@@ -148,6 +169,11 @@ export async function loadWidgetSettings(): Promise<FullWidgetSettings> {
 
 export async function saveWidgetSettings(settings: FullWidgetSettings): Promise<void> {
   await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
+}
+
+/** Effective appearance for a widget type: its own override if set, else the global default. */
+export function appearanceFor(settings: FullWidgetSettings, type: WidgetType): WidgetAppearanceSettings {
+  return settings.appearanceByType?.[type] ?? settings.appearance;
 }
 
 // ============ Color Presets ============

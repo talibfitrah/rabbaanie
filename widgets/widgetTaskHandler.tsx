@@ -14,8 +14,8 @@ import { buildCombinedWidgetTree } from "./CombinedWidget";
 import { getDhikrForTimeAsync, getDhikrIndex, saveDhikrIndex, getTipIndex, saveTipIndex, getPersonalTips } from "./dhikr-data";
 import { getWidgetPrayerData, getWidgetHijriData, getWidgetGoalData, getWidgetTarbiyaTip, TARBIYA_TIPS, TARBIYA_TIPS_I18N } from "./widgetDataProvider";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS } from "@/lib/widget-settings";
-import type { FullWidgetSettings } from "@/lib/widget-settings";
+import { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS, appearanceFor } from "@/lib/widget-settings";
+import type { FullWidgetSettings, WidgetType } from "@/lib/widget-settings";
 
 registerWidgetTaskHandler(async ({ widgetInfo, widgetAction, clickAction, renderWidget }) => {
   if (widgetAction === "WIDGET_DELETED") return;
@@ -97,8 +97,15 @@ registerWidgetTaskHandler(async ({ widgetInfo, widgetAction, clickAction, render
     settings = DEFAULT_WIDGET_SETTINGS;
   }
 
-  const { appearance, content } = settings;
+  const { content } = settings;
   const widgetName = widgetInfo.widgetName;
+  // Resolve appearance for THIS widget type so each type can be styled independently.
+  const widgetType: WidgetType =
+    widgetName === PRAYER_WIDGET_NAME ? "prayer" :
+    widgetName === DHIKR_WIDGET_NAME ? "dhikr" :
+    widgetName === GOAL_WIDGET_NAME ? "goal" :
+    widgetName === HIJRI_WIDGET_NAME ? "hijri" : "combined";
+  const appearance = appearanceFor(settings, widgetType);
 
   // ============ GET CURRENT TIP ============
   async function getWidgetLang(): Promise<string> {
