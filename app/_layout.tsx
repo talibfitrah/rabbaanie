@@ -23,6 +23,7 @@ import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-run
 import { AppProvider } from "@/lib/app-context";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
+import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
 import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { scheduleIqamahSilence, handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
@@ -484,6 +485,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
             <UpdateCheck />
+            <UpdateProgressOverlay />
             <AppProvider>
               <AuthProvider>
               <AuthGate>
