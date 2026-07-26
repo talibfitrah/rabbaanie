@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { I18nManager, Platform } from "react-native";
+import { syncLanguageToServer } from "@/lib/language-sync";
 
 // ============ TRANSLATIONS ============
 
@@ -677,6 +678,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setLanguageState(detectedLang);
+      // Persist the effective language so notification scheduling (which reads
+      // @app_language directly) matches the UI — including the system-detected
+      // default when the user hasn't explicitly chosen one.
+      if (val !== "en" && val !== "nl" && val !== "ar") {
+        AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, detectedLang).catch(() => {});
+      }
       // Apply RTL on app start
       const shouldBeRTL = detectedLang === "ar";
       if (I18nManager.isRTL !== shouldBeRTL) {
@@ -712,20 +719,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         await refreshAllWidgets();
       }
     } catch {}
-    // Sync language to server so system messages use the correct language
-    try {
-      const { getSessionToken } = require("@/lib/_core/auth");
-      const { getApiBaseUrl } = require("@/constants/oauth");
-      const token = await getSessionToken();
-      if (token) {
-        const baseUrl = getApiBaseUrl();
-        fetch(`${baseUrl}/api/trpc/profile.updateLanguage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ json: { language: lang } }),
-        }).catch(() => {});
-      }
-    } catch {}
+    // Sync to the server so server-sent notifications use the chosen language.
+    void syncLanguageToServer(lang);
   }, []);
 
   const isRTL = language === "ar";

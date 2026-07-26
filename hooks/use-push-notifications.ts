@@ -6,6 +6,7 @@ import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
 import { handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { checkForUpdate } from "@/hooks/use-updates";
+import { syncLanguageToServer } from "@/lib/language-sync";
 
 // Configure notification handler for foreground
 Notifications.setNotificationHandler({
@@ -95,6 +96,10 @@ export function usePushNotifications(isAuthenticated: boolean) {
         try {
           await registerTokenMutation.mutateAsync({ token });
           registered.current = true;
+          // The user is authenticated here, so push the chosen app language to
+          // the server (it may have been selected before login and never synced,
+          // which is why server-sent notifications defaulted to Dutch).
+          void syncLanguageToServer();
           console.log("[Push] Token registered:", token.substring(0, 20) + "...");
         } catch (e) {
           console.warn("[Push] Failed to register token with server:", e);
