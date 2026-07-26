@@ -11,3 +11,22 @@ export function currentWeekKey(): string {
   utc.setUTCDate(utc.getUTCDate() - daysSinceSaturday);
   return utc.toISOString().slice(0, 10); // date of the most recent Saturday
 }
+
+/** Stable hash of arbitrary JSON-serialisable input (djb2 → base36). */
+function hash(input: unknown): string {
+  const json = JSON.stringify(input ?? null);
+  let h = 5381;
+  for (let i = 0; i < json.length; i++) h = ((h << 5) + h + json.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
+}
+
+/**
+ * Signature of the "diagnostic file" that shapes advice: the parent profile,
+ * the per-child environments, and the recorded issues. Advice is regenerated
+ * when this changes, even within the same week (per Daa3iyah's requirement:
+ * fixed for a week unless the diagnostic file changes). Daily check-ins are
+ * intentionally excluded so they don't defeat the weekly stability.
+ */
+export function adviceDiagnosticSig(state: any): string {
+  return hash([state?.parentProfile, state?.environments, state?.issues]);
+}
