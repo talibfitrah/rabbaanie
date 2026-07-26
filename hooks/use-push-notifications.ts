@@ -5,6 +5,7 @@ import * as Device from "expo-device";
 import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
 import { handleIqamahSilenceAction } from "@/lib/iqamah-silence";
+import { checkForUpdate } from "@/hooks/use-updates";
 
 // Configure notification handler for foreground
 Notifications.setNotificationHandler({
@@ -135,6 +136,14 @@ export function usePushNotifications(isAuthenticated: boolean) {
       }
       if (data?.type === "iqamah_restore") {
         handleIqamahSilenceAction("restore");
+        return;
+      }
+
+      if (data?.type === "app_update") {
+        // New-version push: re-check our own manifest (which re-validates the
+        // download URL) and show the standard "update available" dialog. The
+        // push payload's version is never trusted to drive the download.
+        checkForUpdate(false);
         return;
       }
       

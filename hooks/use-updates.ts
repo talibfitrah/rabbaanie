@@ -170,7 +170,7 @@ async function downloadAndApplyUpdate() {
   }
 }
 
-async function checkForUpdate(silent: boolean = false) {
+export async function checkForUpdate(silent: boolean = false) {
   if (__DEV__ || Platform.OS !== "android") {
     if (!silent) {
       if (__DEV__) {
