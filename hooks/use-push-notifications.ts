@@ -2,7 +2,6 @@ import { useEffect, useRef } from "react";
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
-import Constants from "expo-constants";
 import { trpc } from "@/lib/trpc";
 import { handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { checkForUpdate } from "@/hooks/use-updates";
@@ -62,18 +61,13 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
     return null;
   }
 
-  // Get Expo push token
+  // Get the native FCM device token (direct FCM — no Expo push project needed).
+  // Requires Firebase to be configured via app.config android.googleServicesFile.
   try {
-    const projectId =
-      Constants?.expoConfig?.extra?.eas?.projectId ?? Constants?.easConfig?.projectId;
-    if (!projectId) {
-      console.log("[Push] No project ID found");
-      return null;
-    }
-    const tokenData = await Notifications.getExpoPushTokenAsync({ projectId });
-    return tokenData.data;
+    const tokenData = await Notifications.getDevicePushTokenAsync();
+    return typeof tokenData.data === "string" ? tokenData.data : null;
   } catch (e) {
-    console.warn("[Push] Error getting push token:", e);
+    console.warn("[Push] Error getting FCM device token:", e);
     return null;
   }
 }

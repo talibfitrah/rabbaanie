@@ -82,3 +82,4 @@ local-docs/
 
 # gstack local security reports
 .gstack/
+google-services.json
