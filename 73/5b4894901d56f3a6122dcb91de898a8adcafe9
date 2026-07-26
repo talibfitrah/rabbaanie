@@ -1,0 +1,25 @@
+app/(tabs)/personal-advice.tsx
+  s_168adbdaf097e9::t_cc02f15c753d9b 314,369,405,467
+  s_168adbdaf097e9::t_703b134dee1386 13
+app/details/personal-advice.tsx
+  s_168adbdaf097e9::t_77e99229e543df 414,475
+  s_168adbdaf097e9::t_adb329a3932d76 13
+lib/advice-period.ts
+  s_168adbdaf097e9::t_bacc9ed467205c 1-13
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "735b4894901d56f3a6122dcb91de898a8adcafe9",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
