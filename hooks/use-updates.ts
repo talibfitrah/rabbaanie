@@ -210,8 +210,15 @@ async function checkForUpdate(silent: boolean = false) {
         signal: controller.signal,
         headers: { Accept: "application/vnd.github+json" },
       });
-      if (!res.ok) throw new Error(`GitHub API responded ${res.status}`);
-      release = await res.json();
+      if (res.status === 404) {
+        // No release has been published yet — there is simply nothing to update
+        // to, so treat it as "up to date" rather than surfacing an error.
+        release = { tag_name: "" };
+      } else if (!res.ok) {
+        throw new Error(`GitHub API responded ${res.status}`);
+      } else {
+        release = await res.json();
+      }
     } finally {
       clearTimeout(timeout);
     }
