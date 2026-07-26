@@ -41,6 +41,10 @@ app-example
 # generated native folders
 /ios
 /android
+# Local Expo module Gradle build output (source under modules/*/android is kept)
+modules/*/android/build/
+modules/*/android/.gradle/
+modules/*/android/.cxx/
 
 # IDE
 .vscode/

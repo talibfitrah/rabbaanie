@@ -23,7 +23,7 @@ import {
 export const IQAMAH_SILENCE_PREFS_KEY = "@iqamah_silence_prefs";
 // Remembers the phone's ringer mode from just before we silenced it, so restore
 // returns it to exactly that (vibrate stays vibrate, etc.) instead of forcing normal.
-export const IQAMAH_PRIOR_RINGER_KEY = "@iqamah_prior_ringer_mode";
+const IQAMAH_PRIOR_RINGER_KEY = "@iqamah_prior_ringer_mode";
 
 // ============ TYPES ============
 
@@ -268,12 +268,19 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
         await VolumeManager.requestDndAccess();
         return;
       }
-      // Capture the current ringer mode BEFORE muting, so we can put it back
-      // exactly as it was (silent / vibrate / normal).
+      // Capture the ringer mode from BEFORE this silence period, exactly once,
+      // so restore returns it precisely (vibrate stays vibrate). The silence
+      // action can fire twice for one prayer — once when the notification is
+      // received, once if the user taps it — so we must NOT re-capture our own
+      // "silent" state over the real prior mode: store only when no prior is
+      // already saved AND the phone isn't already silent.
       try {
-        const current = await VolumeManager.getRingerMode();
-        if (current !== undefined && current !== null) {
-          await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+        const alreadyCaptured = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+        if (alreadyCaptured === null) {
+          const current = await VolumeManager.getRingerMode();
+          if (current !== undefined && current !== null && current !== RINGER_MODE.silent) {
+            await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+          }
         }
       } catch {}
       // Mute the ringer for the iqamah period.
@@ -281,11 +288,14 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
     } else if (action === "restore") {
       const hasAccess = await VolumeManager.checkDndAccess();
       if (!hasAccess) return;
-      // Restore to the exact mode the phone was in before we silenced it.
-      // Fall back to normal only if nothing was captured.
+      // Restore to the exact mode from before we silenced. If nothing was
+      // captured (silence never ran, DND wasn't granted, or the phone was
+      // already silent), do NOTHING — never force "normal", which would raise a
+      // phone the user had deliberately left on vibrate/silent. Read-and-clear
+      // so a second restore (received + tapped) is a harmless no-op.
       const stored = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
-      const priorMode =
-        stored !== null ? (Number(stored) as typeof RINGER_MODE.normal) : RINGER_MODE.normal;
+      if (stored === null) return;
+      const priorMode = Number(stored) as typeof RINGER_MODE.normal;
       await VolumeManager.setRingerMode(priorMode);
       await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
     }

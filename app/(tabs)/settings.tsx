@@ -11,6 +11,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
+import { withTimeout } from "@/lib/location-utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   PRAYER_LOCATION_KEY,
@@ -643,10 +644,10 @@ export default function SettingsScreen() {
       let city = "";
       let country = "";
       try {
-        const geocodeResults = await Location.reverseGeocodeAsync({
+        const geocodeResults = await withTimeout<any>(Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        });
+        }), 8000);
         if (geocodeResults && geocodeResults.length > 0) {
           const geo = geocodeResults[0];
           city = geo.city || geo.subregion || geo.region || "";
@@ -750,10 +751,10 @@ export default function SettingsScreen() {
       let city = "";
       let country = "";
       try {
-        const geocodeResults = await Location.reverseGeocodeAsync({
+        const geocodeResults = await withTimeout<any>(Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        });
+        }), 8000);
         if (geocodeResults && geocodeResults.length > 0) {
           const geo = geocodeResults[0];
           city = geo.city || geo.subregion || geo.region || "";

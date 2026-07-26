@@ -252,10 +252,12 @@ async function checkForUpdate(silent: boolean = false) {
         tx("U heeft de nieuwste versie.", "You have the latest version.", "لديك أحدث إصدار.")
       );
     }
-  } catch {
+  } catch (e) {
     // Never alarm the user: if the check couldn't reach the server or find a
     // release for any reason, there is simply no new version to offer right
     // now. Present that calmly instead of an error, and keep no error state.
+    // Still log it, so a silently-dead manifest endpoint stays diagnosable.
+    console.warn("[updates] check failed:", e);
     set({ isChecking: false, lastChecked: new Date(), error: null });
     if (!silent) {
       Alert.alert(

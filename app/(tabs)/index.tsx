@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
 import { View, Text, ScrollView, ActivityIndicator, Pressable, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getYearKey, getWeekInYear, type DailyCheckin } from "@/lib/store";
@@ -199,7 +199,7 @@ export default function AlgemeenScreen() {
     }, 2000);
   };
 
-  useEffect(() => {
+  const reloadPrayerData = useCallback(() => {
     Promise.all([
       AsyncStorage.getItem(PRAYER_LOCATION_KEY),
       AsyncStorage.getItem(PRAYER_METHOD_KEY),
@@ -213,6 +213,10 @@ export default function AlgemeenScreen() {
       if (progressVal) { try { setCompletedGoals(JSON.parse(progressVal)); } catch (_) {} }
     });
   }, []);
+
+  // Re-read on every focus (not just cold start), so a location set on the
+  // Settings or Qibla screen updates the home screen's prayer times immediately.
+  useFocusEffect(reloadPrayerData);
 
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 30000);

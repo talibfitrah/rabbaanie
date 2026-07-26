@@ -20,13 +20,64 @@ function hash(input: unknown): string {
   return (h >>> 0).toString(36);
 }
 
+// Sync/merge round-trips (partner sync, syncFromServer) bump these fields and
+// reorder arrays without changing the actual diagnosis, so they must not flip
+// the signature — otherwise "stable for a week" would erode on every app open.
+const VOLATILE_DIAGNOSTIC_KEYS = new Set([
+  "updatedAt",
+  "createdAt",
+  "lastUpdated",
+  "lastModified",
+  "modifiedAt",
+  "syncedAt",
+  "syncedFromPartner",
+]);
+
+/**
+ * Canonicalise diagnostic input before hashing: drop volatile sync metadata,
+ * sort object keys, and order arrays deterministically so a partner-merge
+ * reordering doesn't change the signature. Only genuine diagnostic edits alter it.
+ */
+function normalizeDiagnostic(value: any): any {
+  if (Array.isArray(value)) {
+    return value
+      .map((item) => normalizeDiagnostic(item))
+      .map((item) => ({ item, key: JSON.stringify(item ?? null) }))
+      .sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : 0))
+      .map((entry) => entry.item);
+  }
+  if (value && typeof value === "object") {
+    const out: Record<string, any> = {};
+    for (const key of Object.keys(value).sort()) {
+      if (VOLATILE_DIAGNOSTIC_KEYS.has(key)) continue;
+      out[key] = normalizeDiagnostic(value[key]);
+    }
+    return out;
+  }
+  return value;
+}
+
 /**
  * Signature of the "diagnostic file" that shapes advice: the parent profile,
- * the per-child environments, and the recorded issues. Advice is regenerated
- * when this changes, even within the same week (per Daa3iyah's requirement:
- * fixed for a week unless the diagnostic file changes). Daily check-ins are
- * intentionally excluded so they don't defeat the weekly stability.
+ * the per-child environments, the recorded issues, and a child fingerprint
+ * (id + name + birthDate — the count/ages/names sent in the advice payload).
+ * Advice regenerates when this changes, even within the same week (per
+ * Daa3iyah's requirement: fixed for a week unless the diagnostic file changes).
+ * Daily check-ins and volatile sync metadata are intentionally excluded so they
+ * don't defeat the weekly stability.
  */
 export function adviceDiagnosticSig(state: any): string {
-  return hash([state?.parentProfile, state?.environments, state?.issues]);
+  const childFingerprint = (state?.children ?? []).map((c: any) => ({
+    id: c?.id,
+    name: c?.name,
+    birthDate: c?.birthDate,
+  }));
+  return hash(
+    normalizeDiagnostic([
+      state?.parentProfile,
+      state?.environments,
+      state?.issues,
+      childFingerprint,
+    ])
+  );
 }
