@@ -23,7 +23,7 @@ const QIYAM_TYPE = "qiyam_reminder";
 
 // ============ ANDROID CHANNEL ============
 
-const ISLAMIC_REMINDERS_CHANNEL_ID = "islamic_reminders";
+const ISLAMIC_REMINDERS_CHANNEL_ID = "islamic_reminders_v2";
 
 // ============ TYPES ============
 

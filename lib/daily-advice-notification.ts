@@ -8,7 +8,7 @@ import {
 
 // ============ CONSTANTS ============
 
-const DAILY_ADVICE_CHANNEL_ID = "daily_advice";
+const DAILY_ADVICE_CHANNEL_ID = "daily_advice_v2";
 const WIDGET_CHANNEL_ID = "advice_widget";
 const DAILY_ADVICE_TYPE = "daily_advice";
 const WIDGET_TYPE = "advice_widget";
@@ -20,7 +20,7 @@ export async function setupDailyAdviceChannel(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(DAILY_ADVICE_CHANNEL_ID, {
     name: "Dagelijks Advies / Daily Advice",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
   });
 

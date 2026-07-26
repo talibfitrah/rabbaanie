@@ -41,7 +41,7 @@ const FRIDAY_SALAT_TYPE = "friday_salat_prophet";
 
 // ============ ANDROID CHANNEL ============
 
-const IMAN_CHANNEL_ID = "iman_reminders";
+const IMAN_CHANNEL_ID = "iman_reminders_v2";
 
 export async function setupImanChannel(): Promise<void> {
   if (Platform.OS !== "android") return;

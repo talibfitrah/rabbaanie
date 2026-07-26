@@ -43,7 +43,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   enabled: true,
   prayers: {
     fajr: true,
-    sunrise: false,
+    sunrise: true,
     dhuhr: true,
     asr: true,
     maghrib: true,
@@ -74,9 +74,9 @@ export const NATURE_SOUND_OPTIONS: { id: NatureSoundOption; nameAr: string; name
 
 // ============ NOTIFICATION CHANNELS (Android) ============
 
-const PRAYER_CHANNEL_ID = "prayer_times";
-const ADHKAAR_CHANNEL_ID = "adhkaar_reminders";
-const WEEKLY_CHANNEL_ID = "weekly_reminders";
+const PRAYER_CHANNEL_ID = "prayer_times_v2";
+const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
+const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -130,14 +130,28 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 // ============ PREFERENCES PERSISTENCE ============
 
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
+  let prefs: NotificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
   try {
     const raw = await AsyncStorage.getItem(NOTIFICATION_PREFS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
+      prefs = { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
     }
   } catch {}
-  return { ...DEFAULT_NOTIFICATION_PREFS };
+  // Prayer reminders are obligatory: force the master flag and the 5 daily fard
+  // prayers ON for EVERY user, regardless of stored prefs. Sunrise (Shurooq),
+  // which is not a prayer, stays user-controlled.
+  prefs.enabled = true;
+  prefs.prayers = {
+    ...DEFAULT_NOTIFICATION_PREFS.prayers,
+    ...prefs.prayers,
+    fajr: true,
+    dhuhr: true,
+    asr: true,
+    maghrib: true,
+    isha: true,
+  };
+  return prefs;
 }
 
 export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<void> {
@@ -575,7 +589,7 @@ export async function getUnfinishedGoalCount(): Promise<number | undefined> {
 
 // ============ INACTIVITY REMINDER (Fix #10) ============
 
-const INACTIVITY_CHANNEL_ID = "inactivity_reminder";
+const INACTIVITY_CHANNEL_ID = "inactivity_reminder_v2";
 const LAST_OPENED_KEY = "@last_opened_at";
 
 /**
@@ -607,7 +621,7 @@ export async function scheduleInactivityReminder(
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(INACTIVITY_CHANNEL_ID, {
       name: "Herinneringen / Reminders",
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
       sound: "default",
     });
   }
@@ -647,7 +661,7 @@ export async function scheduleInactivityReminder(
 // ============ 3-DAY INCOMPLETE GOALS REMINDER ============
 
 const GOALS_INCOMPLETE_TYPE = "goals_incomplete_3days";
-const GOALS_INCOMPLETE_CHANNEL_ID = "goals_incomplete";
+const GOALS_INCOMPLETE_CHANNEL_ID = "goals_incomplete_v2";
 const LAST_GOAL_COMPLETED_KEY = "@last_goal_completed_at";
 
 /**

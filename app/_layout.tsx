@@ -25,6 +25,7 @@ import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { scheduleIqamahSilence, handleIqamahSilenceAction } from "@/lib/iqamah-silence";
+import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
 import { setupDailyAdviceChannel, scheduleDailyAdviceNotification, showAdviceWidget } from "@/lib/daily-advice-notification";
 import { setupSpouseAdviceChannel, scheduleSpouseAdviceNotification } from "@/lib/spouse-advice-notification";
 import { setupWeeklyGoalsChannel, scheduleWeeklyGoalsNotification } from "@/lib/weekly-goals-notification";
@@ -340,6 +341,9 @@ export default function RootLayout() {
         const langRaw = await AsyncStorage.getItem("@app_language");
         const lang = (langRaw === "ar" || langRaw === "en" || langRaw === "nl") ? langRaw : "nl";
 
+        // Remove stale low-importance channels from older builds so the ones
+        // recreated below take effect at their new heads-up importance.
+        await deleteLegacyNotificationChannels();
         // Setup all notification channels
         await setupNotificationChannels();
         await setupDailyAdviceChannel();

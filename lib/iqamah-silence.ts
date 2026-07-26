@@ -75,7 +75,7 @@ export async function saveIqamahSilencePrefs(prefs: IqamahSilencePrefs): Promise
 
 // ============ ANDROID CHANNEL ============
 
-const IQAMAH_CHANNEL_ID = "iqamah_silence";
+const IQAMAH_CHANNEL_ID = "iqamah_silence_v2";
 
 async function setupIqamahChannel(): Promise<void> {
   if (Platform.OS !== "android") return;

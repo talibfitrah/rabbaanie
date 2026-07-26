@@ -81,12 +81,12 @@ function SectionCollapsible({ title, icon, iconColor, children, colors, isRTL, d
   );
 }
 
-function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor }: {
-  label: string; enabled: boolean; onToggle: () => void; colors: any; isRTL: boolean; icon?: string; iconColor?: string;
+function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor, locked }: {
+  label: string; enabled: boolean; onToggle: () => void; colors: any; isRTL: boolean; icon?: string; iconColor?: string; locked?: boolean;
 }) {
   return (
     <Pressable
-      onPress={onToggle}
+      onPress={locked ? undefined : onToggle}
       style={({ pressed }) => [{
         flexDirection: isRTL ? "row-reverse" : "row",
         alignItems: "center",
@@ -96,23 +96,28 @@ function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor }:
         borderRadius: 10,
         marginBottom: 6,
         backgroundColor: enabled ? colors.primary + "08" : "transparent",
-        opacity: pressed ? 0.8 : 1,
+        opacity: pressed && !locked ? 0.8 : 1,
       }]}
     >
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
         {icon && <MaterialIcons name={icon as any} size={18} color={iconColor || (enabled ? colors.primary : colors.muted)} />}
         <Text style={{ fontSize: 14, color: colors.foreground }}>{label}</Text>
       </View>
-      <View style={{
-        width: 44, height: 26, borderRadius: 13,
-        backgroundColor: enabled ? colors.primary : colors.muted + "40",
-        justifyContent: "center", paddingHorizontal: 2,
-      }}>
+      {locked ? (
+        // Mandatory (e.g. the 5 daily prayers) — shown always-on and locked.
+        <MaterialIcons name="lock" size={18} color={colors.muted} />
+      ) : (
         <View style={{
-          width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
-          alignSelf: enabled ? "flex-end" : "flex-start",
-        }} />
-      </View>
+          width: 44, height: 26, borderRadius: 13,
+          backgroundColor: enabled ? colors.primary : colors.muted + "40",
+          justifyContent: "center", paddingHorizontal: 2,
+        }}>
+          <View style={{
+            width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
+            alignSelf: enabled ? "flex-end" : "flex-start",
+          }} />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -166,14 +171,14 @@ export default function NotificationSettingsScreen() {
     }
   }, [language]);
 
-  // Master toggle
+  // Notifications (prayer reminders especially) are always on and cannot be
+  // switched off — this row only re-checks / requests OS permission.
   const handleMasterToggle = useCallback(async () => {
-    if (!notifPrefs.enabled && Platform.OS !== "web") {
+    if (Platform.OS !== "web") {
       const granted = await requestNotificationPermissions();
-      if (!granted) { setNotifPermissionDenied(true); return; }
-      setNotifPermissionDenied(false);
+      setNotifPermissionDenied(!granted);
+      if (granted) await rescheduleNotifications({ ...notifPrefs });
     }
-    await rescheduleNotifications({ ...notifPrefs, enabled: !notifPrefs.enabled });
   }, [notifPrefs, rescheduleNotifications]);
 
   // Prayer toggle
@@ -383,6 +388,7 @@ export default function NotificationSettingsScreen() {
               onToggle={() => handlePrayerToggle(prayer)}
               colors={colors}
               isRTL={isRTL}
+              locked={prayer !== "sunrise"}
             />
           ))}
 

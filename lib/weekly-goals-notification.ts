@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ============ CONSTANTS ============
 
-const WEEKLY_GOALS_CHANNEL_ID = "weekly_goals";
+const WEEKLY_GOALS_CHANNEL_ID = "weekly_goals_v2";
 const WEEKLY_GOALS_TYPE = "weekly_goals_reminder";
 const PREFS_KEY = "@weekly_goals_notification_prefs";
 
@@ -46,7 +46,7 @@ export async function setupWeeklyGoalsChannel(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(WEEKLY_GOALS_CHANNEL_ID, {
     name: "أهداف أسبوعية / Weekly Goals",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
   });
 }
