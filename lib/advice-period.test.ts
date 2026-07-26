@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { adviceDiagnosticSig, currentWeekKey } from "./advice-period";
+import { adviceDiagnosticSig, adviceStillFresh, ADVICE_TTL_MS, currentWeekKey } from "./advice-period";
 
 describe("adviceDiagnosticSig", () => {
   const base = {
@@ -68,5 +68,43 @@ describe("adviceDiagnosticSig", () => {
 describe("currentWeekKey", () => {
   it("returns a YYYY-MM-DD date string", () => {
     expect(currentWeekKey()).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+  });
+});
+
+describe("adviceStillFresh", () => {
+  const DAY = 24 * 60 * 60 * 1000;
+
+  it("keeps advice generated just now", () => {
+    expect(adviceStillFresh({ generatedAt: Date.now() })).toBe(true);
+  });
+
+  it("keeps advice generated 6 days ago (still within the week from generation)", () => {
+    expect(adviceStillFresh({ generatedAt: Date.now() - 6 * DAY })).toBe(true);
+  });
+
+  it("expires advice generated 8 days ago", () => {
+    expect(adviceStillFresh({ generatedAt: Date.now() - 8 * DAY })).toBe(false);
+  });
+
+  it("expires at the one-week boundary", () => {
+    expect(adviceStillFresh({ generatedAt: Date.now() - ADVICE_TTL_MS })).toBe(false);
+  });
+
+  it("rejects a future generatedAt (clock skew)", () => {
+    expect(adviceStillFresh({ generatedAt: Date.now() + DAY })).toBe(false);
+  });
+
+  it("honors a legacy entry keyed to the current week (back-compat, no generatedAt)", () => {
+    expect(adviceStillFresh({ date: currentWeekKey() })).toBe(true);
+  });
+
+  it("expires a legacy entry from an older week", () => {
+    expect(adviceStillFresh({ date: "2000-01-01" })).toBe(false);
+  });
+
+  it("returns false for empty/missing entries", () => {
+    expect(adviceStillFresh(null)).toBe(false);
+    expect(adviceStillFresh(undefined)).toBe(false);
+    expect(adviceStillFresh({})).toBe(false);
   });
 });

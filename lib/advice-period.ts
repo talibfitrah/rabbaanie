@@ -12,6 +12,28 @@ export function currentWeekKey(): string {
   return utc.toISOString().slice(0, 10); // date of the most recent Saturday
 }
 
+/** One week in milliseconds — advice lives exactly this long from generation. */
+export const ADVICE_TTL_MS = 7 * 24 * 60 * 60 * 1000;
+
+/**
+ * True while a cached advice entry is still within its one-week life. New entries
+ * carry `generatedAt` (ms epoch) and stay fixed for 7 days FROM GENERATION, per
+ * Daa3iyah's requirement ("a week since it was generated") — not resetting at the
+ * calendar-week boundary. Entries written before this change carried only a `date`
+ * week key; honor those for their current week so updating the app never drops
+ * advice the parent is already reading.
+ */
+export function adviceStillFresh(
+  entry: { generatedAt?: number; date?: string } | null | undefined
+): boolean {
+  if (!entry) return false;
+  if (typeof entry.generatedAt === "number") {
+    const age = Date.now() - entry.generatedAt;
+    return age >= 0 && age < ADVICE_TTL_MS;
+  }
+  return entry.date === currentWeekKey();
+}
+
 /** Stable hash of arbitrary JSON-serialisable input (djb2 → base36). */
 function hash(input: unknown): string {
   const json = JSON.stringify(input ?? null);

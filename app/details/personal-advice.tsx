@@ -10,7 +10,7 @@ import Constants from "expo-constants";
 import { getApiBaseUrl as getSharedApiBaseUrl } from "@/constants/oauth";
 import Animated, { useSharedValue, useAnimatedStyle, withTiming, Easing } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { currentWeekKey, adviceDiagnosticSig } from "@/lib/advice-period";
+import { adviceStillFresh, adviceDiagnosticSig } from "@/lib/advice-period";
 import {
   loadAnimationEnabled,
   loadFavorites,
@@ -409,10 +409,9 @@ export default function PersonalAdviceScreen() {
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
-        const { advice, sections, date, sig } = JSON.parse(cached);
-        // Use cache only within the same week AND while the diagnostic file is unchanged.
-        const today = currentWeekKey();
-        if (date === today && sig === adviceDiagnosticSig(state)) {
+        const { advice, sections, date, sig, generatedAt } = JSON.parse(cached);
+        // Use cache only within its one-week life AND while the diagnostic file is unchanged.
+        if (adviceStillFresh({ generatedAt, date }) && sig === adviceDiagnosticSig(state)) {
           if (sections) setLlmSections(sections);
           else setLlmAdvice(advice);
           setLlmLoading(false);
@@ -472,15 +471,15 @@ export default function PersonalAdviceScreen() {
       const data = await response.json();
       setLlmAdvice(data.advice || null);
       const cacheKey = `personal_advice_cache_${language}`;
-      const today = currentWeekKey();
+      const generatedAt = Date.now();
       const sig = adviceDiagnosticSig(state);
       if (data.sections && Array.isArray(data.sections)) {
         setLlmSections(data.sections);
-        await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: data.sections, advice: null, date: today, sig }));
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: data.sections, advice: null, generatedAt, sig }));
       } else {
         setLlmSections(null);
         if (data.advice) {
-          await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: null, advice: data.advice, date: today, sig }));
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: null, advice: data.advice, generatedAt, sig }));
           const title = data.advice.split("\n")[0].replace(/^[#*\-\s]+/, "").slice(0, 80);
           saveLastAdviceTitle(title);
           scheduleDailyAdviceNotification(language as "nl" | "en" | "ar");
