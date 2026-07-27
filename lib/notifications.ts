@@ -176,6 +176,54 @@ export async function maybePromptBatteryOptimization(): Promise<void> {
   } catch {}
 }
 
+// ============ TEST / DIAGNOSTICS ============
+
+/**
+ * Fire an immediate high-priority notification so the user can verify on-device,
+ * right now, that notifications pop up (heads-up) and play a sound — without
+ * waiting for a prayer time. Uses the prayer channel (MAX importance + sound)
+ * and showPopup so the in-app centre popup is demonstrated too.
+ */
+export async function sendTestNotification(language: "nl" | "en" | "ar" = "ar"): Promise<void> {
+  if (Platform.OS === "web") return;
+  const title =
+    language === "ar" ? "🔔 إشعار تجريبي" : language === "en" ? "🔔 Test notification" : "🔔 Testmelding";
+  const body =
+    language === "ar"
+      ? "إذا رأيت هذا وسمعت الصوت فالإشعارات تعمل. جرّبه أيضاً والتطبيق مغلق."
+      : language === "en"
+      ? "If you see and hear this, notifications work. Try it with the app closed too."
+      : "Als je dit ziet en hoort, werken meldingen. Probeer het ook met de app gesloten.";
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: { type: "test_reminder", showPopup: true, ruling: "مستحب" },
+      ...(Platform.OS === "android"
+        ? { channelId: PRAYER_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX }
+        : {}),
+      ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+    },
+    trigger: null, // immediate
+  });
+}
+
+/**
+ * Whether a usable prayer location is saved. Without it, prayer/iqamah/adhkaar
+ * notifications schedule nothing (the schedulers return 0), so the settings
+ * screen surfaces this as the likely reason "no prayer reminders arrive".
+ */
+export async function isPrayerLocationSet(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(PRAYER_LOCATION_KEY);
+    if (!raw) return false;
+    const loc = JSON.parse(raw);
+    return !!(loc?.lat && loc?.lng && loc?.tz);
+  } catch {
+    return false;
+  }
+}
+
 // ============ PREFERENCES PERSISTENCE ============
 
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {

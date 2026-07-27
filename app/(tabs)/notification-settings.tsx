@@ -12,6 +12,8 @@ import {
   scheduleAllNotifications,
   requestNotificationPermissions,
   getScheduledCount,
+  sendTestNotification,
+  isPrayerLocationSet,
   loadWeeklyReminderPrefs,
   saveWeeklyReminderPrefs,
   scheduleWeeklyReminder,
@@ -28,6 +30,7 @@ import {
   loadIqamahSilencePrefs,
   saveIqamahSilencePrefs,
   scheduleIqamahSilence,
+  restorePhoneSound,
   type IqamahSilencePrefs,
   DEFAULT_IQAMAH_SILENCE_PREFS,
 } from "@/lib/iqamah-silence";
@@ -133,6 +136,7 @@ export default function NotificationSettingsScreen() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [notifScheduledCount, setNotifScheduledCount] = useState(0);
   const [notifPermissionDenied, setNotifPermissionDenied] = useState(false);
+  const [locationSet, setLocationSet] = useState(true);
   // Iqamah silence state
   const [iqamahPrefs, setIqamahPrefs] = useState<IqamahSilencePrefs>(DEFAULT_IQAMAH_SILENCE_PREFS);
   // Islamic reminders state
@@ -154,6 +158,7 @@ export default function NotificationSettingsScreen() {
     loadUnifiedNotifPrefs().then(setDisplayPrefs);
     if (Platform.OS !== "web") {
       getScheduledCount().then(setNotifScheduledCount);
+      isPrayerLocationSet().then(setLocationSet);
     }
   }, []);
 
@@ -180,6 +185,27 @@ export default function NotificationSettingsScreen() {
       if (granted) await rescheduleNotifications({ ...notifPrefs });
     }
   }, [notifPrefs, rescheduleNotifications]);
+
+  // Fire an immediate test notification so the user can verify pop-up + sound now
+  const handleTestNotification = useCallback(async () => {
+    if (Platform.OS === "web") return;
+    const granted = await requestNotificationPermissions();
+    if (!granted) { setNotifPermissionDenied(true); return; }
+    await sendTestNotification(language as "nl" | "en" | "ar");
+    getScheduledCount().then(setNotifScheduledCount);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [language]);
+
+  // Manually un-silence the phone (in case an iqamah silence didn't auto-restore)
+  const handleRestoreSound = useCallback(async () => {
+    const ok = await restorePhoneSound();
+    Alert.alert(
+      getLabel("صوت الهاتف", "Phone sound", "Telefoongeluid"),
+      ok
+        ? getLabel("تمت استعادة صوت الهاتف.", "Phone sound restored.", "Telefoongeluid hersteld.")
+        : getLabel("تعذّر — امنح إذن «عدم الإزعاج» ثم أعد المحاولة.", "Couldn't restore — grant Do Not Disturb access, then try again.", "Kon niet herstellen — geef 'Niet storen'-toegang.")
+    );
+  }, [language]);
 
   // Prayer toggle
   const handlePrayerToggle = useCallback(async (prayer: keyof NotificationPrefs["prayers"]) => {
@@ -376,6 +402,30 @@ export default function NotificationSettingsScreen() {
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignSelf: notifPrefs.enabled ? "flex-end" : "flex-start" }} />
           </View>
         </Pressable>
+
+        {/* Test & diagnostics — verify pop-up + sound right now, without waiting for a prayer */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
+            {getLabel("اختبار الإشعارات", "Test notifications", "Meldingen testen")}
+          </Text>
+          <Text style={{ fontSize: 12, color: locationSet ? colors.muted : colors.error, marginBottom: 10, textAlign: isRTL ? "right" : "left", lineHeight: 18 }}>
+            {locationSet
+              ? getLabel(`عدد الإشعارات المجدولة: ${notifScheduledCount}`, `Scheduled notifications: ${notifScheduledCount}`, `Geplande meldingen: ${notifScheduledCount}`)
+              : getLabel("موقعك غير محفوظ، فلا تُحسب أوقات الصلاة ولا تصل إشعاراتها. حدّد موقعك من صفحة أوقات الصلاة.", "No location saved, so prayer times aren't computed and their notifications won't arrive. Set your location on the Prayer Times page.", "Geen locatie opgeslagen; gebedstijden en hun meldingen ontbreken.")}
+          </Text>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
+            <Pressable onPress={handleTestNotification} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+              <MaterialIcons name="notifications-active" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("إشعار تجريبي", "Test", "Test")}</Text>
+            </Pressable>
+            {Platform.OS === "android" && (
+              <Pressable onPress={handleRestoreSound} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary + "50", borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+                <MaterialIcons name="volume-up" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>{getLabel("استعادة الصوت", "Restore sound", "Geluid herstellen")}</Text>
+              </Pressable>
+            )}
+          </View>
+        </View>
 
         {/* === SECTION 1: Prayer Notifications === */}
         <SectionCollapsible title={getLabel("إشعارات الصلاة", "Prayer Notifications", "Gebedsnotificaties")} icon="mosque" iconColor="#059669" colors={colors} isRTL={isRTL} defaultOpen={true}>

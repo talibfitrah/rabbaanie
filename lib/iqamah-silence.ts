@@ -304,6 +304,32 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
   }
 }
 
+/**
+ * Manually put the ringer back to normal. For when an iqamah silence period
+ * didn't auto-restore (e.g. the app was closed when the restore notification
+ * fired, so its handler never ran) and the phone is stuck silent. User-initiated
+ * from settings, so forcing "normal" is intended here — unlike the automatic
+ * restore, which deliberately never forces normal. Returns false if DND access
+ * isn't granted (and requests it) or the volume module is unavailable.
+ */
+export async function restorePhoneSound(): Promise<boolean> {
+  if (Platform.OS !== "android") return false;
+  try {
+    const { VolumeManager, RINGER_MODE } = await import("react-native-volume-manager");
+    const hasAccess = await VolumeManager.checkDndAccess();
+    if (!hasAccess) {
+      await VolumeManager.requestDndAccess();
+      return false;
+    }
+    await VolumeManager.setRingerMode(RINGER_MODE.normal);
+    await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+    return true;
+  } catch (err) {
+    console.warn("Failed to restore phone sound:", err);
+    return false;
+  }
+}
+
 // ============ HELPER ============
 
 function createTriggerDateForIqamah(
