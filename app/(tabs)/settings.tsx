@@ -1830,7 +1830,7 @@ export default function SettingsScreen() {
       {/* Owner / Admin panel — only for admin-role accounts */}
       {isAdminUser && (
         <Pressable
-          onPress={() => router.push("/admin/users" as any)}
+          onPress={() => router.push("/admin/panel" as any)}
           style={({ pressed }) => [{
             backgroundColor: "#EDE7F6",
             borderWidth: 1,
@@ -1851,7 +1851,7 @@ export default function SettingsScreen() {
               {language === "ar" ? "لوحة الإدارة" : language === "en" ? "Admin Panel" : "Beheerpaneel"}
             </Text>
             <Text style={{ color: "#9575CD", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
-              {language === "ar" ? "إدارة المستخدمين والصلاحيات" : language === "en" ? "Manage users & permissions" : "Gebruikers & rechten beheren"}
+              {language === "ar" ? "المستخدمون، الصلاحيات، التقارير والأرقام" : language === "en" ? "Users, permissions, reports" : "Gebruikers, rechten, rapporten"}
             </Text>
           </View>
           <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#7C3AED" />
