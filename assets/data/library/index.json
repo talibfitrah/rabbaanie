@@ -901,5 +901,16 @@
     "category": "الهدايات",
     "total_chapters": 105,
     "total_words": 768461
+  },
+  {
+    "id": 49,
+    "title_ar": "هدايات سورة الروم",
+    "title_en": "Guidances of Surah Ar-Rum",
+    "title_nl": "Leidraden van soera Ar-Roem",
+    "series": "الهدايات",
+    "series_num": 4,
+    "category": "الهدايات",
+    "total_chapters": 59,
+    "total_words": 852405
   }
 ]

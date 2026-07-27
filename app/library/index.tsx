@@ -17,6 +17,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 
 // Category translations
 const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string }> = {
+  "الهدايات": { ar: "الهدايات", nl: "Leidraden (Hidayat)", en: "Guidances (Hidayat)" },
   "قيادة النفس": { ar: "قيادة النفس", nl: "Zelfleiderschap", en: "Self-Leadership" },
   "الفطرة": { ar: "الفطرة", nl: "Fitrah (Aangeboren aard)", en: "Fitrah (Innate Nature)" },
   "التوحيد": { ar: "التوحيد", nl: "Tawhied (Eenheid van Allah)", en: "Tawheed (Oneness of Allah)" },
@@ -29,7 +30,7 @@ const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string
 };
 
 // Category order
-const CATEGORY_ORDER = ["قيادة النفس", "الفطرة", "التوحيد", "النصيحة", "الطرق التربوية", "الزواج", "تربية الولد", "الدعوة", "السنن الكونية"];
+const CATEGORY_ORDER = ["الهدايات", "قيادة النفس", "الفطرة", "التوحيد", "النصيحة", "الطرق التربوية", "الزواج", "تربية الولد", "الدعوة", "السنن الكونية"];
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
