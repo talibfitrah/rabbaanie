@@ -19,10 +19,13 @@ export default function AdminListScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
 
-  const families = trpc.admin.families.useQuery(undefined, { enabled: t === "families" });
-  const children = trpc.admin.children.useQuery(undefined, { enabled: t === "children" });
-  const specialists = trpc.admin.specialists.useQuery(undefined, { enabled: t === "specialists" });
-  const teachers = trpc.admin.teachers.useQuery(undefined, { enabled: t === "teachers" });
+  // Admin registries must reflect role changes immediately — the global
+  // 5-min staleTime would otherwise show a newly-assigned specialist only later.
+  const fresh = { staleTime: 0, refetchOnMount: "always" as const };
+  const families = trpc.admin.families.useQuery(undefined, { enabled: t === "families", ...fresh });
+  const children = trpc.admin.children.useQuery(undefined, { enabled: t === "children", ...fresh });
+  const specialists = trpc.admin.specialists.useQuery(undefined, { enabled: t === "specialists", ...fresh });
+  const teachers = trpc.admin.teachers.useQuery(undefined, { enabled: t === "teachers", ...fresh });
   const q = t === "families" ? families : t === "children" ? children : t === "specialists" ? specialists : teachers;
 
   const all = (q.data as any[]) || [];
