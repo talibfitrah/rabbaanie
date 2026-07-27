@@ -1,0 +1,25 @@
+app/admin/user.tsx
+  s_168adbdaf097e9::t_b4c4611dbab256 1-94
+app/admin/panel.tsx
+  s_168adbdaf097e9::t_d5ea446de972a5 47
+app/admin/broadcast.tsx
+  s_168adbdaf097e9::t_c281901332b231 1-65
+app/admin/users.tsx
+  s_168adbdaf097e9::t_ab12ba46167d6a 2,10,19,27,31,40-41,46-55,62,70-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "afebd5756c7a9571ceebcea81a92cba1bd3f1a07",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
