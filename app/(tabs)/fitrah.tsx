@@ -62,9 +62,8 @@ function isArabicText(text: string | undefined | null): boolean {
 // Get text alignment and writing direction based on actual content
 function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
-  // Arabic is right-aligned and RTL: text starts at the right edge and reads
-  // right-to-left (Daa3iyah's requirement).
-  return { textAlign: forceRTL ? "left" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  // Traits section: Arabic right-aligned (Daa3iyah wants خصال الفطرة on the right).
+  return { textAlign: forceRTL ? "right" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 export default function FitrahScreen() {
@@ -1458,10 +1457,6 @@ export default function FitrahScreen() {
         </View>
         <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3, textAlign: "left", writingDirection: "rtl", lineHeight: 18 }}>
           {tx(lang, "Kenmerken, manazil en Namen van Allaah per leeftijdsfase", "Traits, manazil and Names of Allaah per age phase", "خصال الفطرة ومنازل القلوب وأسماء الله حسب الفئة العمرية")}
-        </Text>
-        {/* TEMP diagnostic — shows installed version + RTL state so we can see the real cause on-device */}
-        <Text style={{ color: "#B71C1C", fontSize: 12, marginTop: 4, textAlign: "center", fontWeight: "800" }}>
-          نسخة {Application.nativeApplicationVersion} · واجهة RTL={String(isRTL)} · نظام RTL={String(I18nManager.isRTL)} · {lang}
         </Text>
       </View>
 
