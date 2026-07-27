@@ -879,5 +879,27 @@
     "category": "الهدايات",
     "total_chapters": 23,
     "total_words": 41104
+  },
+  {
+    "id": 47,
+    "title_ar": "هدايات سورة سبأ",
+    "title_en": "Guidances of Surah Saba",
+    "title_nl": "Leidraden van soera Saba",
+    "series": "الهدايات",
+    "series_num": 2,
+    "category": "الهدايات",
+    "total_chapters": 55,
+    "total_words": 1143527
+  },
+  {
+    "id": 48,
+    "title_ar": "هدايات سورة العنكبوت",
+    "title_en": "Guidances of Surah Al-Ankabut",
+    "title_nl": "Leidraden van soera Al-Ankaboet",
+    "series": "الهدايات",
+    "series_num": 3,
+    "category": "الهدايات",
+    "total_chapters": 105,
+    "total_words": 768461
   }
 ]
