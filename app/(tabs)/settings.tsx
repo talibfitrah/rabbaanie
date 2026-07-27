@@ -357,7 +357,7 @@ export default function SettingsScreen() {
     try {
       // Stop any currently playing sound
       if (audioRef.current) {
-        try { audioRef.current.pause(); audioRef.current.release(); } catch {}
+        try { await audioRef.current.stopAsync(); await audioRef.current.unloadAsync(); } catch {}
         audioRef.current = null;
       }
       
@@ -393,9 +393,19 @@ export default function SettingsScreen() {
       }
       
       const { Audio } = require("expo-av");
-      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
+      // Route through the loudspeaker at media volume even on silent — without
+      // this expo-av can play through the earpiece (inaudible) on Android.
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          staysActiveInBackground: false,
+        });
+      } catch {}
+      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1.0 });
       audioRef.current = sound;
-      
+
       // Auto-stop after 5 seconds (preview only)
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish || (status.positionMillis && status.positionMillis >= 5000)) {

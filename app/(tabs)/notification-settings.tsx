@@ -242,7 +242,7 @@ export default function NotificationSettingsScreen() {
   const playPreviewSound = useCallback(async (soundId: string) => {
     try {
       if (audioRef.current) {
-        try { audioRef.current.pause(); audioRef.current.release(); } catch {}
+        try { await audioRef.current.stopAsync(); await audioRef.current.unloadAsync(); } catch {}
         audioRef.current = null;
       }
       if (playingSound === soundId) { setPlayingSound(null); return; }
@@ -260,7 +260,18 @@ export default function NotificationSettingsScreen() {
       if (!source) { setPlayingSound(null); return; }
       if (Platform.OS === "web") { setTimeout(() => setPlayingSound(null), 3000); return; }
       const { Audio } = require("expo-av");
-      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
+      // Route preview through the loudspeaker at media volume even if the phone
+      // is on silent — without this expo-av can play through the earpiece
+      // (inaudible) or not at all on Android.
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          staysActiveInBackground: false,
+        });
+      } catch {}
+      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1.0 });
       audioRef.current = sound;
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish || (status.positionMillis && status.positionMillis >= 5000)) {

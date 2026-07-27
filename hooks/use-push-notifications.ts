@@ -78,6 +78,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
  */
 export function usePushNotifications(isAuthenticated: boolean) {
   const registerTokenMutation = trpc.specialist.registerPushToken.useMutation();
+  const updateLocationMutation = (trpc.specialist as any).updateMyLocation.useMutation();
   const registered = useRef(false);
 
   useEffect(() => {
@@ -98,6 +99,24 @@ export function usePushNotifications(isAuthenticated: boolean) {
         } catch (e) {
           console.warn("[Push] Failed to register token with server:", e);
         }
+      }
+      // Report the user's prayer location so the owner can see where each user
+      // is — regardless of whether a push token was obtained (FCM may be absent).
+      try {
+        const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+        const raw = await AsyncStorage.getItem("@prayer_location");
+        if (raw) {
+          const loc = JSON.parse(raw);
+          if (loc?.lat != null && loc?.lng != null) {
+            await updateLocationMutation.mutateAsync({
+              lat: String(loc.lat),
+              lng: String(loc.lng),
+              city: [loc.city, loc.country].filter(Boolean).join(", "),
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[Location] failed to report:", e);
       }
     };
 

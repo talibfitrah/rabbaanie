@@ -1,5 +1,5 @@
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { View, Text, TouchableOpacity, ScrollView, Alert, ActivityIndicator, Linking } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
@@ -74,6 +74,13 @@ export default function AdminUserDetailScreen() {
               <Row label="تاريخ التسجيل" value={fmtDate(u.createdAt)} />
               <Row label="آخر دخول" value={fmtDate(u.lastSignedIn || u.lastLoginAt)} />
               <Row label="الإشعارات" value={u.pushToken ? "مُفعّلة" : "غير مُفعّلة"} />
+              <Row label="الموقع" value={u.city || (u.lat && u.lng ? `${u.lat}، ${u.lng}` : "غير معروف")} />
+              {u.lat && u.lng ? (
+                <TouchableOpacity onPress={() => Linking.openURL(`https://www.google.com/maps?q=${u.lat},${u.lng}`)} style={{ marginTop: 10, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
+                  <MaterialIcons name="place" size={18} color={colors.primary} />
+                  <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>فتح موقع المستخدم في الخرائط</Text>
+                </TouchableOpacity>
+              ) : null}
             </View>
 
             <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginTop: 20, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>الصلاحيات</Text>
