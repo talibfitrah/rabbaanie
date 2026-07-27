@@ -64,7 +64,7 @@ function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
   // Arabic is right-aligned and RTL: text starts at the right edge and reads
   // right-to-left (Daa3iyah's requirement).
-  return { textAlign: forceRTL ? "right" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  return { textAlign: forceRTL ? "justify" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 export default function FitrahScreen() {
@@ -372,8 +372,8 @@ export default function FitrahScreen() {
                 <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "800" }}>{group.id}</Text>
               </View>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.title, lang)}</Text>
-                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600", marginTop: 2, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.subtitle, lang)}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.title, lang)}</Text>
+                <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600", marginTop: 2, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.subtitle, lang)}</Text>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12, marginTop: 6 }}>
                   <Text style={{ color: colors.success, fontSize: 10, fontWeight: "600" }}>
                     {group.fitrahTraits.length} {tx(lang, "kenmerken", "traits", "خصلة")}
@@ -571,8 +571,8 @@ export default function FitrahScreen() {
         >
           <View style={{ padding: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: "#6A1B9A", fontSize: 14, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(action.title, lang)}</Text>
-              <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }} numberOfLines={expandedAction === action.id ? undefined : 1}>{getText(action.description, lang)}</Text>
+              <Text style={{ color: "#6A1B9A", fontSize: 14, fontWeight: "700", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(action.title, lang)}</Text>
+              <Text style={{ color: colors.muted, fontSize: 11, marginTop: 2, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }} numberOfLines={expandedAction === action.id ? undefined : 1}>{getText(action.description, lang)}</Text>
             </View>
             <Pressable
               onPress={(e) => { e.stopPropagation?.(); toggleFavorite(getFavoriteId("heart", selectedGroupIndex, action)); }}
@@ -586,25 +586,25 @@ export default function FitrahScreen() {
             <View style={{ paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 10 }}>
               {action.method ? (
                 <View style={{ marginBottom: 8 }}>
-                  <Text style={{ color: "#2E7D32", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                  <Text style={{ color: "#2E7D32", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                     {tx(lang, "METHODE:", "METHOD:", "الطريقة:")}
                   </Text>
-                  <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(action.method, lang)}</Text>
+                  <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(action.method, lang)}</Text>
                 </View>
               ) : null}
               {action.daleel ? (
                 <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
-                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                  <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                     {tx(lang, "BEWIJS:", "EVIDENCE:", "الدليل:")}
                   </Text>
-                  <Text style={{ color: colors.primary, fontSize: 11, lineHeight: 20, fontStyle: "italic", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>﴿ {getText(action.daleel, lang)} ﴾</Text>
+                  <Text style={{ color: colors.primary, fontSize: 11, lineHeight: 20, fontStyle: "italic", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>﴿ {getText(action.daleel, lang)} ﴾</Text>
                   {action.sources && action.sources.length > 0 && (
                     <View style={{ marginTop: 6, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: colors.border }}>
-                      <Text style={{ fontSize: 10, fontWeight: "600", color: colors.muted, marginBottom: 2, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                      <Text style={{ fontSize: 10, fontWeight: "600", color: colors.muted, marginBottom: 2, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                         {tx(lang, "Bronvermelding:", "Source:", "التخريج:")}
                       </Text>
                       {action.sources.map((src: any, si: number) => (
-                        <Text key={si} style={{ fontSize: 10, color: colors.muted, lineHeight: 16, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text key={si} style={{ fontSize: 10, color: colors.muted, lineHeight: 16, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {src.type === "quran" ? "📖 " : "📜 "}
                           {lang === "ar" ? src.ar : lang === "nl" ? src.nl : src.en}
                         </Text>
@@ -646,9 +646,9 @@ export default function FitrahScreen() {
               >
                 <View style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 17, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{item.name}</Text>
+                    <Text style={{ fontSize: 17, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{item.name}</Text>
                     {item.reason && (
-                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>{getTranslatedText(item.name, "reason", item.reason)}</Text>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>{getTranslatedText(item.name, "reason", item.reason)}</Text>
                     )}
                   </View>
                   <Text style={{ fontSize: 12, color: colors.muted }}>{isExpanded ? "▲" : "▼"}</Text>
@@ -665,47 +665,47 @@ export default function FitrahScreen() {
                     {/* المعنى */}
                     {item.meaning && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Betekenis:", "Meaning:", "المعنى:")}
                         </Text>
-                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "meaning", item.meaning)}</Text>
+                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "meaning", item.meaning)}</Text>
                       </View>
                     )}
                     {/* الشرح */}
                     {item.explanation && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#455A64", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#455A64", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Uitleg:", "Explanation:", "الشرح:")}
                         </Text>
-                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "explanation", item.explanation)}</Text>
+                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "explanation", item.explanation)}</Text>
                       </View>
                     )}
                     {/* الأدلة */}
                     {item.evidence && (
                       <View style={{ marginBottom: 10, backgroundColor: colors.background, borderRadius: 8, padding: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary, marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Bewijs:", "Evidence:", "الأدلة:")}
                         </Text>
-                        <Text style={{ fontSize: 11, color: colors.primary, lineHeight: 20, fontStyle: "italic", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "evidence", item.evidence)}</Text>
+                        <Text style={{ fontSize: 11, color: colors.primary, lineHeight: 20, fontStyle: "italic", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "evidence", item.evidence)}</Text>
                       </View>
                     )}
                     {/* الترغيب والترهيب */}
                     {item.targhib_tarhib && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#C62828", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#C62828", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Aanmoediging & waarschuwing:", "Encouragement & warning:", "الترغيب والترهيب:")}
                         </Text>
-                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "targhib_tarhib", item.targhib_tarhib)}</Text>
+                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "targhib_tarhib", item.targhib_tarhib)}</Text>
                       </View>
                     )}
                     {/* تصفية */}
                     {item.tasfiya && item.tasfiya.length > 0 && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#2E7D32", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#2E7D32", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Tasfiya (wat planten we?):", "Tasfiya (what do we plant?):", "التصفية (ماذا نغرس؟):")}
                         </Text>
                         {item.tasfiya.map((t: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
+                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
                             • {getTranslatedText(item.name, `tasfiya_${i}`, t)}
                           </Text>
                         ))}
@@ -714,11 +714,11 @@ export default function FitrahScreen() {
                     {/* تزكية */}
                     {item.tazkiya && item.tazkiya.length > 0 && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#1565C0", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#1565C0", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Tazkiya (wat groeit in het hart?):", "Tazkiya (what grows in the heart?):", "التزكية (ماذا ينمو في القلب؟):")}
                         </Text>
                         {item.tazkiya.map((t: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
+                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
                             • {getTranslatedText(item.name, `tazkiya_${i}`, t)}
                           </Text>
                         ))}
@@ -727,11 +727,11 @@ export default function FitrahScreen() {
                     {/* تربية عملية */}
                     {item.tarbiya && item.tarbiya.length > 0 && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#E65100", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#E65100", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Tarbiya (hoe passen we toe?):", "Tarbiya (how do we apply?):", "التربية العملية (كيف نطبّق؟):")}
                         </Text>
                         {item.tarbiya.map((t: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
+                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
                             • {getTranslatedText(item.name, `tarbiya_${i}`, t)}
                           </Text>
                         ))}
@@ -740,11 +740,11 @@ export default function FitrahScreen() {
                     {/* تربية الجوارح */}
                     {item.tarbiya_jawarih && item.tarbiya_jawarih.length > 0 && (
                       <View style={{ marginBottom: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#4E342E", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#4E342E", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Opvoeding van de ledematen:", "Education of the limbs:", "تربية الجوارح:")}
                         </Text>
                         {item.tarbiya_jawarih.map((t: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
+                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
                             • {getTranslatedText(item.name, `tarbiya_jawarih_${i}`, t)}
                           </Text>
                         ))}
@@ -753,11 +753,11 @@ export default function FitrahScreen() {
                     {/* أمثلة */}
                     {item.examples && item.examples.length > 0 && (
                       <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#6A1B9A", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#6A1B9A", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Praktische voorbeelden:", "Practical examples:", "أمثلة تطبيقية:")}
                         </Text>
                         {item.examples.map((e: any, i: number) => (
-                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
+                          <Text key={i} style={{ fontSize: 12, color: colors.foreground, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 10 : 0, paddingLeft: isRTL ? 0 : 10 }}>
                             ✦ {getTranslatedText(item.name, `examples_${i}`, e)}
                           </Text>
                         ))}
@@ -766,10 +766,10 @@ export default function FitrahScreen() {
                     {/* howToPresent */}
                     {item.howToPresent && (
                       <View style={{ marginTop: 8 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#E65100", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                        <Text style={{ fontSize: 12, fontWeight: "700", color: "#E65100", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                           {tx(lang, "Presentatie:", "Presentation:", "طريقة التقديم:")}
                         </Text>
-                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "howToPresent", item.howToPresent)}</Text>
+                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(item.name, "howToPresent", item.howToPresent)}</Text>
                       </View>
                     )}
                   </View>
@@ -804,8 +804,8 @@ export default function FitrahScreen() {
               >
                 <View style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.group, lang)}</Text>
-                    <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(group.group, lang)}</Text>
+                    <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {nameStrings.join(" • ")}
                     </Text>
                   </View>
@@ -814,12 +814,12 @@ export default function FitrahScreen() {
                 {isExpanded && (
                   <View style={{ paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 10 }}>
                     {group.buildsOn && (
-                      <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
+                      <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
                         {tx(lang, "Bouwt voort op:", "Builds on:", "يبني على:")} {getText(group.buildsOn, lang)}
                       </Text>
                     )}
                     {group.preparesFor && (
-                      <Text style={{ fontSize: 11, color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18, marginBottom: 10 }}>
+                      <Text style={{ fontSize: 11, color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18, marginBottom: 10 }}>
                         {tx(lang, "Bereidt voor op:", "Prepares for:", "يُهيّئ لـ:")} {getText(group.preparesFor, lang)}
                       </Text>
                     )}
@@ -847,7 +847,7 @@ export default function FitrahScreen() {
                           }]}
                         >
                           <View style={{ padding: 10, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
-                            <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{nameKey}</Text>
+                            <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{nameKey}</Text>
                             <Text style={{ fontSize: 10, color: colors.muted }}>{isNameExpanded ? "▲" : "▼"}</Text>
                           </View>
                           {isNameExpanded && (
@@ -860,11 +860,11 @@ export default function FitrahScreen() {
                               )}
                               {nameItem.tasfiya && nameItem.tasfiya.length > 0 && (
                                 <View style={{ marginBottom: 8 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#2E7D32", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#2E7D32", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                                     {tx(lang, "Tasfiya:", "Tasfiya:", "التصفية:")}
                                   </Text>
                                   {nameItem.tasfiya.map((t: any, i: number) => (
-                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
+                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
                                       {"• "}{getTranslatedText(groupKey + "_" + nameKey, `tasfiya_${i}`, t)}
                                     </Text>
                                   ))}
@@ -872,11 +872,11 @@ export default function FitrahScreen() {
                               )}
                               {nameItem.tazkiya && nameItem.tazkiya.length > 0 && (
                                 <View style={{ marginBottom: 8 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#1565C0", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#1565C0", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                                     {tx(lang, "Tazkiya:", "Tazkiya:", "التزكية:")}
                                   </Text>
                                   {nameItem.tazkiya.map((t: any, i: number) => (
-                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
+                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
                                       {"• "}{getTranslatedText(groupKey + "_" + nameKey, `tazkiya_${i}`, t)}
                                     </Text>
                                   ))}
@@ -884,11 +884,11 @@ export default function FitrahScreen() {
                               )}
                               {nameItem.tarbiya && nameItem.tarbiya.length > 0 && (
                                 <View style={{ marginBottom: 8 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#E65100", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#E65100", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                                     {tx(lang, "Tarbiya:", "Tarbiya:", "التربية:")}
                                   </Text>
                                   {nameItem.tarbiya.map((t: any, i: number) => (
-                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
+                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
                                       {"• "}{getTranslatedText(groupKey + "_" + nameKey, `tarbiya_${i}`, t)}
                                     </Text>
                                   ))}
@@ -896,11 +896,11 @@ export default function FitrahScreen() {
                               )}
                               {nameItem.examples && nameItem.examples.length > 0 && (
                                 <View style={{ backgroundColor: colors.surface, borderRadius: 8, padding: 8 }}>
-                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6A1B9A", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                                  <Text style={{ fontSize: 11, fontWeight: "700", color: "#6A1B9A", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                                     {tx(lang, "Voorbeelden:", "Examples:", "أمثلة:")}
                                   </Text>
                                   {nameItem.examples.map((e: any, i: number) => (
-                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
+                                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", paddingRight: isRTL ? 8 : 0, paddingLeft: isRTL ? 0 : 8 }}>
                                       {"✦ "}{getTranslatedText(groupKey + "_" + nameKey, `examples_${i}`, e)}
                                     </Text>
                                   ))}
@@ -926,22 +926,22 @@ export default function FitrahScreen() {
           {/* Practical example */}
           {currentNames.practicalExample && (
             <View style={{ backgroundColor: "#FFF8E1", borderRadius: 12, padding: 14, borderWidth: 1, borderColor: "#FFD54F", marginBottom: 4 }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 6 }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 6 }}>
                 {tx(lang, "Praktisch voorbeeld:", "Practical example:", "مثال تطبيقي:")} {getText(currentNames.practicalExample.name, lang)}
               </Text>
               {currentNames.practicalExample.ageSpecific?.tasfiya && (
                 <View style={{ marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#2E7D32", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Tasfiya:", "Tasfiya:", "التصفية:")}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#2E7D32", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Tasfiya:", "Tasfiya:", "التصفية:")}</Text>
                   {currentNames.practicalExample.ageSpecific.tasfiya.map((t: any, i: number) => (
-                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 18, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>• {getText(t, lang)}</Text>
+                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 18, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>• {getText(t, lang)}</Text>
                   ))}
                 </View>
               )}
               {currentNames.practicalExample.ageSpecific?.tarbiya && (
                 <View style={{ marginBottom: 6 }}>
-                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Tarbiya:", "Tarbiya:", "التربية:")}</Text>
+                  <Text style={{ fontSize: 11, fontWeight: "600", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Tarbiya:", "Tarbiya:", "التربية:")}</Text>
                   {currentNames.practicalExample.ageSpecific.tarbiya.map((t: any, i: number) => (
-                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 18, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>• {getText(t, lang)}</Text>
+                    <Text key={i} style={{ fontSize: 11, color: colors.foreground, lineHeight: 18, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>• {getText(t, lang)}</Text>
                   ))}
                 </View>
               )}
@@ -969,9 +969,9 @@ export default function FitrahScreen() {
               >
                 <View style={{ padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                   <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(stationKey, "station", station.station)}</Text>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(stationKey, "station", station.station)}</Text>
                     {station.meaning && (
-                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>{getTranslatedText(stationKey, "meaning", station.meaning)}</Text>
+                      <Text style={{ fontSize: 11, color: colors.muted, marginTop: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>{getTranslatedText(stationKey, "meaning", station.meaning)}</Text>
                     )}
                   </View>
                   <Text style={{ fontSize: 12, color: colors.muted }}>{isExpanded ? "▲" : "▼"}</Text>
@@ -986,13 +986,13 @@ export default function FitrahScreen() {
                     )}
                     {station.method && (
                       <View style={{ marginBottom: 8 }}>
-                        <Text style={{ fontSize: 12, fontWeight: "600", color: "#2E7D32", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Methode:", "Method:", "الأسلوب:")}</Text>
-                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(stationKey, "method", station.method)}</Text>
+                        <Text style={{ fontSize: 12, fontWeight: "600", color: "#2E7D32", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{tx(lang, "Methode:", "Method:", "الأسلوب:")}</Text>
+                        <Text style={{ fontSize: 12, color: colors.foreground, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getTranslatedText(stationKey, "method", station.method)}</Text>
                       </View>
                     )}
                     {station.evidence && (
                       <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 8 }}>
-                        <Text style={{ fontSize: 12, color: colors.primary, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", fontStyle: "italic" }}>
+                        <Text style={{ fontSize: 12, color: colors.primary, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", fontStyle: "italic" }}>
                           ﴿ {getTranslatedText(stationKey, "evidence", station.evidence)} ﴾
                         </Text>
                       </View>
@@ -1028,7 +1028,7 @@ export default function FitrahScreen() {
             <View style={{ padding: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
               <Text style={{ fontSize: 20, marginLeft: isRTL ? 10 : 0, marginRight: isRTL ? 0 : 10 }}>{getConceptIcon(item.category)}</Text>
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }} numberOfLines={isExpanded ? undefined : 2}>
+                <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "700", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }} numberOfLines={isExpanded ? undefined : 2}>
                   {getConceptName(item, lang)}
                 </Text>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 3 }}>
@@ -1042,16 +1042,16 @@ export default function FitrahScreen() {
             {isExpanded && (
               <View style={{ paddingHorizontal: 12, paddingBottom: 12, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 10 }}>
                 {/* Description */}
-                <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 22, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 10 }}>
+                <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 22, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 10 }}>
                   {getConceptDesc(item, lang)}
                 </Text>
                 {/* Evidence */}
                 {getConceptSource(item, lang) ? (
                   <View style={{ backgroundColor: "#FFFBEB", borderRadius: 8, padding: 10, marginBottom: 8 }}>
-                    <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                    <Text style={{ color: "#92400E", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {tx(lang, "BEWIJS:", "EVIDENCE:", "الدليل:")}
                     </Text>
-                    <Text style={{ color: "#78350F", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", fontStyle: "italic" }}>
+                    <Text style={{ color: "#78350F", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", fontStyle: "italic" }}>
                       {getConceptSource(item, lang)}
                     </Text>
                   </View>
@@ -1059,10 +1059,10 @@ export default function FitrahScreen() {
                 {/* Scholar */}
                 {getConceptScholar(item, lang) ? (
                   <View style={{ backgroundColor: "#F3E5F5", borderRadius: 8, padding: 10 }}>
-                    <Text style={{ color: "#6A1B9A", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                    <Text style={{ color: "#6A1B9A", fontSize: 11, fontWeight: "700", marginBottom: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {tx(lang, "GELEERDE:", "SCHOLAR:", "العالِم:")}
                     </Text>
-                    <Text style={{ color: "#4A148C", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                    <Text style={{ color: "#4A148C", fontSize: 12, lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {getConceptScholar(item, lang)}
                     </Text>
                   </View>
@@ -1079,16 +1079,16 @@ export default function FitrahScreen() {
     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40 }}>
       {/* Back button */}
       <Pressable onPress={goBack} style={({ pressed }) => [{ opacity: pressed ? 0.6 : 1, marginBottom: 10 }]}>
-        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+        <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
           {isRTL ? "❯" : "❮"} {tx(lang, "Alle leeftijdsfasen", "All age phases", "جميع الفئات العمرية")}
         </Text>
       </Pressable>
 
       {/* Group header */}
       <View style={{ backgroundColor: colors.primary + "10", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.primary + "25", marginBottom: 14 }}>
-        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "800", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.title, lang)}</Text>
-        <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "600", marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.subtitle, lang)}</Text>
-        <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, lineHeight: 18, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.description, lang)}</Text>
+        <Text style={{ color: colors.primary, fontSize: 18, fontWeight: "800", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.title, lang)}</Text>
+        <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "600", marginTop: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.subtitle, lang)}</Text>
+        <Text style={{ color: colors.muted, fontSize: 11, marginTop: 6, lineHeight: 18, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{getText(currentFitrah?.description, lang)}</Text>
       </View>
 
       {/* Section tabs */}
@@ -1138,7 +1138,7 @@ export default function FitrahScreen() {
 
     return (
       <View style={{ gap: 16 }}>
-        <Text style={{ fontSize: 14, color: colors.muted, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
+        <Text style={{ fontSize: 14, color: colors.muted, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
           {tx(lang, "Veelvoorkomende misvattingen over opvoeding en hun weerlegging vanuit Qur'aan en Soennah", "Common misconceptions about parenting and their refutation from Qur'aan and Sunnah", "الشبهات المنتشرة حول التربية وردودها من القرآن والسنة")}
         </Text>
 
@@ -1146,7 +1146,7 @@ export default function FitrahScreen() {
         {AGE_GROUPS.filter(g => ageGrouped[g]?.length > 0).map((groupName) => (
           <View key={groupName} style={{ marginBottom: 12 }}>
             <View style={{ backgroundColor: "#FFEBEE", borderRadius: 10, padding: 10, marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#B71C1C", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#B71C1C", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                 {groupName} ({ageGrouped[groupName].length})
               </Text>
             </View>
@@ -1172,41 +1172,41 @@ export default function FitrahScreen() {
                     opacity: pressed ? 0.95 : 1,
                   }]}
                 >
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#B71C1C", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#B71C1C", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }}>
                     {misconceptionText}
                   </Text>
                   {isExpanded && (
                     <View style={{ marginTop: 12, gap: 12 }}>
                       {clarificationText ? (
                         <View style={{ backgroundColor: "#FFF8E1", borderRadius: 8, padding: 10 }}>
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#F57F17", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#F57F17", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {tx(lang, "Hun bewering", "Their claim", "زعمهم")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{clarificationText}</Text>
+                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{clarificationText}</Text>
                         </View>
                       ) : null}
                       {refutationText ? (
                         <View style={{ backgroundColor: "#E8F5E9", borderRadius: 8, padding: 10 }}>
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#2E7D32", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#2E7D32", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {tx(lang, "Weerlegging", "Refutation", "الرد")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{refutationText}</Text>
+                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{refutationText}</Text>
                         </View>
                       ) : null}
                       {evidencesText ? (
                         <View style={{ backgroundColor: "#E3F2FD", borderRadius: 8, padding: 10 }}>
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#1565C0", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#1565C0", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {tx(lang, "Bewijzen", "Evidences", "الأدلة")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{evidencesText}</Text>
+                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{evidencesText}</Text>
                         </View>
                       ) : null}
                       {practicalText ? (
                         <View style={{ backgroundColor: "#F3E5F5", borderRadius: 8, padding: 10 }}>
-                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#6A1B9A", marginBottom: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 12, fontWeight: "700", color: "#6A1B9A", marginBottom: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {tx(lang, "Praktisch voordeel", "Practical benefit", "الفائدة العملية")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{practicalText}</Text>
+                          <Text style={{ fontSize: 13, color: "#333", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }}>{practicalText}</Text>
                         </View>
                       ) : null}
                     </View>
@@ -1221,7 +1221,7 @@ export default function FitrahScreen() {
         {Object.entries(topicGrouped).map(([groupName, items]) => (
           <View key={groupName} style={{ marginBottom: 12 }}>
             <View style={{ backgroundColor: "#FFF3E0", borderRadius: 10, padding: 10, marginBottom: 8 }}>
-              <Text style={{ fontSize: 14, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: "#E65100", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                 {groupName} ({items.length})
               </Text>
             </View>
@@ -1248,7 +1248,7 @@ export default function FitrahScreen() {
                   }]}
                 >
                   {/* Misconception title */}
-                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#B71C1C", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "600", color: "#B71C1C", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 22 }}>
                     {misconceptionText}
                   </Text>
 
@@ -1260,7 +1260,7 @@ export default function FitrahScreen() {
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#E65100", marginBottom: 4 }}>
                             {tx(lang, "Hun bewering", "Their claim", "زعمهم")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {clarificationText}
                           </Text>
                         </View>
@@ -1272,7 +1272,7 @@ export default function FitrahScreen() {
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#1B5E20", marginBottom: 4 }}>
                             {tx(lang, "Weerlegging", "Refutation", "تصحيح التصور")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {refutationText}
                           </Text>
                         </View>
@@ -1284,7 +1284,7 @@ export default function FitrahScreen() {
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#0D47A1", marginBottom: 4 }}>
                             {tx(lang, "Bewijs uit Qur'aan & Soennah", "Evidence from Qur'aan & Sunnah", "الدليل من الكتاب والسنة")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {evidencesText}
                           </Text>
                         </View>
@@ -1296,7 +1296,7 @@ export default function FitrahScreen() {
                           <Text style={{ fontSize: 11, fontWeight: "700", color: "#4A148C", marginBottom: 4 }}>
                             {tx(lang, "Praktische toepassing", "Practical application", "التطبيق العملي")}
                           </Text>
-                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                          <Text style={{ fontSize: 13, color: "#374151", lineHeight: 20, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                             {practicalText}
                           </Text>
                         </View>
@@ -1357,14 +1357,14 @@ export default function FitrahScreen() {
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: fav.type === "trait" ? colors.success : fav.type === "heart" ? "#6A1B9A" : "#E65100" }} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }} numberOfLines={2}>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }} numberOfLines={2}>
                   {fav.type === "trait" ? getText(fav.item.trait, lang) : fav.type === "heart" ? getText(fav.item.title, lang) : fav.type === "name" ? fav.item.name : getText(fav.item.station, lang)}
                 </Text>
-                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                   {getText(fitrahGroups[fav.groupIndex]?.title, lang)}
                 </Text>
                 {(fav.type === "trait" && fav.item.method) && (
-                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }} numberOfLines={3}>
+                  <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }} numberOfLines={3}>
                     {getText(fav.item.method, lang)}
                   </Text>
                 )}
@@ -1394,7 +1394,7 @@ export default function FitrahScreen() {
     }
     return (
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingBottom: 40, gap: 8 }}>
-        <Text style={{ color: colors.muted, fontSize: 11, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
+        <Text style={{ color: colors.muted, fontSize: 11, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>
           {searchResults.length} {tx(lang, "resultaten", "results", "نتيجة")}
         </Text>
         {searchResults.slice(0, 50).map((result, idx) => (
@@ -1424,10 +1424,10 @@ export default function FitrahScreen() {
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
               <View style={{ width: 8, height: 8, borderRadius: 4, backgroundColor: result.type === "trait" ? colors.success : result.type === "heart" ? "#6A1B9A" : result.type === "concept" ? "#1565C0" : "#E65100" }} />
               <View style={{ flex: 1 }}>
-                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }} numberOfLines={2}>
+                <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 20 }} numberOfLines={2}>
                   {result.type === "trait" ? getText(result.item.trait, lang) : result.type === "heart" ? getText(result.item.title, lang) : result.type === "concept" ? getConceptName(result.item, lang) : result.type === "name" ? result.item.name : getText(result.item.station, lang)}
                 </Text>
-                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+                <Text style={{ color: colors.muted, fontSize: 10, marginTop: 2, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                   {result.type === "concept" ? getConceptCategoryLabel(result.item.category, lang) : getText(fitrahGroups[result.groupIndex]?.title, lang)} • {result.type === "trait" ? tx(lang, "Eigenschap", "Trait", "خصلة") : result.type === "heart" ? tx(lang, "Hartactie", "Heart action", "منزلة") : result.type === "concept" ? tx(lang, "Begrip", "Concept", "مفهوم") : result.type === "name" ? tx(lang, "Naam", "Name", "اسم") : tx(lang, "Station", "Station", "منزلة")}
                 </Text>
               </View>
@@ -1444,7 +1444,7 @@ export default function FitrahScreen() {
       {/* Header */}
       <View style={{ marginBottom: 12 }}>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
-          <Text style={{ color: colors.foreground, fontSize: 20, fontWeight: "800", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
+          <Text style={{ color: colors.foreground, fontSize: 20, fontWeight: "800", textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
             {tx(lang, "Fitrah & Tawhied", "Fitrah & Tawheed", "الفطرة والتوحيد")}
           </Text>
           <Pressable
@@ -1456,7 +1456,7 @@ export default function FitrahScreen() {
             </Text>
           </Pressable>
         </View>
-        <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>
+        <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3, textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>
           {tx(lang, "Kenmerken, manazil en Namen van Allaah per leeftijdsfase", "Traits, manazil and Names of Allaah per age phase", "خصال الفطرة ومنازل القلوب وأسماء الله حسب الفئة العمرية")}
         </Text>
         {/* TEMP diagnostic — shows installed version + RTL state so we can see the real cause on-device */}
@@ -1481,7 +1481,7 @@ export default function FitrahScreen() {
             paddingVertical: 10,
             fontSize: 13,
             color: colors.foreground,
-            textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr",
+            textAlign: isRTL ? "justify" : "left", writingDirection: isRTL ? "rtl" : "ltr",
           }}
           returnKeyType="search"
         />
