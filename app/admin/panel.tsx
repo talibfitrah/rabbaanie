@@ -43,6 +43,7 @@ export default function AdminPanelScreen() {
     { ar: "الأطفال", sub: "عرض كل الأطفال", icon: "child-care", route: "/admin/list?type=children" },
     { ar: "المتخصصون", sub: "عرض المتخصصين", icon: "badge", route: "/admin/list?type=specialists" },
     { ar: "إضافة كتاب", sub: "يظهر في المكتبة ويستفيد منه الذكاء الاصطناعي", icon: "menu-book", route: "/admin/add-book" },
+    { ar: "إدارة المحتوى", sub: "المقالات والنصائح والمفاهيم", icon: "article", route: "/admin/content" },
   ];
 
   return (
