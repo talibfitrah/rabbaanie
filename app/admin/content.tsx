@@ -31,6 +31,14 @@ export default function AdminContentScreen() {
   const createM = trpc.content.create.useMutation({ onSuccess: () => { invalidate(); setDraft(null); } });
   const updateM = trpc.content.update.useMutation({ onSuccess: () => { invalidate(); setDraft(null); } });
   const deleteM = trpc.content.delete.useMutation({ onSuccess: () => { invalidate(); setDraft(null); } });
+  const generate = (trpc.admin as any).generateArticleFromHidayat.useMutation({
+    onSuccess: (r: any) => setDraft((d) => (d ? { ...d, titleAr: r?.titleAr || d.titleAr, contentAr: r?.contentAr || d.contentAr } : d)),
+    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر توليد المقال."),
+  });
+  const doGenerate = () => {
+    if (!draft?.titleAr.trim()) { Alert.alert("تنبيه", "اكتب الموضوع في حقل «العنوان (عربي)» أولاً، ثم اضغط توليد."); return; }
+    generate.mutate({ topic: draft.titleAr.trim(), category: draft.category || undefined });
+  };
   const busy = createM.isPending || updateM.isPending || deleteM.isPending;
 
   const rows = (listQ.data as any[]) || [];
@@ -112,8 +120,14 @@ export default function AdminContentScreen() {
               </View>
               {label("التصنيف")}
               <TextInput value={draft.category} onChangeText={(v) => setDraft({ ...draft, category: v })} placeholder="مثال: تربية" placeholderTextColor={colors.muted} style={inputStyle} />
-              {label("العنوان (عربي)")}
+              {label("العنوان (عربي) — أو الموضوع للتوليد")}
               <TextInput value={draft.titleAr} onChangeText={(v) => setDraft({ ...draft, titleAr: v })} placeholderTextColor={colors.muted} style={inputStyle} />
+              <TouchableOpacity onPress={doGenerate} disabled={generate.isPending}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#7C3AED14", borderWidth: 1, borderColor: "#7C3AED44", borderRadius: 10, paddingVertical: 11, marginTop: 10 }}>
+                {generate.isPending
+                  ? <ActivityIndicator color="#7C3AED" />
+                  : <><MaterialIcons name="auto-awesome" size={16} color="#7C3AED" /><Text style={{ color: "#7C3AED", fontWeight: "700", fontSize: 13 }}>توليد مقال كامل من الهدايات (يملأ النص)</Text></>}
+              </TouchableOpacity>
               {label("النص (عربي)")}
               <TextInput value={draft.contentAr} onChangeText={(v) => setDraft({ ...draft, contentAr: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 140, textAlignVertical: "top" }} />
               {label("العنوان (إنجليزي — اختياري)")}
