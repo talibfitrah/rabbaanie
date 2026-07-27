@@ -1,0 +1,25 @@
+app/admin/add-book.tsx
+  s_168adbdaf097e9::t_889a23bd703581 19-21
+  s_168adbdaf097e9::t_9810473ee5d8f8 1-18,22-62
+app/admin/list.tsx
+  s_168adbdaf097e9::t_9439a4aaef0f14 1-78
+app/admin/panel.tsx
+  s_168adbdaf097e9::t_8a57ceeb6f5e87 96
+  s_168adbdaf097e9::t_690ee5c8c5333f 41-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3de2f581629ce9d1d8dbdcb29a52da340d59537b",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
