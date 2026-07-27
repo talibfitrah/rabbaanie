@@ -868,5 +868,16 @@
       "فهرس المصادر والمراجع"
     ],
     "chapters": 11
+  },
+  {
+    "id": 46,
+    "title_ar": "هدايات أصول التربية",
+    "title_en": "Guidances on the Foundations of Tarbiyah",
+    "title_nl": "Leidraden over de grondslagen van de opvoeding",
+    "series": "الهدايات",
+    "series_num": 1,
+    "category": "الهدايات",
+    "total_chapters": 23,
+    "total_words": 41104
   }
 ]

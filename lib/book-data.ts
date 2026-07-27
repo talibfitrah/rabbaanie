@@ -47,6 +47,7 @@ import book42 from "@/assets/data/library/book_42.json";
 import book43 from "@/assets/data/library/book_43.json";
 import book44 from "@/assets/data/library/book_44.json";
 import book45 from "@/assets/data/library/book_45.json";
+import book46 from "@/assets/data/library/book_46.json";
 
 export const ALL_BOOKS: Record<number, any> = {
   1: book1, 2: book2, 3: book3, 4: book4, 5: book5,
@@ -58,4 +59,5 @@ export const ALL_BOOKS: Record<number, any> = {
   31: book31, 32: book32, 33: book33, 34: book34, 35: book35,
   36: book36, 37: book37, 38: book38, 39: book39, 40: book40,
   41: book41, 42: book42, 43: book43, 44: book44, 45: book45,
+  46: book46,
 };
