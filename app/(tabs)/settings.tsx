@@ -61,6 +61,7 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates } from "@/hooks/use-updates";
+import { getSessionRole } from "@/lib/_core/auth";
 
 
 const REMINDER_OPTIONS_KEYS = [
@@ -194,6 +195,9 @@ export default function SettingsScreen() {
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
   const { isAuthenticated } = useAuth();
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+  useEffect(() => { getSessionRole().then(setAdminRole); }, []);
+  const isAdminUser = ["admin", "super_admin", "moderator"].includes(adminRole || "");
   const myIdQuery = trpc.links.getMyId.useQuery(undefined, { enabled: isAuthenticated });
   const [showFrequency, setShowFrequency] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -1822,6 +1826,37 @@ export default function SettingsScreen() {
       <SettingsCollapsible title={language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App Updates"} icon="system-update" colors={colors} isRTL={isRTL}>
         <UpdateSection colors={colors} language={language} isRTL={isRTL} isEn={isEn} />
       </SettingsCollapsible>
+
+      {/* Owner / Admin panel — only for admin-role accounts */}
+      {isAdminUser && (
+        <Pressable
+          onPress={() => router.push("/admin/users" as any)}
+          style={({ pressed }) => [{
+            backgroundColor: "#EDE7F6",
+            borderWidth: 1,
+            borderColor: "#7C3AED30",
+            borderRadius: 12,
+            paddingVertical: 16,
+            paddingHorizontal: 16,
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 16,
+            opacity: pressed ? 0.7 : 1,
+          }]}
+        >
+          <MaterialIcons name="admin-panel-settings" size={22} color="#7C3AED" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: "bold", color: "#7C3AED", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+              {language === "ar" ? "لوحة الإدارة" : language === "en" ? "Admin Panel" : "Beheerpaneel"}
+            </Text>
+            <Text style={{ color: "#9575CD", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+              {language === "ar" ? "إدارة المستخدمين والصلاحيات" : language === "en" ? "Manage users & permissions" : "Gebruikers & rechten beheren"}
+            </Text>
+          </View>
+          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#7C3AED" />
+        </Pressable>
+      )}
 
       {/* Specialist Registration */}
       <Pressable

@@ -68,6 +68,43 @@ export async function removeSessionToken(): Promise<void> {
   }
 }
 
+// Minimal base64url decoder (no dependency). Sufficient to read the ASCII `role`
+// claim from the session JWT; multibyte string values may be mojibake but the
+// JSON structure and ASCII role value parse correctly.
+function base64UrlDecode(str: string): string {
+  str = str.replace(/-/g, "+").replace(/_/g, "/");
+  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
+  let output = "";
+  let buffer = 0;
+  let bits = 0;
+  for (const ch of str) {
+    if (ch === "=") break;
+    const idx = chars.indexOf(ch);
+    if (idx === -1) continue;
+    buffer = (buffer << 6) | idx;
+    bits += 6;
+    if (bits >= 8) {
+      bits -= 8;
+      output += String.fromCharCode((buffer >> bits) & 0xff);
+    }
+  }
+  return output;
+}
+
+/** Read the current user's role from the session JWT (e.g. "super_admin"). */
+export async function getSessionRole(): Promise<string | null> {
+  try {
+    const token = await getSessionToken();
+    if (!token) return null;
+    const parts = token.split(".");
+    if (parts.length < 2) return null;
+    const payload = JSON.parse(base64UrlDecode(parts[1]));
+    return payload?.role ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export async function getUserInfo(): Promise<User | null> {
   try {
     console.log("[Auth] Getting user info...");
