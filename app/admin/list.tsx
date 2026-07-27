@@ -61,15 +61,23 @@ export default function AdminListScreen() {
       ) : (
         <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: insets.bottom + 40, gap: 10 }}
           refreshControl={<RefreshControl refreshing={q.isFetching} onRefresh={() => q.refetch()} tintColor={colors.primary} />}>
-          {rows.map((r: any, i: number) => (
-            <View key={r.id ?? i} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
-              <MaterialIcons name={(ICONS[t] || "person") as any} size={22} color={colors.primary} />
-              <View style={{ flex: 1 }}>
-                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{titleOf(r)}</Text>
-                {!!subOf(r) && <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>{subOf(r)}</Text>}
-              </View>
-            </View>
-          ))}
+          {rows.map((r: any, i: number) => {
+            // Specialists open a detail screen to assign families.
+            const onPress = t === "specialists"
+              ? () => router.push(`/admin/specialist?id=${r.id}&name=${encodeURIComponent(r.name || r.email || "")}` as any)
+              : undefined;
+            return (
+              <TouchableOpacity key={r.id ?? i} onPress={onPress} disabled={!onPress} activeOpacity={onPress ? 0.7 : 1}
+                style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+                <MaterialIcons name={(ICONS[t] || "person") as any} size={22} color={colors.primary} />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{titleOf(r)}</Text>
+                  {!!subOf(r) && <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>{subOf(r)}</Text>}
+                </View>
+                {onPress && <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />}
+              </TouchableOpacity>
+            );
+          })}
           {rows.length === 0 && <Text style={{ textAlign: "center", marginTop: 40, color: colors.muted }}>لا توجد بيانات</Text>}
         </ScrollView>
       )}
