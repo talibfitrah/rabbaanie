@@ -9,6 +9,7 @@ import { trpc } from "@/lib/trpc";
 
 const ROLES = [
   { key: "user", ar: "مستخدم", color: "#6B7280" },
+  { key: "parent", ar: "والد", color: "#0891B2" },
   { key: "specialist", ar: "متخصص", color: "#E65100" },
   { key: "moderator", ar: "مشرف", color: "#7C3AED" },
   { key: "admin", ar: "مدير", color: "#2563EB" },
@@ -28,7 +29,8 @@ export default function AdminUsersScreen() {
 
   const usersQuery = trpc.admin.users.useQuery();
   const users = ((usersQuery.data as any[]) || []).filter((u) => {
-    if (roleFilter && u.role !== roleFilter) return false;
+    const rs = Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
+    if (roleFilter && !rs.includes(roleFilter)) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);

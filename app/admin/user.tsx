@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 
 const ROLES = [
   { key: "user", ar: "مستخدم", color: "#6B7280" },
+  { key: "parent", ar: "والد", color: "#0891B2" },
   { key: "specialist", ar: "متخصص", color: "#E65100" },
   { key: "moderator", ar: "مشرف", color: "#7C3AED" },
   { key: "admin", ar: "مدير", color: "#2563EB" },
@@ -25,15 +26,16 @@ export default function AdminUserDetailScreen() {
 
   const usersQ = trpc.admin.users.useQuery();
   const u = ((usersQ.data as any[]) || []).find((x) => x.id === userId);
-  const updateRole = trpc.admin.updateUserRole.useMutation({ onSuccess: () => usersQ.refetch() });
+  const updateRoles = (trpc.admin as any).updateUserRoles.useMutation({ onSuccess: () => usersQ.refetch() });
   const deleteUser = (trpc.admin as any).deleteUser.useMutation({ onSuccess: () => router.back() });
 
-  const changeRole = (role: string) => {
-    if (!u) return;
-    Alert.alert("تغيير الصلاحية", `تعيين «${u.name || u.email}» كـ «${roleAr(role)}»؟`, [
-      { text: "إلغاء", style: "cancel" },
-      { text: "تأكيد", onPress: () => updateRole.mutate({ userId, role }) },
-    ]);
+  const currentRoles: string[] = Array.isArray(u?.roles) && u.roles.length ? u.roles : (u?.role ? [u.role] : []);
+  const toggleRole = (role: string) => {
+    if (!u || updateRoles.isPending) return;
+    const has = currentRoles.includes(role);
+    let next = has ? currentRoles.filter((r) => r !== role) : [...currentRoles, role];
+    if (!next.length) next = ["user"];
+    updateRoles.mutate({ userId, roles: next });
   };
   const remove = () => {
     if (!u) return;
@@ -65,21 +67,26 @@ export default function AdminUserDetailScreen() {
             <View style={{ backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16 }}>
               <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{u.name || "—"}</Text>
               <Row label="البريد" value={u.email || "—"} />
-              <Row label="الصلاحية" value={roleAr(u.role)} />
+              <Row label="الصلاحيات" value={currentRoles.map(roleAr).join("، ") || "—"} />
               <Row label="طريقة الدخول" value={u.loginMethod || u.provider || "—"} />
               <Row label="تاريخ التسجيل" value={fmtDate(u.createdAt)} />
               <Row label="آخر دخول" value={fmtDate(u.lastSignedIn || u.lastLoginAt)} />
               <Row label="الإشعارات" value={u.pushToken ? "مُفعّلة" : "غير مُفعّلة"} />
             </View>
 
-            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginTop: 20, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>تغيير الصلاحية</Text>
+            <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginTop: 20, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>الصلاحيات</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>يمكن للمستخدم أن يحمل أكثر من صلاحية (اضغط لإضافة/إزالة)</Text>
             <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-              {ROLES.map((r) => (
-                <TouchableOpacity key={r.key} disabled={r.key === u.role || updateRole.isPending} onPress={() => changeRole(r.key)}
-                  style={{ backgroundColor: r.key === u.role ? r.color : r.color + "15", borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13, opacity: r.key === u.role ? 0.5 : 1 }}>
-                  <Text style={{ fontSize: 13, fontWeight: "700", color: r.key === u.role ? "#fff" : r.color }}>{r.ar}</Text>
-                </TouchableOpacity>
-              ))}
+              {ROLES.map((r) => {
+                const on = currentRoles.includes(r.key);
+                return (
+                  <TouchableOpacity key={r.key} disabled={updateRoles.isPending} onPress={() => toggleRole(r.key)}
+                    style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: on ? r.color : r.color + "15", borderRadius: 10, paddingVertical: 9, paddingHorizontal: 13 }}>
+                    <MaterialIcons name={on ? "check" : "add"} size={15} color={on ? "#fff" : r.color} />
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: on ? "#fff" : r.color }}>{r.ar}</Text>
+                  </TouchableOpacity>
+                );
+              })}
             </View>
 
             <TouchableOpacity onPress={remove} disabled={deleteUser.isPending}

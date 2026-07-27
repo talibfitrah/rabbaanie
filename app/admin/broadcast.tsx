@@ -7,10 +7,12 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 
-const TARGETS = [
-  { key: "all", ar: "كل المستخدمين" },
-  { key: "parents", ar: "الآباء" },
-  { key: "admins", ar: "المدراء" },
+const ROLE_TARGETS = [
+  { key: "user", ar: "المستخدمون" },
+  { key: "parent", ar: "الآباء" },
+  { key: "specialist", ar: "المتخصصون" },
+  { key: "moderator", ar: "المشرفون" },
+  { key: "admin", ar: "المدراء" },
 ];
 
 export default function BroadcastScreen() {
@@ -20,7 +22,7 @@ export default function BroadcastScreen() {
   const insets = useSafeAreaInsets();
   const [subject, setSubject] = useState("");
   const [message, setMessage] = useState("");
-  const [target, setTarget] = useState("all");
+  const [roles, setRoles] = useState<string[]>([]); // empty = everyone
 
   const send = (trpc.admin as any).sendBroadcast.useMutation({
     onSuccess: (r: any) => Alert.alert("تم الإرسال", `وصلت الرسالة إلى ${r?.sent ?? 0} جهاز.`, [{ text: "حسنًا", onPress: () => router.back() }]),
@@ -29,7 +31,7 @@ export default function BroadcastScreen() {
 
   const submit = () => {
     if (!subject.trim() || !message.trim()) { Alert.alert("تنبيه", "أدخل العنوان والنص."); return; }
-    send.mutate({ subject: subject.trim(), message: message.trim(), target });
+    send.mutate({ subject: subject.trim(), message: message.trim(), roles });
   };
 
   const inputStyle = { backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, textAlign: (isRTL ? "right" : "left") as "right" | "left", borderWidth: 1, borderColor: colors.border, marginTop: 6 };
@@ -44,13 +46,18 @@ export default function BroadcastScreen() {
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>تُرسَل كإشعار فوري إلى المستخدمين المحددين.</Text>
         {label("إلى")}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 6 }}>
-          {TARGETS.map((t) => (
-            <TouchableOpacity key={t.key} onPress={() => setTarget(t.key)}
-              style={{ backgroundColor: target === t.key ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 13, borderWidth: 1, borderColor: target === t.key ? colors.primary : colors.border }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: target === t.key ? "#fff" : colors.foreground }}>{t.ar}</Text>
-            </TouchableOpacity>
-          ))}
+        <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>اختر نوعًا أو أكثر — إن لم تختر شيئًا تُرسل إلى الجميع.</Text>
+        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+          {ROLE_TARGETS.map((t) => {
+            const on = roles.includes(t.key);
+            return (
+              <TouchableOpacity key={t.key} onPress={() => setRoles(on ? roles.filter((r) => r !== t.key) : [...roles, t.key])}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: on ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 13, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
+                <MaterialIcons name={on ? "check" : "add"} size={15} color={on ? "#fff" : colors.muted} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{t.ar}</Text>
+              </TouchableOpacity>
+            );
+          })}
         </View>
         {label("العنوان")}
         <TextInput value={subject} onChangeText={setSubject} placeholder="عنوان الإشعار" placeholderTextColor={colors.muted} style={inputStyle} />
