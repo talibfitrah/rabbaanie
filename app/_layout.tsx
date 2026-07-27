@@ -24,7 +24,6 @@ import { AppProvider } from "@/lib/app-context";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
-import "@/lib/rtl-text-defaults"; // justify Arabic body text app-wide (RTL only)
 import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { scheduleIqamahSilence, handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
