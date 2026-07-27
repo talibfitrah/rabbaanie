@@ -1,0 +1,21 @@
+app/(tabs)/fitrah.tsx
+  s_168adbdaf097e9::t_564f0476bc7f8c 64-66
+app/(tabs)/weekly.tsx
+  s_168adbdaf097e9::t_f33213e5f9e7ee 36-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cf9b84e6e4dae18aecfe8b5d7a9bda47482b7ff3",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
