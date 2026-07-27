@@ -1,5 +1,6 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { View, Text, ScrollView, Pressable, FlatList, TextInput , KeyboardAvoidingView, Platform, ActivityIndicator} from "react-native";
+import { View, Text, ScrollView, Pressable, FlatList, TextInput , KeyboardAvoidingView, Platform, ActivityIndicator, I18nManager} from "react-native";
+import * as Application from "expo-application";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
@@ -1457,6 +1458,10 @@ export default function FitrahScreen() {
         </View>
         <Text style={{ color: colors.muted, fontSize: 11, marginTop: 3, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 18 }}>
           {tx(lang, "Kenmerken, manazil en Namen van Allaah per leeftijdsfase", "Traits, manazil and Names of Allaah per age phase", "خصال الفطرة ومنازل القلوب وأسماء الله حسب الفئة العمرية")}
+        </Text>
+        {/* TEMP diagnostic — shows installed version + RTL state so we can see the real cause on-device */}
+        <Text style={{ color: "#B71C1C", fontSize: 12, marginTop: 4, textAlign: "center", fontWeight: "800" }}>
+          نسخة {Application.nativeApplicationVersion} · واجهة RTL={String(isRTL)} · نظام RTL={String(I18nManager.isRTL)} · {lang}
         </Text>
       </View>
 
