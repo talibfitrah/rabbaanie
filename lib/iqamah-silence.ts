@@ -360,8 +360,10 @@ function createTriggerDateForIqamah(
   const tzDate = new Date(tzStr);
   const offsetMs = tzDate.getTime() - utcDate.getTime();
 
-  const targetLocal = new Date(year, month, day, targetH, targetM, 0, 0);
-  const targetUTC = new Date(targetLocal.getTime() - offsetMs);
+  // targetH:targetM is wall-clock in `timezone`; build as UTC wall-clock then
+  // subtract the tz offset. (new Date(y,m,d,H,M) would re-apply the device
+  // offset on top of offsetMs, firing 1-2h early off UTC.)
+  const targetUTC = new Date(Date.UTC(year, month, day, targetH, targetM, 0, 0) - offsetMs);
 
   return targetUTC;
 }

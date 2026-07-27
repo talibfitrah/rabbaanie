@@ -531,10 +531,12 @@ function createTriggerDate(
   const tzDate = new Date(tzStr);
   const offsetMs = tzDate.getTime() - utcDate.getTime();
 
-  // Target time in the timezone = targetH:targetM on that day
-  const targetLocal = new Date(year, month, day, targetH, targetM, 0, 0);
-  // Convert to UTC by subtracting the offset
-  const targetUTC = new Date(targetLocal.getTime() - offsetMs);
+  // targetH:targetM is a WALL-CLOCK time in `timezone`. Build it as a UTC
+  // wall-clock (Date.UTC), then subtract the tz offset to get the real UTC
+  // instant. Using new Date(y,m,d,H,M) here would re-apply the DEVICE offset
+  // on top of offsetMs (double-counting), firing every prayer 1-2h early for
+  // any user not on UTC.
+  const targetUTC = new Date(Date.UTC(year, month, day, targetH, targetM, 0, 0) - offsetMs);
 
   return targetUTC;
 }

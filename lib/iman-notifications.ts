@@ -415,8 +415,9 @@ function createTriggerDate(
   const tzDate = new Date(tzStr);
   const offsetMs = tzDate.getTime() - utcDate.getTime();
 
-  const targetLocal = new Date(year, month, day, targetH, targetM, 0, 0);
-  const targetUTC = new Date(targetLocal.getTime() - offsetMs);
+  // targetH:targetM is wall-clock in `timezone`; build as UTC wall-clock then
+  // subtract the tz offset (avoids double-counting the device offset).
+  const targetUTC = new Date(Date.UTC(year, month, day, targetH, targetM, 0, 0) - offsetMs);
 
   return targetUTC;
 }
