@@ -62,8 +62,8 @@ function isArabicText(text: string | undefined | null): boolean {
 // Get text alignment and writing direction based on actual content
 function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
-  // Traits section: Arabic right-aligned (Daa3iyah wants خصال الفطرة on the right).
-  return { textAlign: forceRTL ? "right" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  // Reverted to left per Daa3iyah (restore v1.4.3: all Fitrah content left-aligned).
+  return { textAlign: forceRTL ? "left" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 export default function FitrahScreen() {
