@@ -376,6 +376,7 @@ export function buildPrayerWidgetTree(props: PrayerWidgetProps) {
             key={`prayer-${i}`}
             style={{
               width: "match_parent",
+              flex: 1,
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
@@ -387,18 +388,22 @@ export function buildPrayerWidgetTree(props: PrayerWidgetProps) {
           >
             <TextWidget
               text={prayer.time}
+              maxLines={1}
               style={{
-                fontSize: fs(13),
+                fontSize: fs(17),
                 color: prayer.isNext ? fg : withAlpha(fg, "CC"),
                 fontWeight: prayer.isNext ? "bold" : "normal",
+                adjustsFontSizeToFit: true,
               }}
             />
             <TextWidget
               text={prayer.nameAr}
+              maxLines={1}
               style={{
-                fontSize: fs(13),
+                fontSize: fs(17),
                 color: prayer.isNext ? fg : withAlpha(fg, "CC"),
                 fontWeight: prayer.isNext ? "bold" : "normal",
+                adjustsFontSizeToFit: true,
               }}
             />
           </FlexWidget>,

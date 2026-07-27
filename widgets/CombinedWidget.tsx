@@ -268,7 +268,8 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
         >
           <TextWidget
             text={dhikrText}
-            style={{ fontSize: fs(15), color: fg, textAlign: "center", fontWeight: "bold" }}
+            maxLines={10}
+            style={{ fontSize: fs(15), color: fg, textAlign: "center", fontWeight: "bold", adjustsFontSizeToFit: true }}
           />
         </FlexWidget>
       )}
@@ -286,7 +287,8 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
         >
           <TextWidget
             text={goalText}
-            style={{ fontSize: fs(18), color: withAlpha(fg, "CC"), textAlign: "center" }}
+            maxLines={4}
+            style={{ fontSize: fs(18), color: withAlpha(fg, "CC"), textAlign: "center", adjustsFontSizeToFit: true }}
           />
         </FlexWidget>
       )}

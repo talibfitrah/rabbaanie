@@ -119,11 +119,13 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         >
           <TextWidget
             text={dhikrText}
+            maxLines={12}
             style={{
               fontSize: fs(15),
               color: fg,
               fontWeight: "bold",
               textAlign: "center",
+              adjustsFontSizeToFit: true,
             }}
           />
           {content.dhikrShowVirtue && reward ? (

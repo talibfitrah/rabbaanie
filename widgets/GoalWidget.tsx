@@ -130,11 +130,13 @@ export function buildGoalWidgetTree(props: GoalWidgetProps) {
         >
           <TextWidget
             text={goalText}
+            maxLines={6}
             style={{
               fontSize: fs(14),
               color: fg,
               fontWeight: "bold",
               textAlign: "center",
+              adjustsFontSizeToFit: true,
             }}
           />
           {content.goalShowChildName && childName ? (
