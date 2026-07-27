@@ -74,7 +74,7 @@ export default function AdminUsersScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{u.name || "—"}</Text>
                 {!!u.email && <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{u.email}</Text>}
-                <Text style={{ fontSize: 10, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{"ID: " + u.id}</Text>
+                <Text style={{ fontSize: 10, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{"الرقم المميّز: " + (u.publicId || "لم يُنشأ بعد") + "  ·  #" + u.id}</Text>
               </View>
               <View style={{ backgroundColor: roleColor(u.role) + "20", borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: roleColor(u.role) }}>{roleAr(u.role)}</Text>

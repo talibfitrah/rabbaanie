@@ -66,7 +66,8 @@ export default function AdminUserDetailScreen() {
           <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
             <View style={{ backgroundColor: colors.surface, borderRadius: 16, borderWidth: 1, borderColor: colors.border, padding: 16 }}>
               <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{u.name || "—"}</Text>
-              <Row label="المعرّف (ID)" value={String(u.id)} />
+              <Row label="الرقم المميّز (رباني)" value={u.publicId || "لم يُنشأ بعد"} />
+              <Row label="الرقم الداخلي" value={String(u.id)} />
               <Row label="البريد" value={u.email || "—"} />
               <Row label="الصلاحيات" value={currentRoles.map(roleAr).join("، ") || "—"} />
               <Row label="طريقة الدخول" value={u.loginMethod || u.provider || "—"} />

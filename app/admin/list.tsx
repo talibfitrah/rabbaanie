@@ -34,7 +34,9 @@ export default function AdminListScreen() {
 
   const titleOf = (r: any) => r.name || r.title || r.title_ar || r.email || "—";
   const subOf = (r: any) => {
-    const parts: string[] = [`#${r.id}`];
+    const parts: string[] = [];
+    if (r.publicId) parts.push(`الرقم المميّز: ${r.publicId}`);
+    parts.push(`#${r.id}`);
     if (t === "families") { parts.push(`${r.memberCount ?? 0} أفراد`, `${r.childCount ?? 0} أطفال`); if (r.inviteCode) parts.push(`رمز: ${r.inviteCode}`); }
     else if (t === "children") { if (r.age != null) parts.push(`${r.age} سنة`); if (r.gender) parts.push(r.gender); if (r.familyName) parts.push(r.familyName); }
     else { if (r.email) parts.push(r.email); if (r.assignedCount != null) parts.push(`${r.assignedCount} مُسندة`); if (r.planCount != null) parts.push(`${r.planCount} خطة`); }
