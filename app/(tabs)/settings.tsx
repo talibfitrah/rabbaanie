@@ -2868,12 +2868,12 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
     { key: "behavior" as const, icon: "touch-app", label: tx("Werking", "Behavior", "الفاعلية") },
   ];
 
-  const widgets = [
-    { icon: "schedule", name: tx("Gebedswidget", "Prayer Widget", "ودجت الصلاة"), desc: tx("Volgende gebed en alle tijden", "Next prayer and all times", "الصلاة القادمة وجميع الأوقات") },
-    { icon: "auto-stories", name: tx("Dhikr-widget", "Dhikr Widget", "ودجت الذكر"), desc: tx("Wisselende dhikr met bron", "Rotating dhikr with source", "ذكر متغير مع المصدر والفضل") },
-    { icon: "flag", name: tx("Doel-widget", "Goal Widget", "ودجت الهدف"), desc: tx("Dagelijks opvoeddoel", "Daily parenting goal", "الهدف التربوي اليومي") },
-    { icon: "date-range", name: tx("Hijri-widget", "Hijri Widget", "ودجت التاريخ الهجري"), desc: tx("Hijri datum en evenement", "Hijri date and event", "التاريخ الهجري والمناسبة") },
-    { icon: "dashboard", name: tx("Gecombineerde widget", "Combined Widget", "الودجت الشامل"), desc: tx("Alles in één widget", "All in one widget", "صلاة + ذكر + هدف + تاريخ") },
+  const widgets: { type: WidgetType; icon: string; name: string; desc: string }[] = [
+    { type: "prayer", icon: "schedule", name: tx("Gebedswidget", "Prayer Widget", "ودجت الصلاة"), desc: tx("Volgende gebed en alle tijden", "Next prayer and all times", "الصلاة القادمة وجميع الأوقات") },
+    { type: "dhikr", icon: "auto-stories", name: tx("Dhikr-widget", "Dhikr Widget", "ودجت الذكر"), desc: tx("Wisselende dhikr met bron", "Rotating dhikr with source", "ذكر متغير مع المصدر والفضل") },
+    { type: "goal", icon: "flag", name: tx("Doel-widget", "Goal Widget", "ودجت الهدف"), desc: tx("Dagelijks opvoeddoel", "Daily parenting goal", "الهدف التربوي اليومي") },
+    { type: "hijri", icon: "date-range", name: tx("Hijri-widget", "Hijri Widget", "ودجت التاريخ الهجري"), desc: tx("Hijri datum en evenement", "Hijri date and event", "التاريخ الهجري والمناسبة") },
+    { type: "combined", icon: "dashboard", name: tx("Gecombineerde widget", "Combined Widget", "الودجت الشامل"), desc: tx("Alles in één widget", "All in one widget", "صلاة + ذكر + هدف + تاريخ") },
   ];
 
   return (
@@ -2889,17 +2889,25 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
 
       {/* Available widgets */}
       <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
-        {tx("Beschikbare widgets", "Available Widgets", "الودجت المتاحة")}
+        {tx("Beschikbare widgets — tik om in te stellen", "Available Widgets — tap to configure", "الودجت المتاحة — انقر لضبط كل نوع")}
       </Text>
-      {widgets.map((w, i) => (
-        <View key={i} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: colors.border }}>
+      {widgets.map((w, i) => {
+        const selected = activeWidgetType === w.type;
+        return (
+        <Pressable
+          key={i}
+          onPress={() => { setActiveWidgetType(w.type); setActiveTab("appearance"); }}
+          style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, backgroundColor: selected ? colors.primary + "18" : colors.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.7 : 1 }]}
+        >
           <MaterialIcons name={w.icon as any} size={22} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{w.name}</Text>
             <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{w.desc}</Text>
           </View>
-        </View>
-      ))}
+          <MaterialIcons name="tune" size={18} color={selected ? colors.primary : colors.muted} />
+        </Pressable>
+        );
+      })}
 
       {/* Tab navigation */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 16, marginBottom: 12, backgroundColor: colors.surface, borderRadius: 10, padding: 3 }}>
