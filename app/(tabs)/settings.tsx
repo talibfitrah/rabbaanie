@@ -2466,6 +2466,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
   const [chatNotifications, setChatNotifications] = useState(true);
   const [autoAcceptLinks, setAutoAcceptLinks] = useState(false);
   const [shareDefaults, setShareDefaults] = useState<string[]>(["name", "age", "gender"]);
+  const [open, setOpen] = useState(false);
   const isRTL = language === "ar";
 
   const tx = (nl: string, en: string, ar: string) =>
@@ -2504,10 +2505,17 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
       className="rounded-2xl p-5 mb-4 border"
       style={{ backgroundColor: colors.surface, borderColor: colors.border }}
     >
-      <Text className="text-lg font-bold mb-3" style={{ color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
-        {tx("Communicatie & Delen", "Communication & Sharing", "التواصل والمشاركة")}
-      </Text>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <Text className="text-lg font-bold" style={{ color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+          {tx("Communicatie & Delen", "Communication & Sharing", "التواصل والمشاركة")}
+        </Text>
+        <MaterialIcons name={open ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color={colors.muted} />
+      </Pressable>
 
+      {open && (<View style={{ marginTop: 12 }}>
       {/* Chat notifications toggle */}
       <Pressable
         onPress={toggleChatNotifications}
@@ -2611,6 +2619,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
           <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600" }}>{shareDefaults.length}</Text>
         </View>
       </View>
+      </View>)}
     </View>
   );
 }

@@ -213,82 +213,79 @@ export default function PermissionsSetupScreen() {
     checkAllPermissions();
   }, []);
 
-  const requestPermission = async (id: string) => {
+  // Open the most relevant OS settings screen for a permission so the user can
+  // always review or change it — even after it's granted. (Daa3iyah: the buttons
+  // must always take me to the settings to modify them; battery did nothing.)
+  const openPermissionSettings = async (id: string) => {
+    if (Platform.OS !== "android") { Linking.openSettings(); return; }
+    const IntentLauncher = require("expo-intent-launcher");
+    let pkg = "com.app.opvoedadvies.apk";
+    try { const Application = require("expo-application"); if (Application?.applicationId) pkg = Application.applicationId; } catch {}
+    try {
+      if (id === "battery") {
+        await IntentLauncher.startActivityAsync("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS");
+      } else if (id === "dnd") {
+        await IntentLauncher.startActivityAsync("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS");
+      } else if (id === "notifications" || id === "audio_notifications") {
+        await IntentLauncher.startActivityAsync("android.settings.APP_NOTIFICATION_SETTINGS", {
+          extra: { "android.provider.extra.APP_PACKAGE": pkg },
+        });
+      } else {
+        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+          data: "package:" + pkg,
+        });
+      }
+    } catch {
+      Linking.openSettings();
+    }
+  };
+
+  const requestPermission = async (id: string, status?: PermissionStatus) => {
     if (Platform.OS === "web") return;
+
+    // Battery & DND have no in-app prompt (the battery direct-request silently
+    // did nothing on some devices). Already-granted permissions also jump straight
+    // to their settings so the user can review or toggle them off.
+    if (id === "battery" || id === "dnd" || status === "granted") {
+      await openPermissionSettings(id);
+      setTimeout(() => checkAllPermissions(), 500);
+      return;
+    }
 
     switch (id) {
       case "location": {
         try {
           const Location = require("expo-location");
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === "denied") {
-            // Open app settings
-            Linking.openSettings();
-          }
-        } catch {}
+          const { status: s } = await Location.requestForegroundPermissionsAsync();
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
       case "notifications":
       case "audio_notifications": {
         try {
           const Notifications = require("expo-notifications");
-          const { status } = await Notifications.requestPermissionsAsync({
+          const { status: s } = await Notifications.requestPermissionsAsync({
             ios: { allowAlert: true, allowBadge: true, allowSound: true },
           });
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {}
-        break;
-      }
-      case "dnd": {
-        if (Platform.OS === "android") {
-          // Open Android DND settings
-          try {
-            const IntentLauncher = require("expo-intent-launcher");
-            await IntentLauncher.startActivityAsync("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS");
-          } catch {
-            Linking.openSettings();
-          }
-        } else {
-          // iOS - open Focus settings
-          Linking.openURL("App-prefs:FOCUS");
-        }
-        break;
-      }
-      case "battery": {
-        if (Platform.OS === "android") {
-          try {
-            const { requestDisableBatteryOptimization } = require("@/lib/notifications");
-            await requestDisableBatteryOptimization();
-          } catch {
-            Linking.openSettings();
-          }
-        }
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
       case "motion": {
         try {
           const { Magnetometer } = require("expo-sensors");
-          const { status } = await Magnetometer.requestPermissionsAsync();
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {
-          // Sensors might not need permission on this device
-        }
+          const { status: s } = await Magnetometer.requestPermissionsAsync();
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
       case "activity": {
         try {
           const { Pedometer } = require("expo-sensors");
-          const { status } = await Pedometer.requestPermissionsAsync();
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {
-          Linking.openSettings();
-        }
+          const { status: s } = await Pedometer.requestPermissionsAsync();
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
     }
@@ -350,7 +347,7 @@ export default function PermissionsSetupScreen() {
         {permissions.filter(p => p.status !== "unavailable").map((perm) => (
           <Pressable
             key={perm.id}
-            onPress={() => requestPermission(perm.id)}
+            onPress={() => requestPermission(perm.id, perm.status)}
             style={({ pressed }) => [{
               backgroundColor: perm.status === "granted" ? "#F0FDF4" : "#FFFFFF",
               borderWidth: 1.5,
