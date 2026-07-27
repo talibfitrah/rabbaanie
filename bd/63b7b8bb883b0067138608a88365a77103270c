@@ -1,0 +1,25 @@
+app/child/weekplan.tsx
+  s_168adbdaf097e9::t_3dd16465601023 77
+app/ai-chat.tsx
+  s_168adbdaf097e9::t_6674f022735f9a 1399
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_13b63712169c76 1872,1875
+app/admin/management.tsx
+  s_168adbdaf097e9::t_fd869fd65cfaf3 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bd63b7b8bb883b0067138608a88365a77103270c",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
