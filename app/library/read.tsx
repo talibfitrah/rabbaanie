@@ -12,6 +12,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { trpc } from "@/lib/trpc";
 
 import { ALL_BOOKS } from "@/lib/book-data";
+import { fetchServerBook } from "@/lib/server-books";
 
 const BOOKS = ALL_BOOKS;
 
@@ -30,7 +31,12 @@ export default function ReadScreen() {
 
   const id = parseInt(bookId || "1", 10);
   const idx = parseInt(chapterIdx || "0", 10);
-  const bookData = BOOKS[id];
+  // Bundled book, or fetch a server-managed one (cached offline).
+  const bundled = BOOKS[id];
+  const [bookData, setBookData] = useState<any>(bundled || null);
+  useEffect(() => {
+    if (!bundled) fetchServerBook(id).then(setBookData);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const chapter = bookData?.chapters?.[idx];
   const sections = chapter?.sections || [];
