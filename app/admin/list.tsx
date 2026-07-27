@@ -34,7 +34,7 @@ export default function AdminListScreen() {
 
   const titleOf = (r: any) => r.name || r.title || r.title_ar || r.email || "—";
   const subOf = (r: any) => {
-    const parts: string[] = [];
+    const parts: string[] = [`#${r.id}`];
     if (t === "families") { parts.push(`${r.memberCount ?? 0} أفراد`, `${r.childCount ?? 0} أطفال`); if (r.inviteCode) parts.push(`رمز: ${r.inviteCode}`); }
     else if (t === "children") { if (r.age != null) parts.push(`${r.age} سنة`); if (r.gender) parts.push(r.gender); if (r.familyName) parts.push(r.familyName); }
     else { if (r.email) parts.push(r.email); if (r.assignedCount != null) parts.push(`${r.assignedCount} مُسندة`); if (r.planCount != null) parts.push(`${r.planCount} خطة`); }
@@ -46,6 +46,11 @@ export default function AdminListScreen() {
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>{TITLES[t] || "القائمة"}</Text>
+        {t === "specialists" && (
+          <TouchableOpacity onPress={() => router.push("/admin/create-specialist" as any)} style={{ flexDirection: "row", alignItems: "center", gap: 4, backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 10, paddingVertical: 6 }}>
+            <MaterialIcons name="person-add" size={16} color="#fff" /><Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إضافة</Text>
+          </TouchableOpacity>
+        )}
         <Text style={{ fontSize: 12, color: colors.muted }}>{rows.length}</Text>
       </View>
 
