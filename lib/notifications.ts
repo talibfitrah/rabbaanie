@@ -127,6 +127,55 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return finalStatus === "granted";
 }
 
+// ============ BATTERY OPTIMIZATION ============
+
+const BATTERY_OPT_PROMPTED_KEY = "@battery_opt_prompted";
+
+/**
+ * Ask Android to exempt the app from battery optimization. This is the #1 reason
+ * notifications "only work when the app is open": Doze and OEM battery managers
+ * (Samsung, Xiaomi, …) cancel the app's pending alarms once it's swiped away, so
+ * scheduled prayer/advice notifications never fire while it's closed. Shows the
+ * system's direct allow-dialog; falls back to the battery-optimization list.
+ */
+export async function requestDisableBatteryOptimization(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  try {
+    const IntentLauncher = require("expo-intent-launcher");
+    let pkg = "com.app.opvoedadvies.apk";
+    try {
+      const Application = require("expo-application");
+      if (Application?.applicationId) pkg = Application.applicationId;
+    } catch {}
+    try {
+      await IntentLauncher.startActivityAsync(
+        "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        { data: "package:" + pkg }
+      );
+    } catch {
+      // Some OEMs block the direct request — open the battery-optimization list.
+      await IntentLauncher.startActivityAsync(
+        "android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"
+      );
+    }
+  } catch {}
+}
+
+/**
+ * Prompt the battery-optimization exemption once (first launch after install or
+ * update). Flagged in AsyncStorage so it never nags; re-triggerable from the
+ * permissions screen and settings.
+ */
+export async function maybePromptBatteryOptimization(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  try {
+    const done = await AsyncStorage.getItem(BATTERY_OPT_PROMPTED_KEY);
+    if (done) return;
+    await AsyncStorage.setItem(BATTERY_OPT_PROMPTED_KEY, "1");
+    await requestDisableBatteryOptimization();
+  } catch {}
+}
+
 // ============ PREFERENCES PERSISTENCE ============
 
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {

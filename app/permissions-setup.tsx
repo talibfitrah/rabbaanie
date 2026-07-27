@@ -132,6 +132,21 @@ export default function PermissionsSetupScreen() {
       status: dndStatus,
     });
 
+    // 4b. Battery optimization exemption (Android) — so notifications keep
+    // firing while the app is closed (Doze/OEM battery managers cancel alarms).
+    items.push({
+      id: "battery",
+      icon: "battery-alert",
+      iconColor: "#F59E0B",
+      titleAr: "استثناء من توفير البطارية",
+      titleEn: "Battery Optimization Exemption",
+      titleNl: "Uitzondering batterijoptimalisatie",
+      descAr: "حتى تصل إشعارات الصلاة والنصائح والتطبيق مغلق",
+      descEn: "So prayer & advice notifications arrive while the app is closed",
+      descNl: "Zodat gebed- en adviesmeldingen aankomen terwijl de app gesloten is",
+      status: Platform.OS === "android" ? "undetermined" : "unavailable",
+    });
+
     // 5. Motion sensors (for compass/Qibla)
     let motionStatus: PermissionStatus = "undetermined";
     if (Platform.OS !== "web") {
@@ -238,6 +253,17 @@ export default function PermissionsSetupScreen() {
         } else {
           // iOS - open Focus settings
           Linking.openURL("App-prefs:FOCUS");
+        }
+        break;
+      }
+      case "battery": {
+        if (Platform.OS === "android") {
+          try {
+            const { requestDisableBatteryOptimization } = require("@/lib/notifications");
+            await requestDisableBatteryOptimization();
+          } catch {
+            Linking.openSettings();
+          }
         }
         break;
       }

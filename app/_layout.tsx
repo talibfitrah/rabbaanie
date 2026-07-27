@@ -24,7 +24,7 @@ import { AppProvider } from "@/lib/app-context";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
-import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
+import { setupNotificationChannels, scheduleAllNotifications, scheduleWeeklyReminder, recordAppOpened, scheduleInactivityReminder, getUnfinishedGoalCount, requestNotificationPermissions, scheduleGoalsIncompleteReminder, maybePromptBatteryOptimization } from "@/lib/notifications";
 import { scheduleIqamahSilence, handleIqamahSilenceAction } from "@/lib/iqamah-silence";
 import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
 import { setupDailyAdviceChannel, scheduleDailyAdviceNotification, showAdviceWidget } from "@/lib/daily-advice-notification";
@@ -354,6 +354,10 @@ export default function RootLayout() {
 
         // Reschedule notifications on app launch (refreshes for next 7 days)
         await scheduleAllNotifications(lang);
+        // One-time prompt to exempt the app from battery optimization so the
+        // scheduled notifications above still fire while the app is closed.
+        // Deferred + fire-and-forget so it doesn't block launch or the splash.
+        setTimeout(() => { maybePromptBatteryOptimization(); }, 3500);
         // Schedule weekly goals reminder
         await scheduleWeeklyGoalsNotification(lang);
         // Schedule weekly goal reminder with unfinished count

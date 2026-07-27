@@ -82,7 +82,7 @@ const config: ExpoConfig = {
     // Enables Firebase Cloud Messaging (FCM) so getDevicePushTokenAsync returns
     // a real device token; prebuild applies the google-services gradle plugin.
     googleServicesFile: "./google-services.json",
-    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES", "ACCESS_NOTIFICATION_POLICY"],
+    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES", "ACCESS_NOTIFICATION_POLICY", "REQUEST_IGNORE_BATTERY_OPTIMIZATIONS"],
     intentFilters: [
       {
         action: "VIEW",
