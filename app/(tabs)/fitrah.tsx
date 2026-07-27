@@ -61,9 +61,9 @@ function isArabicText(text: string | undefined | null): boolean {
 // Get text alignment and writing direction based on actual content
 function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
-  // Arabic is justified so lines fill flush from the right edge to the left edge
-  // (Daa3iyah: "starts from the right and ends at the left") instead of ragged-left.
-  return { textAlign: forceRTL ? "justify" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  // Arabic is right-aligned and RTL: text starts at the right edge and reads
+  // right-to-left (Daa3iyah's requirement).
+  return { textAlign: forceRTL ? "right" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 export default function FitrahScreen() {

@@ -33,8 +33,8 @@ function isArabicText(text: string | undefined | null): boolean {
 // Get text alignment and writing direction based on content (not app language)
 function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
-  // Arabic justified so lines fill flush from the right edge to the left edge.
-  return { textAlign: forceRTL ? "justify" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  // Arabic is right-aligned and RTL (text starts at the right edge).
+  return { textAlign: forceRTL ? "right" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 // New data types matching the tarbiya JSON format
