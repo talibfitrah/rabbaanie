@@ -422,9 +422,29 @@ export default function FitrahScreen() {
     </View>
   );
 
+  // Fold branch sub-points (إيجابيًّا:، أ. عقليًّا: ...) under their preceding root
+  // trait, so they appear nested inside it instead of as separate top-level items.
+  const nestedTraits = useMemo(() => {
+    const BRANCH_RE = /^\s*([أبجده]\.\s|إيجابي|سلبي)/;
+    const src: any[] = currentFitrah?.fitrahTraits || [];
+    const out: { root: any; rootIdx: number; branches: { item: any; idx: number }[] }[] = [];
+    src.forEach((item, idx) => {
+      const ar = ((item?.trait?.ar) || "").trim();
+      if (BRANCH_RE.test(ar) && out.length > 0) {
+        out[out.length - 1].branches.push({ item, idx });
+      } else {
+        out.push({ root: item, rootIdx: idx, branches: [] });
+      }
+    });
+    return out;
+  }, [currentFitrah]);
+
   const renderTraits = () => (
     <View style={{ gap: 8 }}>
-      {currentFitrah?.fitrahTraits.map((item: any, idx: number) => (
+      {nestedTraits.map((group: any, gi: number) => {
+        const item = group.root;
+        const idx = group.rootIdx;
+        return (
         <Pressable
           key={idx}
           onPress={() => setExpandedTrait(expandedTrait === idx ? null : idx)}
@@ -439,7 +459,7 @@ export default function FitrahScreen() {
         >
           <View style={{ padding: 12, flexDirection: isArabicText(getText(item.trait, lang)) || isRTL ? "row-reverse" : "row", alignItems: "center" }}>
             <View style={{ width: 26, height: 26, borderRadius: 13, backgroundColor: colors.success + "15", alignItems: "center", justifyContent: "center", marginLeft: isArabicText(getText(item.trait, lang)) || isRTL ? 10 : 0, marginRight: isArabicText(getText(item.trait, lang)) || isRTL ? 0 : 10 }}>
-              <Text style={{ color: colors.success, fontSize: 9, fontWeight: "800" }}>{idx + 1}</Text>
+              <Text style={{ color: colors.success, fontSize: 9, fontWeight: "800" }}>{gi + 1}</Text>
             </View>
             <View style={{ flex: 1 }}>
               <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "600", lineHeight: 20, ...getArabicTextStyle(getText(item.trait, lang), isRTL) }} numberOfLines={expandedTrait === idx ? undefined : 2}>
@@ -513,10 +533,21 @@ export default function FitrahScreen() {
                 </View>
                 );
               })()}
+              {group.branches && group.branches.map((b: any, bi: number) => {
+                const btext = getText(b.item.trait, lang);
+                const bmethod = getText(b.item.method, lang);
+                return (
+                  <View key={`br-${bi}`} style={{ marginTop: 10, paddingTop: 8, borderTopWidth: 0.5, borderTopColor: colors.border }}>
+                    <Text style={{ color: colors.success, fontSize: 12, fontWeight: "700", marginBottom: 3, ...getArabicTextStyle(btext, isRTL) }}>{btext}</Text>
+                    <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 20, ...getArabicTextStyle(bmethod, isRTL) }}>{bmethod}</Text>
+                  </View>
+                );
+              })}
             </View>
           )}
         </Pressable>
-      ))}
+        );
+      })}
     </View>
   );
 
