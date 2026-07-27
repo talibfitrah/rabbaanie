@@ -1396,7 +1396,7 @@ export default function AIChatScreen() {
                 ]}
               >
                 <Text style={[styles.suggestionText, { color: "#1565C0", fontWeight: "600" }]}>
-                  {language === "ar" ? "🎓 التواصل مع متخصص / أهل العلم" : language === "en" ? "🎓 Contact a specialist / scholar" : "🎓 Contact een specialist / geleerde"}
+                  {language === "ar" ? "📖 التواصل مع متخصص / أهل العلم" : language === "en" ? "📖 Contact a specialist / scholar" : "📖 Contact een specialist / geleerde"}
                 </Text>
               </Pressable>
             </View>

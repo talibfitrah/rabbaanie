@@ -14,7 +14,7 @@ export default function AdminManagementScreen() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: "families", label: "Gezinnen", icon: "👨‍👩‍👧‍👦" },
     { key: "children", label: "Kinderen", icon: "👶" },
-    { key: "specialists", label: "Specialisten", icon: "🎓" },
+    { key: "specialists", label: "Specialisten", icon: "📖" },
     { key: "teachers", label: "Leraren", icon: "📚" },
     { key: "analytics", label: "Analyse", icon: "📊" },
   ];

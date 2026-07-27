@@ -1869,10 +1869,10 @@ export default function SettingsScreen() {
           opacity: pressed ? 0.7 : 1,
         }]}
       >
-        <MaterialIcons name="school" size={22} color="#2E7D32" />
+        <MaterialIcons name="menu-book" size={22} color="#2E7D32" />
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: "bold", color: "#2E7D32", fontSize: 14 }}>
-            Specialist Dashboard
+            {language === "ar" ? "لوحة المتخصص" : language === "en" ? "Specialist Dashboard" : "Specialistendashboard"}
           </Text>
           <Text style={{ color: "#4CAF50", fontSize: 11, marginTop: 2 }}>
             {language === "ar" ? "إدارة ملفك ومشاهدة العائلات المعينة" : language === "en" ? "Manage your profile and view assigned families" : "Beheer je profiel en bekijk toegewezen gezinnen"}

@@ -74,7 +74,7 @@ function getCardIcon(title: string): string {
   if (lower.includes("تربي") || lower.includes("tarbiy") || lower.includes("education") || lower.includes("opvoed")) return "📚";
   if (lower.includes("جدول") || lower.includes("schedule") || lower.includes("schema") || lower.includes("يوم")) return "📅";
   if (lower.includes("مبدأ") || lower.includes("مبادئ") || lower.includes("mindset") || lower.includes("principe")) return "💡";
-  if (lower.includes("علم") || lower.includes("knowledge") || lower.includes("kennis") || lower.includes("تعلم")) return "🎓";
+  if (lower.includes("علم") || lower.includes("knowledge") || lower.includes("kennis") || lower.includes("تعلم")) return "📚";
   if (lower.includes("لعب") || lower.includes("play") || lower.includes("spel") || lower.includes("نشاط") || lower.includes("activit")) return "🎯";
   if (lower.includes("نوم") || lower.includes("sleep") || lower.includes("slaap")) return "🌙";
   if (lower.includes("طعام") || lower.includes("food") || lower.includes("eten") || lower.includes("أكل") || lower.includes("غذا")) return "🍽️";
