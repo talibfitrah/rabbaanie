@@ -1,0 +1,30 @@
+app/admin/users.tsx
+  s_168adbdaf097e9::t_e6d712ac021c9a 12
+  s_168adbdaf097e9::t_914bbd419c8c62 32-33
+app/admin/user.tsx
+  s_168adbdaf097e9::t_3452b9a515daa7 29,32-38
+  s_168adbdaf097e9::t_d70caf7c5c2ddf 77-78,80-89
+  s_168adbdaf097e9::t_d9f38524fe7062 11
+  s_168adbdaf097e9::t_273864b58bc598 70
+app/admin/broadcast.tsx
+  s_168adbdaf097e9::t_28e2c80a7e3541 34
+  s_168adbdaf097e9::t_40bec49990f7a6 10-15
+  s_168adbdaf097e9::t_4ba159389457a9 25
+  s_168adbdaf097e9::t_b11517ccb87e79 49-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "537def78c0c2d15b7531738707e7e878efd5b80a",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
