@@ -380,7 +380,7 @@ export default function WeeklyScreen() {
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 16 }}>
         {/* Title */}
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
-          <Text style={[s.title, { color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 0 }]}>
+          <Text style={[s.title, { color: colors.foreground, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 0 }]}>
             {t("weekly.title")}
           </Text>
           <Pressable
@@ -478,7 +478,7 @@ export default function WeeklyScreen() {
           </View>
           {/* Progress bar */}
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 6 }}>
-            <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+            <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
               {overallPct === 100 ? "✅ " : "📊 "}
               {tx(lang, "Weekvoortgang", "Weekly Progress", "تقدم الأسبوع")}
             </Text>
@@ -489,7 +489,7 @@ export default function WeeklyScreen() {
           <View style={{ height: 8, borderRadius: 4, backgroundColor: colors.border, overflow: "hidden" }}>
             <View style={{ height: 8, borderRadius: 4, backgroundColor: overallPct === 100 ? "#22C55E" : colors.primary, width: `${overallPct}%` }} />
           </View>
-          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6, textAlign: isRTL ? "right" : "left" }}>
+          <Text style={{ color: colors.muted, fontSize: 12, marginTop: 6, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
             {totalCompleted}/{totalGoals} {tx(lang, "doelen behaald", "goals achieved", "أهداف مُنجزة")}
           </Text>
         </View>
@@ -584,7 +584,7 @@ export default function WeeklyScreen() {
                 >
                   <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
                     <Text style={{ fontSize: 22 }}>📜</Text>
-                    <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: "#92400E", marginHorizontal: 10, textAlign: isRTL ? "right" : "left" }}>
+                    <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: "#92400E", marginHorizontal: 10, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {tx(lang, "Bronnen — Qur'aan & Hadieth", "Sources — Qur'aan & Hadieth", "المنطلقات — آية وحديث")}
                     </Text>
                     <MaterialIcons name={foundationsOpen ? "expand-less" : "expand-more"} size={22} color="#92400E" />
@@ -668,7 +668,7 @@ export default function WeeklyScreen() {
                 >
                   <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
                     <Text style={{ fontSize: 22 }}>🎯</Text>
-                    <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: "#5B21B6", marginHorizontal: 10, textAlign: isRTL ? "right" : "left" }}>
+                    <Text style={{ flex: 1, fontSize: 15, fontWeight: "700", color: "#5B21B6", marginHorizontal: 10, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                       {tx(lang, "Activiteiten", "Activities", "الأنشطة العملية")}
                     </Text>
                     <MaterialIcons name={activitiesOpen ? "expand-less" : "expand-more"} size={22} color="#5B21B6" />
@@ -823,7 +823,7 @@ function SectionAccordion({ title, icon, color, bgColor, goals, expanded, onTogg
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center" }}>
           <Text style={{ fontSize: 22 }}>{icon}</Text>
           <View style={{ flex: 1, marginHorizontal: 10 }}>
-            <Text style={{ fontSize: 14, fontWeight: "700", color, textAlign: isRTL ? "right" : "left" }}>
+            <Text style={{ fontSize: 14, fontWeight: "700", color, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
               {title}
             </Text>
             {/* Mini progress */}
@@ -848,7 +848,7 @@ function SectionAccordion({ title, icon, color, bgColor, goals, expanded, onTogg
               <View style={{ marginBottom: 8 }}>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: color + "10", borderRadius: 8, marginBottom: 4 }}>
                   <Text style={{ fontSize: 14 }}>👨</Text>
-                  <Text style={{ color, fontSize: 12, fontWeight: "800", textAlign: isRTL ? "right" : "left" }}>
+                  <Text style={{ color, fontSize: 12, fontWeight: "800", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                     {tx(lang, "Voor de ouder", "For the parent", "للوالد/ة")}
                   </Text>
                   <View style={{ backgroundColor: color + "20", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, marginLeft: isRTL ? 0 : "auto", marginRight: isRTL ? "auto" : 0 }}>
@@ -872,7 +872,7 @@ function SectionAccordion({ title, icon, color, bgColor, goals, expanded, onTogg
               <View>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, paddingHorizontal: 8, paddingVertical: 6, backgroundColor: color + "10", borderRadius: 8, marginBottom: 4 }}>
                   <Text style={{ fontSize: 14 }}>👶</Text>
-                  <Text style={{ color, fontSize: 12, fontWeight: "800", textAlign: isRTL ? "right" : "left" }}>
+                  <Text style={{ color, fontSize: 12, fontWeight: "800", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
                     {tx(lang, "Voor het kind", "For the child", "للطفل")}
                   </Text>
                   <View style={{ backgroundColor: color + "20", borderRadius: 8, paddingHorizontal: 5, paddingVertical: 1, marginLeft: isRTL ? 0 : "auto", marginRight: isRTL ? "auto" : 0 }}>
@@ -1041,13 +1041,13 @@ function EnvironmentAdviceSection({ childId, childName, environments, colors, is
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
           <Text style={{ fontSize: 28 }}>⚠️</Text>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: "#92400E", fontSize: 14, fontWeight: "700", textAlign: isRTL ? "right" : "left" }}>
+            <Text style={{ color: "#92400E", fontSize: 14, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
               {tx(lang, "Omgevingsanalyse invullen", "Fill in environment analysis", "أكمل تحليل بيئة الطفل")}
             </Text>
-            <Text style={{ color: "#78350F", fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+            <Text style={{ color: "#78350F", fontSize: 12, marginTop: 4, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
               {tx(lang, `Nog ${missingCount || envFields.length} velden niet ingevuld — vul ze in voor persoonlijk advies`, `${missingCount || envFields.length} fields still empty — fill them for personalized advice`, `${missingCount || envFields.length} حقول لم تُملأ بعد — أكملها للحصول على نصائح مخصصة`)}
             </Text>
-            <Text style={{ color: "#B45309", fontSize: 11, marginTop: 6, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>
+            <Text style={{ color: "#B45309", fontSize: 11, marginTop: 6, fontWeight: "600", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
               {tx(lang, "📅 Wekelijkse herinnering: vul dit in!", "📅 Weekly reminder: fill this in!", "📅 تذكير أسبوعي: أكمل هذا التحليل!")}
             </Text>
           </View>
@@ -1064,7 +1064,7 @@ function EnvironmentAdviceSection({ childId, childName, environments, colors, is
     <View style={{ marginTop: 16 }}>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <Text style={{ fontSize: 22 }}>💡</Text>
-        <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "700", textAlign: isRTL ? "right" : "left" }}>
+        <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
           {tx(lang, `Persoonlijk advies voor ${childName}`, `Personalized advice for ${childName}`, `نصائح خاصة بـ${childName}`)}
         </Text>
       </View>
@@ -1073,8 +1073,8 @@ function EnvironmentAdviceSection({ childId, childName, environments, colors, is
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 8 }}>
             <Text style={{ fontSize: 18 }}>{advice.icon}</Text>
             <View style={{ flex: 1 }}>
-              <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "700", textAlign: isRTL ? "right" : "left", marginBottom: 4 }}>{advice.title}</Text>
-              <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>{advice.text}</Text>
+              <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", marginBottom: 4 }}>{advice.title}</Text>
+              <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>{advice.text}</Text>
             </View>
           </View>
         </View>
@@ -1178,7 +1178,7 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
     <View style={{ marginTop: 16 }}>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 10 }}>
         <Text style={{ fontSize: 22 }}>📋</Text>
-        <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "700", textAlign: isRTL ? "right" : "left" }}>
+        <Text style={{ color: colors.foreground, fontSize: 15, fontWeight: "700", textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }}>
           {tx(lang, "Behandelplannen", "Treatment plans", "خطط العلاج")}
         </Text>
       </View>
@@ -1197,7 +1197,7 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
                 <View style={{ flex: 1 }}>
                   <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
                     <MaterialIcons name={progress === 100 ? "check-circle" : "lightbulb"} size={18} color={progress === 100 ? colors.success : colors.primary} />
-                    <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "700", flex: 1, textAlign: isRTL ? "right" : "left" }} numberOfLines={1}>
+                    <Text style={{ color: colors.foreground, fontSize: 13, fontWeight: "700", flex: 1, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }} numberOfLines={1}>
                       {plan.childName || tx(lang, "Actieplan", "Action plan", "خطة عملية")}
                     </Text>
                   </View>
@@ -1240,7 +1240,7 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
                           >
                             <MaterialIcons name={isComplete ? "check-box" : "check-box-outline-blank"} size={20} color={isComplete ? colors.success : colors.muted} />
                             <View style={{ flex: 1 }}>
-                              <Text style={{ color: isComplete ? colors.muted : colors.foreground, fontSize: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left", textDecorationLine: isComplete ? "line-through" : "none" }}>
+                              <Text style={{ color: isComplete ? colors.muted : colors.foreground, fontSize: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr", textDecorationLine: isComplete ? "line-through" : "none" }}>
                                 {step.text}
                               </Text>
                             </View>
