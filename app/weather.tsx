@@ -93,22 +93,26 @@ export default function WeatherScreen() {
           <Text style={{ fontSize: 14, fontWeight: "700", color: colors.primary, textAlign: "center", marginBottom: 4 }}>{dl.label} · {day.max}° / {day.min}°</Text>
           <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", marginBottom: 12 }}>{refl.note}</Text>
           <Text style={{ fontSize: 17, fontWeight: "700", color: colors.foreground, textAlign: "center", lineHeight: 30 }}>{refl.dua}</Text>
-          <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center", marginTop: 4 }}>{refl.source}</Text>
+          {refl.trans ? <Text style={{ fontSize: 13, color: colors.foreground, textAlign: "center", marginTop: 8, lineHeight: 23 }}>{refl.trans}</Text> : null}
+          <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center", marginTop: 6 }}>{refl.source}</Text>
         </View>
 
+        {/* ترغيب — Arabic label, left-aligned */}
         <View style={{ backgroundColor: "#EAF3EC", borderRadius: 12, padding: 14, marginTop: 12 }}>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#1B4332", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>{tt("Aanmoediging", "Encouragement", "ترغيب")}</Text>
-          <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: isRTL ? "right" : "left" }}>{refl.targheeb}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#1B4332", marginBottom: 4, textAlign: "left" }}>ترغيب</Text>
+          <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: "left" }}>{refl.targheeb}</Text>
         </View>
-        <View style={{ backgroundColor: "#FDECEA", borderRadius: 16, borderWidth: 2, borderColor: "#E57373", padding: 18, marginTop: 12 }}>
-          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
-            <MaterialIcons name="warning" size={30} color="#B71C1C" />
-            <Text style={{ fontSize: 18, fontWeight: "900", color: "#B71C1C" }}>{tt("Waarschuwing", "Warning", "ترهيب")}</Text>
-          </View>
-          <Text style={{ fontSize: 16, color: "#7F1D1D", lineHeight: 29, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>{refl.tarheeb}</Text>
+        {/* ترهيب — Arabic label, left-aligned (the key warning is the ghayb note below) */}
+        <View style={{ backgroundColor: "#FDECEA", borderRadius: 12, padding: 14, marginTop: 12, borderWidth: 1, borderColor: "#F0B4AE" }}>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#B71C1C", marginBottom: 4, textAlign: "left" }}>ترهيب</Text>
+          <Text style={{ fontSize: 14, color: "#7F1D1D", lineHeight: 24, textAlign: "left" }}>{refl.tarheeb}</Text>
         </View>
 
-        <Text style={{ fontSize: 12, color: colors.muted, textAlign: "center", marginTop: 16, fontStyle: "italic" }}>{ghaybNote(lang)}</Text>
+        {/* Key warning: the forecast is not certainty — weather is of al-ghayb, in Allaah's hand alone. Red ⚠ triangle. */}
+        <View style={{ backgroundColor: "#FDECEA", borderRadius: 16, borderWidth: 2, borderColor: "#E57373", padding: 18, marginTop: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+          <MaterialIcons name="warning" size={34} color="#B71C1C" />
+          <Text style={{ flex: 1, fontSize: 15, color: "#7F1D1D", lineHeight: 26, fontWeight: "700", textAlign: isRTL ? "right" : "left" }}>{ghaybNote(lang)}</Text>
+        </View>
       </ScrollView>
     </View>
   );
