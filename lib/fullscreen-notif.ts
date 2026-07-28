@@ -17,6 +17,35 @@ import notifee, {
   TriggerType,
   type TimestampTrigger,
 } from "@notifee/react-native";
+import * as IntentLauncher from "expo-intent-launcher";
+import * as Application from "expo-application";
+
+const PKG = Application.applicationId || "com.app.opvoedadvies.apk";
+
+/** Open the "Full-screen notifications" special permission (Android 14+). Without
+ *  it a full-screen intent is demoted to a top heads-up banner instead of a
+ *  centre-screen popup. Falls back to the app notification settings on older OS. */
+export async function openFullScreenPermission(): Promise<void> {
+  try {
+    await IntentLauncher.startActivityAsync("android.settings.MANAGE_APP_USE_FULL_SCREEN_INTENT", { data: "package:" + PKG });
+  } catch {
+    try {
+      await IntentLauncher.startActivityAsync("android.settings.APP_NOTIFICATION_SETTINGS", { extra: { "android.provider.extra.APP_PACKAGE": PKG } });
+    } catch { /* ignore */ }
+  }
+}
+
+/** Open the "Alarms & reminders" (exact alarm) permission — needed for the
+ *  scheduled trigger to fire at all on Android 12+. */
+export async function openAlarmPermission(): Promise<void> {
+  try {
+    await notifee.openAlarmPermissionSettings();
+  } catch {
+    try {
+      await IntentLauncher.startActivityAsync("android.settings.REQUEST_SCHEDULE_EXACT_ALARM", { data: "package:" + PKG });
+    } catch { /* ignore */ }
+  }
+}
 
 export const FULLSCREEN_CHANNEL = "prayer_fullscreen_v1";
 
@@ -81,7 +110,6 @@ export async function fullScreenDiagReport(seconds = 8): Promise<string> {
     await withTimeout(notifee.createTriggerNotification(fullScreenBody("حان وقتُ الصلاة", "اختبار ملء الشاشة"), trigger), 5000);
     L.push("trig=ok");
   } catch (e: any) { L.push(`trig ERR:${e?.message || e}`); }
-  if (alarm === 0) { try { await notifee.openAlarmPermissionSettings(); L.push("→ فتحتُ إعداد المنبّهات"); } catch { /* ignore */ } }
   return L.join("\n");
 }
 

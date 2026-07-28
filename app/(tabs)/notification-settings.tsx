@@ -200,12 +200,21 @@ export default function NotificationSettingsScreen() {
   // centre-screen even over the lock screen (Notifee full-screen intent).
   const handleFullScreenTest = useCallback(async () => {
     if (Platform.OS !== "android") return;
-    const { fullScreenDiagReport } = await import("@/lib/fullscreen-notif");
+    const { fullScreenDiagReport, openFullScreenPermission, openAlarmPermission } = await import("@/lib/fullscreen-notif");
     const report = await fullScreenDiagReport(8);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
     Alert.alert(
-      getLabel("تشخيص الإشعارات — صوّرها وأرسلها", "Notification diagnostic — screenshot & send", "Diagnose — screenshot & stuur"),
-      report,
+      getLabel("لإظهار الإشعار في وسط الشاشة", "Show centre-screen", "Centraal tonen"),
+      getLabel(
+        "الإشعار يظهر في الأعلى ✅. ولإظهاره في وسط الشاشة فوق القفل (كالمنبّه)، فعّل الإذنَين ثمّ اقفل الهاتف وأعد الاختبار:",
+        "It shows at the top ✅. To also show it centre-screen over the lock (like an alarm), enable both permissions, then lock and test again:",
+        "Bovenaan ✅. Voor centraal (als alarm): schakel beide toestemmingen in, vergrendel en test opnieuw:",
+      ) + "\n\n" + report,
+      [
+        { text: getLabel("إذن ملء الشاشة", "Full-screen", "Volledig"), onPress: () => { void openFullScreenPermission(); } },
+        { text: getLabel("إذن المنبّهات", "Alarms", "Alarmen"), onPress: () => { void openAlarmPermission(); } },
+        { text: getLabel("إغلاق", "Close", "Sluiten"), style: "cancel" },
+      ],
     );
   }, []);
 
