@@ -15,6 +15,7 @@ import notifee, {
   AndroidVisibility,
   AndroidCategory,
   TriggerType,
+  AlarmType,
   type TimestampTrigger,
 } from "@notifee/react-native";
 import * as IntentLauncher from "expo-intent-launcher";
@@ -106,7 +107,7 @@ export async function fullScreenDiagReport(seconds = 8): Promise<string> {
   try { await withTimeout(ensureFullScreenChannel(), 5000); L.push("chan=ok"); } catch (e: any) { L.push(`chan ERR:${e?.message || e}`); }
   try { await withTimeout(notifee.displayNotification(fullScreenBody("اختبار فوريّ", "إن ظهر هذا فالنظام يعمل")), 5000); L.push("disp=ok"); } catch (e: any) { L.push(`disp ERR:${e?.message || e}`); }
   try {
-    const trigger: TimestampTrigger = { type: TriggerType.TIMESTAMP, timestamp: Date.now() + seconds * 1000, alarmManager: { allowWhileIdle: true } };
+    const trigger: TimestampTrigger = { type: TriggerType.TIMESTAMP, timestamp: Date.now() + seconds * 1000, alarmManager: { type: AlarmType.SET_ALARM_CLOCK } };
     await withTimeout(notifee.createTriggerNotification(fullScreenBody("حان وقتُ الصلاة", "اختبار ملء الشاشة"), trigger), 5000);
     L.push("trig=ok");
   } catch (e: any) { L.push(`trig ERR:${e?.message || e}`); }
@@ -119,7 +120,7 @@ export async function scheduleFullScreenPrayer(title: string, body: string, time
   const trigger: TimestampTrigger = {
     type: TriggerType.TIMESTAMP,
     timestamp: timestampMs,
-    alarmManager: { allowWhileIdle: true },
+    alarmManager: { type: AlarmType.SET_ALARM_CLOCK },
   };
   await notifee.createTriggerNotification(fullScreenBody(title, body), trigger);
 }
