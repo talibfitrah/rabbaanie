@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -418,7 +418,7 @@ export default function AlgemeenScreen() {
         {/* Brand: logo on the right, name «ربّانيّ» on the left (RTL: dot is
             the first child → renders on the right, name second → left). */}
         <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-          <View style={s.brandLogo} />
+          <Image source={require("@/assets/images/icon.png")} style={s.brandLogo} resizeMode="contain" />
           <Text style={s.headerTitle}>{tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}</Text>
         </View>
       </View>
@@ -891,7 +891,7 @@ const s = StyleSheet.create({
 
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B4332" },
-  brandLogo: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#2d6a4f", borderWidth: 3, borderColor: "#95d5b2" },
+  brandLogo: { width: 36, height: 36 },
   headerTitleEn: { fontSize: 24, fontWeight: "300", color: "#1B4332" },
   settingsBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F7F6", alignItems: "center", justifyContent: "center" },
 
