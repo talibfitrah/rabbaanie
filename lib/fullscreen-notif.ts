@@ -52,22 +52,44 @@ function fullScreenBody(title: string, body: string) {
   };
 }
 
+export type FSDiag = { alarmEnabled: boolean; notifeeShown: boolean; error?: string };
+
 /**
- * Fire a full-screen test after `seconds` so the user can lock the phone and
- * watch it appear over the lock screen. Uses an exact allow-while-idle alarm.
+ * Diagnostic + test: (1) verify the "Alarms & reminders" (exact-alarm) permission
+ * — Notifee's alarmManager trigger needs it and Android 13/14 often leaves it
+ * OFF, which makes the scheduled full-screen notification silently never fire;
+ * if missing, open its settings screen. (2) Show an immediate Notifee
+ * notification to prove Notifee can display at all. (3) Schedule the delayed
+ * full-screen one so the user can lock the phone and see it centre-screen.
+ * Any native error is returned (not thrown) so the UI can show it.
  */
-export async function fireFullScreenTest(seconds = 8): Promise<void> {
-  await notifee.requestPermission();
-  await ensureFullScreenChannel();
-  const trigger: TimestampTrigger = {
-    type: TriggerType.TIMESTAMP,
-    timestamp: Date.now() + seconds * 1000,
-    alarmManager: { allowWhileIdle: true },
-  };
-  await notifee.createTriggerNotification(
-    fullScreenBody("حان وقتُ الصلاة", "اختبار إشعار ملء الشاشة — قُم إلى الصلاة"),
-    trigger,
-  );
+export async function runFullScreenDiagnostic(seconds = 8): Promise<FSDiag> {
+  try {
+    await notifee.requestPermission();
+    await ensureFullScreenChannel();
+    const settings = await notifee.getNotificationSettings();
+    // AndroidNotificationSetting.ENABLED === 1
+    const alarmEnabled = (settings as any).android?.alarm === 1;
+    if (!alarmEnabled) {
+      await notifee.openAlarmPermissionSettings();
+      return { alarmEnabled: false, notifeeShown: false };
+    }
+    await notifee.displayNotification(
+      fullScreenBody("اختبار notifee الفوريّ", "إن رأيتَ هذا الإشعار فالنظام يعمل"),
+    );
+    const trigger: TimestampTrigger = {
+      type: TriggerType.TIMESTAMP,
+      timestamp: Date.now() + seconds * 1000,
+      alarmManager: { allowWhileIdle: true },
+    };
+    await notifee.createTriggerNotification(
+      fullScreenBody("حان وقتُ الصلاة", "اختبار إشعار ملء الشاشة — قُم إلى الصلاة"),
+      trigger,
+    );
+    return { alarmEnabled: true, notifeeShown: true };
+  } catch (e: any) {
+    return { alarmEnabled: false, notifeeShown: false, error: String(e?.message || e) };
+  }
 }
 
 /** Schedule one full-screen prayer notification at an exact timestamp (ms). */
