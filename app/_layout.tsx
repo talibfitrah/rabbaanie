@@ -47,6 +47,7 @@ import { ErrorBoundary } from "@/components/error-boundary";
 import { LoadingScreen } from "@/components/loading-screen";
 import { AnimatedSplash } from "@/components/animated-splash";
 import { restoreQueryCache, setupQueryPersistence } from "@/lib/query-persistence";
+import notifee from "@notifee/react-native";
 
 // Set notification handler for foreground notifications
 Notifications.setNotificationHandler({
@@ -58,6 +59,11 @@ Notifications.setNotificationHandler({
     shouldShowList: true,
   }),
 });
+
+// Notifee background event handler (module scope, required by Notifee). Used
+// for the full-screen prayer notifications; tapping/full-screen just opens the
+// app, so nothing extra to do here — this registration silences the warning.
+notifee.onBackgroundEvent(async () => {});
 
 // Keep splash screen visible until auth is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});

@@ -196,6 +196,23 @@ export default function NotificationSettingsScreen() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   }, [language]);
 
+  // Fire a full-screen (alarm-style) test — survives Samsung sleep and shows
+  // centre-screen even over the lock screen (Notifee full-screen intent).
+  const handleFullScreenTest = useCallback(async () => {
+    if (Platform.OS !== "android") return;
+    const { fireFullScreenTest } = await import("@/lib/fullscreen-notif");
+    await fireFullScreenTest(8);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      getLabel("اختبار ملء الشاشة", "Full-screen test", "Volledig-scherm test"),
+      getLabel(
+        "اقفل هاتفك الآن — سيظهر التذكير في وسط الشاشة بعد ٨ ثوانٍ، ولو كان الهاتف مقفلًا.",
+        "Lock your phone now — the reminder appears centre-screen in 8 seconds, even when locked.",
+        "Vergrendel je telefoon nu — de herinnering verschijnt na 8 seconden, ook vergrendeld.",
+      ),
+    );
+  }, []);
+
   // Manually un-silence the phone (in case an iqamah silence didn't auto-restore)
   const handleRestoreSound = useCallback(async () => {
     const ok = await restorePhoneSound();
@@ -436,6 +453,12 @@ export default function NotificationSettingsScreen() {
               </Pressable>
             )}
           </View>
+          {Platform.OS === "android" && (
+            <Pressable onPress={handleFullScreenTest} style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12, marginTop: 10, opacity: pressed ? 0.85 : 1 }]}>
+              <MaterialIcons name="fullscreen" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("اختبار إشعار ملء الشاشة", "Full-screen test", "Volledig-scherm test")}</Text>
+            </Pressable>
+          )}
         </View>
 
         {/* === SECTION 1: Prayer Notifications === */}
