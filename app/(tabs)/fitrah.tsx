@@ -62,8 +62,10 @@ function isArabicText(text: string | undefined | null): boolean {
 // Get text alignment and writing direction based on actual content
 function getArabicTextStyle(text: string | undefined | null, isRTL: boolean) {
   const forceRTL = isArabicText(text) || isRTL;
-  // Reverted to left per Daa3iyah (restore v1.4.3: all Fitrah content left-aligned).
-  return { textAlign: forceRTL ? "left" as const : "left" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
+  // Right-aligned per Daa3iyah (msg 417, 2026-07-28): Fitrah content on the right,
+  // even in Dutch/English. writingDirection still follows the script so Latin text
+  // reads L→R within the right-aligned block.
+  return { textAlign: "right" as const, writingDirection: forceRTL ? "rtl" as const : "ltr" as const };
 }
 
 export default function FitrahScreen() {
@@ -484,7 +486,7 @@ export default function FitrahScreen() {
               {item.sub_phase ? (() => {
                 const subPhaseText = getText(item.sub_phase, lang);
                 return (
-                <View style={{ backgroundColor: colors.primary + "10", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 8, alignSelf: isArabicText(subPhaseText) || isRTL ? "flex-end" : "flex-start" }}>
+                <View style={{ backgroundColor: colors.primary + "10", borderRadius: 6, paddingHorizontal: 8, paddingVertical: 4, marginBottom: 8, alignSelf: "flex-end" }}>
                   <Text style={{ color: colors.primary, fontSize: 10, fontWeight: "600", ...getArabicTextStyle(subPhaseText, isRTL) }}>{subPhaseText}</Text>
                 </View>
                 );
