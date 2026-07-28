@@ -233,11 +233,34 @@ export default function AlgemeenScreen() {
     let cancelled = false;
     (async () => {
       const { fetchWeather } = await import("@/lib/weather");
-      const w = await fetchWeather(lat, lng);
-      if (!cancelled) setWeather(w);
+      // Retry a few times: a single transient failure used to leave the pill
+      // blank until the location changed (which it almost never does), so the
+      // weather looked permanently "gone". Never overwrite a good value with null.
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        const w = await fetchWeather(lat, lng);
+        if (w) { if (!cancelled) setWeather(w); return; }
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
     })();
     return () => { cancelled = true; };
   }, [prayerLocation?.lat, prayerLocation?.lng]);
+
+  // Recovery: if the weather never loaded (offline/slow at launch), retry each
+  // time Home regains focus so it fills in without needing a full app restart.
+  useFocusEffect(
+    useCallback(() => {
+      if (weather) return;
+      const lat = prayerLocation?.lat, lng = prayerLocation?.lng;
+      if (lat == null || lng == null) return;
+      let cancelled = false;
+      (async () => {
+        const { fetchWeather } = await import("@/lib/weather");
+        const w = await fetchWeather(lat, lng);
+        if (w && !cancelled) setWeather(w);
+      })();
+      return () => { cancelled = true; };
+    }, [weather, prayerLocation?.lat, prayerLocation?.lng])
+  );
 
   // Smart night detection - show qiyam reminder if app opened at night
   useEffect(() => {
