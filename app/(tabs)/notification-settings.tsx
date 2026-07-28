@@ -200,31 +200,12 @@ export default function NotificationSettingsScreen() {
   // centre-screen even over the lock screen (Notifee full-screen intent).
   const handleFullScreenTest = useCallback(async () => {
     if (Platform.OS !== "android") return;
-    const { runFullScreenDiagnostic } = await import("@/lib/fullscreen-notif");
-    const r = await runFullScreenDiagnostic(8);
+    const { fullScreenDiagReport } = await import("@/lib/fullscreen-notif");
+    const report = await fullScreenDiagReport(8);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
-    if (r.error) {
-      Alert.alert(getLabel("خطأ في الاختبار", "Test error", "Testfout"), r.error);
-      return;
-    }
-    if (!r.alarmEnabled) {
-      Alert.alert(
-        getLabel("إذنٌ مطلوب: التنبيهات والتذكيرات", "Permission: Alarms & reminders", "Toestemming: alarmen"),
-        getLabel(
-          "فتحتُ لك الإعداد. فعّل «السماح بضبط المنبّهات والتذكيرات» لربّانيّ، ثم ارجع وأعِد الاختبار.",
-          "I opened the setting. Enable 'Allow setting alarms and reminders' for Rabbaanie, then return and test again.",
-          "Ik opende de instelling. Sta 'alarmen en herinneringen' toe voor Rabbaanie, en test opnieuw.",
-        ),
-      );
-      return;
-    }
     Alert.alert(
-      getLabel("اختبار ملء الشاشة", "Full-screen test", "Volledig-scherm test"),
-      getLabel(
-        "هل ظهر إشعارٌ فوريّ الآن؟ ثمّ اقفل هاتفك — سيظهر تذكيرٌ في وسط الشاشة بعد ٨ ثوانٍ.",
-        "Did an immediate notification just appear? Now lock your phone — a reminder appears centre-screen in 8 seconds.",
-        "Verscheen er nu een melding? Vergrendel je telefoon — na 8 seconden verschijnt een melding.",
-      ),
+      getLabel("تشخيص الإشعارات — صوّرها وأرسلها", "Notification diagnostic — screenshot & send", "Diagnose — screenshot & stuur"),
+      report,
     );
   }, []);
 

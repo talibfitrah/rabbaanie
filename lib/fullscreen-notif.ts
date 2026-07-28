@@ -52,44 +52,37 @@ function fullScreenBody(title: string, body: string) {
   };
 }
 
-export type FSDiag = { alarmEnabled: boolean; notifeeShown: boolean; error?: string };
+function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
+  return Promise.race([
+    p,
+    new Promise<T>((_, rej) => setTimeout(() => rej(new Error("timeout")), ms)),
+  ]);
+}
 
 /**
- * Diagnostic + test: (1) verify the "Alarms & reminders" (exact-alarm) permission
- * — Notifee's alarmManager trigger needs it and Android 13/14 often leaves it
- * OFF, which makes the scheduled full-screen notification silently never fire;
- * if missing, open its settings screen. (2) Show an immediate Notifee
- * notification to prove Notifee can display at all. (3) Schedule the delayed
- * full-screen one so the user can lock the phone and see it centre-screen.
- * Any native error is returned (not thrown) so the UI can show it.
+ * Full diagnostic dump: runs every Notifee step independently (each timeout-
+ * guarded so one hang can't blank the report) and returns a short multi-line
+ * status the UI shows in an Alert for the user to screenshot. This gives exact
+ * ground truth for an on-device problem we can't reproduce here:
+ *   perm  = notification permission (1=granted)
+ *   alarm = exact-alarm ("Alarms & reminders") setting (1=on, 0=off, -1=n/a)
+ *   chan/disp/trig = channel create / immediate display / 8s trigger schedule
+ * After reporting, it opens the alarm-settings screen when exact-alarm is off.
  */
-export async function runFullScreenDiagnostic(seconds = 8): Promise<FSDiag> {
+export async function fullScreenDiagReport(seconds = 8): Promise<string> {
+  const L: string[] = [];
+  let alarm: any = null;
+  try { const p: any = await withTimeout(notifee.requestPermission(), 5000); L.push(`perm=${p?.authorizationStatus}`); } catch (e: any) { L.push(`perm ERR:${e?.message || e}`); }
+  try { const s: any = await withTimeout(notifee.getNotificationSettings(), 5000); alarm = s?.android?.alarm; L.push(`alarm=${alarm}`); } catch (e: any) { L.push(`settings ERR:${e?.message || e}`); }
+  try { await withTimeout(ensureFullScreenChannel(), 5000); L.push("chan=ok"); } catch (e: any) { L.push(`chan ERR:${e?.message || e}`); }
+  try { await withTimeout(notifee.displayNotification(fullScreenBody("اختبار فوريّ", "إن ظهر هذا فالنظام يعمل")), 5000); L.push("disp=ok"); } catch (e: any) { L.push(`disp ERR:${e?.message || e}`); }
   try {
-    await notifee.requestPermission();
-    await ensureFullScreenChannel();
-    const settings = await notifee.getNotificationSettings();
-    // AndroidNotificationSetting.ENABLED === 1
-    const alarmEnabled = (settings as any).android?.alarm === 1;
-    if (!alarmEnabled) {
-      await notifee.openAlarmPermissionSettings();
-      return { alarmEnabled: false, notifeeShown: false };
-    }
-    await notifee.displayNotification(
-      fullScreenBody("اختبار notifee الفوريّ", "إن رأيتَ هذا الإشعار فالنظام يعمل"),
-    );
-    const trigger: TimestampTrigger = {
-      type: TriggerType.TIMESTAMP,
-      timestamp: Date.now() + seconds * 1000,
-      alarmManager: { allowWhileIdle: true },
-    };
-    await notifee.createTriggerNotification(
-      fullScreenBody("حان وقتُ الصلاة", "اختبار إشعار ملء الشاشة — قُم إلى الصلاة"),
-      trigger,
-    );
-    return { alarmEnabled: true, notifeeShown: true };
-  } catch (e: any) {
-    return { alarmEnabled: false, notifeeShown: false, error: String(e?.message || e) };
-  }
+    const trigger: TimestampTrigger = { type: TriggerType.TIMESTAMP, timestamp: Date.now() + seconds * 1000, alarmManager: { allowWhileIdle: true } };
+    await withTimeout(notifee.createTriggerNotification(fullScreenBody("حان وقتُ الصلاة", "اختبار ملء الشاشة"), trigger), 5000);
+    L.push("trig=ok");
+  } catch (e: any) { L.push(`trig ERR:${e?.message || e}`); }
+  if (alarm === 0) { try { await notifee.openAlarmPermissionSettings(); L.push("→ فتحتُ إعداد المنبّهات"); } catch { /* ignore */ } }
+  return L.join("\n");
 }
 
 /** Schedule one full-screen prayer notification at an exact timestamp (ms). */
