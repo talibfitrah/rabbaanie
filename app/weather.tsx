@@ -61,10 +61,18 @@ export default function WeatherScreen() {
   const dl = weatherLabel(day.code, lang);
   const refl = weatherReflection(day.code, day.max, lang);
 
+  // Show TODAY first, then the coming days, then past days (most-recent first),
+  // so the day the user is in is what appears first (rightmost in RTL). Was
+  // chronological, which put the oldest past day at the reading start.
+  const todayIdx = 7; // fetchWeather: past_days=7 → index 7 is today
+  const dayOrder: number[] = [];
+  for (let i = todayIdx; i < w.daily.length; i++) dayOrder.push(i);
+  for (let i = todayIdx - 1; i >= 0; i--) dayOrder.push(i);
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {Header}
-      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }}>
+      <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 96 }}>
         {/* Current */}
         <View style={{ alignItems: "center", marginBottom: 8 }}>
           <MaterialIcons name={weatherLabel(w.code, lang).icon as any} size={48} color={colors.primary} />
@@ -74,7 +82,8 @@ export default function WeatherScreen() {
 
         {/* Day browser */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginVertical: 12 }}>
-          {w.daily.map((d, i) => {
+          {dayOrder.map((i) => {
+            const d = w.daily[i];
             const on = i === sel;
             return (
               <TouchableOpacity key={i} onPress={() => setSel(i)} style={{ alignItems: "center", gap: 3, paddingVertical: 8, paddingHorizontal: 10, marginHorizontal: 3, borderRadius: 14, minWidth: 82, backgroundColor: on ? colors.primary + "18" : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
