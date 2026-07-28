@@ -415,7 +415,12 @@ export default function AlgemeenScreen() {
             <MaterialIcons name="child-care" size={22} color="#1565C0" />
           </Pressable>
         </View>
-        <Text style={s.headerTitle}>تربية <Text style={s.headerTitleEn}>Tarbiyah</Text></Text>
+        {/* Brand: logo on the right, name «ربّانيّ» on the left (RTL: dot is
+            the first child → renders on the right, name second → left). */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={s.brandLogo} />
+          <Text style={s.headerTitle}>{tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}</Text>
+        </View>
       </View>
       {syncResult && (
         <View style={{ backgroundColor: "#E8F5E9", paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, marginBottom: 8 }}>
@@ -886,6 +891,7 @@ const s = StyleSheet.create({
 
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B4332" },
+  brandLogo: { width: 26, height: 26, borderRadius: 13, backgroundColor: "#2d6a4f", borderWidth: 3, borderColor: "#95d5b2" },
   headerTitleEn: { fontSize: 24, fontWeight: "300", color: "#1B4332" },
   settingsBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F7F6", alignItems: "center", justifyContent: "center" },
 
