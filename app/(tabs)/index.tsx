@@ -7,7 +7,7 @@ import { calculateAgeInWeeks, getYearKey, getWeekInYear, type DailyCheckin } fro
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
-import { weatherLabel, weatherReflection, ghaybNote } from "@/lib/weather";
+import { weatherLabel } from "@/lib/weather";
 import { loadNotificationPrefs, type NotificationPrefs } from "@/lib/notifications";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
@@ -83,7 +83,6 @@ export default function AlgemeenScreen() {
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
   const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
-  const [weatherOpen, setWeatherOpen] = useState(false);
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
   // Daily check-in state
@@ -469,34 +468,15 @@ export default function AlgemeenScreen() {
       </View>
       <Text style={s.gregorianDate}>{gregorianDateStr}</Text>
 
-      {/* ═══════════ WEATHER (below the Gregorian date) ═══════════ */}
+      {/* ═══════════ WEATHER (below the Gregorian date → dedicated page) ═══════════ */}
       {weather ? (
-        <>
-          <TouchableOpacity onPress={() => setWeatherOpen((o) => !o)} activeOpacity={0.8} style={s.weatherPill}>
-            <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
-            <Text style={s.weatherTemp}>{weather.temp}°</Text>
-            <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
-            <Text style={s.weatherRange}>{weather.todayMax}° / {weather.todayMin}°</Text>
-            <MaterialIcons name={weatherOpen ? "expand-less" : "expand-more"} size={16} color="#1B4332" />
-          </TouchableOpacity>
-          {weatherOpen ? (
-            <View style={s.weatherCard}>
-              <Text style={s.weatherNote}>{weatherReflection(weather.code, weather.temp, lang).note}</Text>
-              <Text style={s.weatherDua}>{weatherReflection(weather.code, weather.temp, lang).dua}</Text>
-              <Text style={s.weatherSrc}>{weatherReflection(weather.code, weather.temp, lang).source}</Text>
-              <Text style={s.weatherGhayb}>{ghaybNote(lang)}</Text>
-              <View style={s.weatherForecast}>
-                {weather.daily.slice(7, 14).map((d, i) => (
-                  <View key={i} style={s.wfDay}>
-                    <Text style={s.wfDate}>{new Date(d.date).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short" })}</Text>
-                    <MaterialIcons name={weatherLabel(d.code, lang).icon as any} size={14} color="#6B7280" />
-                    <Text style={s.wfTemp}>{d.max}°</Text>
-                  </View>
-                ))}
-              </View>
-            </View>
-          ) : null}
-        </>
+        <TouchableOpacity onPress={() => router.push("/weather" as any)} activeOpacity={0.8} style={s.weatherPill}>
+          <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
+          <Text style={s.weatherTemp}>{weather.temp}°</Text>
+          <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
+          <Text style={s.weatherRange}>{weather.todayMax}° / {weather.todayMin}°</Text>
+          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#1B4332" />
+        </TouchableOpacity>
       ) : null}
 
       {/* ═══════════ PRAYER CARD (always visible) ═══════════ */}
@@ -646,14 +626,14 @@ export default function AlgemeenScreen() {
         </View>
       ) : (
         /* Collapsed summary after answering - merged with tip */
-        <View style={s.checkinSection}>
-          <View style={s.tipBanner}>
-            <MaterialIcons name="lightbulb" size={18} color="#C4A35A" />
-            <Text style={s.tipBannerText}>{todayMainTip}</Text>
+        <View style={[s.checkinSection, { flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginHorizontal: 16, marginBottom: 16 }]}>
+          <View style={[s.tipBanner, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+            <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
+            <Text style={s.tipBannerText} numberOfLines={2}>{todayMainTip}</Text>
           </View>
-          <View style={s.checkinDismissedCard}>
-            <MaterialIcons name="check-circle" size={18} color="#1B4332" />
-            <Text style={s.checkinDismissedText}>
+          <View style={[s.checkinDismissedCard, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+            <MaterialIcons name="check-circle" size={16} color="#1B4332" />
+            <Text style={s.checkinDismissedText} numberOfLines={2}>
               {tx(lang, "Dagelijkse check-in voltooid", "Daily check-in completed", "تم إكمال المراجعة اليومية")}
             </Text>
           </View>

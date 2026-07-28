@@ -498,6 +498,7 @@ export default function RootLayout() {
                   <Stack.Screen name="onboarding" />
                   <Stack.Screen name="language-select" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="child" options={{ headerShown: false, animation: "slide_from_right" }} />
+                  <Stack.Screen name="weather" options={{ animation: "slide_from_right" }} />
                   <Stack.Screen name="login" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="register" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="forgot-password" options={{ gestureEnabled: true, animation: "slide_from_bottom" }} />

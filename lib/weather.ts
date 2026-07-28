@@ -62,9 +62,10 @@ export function weatherLabel(code: number, lang: "ar" | "en" | "nl"): { label: s
   return { label: e[lang], icon: e.icon };
 }
 
-export interface WeatherReflection { note: string; dua: string; source: string; }
+export interface WeatherReflection { note: string; dua: string; source: string; targheeb: string; tarheeb: string; }
 
-/** Authentic Sunnah dua/reflection matched to the current weather. */
+/** Authentic Sunnah dua/reflection matched to the current weather, with a
+ *  ترغيب (encouragement) and ترهيب (warning) framing. */
 export function weatherReflection(code: number, temp: number, lang: "ar" | "en" | "nl"): WeatherReflection {
   const rain = (code >= 51 && code <= 67) || (code >= 80 && code <= 82);
   const snow = (code >= 71 && code <= 77) || code === 85 || code === 86;
@@ -74,26 +75,36 @@ export function weatherReflection(code: number, temp: number, lang: "ar" | "en" 
     note: tx(lang, "Bij onweer: gedenk Allah.", "At thunder, remember Allah.", "عند الرعد اذكر الله."),
     dua: "سُبْحَانَ الَّذِي يُسَبِّحُ الرَّعْدُ بِحَمْدِهِ وَالْمَلَائِكَةُ مِنْ خِيفَتِهِ",
     source: "أثرٌ عن ابن الزبير رضي الله عنه",
+    targheeb: tx(lang, "Onweer verheerlijkt Allah — sluit je erbij aan.", "The thunder glorifies Allah — join it.", "الرعدُ يُسبّح بحمد الله، فسبّح معه واذكره."),
+    tarheeb: tx(lang, "Allah vernietigde volken met de wind — vrees Hem.", "Allah destroyed nations by the wind — fear Him.", "أهلك الله أقوامًا بالريح، فاخشَ عقابه واستغفره."),
   };
   if (rain) return {
     note: tx(lang, "Regen is een genade; vraag om baat.", "Rain is a mercy; ask for its good.", "المطر رحمة، فادعُ بخيره."),
     dua: "اللَّهُمَّ صَيِّبًا نَافِعًا",
     source: "رواه البخاري (١٠٣٢)",
+    targheeb: tx(lang, "Bij regen wordt de dua aanvaard — vraag veel.", "Dua is accepted during rain — ask much.", "الدعاءُ عند نزول المطر مظنّةُ الإجابة، فأكثِر من الدعاء."),
+    tarheeb: tx(lang, "Regen kan ook een straf zijn — vraag om het nut ervan.", "Rain can be a punishment too — ask for its benefit.", "قد يكون المطرُ عذابًا كما أهلك الله قومًا، فاسأله أن يجعله نافعًا."),
   };
   if (snow || cold) return {
     note: tx(lang, "Bij kou: gedenk de Hiernamaals.", "In the cold, remember the Hereafter.", "في البرد تذكّر الآخرة."),
     dua: "أَشَدُّ مَا تَجِدُونَ مِنَ الْبَرْدِ مِنْ زَمْهَرِيرِهَا",
     source: "متفق عليه (من حديث اشتكاء النار)",
+    targheeb: tx(lang, "Kou herinnert aan de warmte van het Paradijs.", "Cold recalls the warmth of Paradise.", "البردُ يُذكّرك بدفء الجنة ونعيمها، فاعمل لها."),
+    tarheeb: tx(lang, "Denk aan de zamharier van de Hel.", "Recall the zamhareer of the Fire.", "واذكر زمهريرَ جهنم، فاحذر ما يُقرّب إليها."),
   };
   if (hot) return {
     note: tx(lang, "Bij hitte: gedenk het Vuur.", "In the heat, remember the Fire.", "في الحرّ تذكّر النار."),
     dua: "أَشَدُّ مَا تَجِدُونَ مِنَ الْحَرِّ مِنْ فَيْحِ جَهَنَّمَ",
     source: "متفق عليه",
+    targheeb: tx(lang, "Geduld met de hitte om Allah wordt beloond.", "Patience with heat for Allah is rewarded.", "الصبرُ على الحرّ لله من أسباب الأجر، واذكر ظلّ عرشه يوم القيامة."),
+    tarheeb: tx(lang, "De hitte herinnert aan de gloed van de Hel.", "The heat recalls the blaze of the Fire.", "شدّةُ الحرّ من فيح جهنم، فاتقِ النار ولو بشقّ تمرة."),
   };
   return {
     note: tx(lang, "In de hemel zijn tekenen voor wie nadenkt.", "In the sky are signs for those who reflect.", "في السماء آياتٌ لمن تدبّر."),
     dua: "﴿إِنَّ فِي خَلْقِ السَّمَاوَاتِ وَالْأَرْضِ وَاخْتِلَافِ اللَّيْلِ وَالنَّهَارِ لَآيَاتٍ لِأُولِي الْأَلْبَابِ﴾",
     source: "سورة آل عمران: ١٩٠",
+    targheeb: tx(lang, "Een heldere dag is een gunst — wees dankbaar.", "A clear day is a favor — be grateful.", "صفاءُ الجوّ نعمةٌ تستوجب الشكر، فاشكر الله على عافيتك."),
+    tarheeb: tx(lang, "Wees niet achteloos over de tekenen van Allah.", "Do not be heedless of Allah's signs.", "لا تغفل عن آيات الله في خلقه، فالغفلةُ سببُ القسوة."),
   };
 }
 
