@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -7,6 +7,7 @@ import { calculateAgeInWeeks, getYearKey, getWeekInYear, type DailyCheckin } fro
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
+import { weatherLabel, weatherReflection, ghaybNote } from "@/lib/weather";
 import { loadNotificationPrefs, type NotificationPrefs } from "@/lib/notifications";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
@@ -81,6 +82,8 @@ export default function AlgemeenScreen() {
   const lang = language as Lang;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
+  const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
+  const [weatherOpen, setWeatherOpen] = useState(false);
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
   // Daily check-in state
@@ -222,6 +225,20 @@ export default function AlgemeenScreen() {
     const interval = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch weather for the user's location (Open-Meteo, free). Refreshes when
+  // the saved location changes.
+  useEffect(() => {
+    const lat = prayerLocation?.lat, lng = prayerLocation?.lng;
+    if (lat == null || lng == null) return;
+    let cancelled = false;
+    (async () => {
+      const { fetchWeather } = await import("@/lib/weather");
+      const w = await fetchWeather(lat, lng);
+      if (!cancelled) setWeather(w);
+    })();
+    return () => { cancelled = true; };
+  }, [prayerLocation?.lat, prayerLocation?.lng]);
 
   // Smart night detection - show qiyam reminder if app opened at night
   useEffect(() => {
@@ -451,6 +468,36 @@ export default function AlgemeenScreen() {
         ) : null}
       </View>
       <Text style={s.gregorianDate}>{gregorianDateStr}</Text>
+
+      {/* ═══════════ WEATHER (below the Gregorian date) ═══════════ */}
+      {weather ? (
+        <>
+          <TouchableOpacity onPress={() => setWeatherOpen((o) => !o)} activeOpacity={0.8} style={s.weatherPill}>
+            <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
+            <Text style={s.weatherTemp}>{weather.temp}°</Text>
+            <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
+            <Text style={s.weatherRange}>{weather.todayMax}° / {weather.todayMin}°</Text>
+            <MaterialIcons name={weatherOpen ? "expand-less" : "expand-more"} size={16} color="#1B4332" />
+          </TouchableOpacity>
+          {weatherOpen ? (
+            <View style={s.weatherCard}>
+              <Text style={s.weatherNote}>{weatherReflection(weather.code, weather.temp, lang).note}</Text>
+              <Text style={s.weatherDua}>{weatherReflection(weather.code, weather.temp, lang).dua}</Text>
+              <Text style={s.weatherSrc}>{weatherReflection(weather.code, weather.temp, lang).source}</Text>
+              <Text style={s.weatherGhayb}>{ghaybNote(lang)}</Text>
+              <View style={s.weatherForecast}>
+                {weather.daily.slice(7, 14).map((d, i) => (
+                  <View key={i} style={s.wfDay}>
+                    <Text style={s.wfDate}>{new Date(d.date).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short" })}</Text>
+                    <MaterialIcons name={weatherLabel(d.code, lang).icon as any} size={14} color="#6B7280" />
+                    <Text style={s.wfTemp}>{d.max}°</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
+          ) : null}
+        </>
+      ) : null}
 
       {/* ═══════════ PRAYER CARD (always visible) ═══════════ */}
       {nextPrayer && prayerCountdown && prayerTimes ? (
@@ -865,7 +912,20 @@ const s = StyleSheet.create({
   datePill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginHorizontal: 40, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#F0F7F2", borderRadius: 20, marginBottom: 2 },
   dateText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
   dateSep: { color: "#9CA3AF", marginHorizontal: 2 },
-  gregorianDate: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4, marginBottom: 12 },
+  gregorianDate: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4, marginBottom: 8 },
+  weatherPill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: "#EAF3EC", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 10 },
+  weatherTemp: { fontSize: 15, fontWeight: "800", color: "#1B4332" },
+  weatherLabel: { fontSize: 12, color: "#1B4332" },
+  weatherRange: { fontSize: 11, color: "#6B7280" },
+  weatherCard: { backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 14, marginBottom: 12, marginHorizontal: 4 },
+  weatherNote: { fontSize: 13, color: "#374151", textAlign: "center", marginBottom: 8 },
+  weatherDua: { fontSize: 16, color: "#1B4332", fontWeight: "700", textAlign: "center", lineHeight: 28 },
+  weatherSrc: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4 },
+  weatherGhayb: { fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 10, fontStyle: "italic" },
+  weatherForecast: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  wfDay: { alignItems: "center", gap: 3, flex: 1 },
+  wfDate: { fontSize: 10, color: "#9CA3AF" },
+  wfTemp: { fontSize: 11, color: "#374151", fontWeight: "600" },
 
   // Prayer card
   prayerCard: { marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1.5, borderColor: "#1B433220", padding: 12, shadowColor: "#1B4332", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
