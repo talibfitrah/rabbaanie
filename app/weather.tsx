@@ -7,6 +7,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { fetchWeather, weatherLabel, weatherReflection, ghaybNote, type WeatherNow } from "@/lib/weather";
+import { getIslamicDate } from "@/lib/prayer-data";
 
 export default function WeatherScreen() {
   const colors = useColors();
@@ -35,7 +36,10 @@ export default function WeatherScreen() {
     })();
   }, []);
 
-  const loc = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short", day: "numeric" });
+  const weekdayOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short" });
+  const hijriOf = (d: string) => { const h = getIslamicDate(new Date(d), null); return `${h.day} ${lang === "ar" ? h.monthNameAR : h.monthName}`; };
+  const gregOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { day: "numeric", month: "short" });
+  const hlbl = (nl: string, en: string, ar: string) => tt(nl, en, ar);
 
   const Header = (
     <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
@@ -73,11 +77,12 @@ export default function WeatherScreen() {
           {w.daily.map((d, i) => {
             const on = i === sel;
             return (
-              <TouchableOpacity key={i} onPress={() => setSel(i)} style={{ alignItems: "center", gap: 4, paddingVertical: 8, paddingHorizontal: 12, marginHorizontal: 3, borderRadius: 14, backgroundColor: on ? colors.primary + "18" : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
-                <Text style={{ fontSize: 11, color: i === 7 ? colors.primary : colors.muted, fontWeight: i === 7 ? "700" : "400" }}>{i === 7 ? tt("Vandaag", "Today", "اليوم") : loc(d.date)}</Text>
+              <TouchableOpacity key={i} onPress={() => setSel(i)} style={{ alignItems: "center", gap: 3, paddingVertical: 8, paddingHorizontal: 10, marginHorizontal: 3, borderRadius: 14, minWidth: 82, backgroundColor: on ? colors.primary + "18" : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border }}>
+                <Text style={{ fontSize: 11, color: i === 7 ? colors.primary : colors.foreground, fontWeight: "700" }}>{i === 7 ? tt("Vandaag", "Today", "اليوم") : weekdayOf(d.date)}</Text>
+                <Text style={{ fontSize: 10, color: colors.foreground }}>{hijriOf(d.date)} {tt("h", "H", "هـ")}</Text>
+                <Text style={{ fontSize: 9, color: colors.muted }}>{gregOf(d.date)}{lang === "ar" ? " م" : ""}</Text>
                 <MaterialIcons name={weatherLabel(d.code, lang).icon as any} size={18} color={on ? colors.primary : colors.muted} />
-                <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "600" }}>{d.max}°</Text>
-                <Text style={{ fontSize: 10, color: colors.muted }}>{d.min}°</Text>
+                <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "600" }}>{d.max}° / {d.min}°</Text>
               </TouchableOpacity>
             );
           })}
@@ -95,9 +100,12 @@ export default function WeatherScreen() {
           <Text style={{ fontSize: 13, fontWeight: "800", color: "#1B4332", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>{tt("Aanmoediging", "Encouragement", "ترغيب")}</Text>
           <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: isRTL ? "right" : "left" }}>{refl.targheeb}</Text>
         </View>
-        <View style={{ backgroundColor: "#FDECEA", borderRadius: 12, padding: 14, marginTop: 10 }}>
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#B71C1C", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>{tt("Waarschuwing", "Warning", "ترهيب")}</Text>
-          <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: isRTL ? "right" : "left" }}>{refl.tarheeb}</Text>
+        <View style={{ backgroundColor: "#FDECEA", borderRadius: 16, borderWidth: 2, borderColor: "#E57373", padding: 18, marginTop: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
+            <MaterialIcons name="warning" size={30} color="#B71C1C" />
+            <Text style={{ fontSize: 18, fontWeight: "900", color: "#B71C1C" }}>{tt("Waarschuwing", "Warning", "ترهيب")}</Text>
+          </View>
+          <Text style={{ fontSize: 16, color: "#7F1D1D", lineHeight: 29, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>{refl.tarheeb}</Text>
         </View>
 
         <Text style={{ fontSize: 12, color: colors.muted, textAlign: "center", marginTop: 16, fontStyle: "italic" }}>{ghaybNote(lang)}</Text>
