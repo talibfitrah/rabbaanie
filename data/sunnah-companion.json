@@ -1,0 +1,152 @@
+{
+  "note": "رفيق السنّة — مواضع اليوم والليلة بأذكارها وسننها الثابتة مع مصادرها. الأذكار من حصن المسلم (الصحيحان والسنن). لا يُذكر رقمُ حديثٍ إلا عند التيقّن.",
+  "moments": [
+    {
+      "id": "waking", "kind": "time", "period": "dawn",
+      "title": "عند الاستيقاظ", "quick": "استيقظتُ",
+      "hint": "أوّلَ ما تستيقظ من النوم",
+      "items": [
+        { "text": "الحَمْدُ لِلَّهِ الَّذِي أَحْيَانَا بَعْدَ مَا أَمَاتَنَا وَإِلَيْهِ النُّشُورُ", "kind": "ذكر", "source": "رواه البخاري", "nl": "Alle lof komt Allaah toe, Die ons leven gaf nadat Hij ons deed sterven, en tot Hem is de terugkeer.", "en": "All praise is for Allah who gave us life after death, and to Him is the return." },
+        { "text": "مسحُ أثرِ النومِ عن الوجه، ثمّ السواكُ، ثمّ الوضوء", "kind": "سنة عملية", "source": "من هديه ﷺ", "nl": "Veeg de slaap van je gezicht, gebruik de siwaak, verricht dan woedoe'.", "en": "Wipe sleep from the face, use the siwak, then make wudu." }
+      ]
+    },
+    {
+      "id": "wudu", "kind": "action", "period": "any",
+      "title": "الوضوء", "quick": "سأتوضّأ",
+      "hint": "قبل الوضوء وبعده",
+      "items": [
+        { "text": "التسميةُ في أوّله: بِسْمِ اللَّهِ", "kind": "سنة", "source": "من السنة", "nl": "Zeg bij aanvang: In de naam van Allaah.", "en": "Begin with: In the name of Allah." },
+        { "text": "بعده: أَشْهَدُ أَنْ لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، وَأَشْهَدُ أَنَّ مُحَمَّدًا عَبْدُهُ وَرَسُولُهُ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Na afloop: Ik getuig dat er geen god is dan Allaah alleen, zonder deelgenoot, en dat Mohammed Zijn dienaar en boodschapper is.", "en": "After: I bear witness that none is worthy of worship but Allah alone, and that Muhammad is His slave and Messenger." }
+      ]
+    },
+    {
+      "id": "morning-adhkar", "kind": "time", "period": "morning",
+      "title": "أذكار الصباح", "quick": "الصباح",
+      "hint": "بعد الفجر إلى طلوع الشمس",
+      "items": [
+        { "text": "آيةُ الكرسي مرّةً، وسورةُ الإخلاص والمعوّذتين ثلاثًا", "kind": "ذكر", "source": "ثابتٌ في أذكار الصباح", "nl": "Aayat al-Koersie eenmaal, en Soerat al-Ikhlaas + al-Falaq + an-Naas driemaal.", "en": "Ayat al-Kursi once, and al-Ikhlas + al-Falaq + an-Nas three times." },
+        { "text": "أَصْبَحْنَا وَأَصْبَحَ الْمُلْكُ لِلَّهِ، وَالْحَمْدُ لِلَّهِ، لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Wij treden de ochtend binnen en het koninkrijk behoort Allaah toe…", "en": "We have reached the morning and dominion belongs to Allah…" },
+        { "text": "سيّدُ الاستغفار: اللَّهُمَّ أَنْتَ رَبِّي لَا إِلَهَ إِلَّا أَنْتَ، خَلَقْتَنِي وَأَنَا عَبْدُكَ…", "kind": "ذكر", "source": "رواه البخاري", "nl": "De meester van vergevingsvragen.", "en": "The chief of seeking forgiveness." }
+      ]
+    },
+    {
+      "id": "leave-home", "kind": "action", "period": "any",
+      "title": "الخروج من البيت", "quick": "سأخرج",
+      "hint": "عند الخروج من المنزل",
+      "items": [
+        { "text": "بِسْمِ اللَّهِ، تَوَكَّلْتُ عَلَى اللَّهِ، وَلَا حَوْلَ وَلَا قُوَّةَ إِلَّا بِاللَّهِ", "kind": "ذكر", "source": "رواه أبو داود والترمذي", "nl": "In de naam van Allaah, ik vertrouw op Allaah, en er is geen kracht noch macht behalve bij Allaah.", "en": "In the name of Allah, I place my trust in Allah, and there is no might nor power except with Allah." }
+      ]
+    },
+    {
+      "id": "enter-masjid", "kind": "action", "period": "any",
+      "title": "دخول المسجد", "quick": "المسجد",
+      "hint": "قدّم رجلَك اليمنى",
+      "items": [
+        { "text": "تقديمُ الرجلِ اليمنى، ثمّ: اللَّهُمَّ افْتَحْ لِي أَبْوَابَ رَحْمَتِكَ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Ga met de rechtervoet binnen: O Allaah, open voor mij de poorten van Uw genade.", "en": "Enter with the right foot: O Allah, open for me the gates of Your mercy." }
+      ]
+    },
+    {
+      "id": "leave-masjid", "kind": "action", "period": "any",
+      "title": "الخروج من المسجد", "quick": "خروج المسجد",
+      "hint": "قدّم رجلَك اليسرى",
+      "items": [
+        { "text": "تقديمُ الرجلِ اليسرى، ثمّ: اللَّهُمَّ إِنِّي أَسْأَلُكَ مِنْ فَضْلِكَ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Ga met de linkervoet naar buiten: O Allaah, ik vraag U van Uw gunst.", "en": "Exit with the left foot: O Allah, I ask You of Your bounty." }
+      ]
+    },
+    {
+      "id": "post-prayer", "kind": "time", "period": "prayer",
+      "title": "بعد الصلاة المكتوبة", "quick": "بعد الصلاة",
+      "hint": "عقب السلام من الفريضة",
+      "items": [
+        { "text": "أَسْتَغْفِرُ اللَّهَ (ثلاثًا)، ثمّ: اللَّهُمَّ أَنْتَ السَّلَامُ وَمِنْكَ السَّلَامُ، تَبَارَكْتَ يَا ذَا الْجَلَالِ وَالْإِكْرَامِ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Ik vraag Allaah om vergeving (3×), dan: O Allaah, U bent de Vrede…", "en": "I seek Allah's forgiveness (3×), then: O Allah, You are Peace…" },
+        { "text": "سُبْحَانَ اللَّهِ (33)، الْحَمْدُ لِلَّهِ (33)، اللَّهُ أَكْبَرُ (34)", "kind": "ذكر", "source": "رواه مسلم", "nl": "Soebhaan Allaah 33×, al-Hamdoe lillaah 33×, Allaahoe akbar 34×.", "en": "SubhanAllah 33×, Alhamdulillah 33×, Allahu Akbar 34×." },
+        { "text": "قراءةُ آيةِ الكرسيّ دبرَ كلِّ صلاة", "kind": "ذكر", "source": "رواه النسائي وصحّحه الألباني", "nl": "Lees Aayat al-Koersie na elk gebed.", "en": "Recite Ayat al-Kursi after every prayer." }
+      ]
+    },
+    {
+      "id": "eating", "kind": "action", "period": "any",
+      "title": "عند الطعام", "quick": "سآكل",
+      "hint": "قبل الأكل وبعده",
+      "items": [
+        { "text": "قبله: بِسْمِ اللَّهِ (فإن نسي قال: بِسْمِ اللَّهِ أَوَّلَهُ وَآخِرَهُ)، والأكلُ باليمين وممّا يليه", "kind": "ذكر", "source": "متفق عليه", "nl": "Vooraf: In de naam van Allaah; eet met de rechterhand en van wat vóór je ligt.", "en": "Before: In the name of Allah; eat with the right hand and from what is nearest." },
+        { "text": "بعده: الْحَمْدُ لِلَّهِ الَّذِي أَطْعَمَنِي هَذَا وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", "kind": "ذكر", "source": "رواه أبو داود والترمذي", "nl": "Na afloop: Alle lof komt Allaah toe, Die mij dit te eten gaf…", "en": "After: All praise is for Allah who fed me this…" }
+      ]
+    },
+    {
+      "id": "enter-home", "kind": "action", "period": "any",
+      "title": "دخول البيت", "quick": "دخلتُ البيت",
+      "hint": "سمِّ اللهَ وسلّم على أهلك",
+      "items": [
+        { "text": "التسميةُ عند الدخول والسلامُ على الأهل — فذكرُ اللهِ عند الدخول يطردُ الشيطان", "kind": "سنة", "source": "أصله في صحيح مسلم", "nl": "Noem Allaahs naam bij binnenkomst en groet je gezin — het gedenken van Allaah verdrijft de sjaytaan.", "en": "Mention Allah's name on entering and greet your family — remembering Allah repels Shaytan." }
+      ]
+    },
+    {
+      "id": "evening-adhkar", "kind": "time", "period": "evening",
+      "title": "أذكار المساء", "quick": "المساء",
+      "hint": "بعد العصر إلى غروب الشمس",
+      "items": [
+        { "text": "مثلُ أذكارِ الصباح بلفظ: أَمْسَيْنَا وَأَمْسَى الْمُلْكُ لِلَّهِ…، مع آيةِ الكرسيّ والمعوّذات", "kind": "ذكر", "source": "رواه مسلم", "nl": "Zoals de ochtendgedenkingen met 'Wij treden de avond binnen…', met Aayat al-Koersie en de beschermende soera's.", "en": "Like the morning adhkar with 'We have reached the evening…', with Ayat al-Kursi and the protective surahs." }
+      ]
+    },
+    {
+      "id": "sleep", "kind": "time", "period": "night",
+      "title": "عند النوم", "quick": "سأنام",
+      "hint": "على الشقّ الأيمن",
+      "items": [
+        { "text": "النومُ على الشقّ الأيمن، ثمّ: بِاسْمِكَ اللَّهُمَّ أَمُوتُ وَأَحْيَا", "kind": "ذكر", "source": "رواه البخاري", "nl": "Slaap op de rechterzij, dan: In Uw naam, o Allaah, sterf ik en leef ik.", "en": "Sleep on the right side, then: In Your name O Allah I die and I live." },
+        { "text": "قراءةُ آيةِ الكرسيّ، والإخلاصِ والمعوّذتين مع النفثِ في الكفّين ومسحِ ما أقبلَ من الجسد", "kind": "ذكر", "source": "رواه البخاري", "nl": "Lees Aayat al-Koersie en de drie soera's, blaas in de handen en veeg over het lichaam.", "en": "Recite Ayat al-Kursi and the three surahs, blow into the palms and wipe over the body." },
+        { "text": "اللَّهُمَّ أَسْلَمْتُ نَفْسِي إِلَيْكَ، وَفَوَّضْتُ أَمْرِي إِلَيْكَ، وَأَلْجَأْتُ ظَهْرِي إِلَيْكَ…", "kind": "ذكر", "source": "متفق عليه", "nl": "O Allaah, ik geef mijzelf aan U over…", "en": "O Allah, I submit myself to You…" }
+      ]
+    },
+    {
+      "id": "bathroom", "kind": "action", "period": "any",
+      "title": "دخول الخلاء والخروج منه", "quick": "الخلاء",
+      "hint": "قدّم اليسرى للدخول واليمنى للخروج",
+      "items": [
+        { "text": "قبل الدخول: (بِسْمِ اللَّهِ) اللَّهُمَّ إِنِّي أَعُوذُ بِكَ مِنَ الْخُبُثِ وَالْخَبَائِثِ", "kind": "ذكر", "source": "متفق عليه", "nl": "Voor het betreden: O Allaah, ik zoek bij U toevlucht tegen de mannelijke en vrouwelijke duivels.", "en": "Before entering: O Allah, I seek refuge in You from male and female devils." },
+        { "text": "عند الخروج: غُفْرَانَكَ", "kind": "ذكر", "source": "رواه أبو داود والترمذي", "nl": "Bij het verlaten: Uw vergeving.", "en": "On leaving: (I seek) Your forgiveness." }
+      ]
+    },
+    {
+      "id": "dressing", "kind": "action", "period": "any",
+      "title": "لبس الثوب", "quick": "لبس الثوب",
+      "hint": "ابدأ بالميامن",
+      "items": [
+        { "text": "الْحَمْدُ لِلَّهِ الَّذِي كَسَانِي هَذَا الثَّوْبَ وَرَزَقَنِيهِ مِنْ غَيْرِ حَوْلٍ مِنِّي وَلَا قُوَّةٍ", "kind": "ذكر", "source": "رواه أبو داود والترمذي", "nl": "Alle lof komt Allaah toe, Die mij dit kledingstuk schonk…", "en": "All praise is for Allah who clothed me with this garment…" }
+      ]
+    },
+    {
+      "id": "travel", "kind": "action", "period": "any",
+      "title": "السفر", "quick": "سأسافر",
+      "hint": "عند ركوب الدابّة/السيّارة",
+      "items": [
+        { "text": "التكبيرُ ثلاثًا، ثمّ: سُبْحَانَ الَّذِي سَخَّرَ لَنَا هَذَا وَمَا كُنَّا لَهُ مُقْرِنِينَ، وَإِنَّا إِلَى رَبِّنَا لَمُنْقَلِبُونَ", "kind": "ذكر", "source": "رواه مسلم", "nl": "Allaahoe akbar 3×, dan: Verheven is Hij Die dit voor ons dienstbaar maakte…", "en": "Allahu Akbar 3×, then: Glory to Him who subjected this to us…" },
+        { "text": "اللَّهُمَّ إِنَّا نَسْأَلُكَ فِي سَفَرِنَا هَذَا الْبِرَّ وَالتَّقْوَى، وَمِنَ الْعَمَلِ مَا تَرْضَى", "kind": "ذكر", "source": "رواه مسلم", "nl": "O Allaah, wij vragen U op deze reis vroomheid en godsvrees…", "en": "O Allah, we ask You on this journey for righteousness and piety…" }
+      ]
+    },
+    {
+      "id": "sneeze", "kind": "action", "period": "any",
+      "title": "العطاس", "quick": "عطستُ",
+      "hint": "احمد الله، وردّ على من حمِد",
+      "items": [
+        { "text": "يقول العاطس: الْحَمْدُ لِلَّهِ، فيقول أخوه: يَرْحَمُكَ اللَّهُ، فيردّ: يَهْدِيكُمُ اللَّهُ وَيُصْلِحُ بَالَكُمْ", "kind": "سنة", "source": "رواه البخاري", "nl": "De niezer zegt: Alle lof komt Allaah toe; de ander: Moge Allaah je genadig zijn; hij antwoordt: Moge Allaah je leiden…", "en": "The one who sneezes says Alhamdulillah; the other says 'May Allah have mercy on you'; he replies 'May Allah guide you…'" }
+      ]
+    },
+    {
+      "id": "distress", "kind": "action", "period": "any",
+      "title": "عند الهمّ والكرب", "quick": "همٌّ وكرب",
+      "hint": "إذا أهمّك أمرٌ أو ضاق صدرك",
+      "items": [
+        { "text": "لَا إِلَهَ إِلَّا اللَّهُ الْعَظِيمُ الْحَلِيمُ، لَا إِلَهَ إِلَّا اللَّهُ رَبُّ الْعَرْشِ الْعَظِيمِ، لَا إِلَهَ إِلَّا اللَّهُ رَبُّ السَّمَاوَاتِ وَرَبُّ الْأَرْضِ وَرَبُّ الْعَرْشِ الْكَرِيمِ", "kind": "ذكر", "source": "متفق عليه", "nl": "Er is geen god dan Allaah, de Geweldige, de Zachtmoedige…", "en": "There is no god but Allah, the Mighty, the Forbearing…" }
+      ]
+    },
+    {
+      "id": "market", "kind": "action", "period": "any",
+      "title": "دخول السوق", "quick": "السوق",
+      "hint": "موضعُ غفلةٍ فاذكر الله",
+      "items": [
+        { "text": "لَا إِلَهَ إِلَّا اللَّهُ وَحْدَهُ لَا شَرِيكَ لَهُ، لَهُ الْمُلْكُ وَلَهُ الْحَمْدُ، يُحْيِي وَيُمِيتُ، وَهُوَ حَيٌّ لَا يَمُوتُ، بِيَدِهِ الْخَيْرُ، وَهُوَ عَلَى كُلِّ شَيْءٍ قَدِيرٌ", "kind": "ذكر", "source": "رواه الترمذي وحسّنه الألباني", "nl": "Er is geen god dan Allaah alleen, zonder deelgenoot…", "en": "There is no god but Allah alone, without partner…" }
+      ]
+    }
+  ]
+}

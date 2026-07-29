@@ -805,6 +805,13 @@ export default function AlgemeenScreen() {
 
       {quickActionsExpanded && (
       <View style={s.actionsGrid}>
+        <Pressable onPress={() => router.push("/sunnah" as any)} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
+          <View style={[s.actionIcon, { backgroundColor: "#E8F5EC" }]}>
+            <MaterialIcons name="auto-stories" size={24} color="#1B4332" />
+          </View>
+          <Text style={s.actionLabel}>{tx(lang, "Soennah", "Sunnah", "رفيق السنّة")}</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.push("/(tabs)/weekly")} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
           <View style={[s.actionIcon, { backgroundColor: "#E8F5E9" }]}>
             <MaterialIcons name="checklist" size={24} color="#1B4332" />
