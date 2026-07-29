@@ -7,9 +7,10 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import sunnahData from "@/data/sunnah-companion.json";
 
-type Dua = { text: string; source: string; reward?: string; reflect?: string; nl?: string; en?: string };
-type Advice = { think?: string[]; feel?: string[]; speak?: string[]; act?: string[] };
-type Moment = { id: string; kind: "time" | "action"; period: string; title: string; quick: string; hint: string; ikhlas: string; duas: Dua[]; deeds: string[]; advice: Advice };
+type Loc = string | { ar?: string; nl?: string; en?: string };
+type Dua = { text: string; translit?: string; nl?: string; en?: string; source: Loc; reward?: Loc; reflect?: Loc };
+type Advice = { think?: Loc[]; feel?: Loc[]; speak?: Loc[]; act?: Loc[] };
+type Moment = { id: string; kind: "time" | "action"; period: string; title: Loc; quick: Loc; hint: Loc; ikhlas: Loc; duas: Dua[]; deeds: Loc[]; advice: Advice };
 
 const MOMENTS = (sunnahData as any).moments as Moment[];
 
@@ -28,10 +29,14 @@ export default function SunnahScreen() {
   const { language, isRTL } = useI18n();
   const lang = (language === "ar" || language === "en" ? language : "nl") as "ar" | "en" | "nl";
   const tt = (nl: string, en: string, ar: string) => (lang === "ar" ? ar : lang === "en" ? en : nl);
+  // Pick the user's language from a localized value; fall back gracefully. Plain strings pass through.
+  const L = (v: Loc | undefined): string => (v == null ? "" : typeof v === "string" ? v : (v[lang] ?? v.ar ?? v.nl ?? v.en ?? ""));
+  const isAr = lang === "ar";
   const rtlText = { textAlign: "right" as const, writingDirection: "rtl" as const };
+  const uiAlign = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
 
-  const [sel, setSel] = useState<string | null>(null); // selected quick action (shown inline)
-  const [open, setOpen] = useState<string | null>(null); // expanded in the full list
+  const [sel, setSel] = useState<string | null>(null);
+  const [open, setOpen] = useState<string | null>(null);
   const nowId = useMemo(() => nowMomentId(new Date().getHours()), []);
   const nowMoment = MOMENTS.find((m) => m.id === nowId) || MOMENTS[0];
   const selMoment = sel ? MOMENTS.find((m) => m.id === sel) : null;
@@ -39,10 +44,10 @@ export default function SunnahScreen() {
 
   const shareMoment = (m: Moment) => {
     const body =
-      `🕌 ${m.title}\n\n` +
-      `• تذكيرُ الإخلاص: ${m.ikhlas}\n\n` +
-      m.duas.map((d) => `• ${d.text}\n(${d.source})${d.reward ? `\nالأجر: ${d.reward}` : ""}`).join("\n\n") +
-      `\n\n— رفيق السنّة، تطبيق ربّانيّ`;
+      `🕌 ${L(m.title)}\n\n` +
+      `• ${tt("Ikhlaas", "Sincerity", "تذكيرُ الإخلاص")}: ${L(m.ikhlas)}\n\n` +
+      m.duas.map((d) => `• ${d.text}${d.translit ? `\n${d.translit}` : ""}${!isAr && (d.nl || d.en) ? `\n${tt(d.nl || "", d.en || "", "")}` : ""}\n(${L(d.source)})${d.reward ? `\n${tt("Beloning", "Reward", "الأجر")}: ${L(d.reward)}` : ""}`).join("\n\n") +
+      `\n\n— ${tt("Metgezel van de Soennah, Rabbaanie", "Sunnah Companion, Rabbaanie", "رفيق السنّة، تطبيق ربّانيّ")}`;
     Share.share({ message: body }).catch(() => {});
   };
 
@@ -50,20 +55,20 @@ export default function SunnahScreen() {
     <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
       <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
       <View style={{ flex: 1 }}>
-        <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{tt("Metgezel van de Soennah", "Sunnah Companion", "رفيق السنّة")}</Text>
-        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{tt("Bij elk moment: ikhlaas, alle doe'aa's, daden en adviezen", "For each moment: sincerity, all du'as, deeds & advice", "لكلِّ موضعٍ: إخلاصٌ وأدعيةٌ وأعمالٌ ونصائح")}</Text>
+        <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{tt("Metgezel van de Soennah", "Sunnah Companion", "رفيق السنّة")}</Text>
+        <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{tt("Bij elk moment: ikhlaas, doe'aa's, uitspraak, daden & advies", "Each moment: sincerity, du'as, pronunciation, deeds & advice", "لكلِّ موضعٍ: إخلاصٌ وأدعيةٌ ونطقٌ وأعمالٌ ونصائح")}</Text>
       </View>
     </View>
   );
 
-  const AdviceRow = (icon: any, label: string, arr?: string[]) => (arr && arr.length ? (
+  const AdviceRow = (icon: any, label: string, arr?: Loc[]) => (arr && arr.length ? (
     <View style={{ marginTop: 8 }}>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
         <MaterialIcons name={icon} size={14} color={colors.primary} />
-        <Text style={{ fontSize: 12.5, fontWeight: "800", color: colors.primary, ...rtlText }}>{label}</Text>
+        <Text style={{ fontSize: 12.5, fontWeight: "800", color: colors.primary, ...uiAlign }}>{label}</Text>
       </View>
-      {arr.map((t, i) => (
-        <Text key={i} style={{ fontSize: 12.5, color: colors.foreground, lineHeight: 22, marginTop: 2, ...rtlText }}>• {t}</Text>
+      {arr.map((it, i) => (
+        <Text key={i} style={{ fontSize: 12.5, color: colors.foreground, lineHeight: 22, marginTop: 2, ...(isAr ? rtlText : uiAlign) }}>• {L(it)}</Text>
       ))}
     </View>
   ) : null);
@@ -71,40 +76,42 @@ export default function SunnahScreen() {
   const SectionTitle = (icon: any, label: string) => (
     <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginTop: 14, marginBottom: 2 }}>
       <MaterialIcons name={icon} size={16} color={colors.foreground} />
-      <Text style={{ fontSize: 13.5, fontWeight: "800", color: colors.foreground, ...rtlText }}>{label}</Text>
+      <Text style={{ fontSize: 13.5, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{label}</Text>
     </View>
   );
 
-  // Full rich renderer for one moment
   const renderMoment = (m: Moment) => (
     <View>
       {/* Ikhlas — leads every moment */}
       <View style={{ backgroundColor: "#FFF7E6", borderRadius: 12, borderWidth: 1, borderColor: "#E9C46A", padding: 12, marginTop: 12 }}>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
           <MaterialIcons name="favorite" size={15} color="#B8860B" />
-          <Text style={{ fontSize: 13, fontWeight: "800", color: "#7A5B00", ...rtlText }}>{tt("Ikhlaas & intentie", "Sincerity & intention", "تذكيرُ الإخلاص والنيّة")}</Text>
+          <Text style={{ fontSize: 13, fontWeight: "800", color: "#7A5B00", ...uiAlign }}>{tt("Ikhlaas & intentie", "Sincerity & intention", "تذكيرُ الإخلاص والنيّة")}</Text>
         </View>
-        <Text style={{ fontSize: 13.5, color: "#5c4600", lineHeight: 25, ...rtlText }}>{m.ikhlas}</Text>
+        <Text style={{ fontSize: 13.5, color: "#5c4600", lineHeight: 25, ...(isAr ? rtlText : uiAlign) }}>{L(m.ikhlas)}</Text>
       </View>
 
-      {/* Duas */}
-      {m.duas && m.duas.length ? SectionTitle("menu-book", tt("De vaststaande doe'aa's", "The established du'as", "الأدعيةُ الثابتة")) : null}
+      {/* Duas: Arabic + Latin transliteration + meaning */}
+      {m.duas && m.duas.length ? SectionTitle("menu-book", tt("De doe'aa's (met uitspraak)", "The du'as (with pronunciation)", "الأدعيةُ الثابتة")) : null}
       {(m.duas || []).map((d, i) => (
         <View key={i} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: i === 0 ? 0 : 0.5, borderTopColor: colors.border }}>
           <Text style={{ fontSize: 16.5, fontWeight: "700", color: colors.foreground, lineHeight: 30, ...rtlText }}>{d.text}</Text>
-          {lang !== "ar" && (d.nl || d.en) ? (
-            <Text style={{ fontSize: 12.5, color: colors.muted, marginTop: 3, textAlign: isRTL ? "right" : "left" }}>{tt(d.nl || "", d.en || "", "")}</Text>
+          {!isAr && d.translit ? (
+            <Text style={{ fontSize: 12.5, color: colors.primary, fontStyle: "italic", marginTop: 4, ...uiAlign }}>{d.translit}</Text>
+          ) : null}
+          {!isAr && (d.nl || d.en) ? (
+            <Text style={{ fontSize: 12.5, color: colors.muted, marginTop: 3, ...uiAlign }}>{tt(d.nl || "", d.en || "", "")}</Text>
           ) : null}
           {d.reward ? (
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 6, marginTop: 6, backgroundColor: "#EAF3EC", borderRadius: 8, padding: 8 }}>
               <MaterialIcons name="workspace-premium" size={15} color="#1B4332" />
-              <Text style={{ flex: 1, fontSize: 12, color: "#1B4332", lineHeight: 21, ...rtlText }}>{tt("Beloning: ", "Reward: ", "الأجرُ الثابت: ")}{d.reward}</Text>
+              <Text style={{ flex: 1, fontSize: 12, color: "#1B4332", lineHeight: 21, ...(isAr ? rtlText : uiAlign) }}>{tt("Beloning: ", "Reward: ", "الأجرُ الثابت: ")}{L(d.reward)}</Text>
             </View>
           ) : null}
           {d.reflect ? (
-            <Text style={{ fontSize: 12, color: colors.primary, marginTop: 5, lineHeight: 21, ...rtlText }}>{tt("Overdenk: ", "Reflect: ", "تفكّر: ")}{d.reflect}</Text>
+            <Text style={{ fontSize: 12, color: colors.primary, marginTop: 5, lineHeight: 21, ...(isAr ? rtlText : uiAlign) }}>{tt("Overdenk: ", "Reflect: ", "تفكّر: ")}{L(d.reflect)}</Text>
           ) : null}
-          <Text style={{ fontSize: 10.5, color: colors.muted, marginTop: 3, ...rtlText }}>{d.source}</Text>
+          <Text style={{ fontSize: 10.5, color: colors.muted, marginTop: 3, ...(isAr ? rtlText : uiAlign) }}>{L(d.source)}</Text>
         </View>
       ))}
 
@@ -112,8 +119,8 @@ export default function SunnahScreen() {
       {m.deeds && m.deeds.length ? (
         <View>
           {SectionTitle("done-all", tt("Bijbehorende daden", "Accompanying deeds", "أعمالٌ مصاحبة"))}
-          {m.deeds.map((t, i) => (
-            <Text key={i} style={{ fontSize: 12.5, color: colors.foreground, lineHeight: 22, marginTop: 2, ...rtlText }}>• {t}</Text>
+          {m.deeds.map((it, i) => (
+            <Text key={i} style={{ fontSize: 12.5, color: colors.foreground, lineHeight: 22, marginTop: 2, ...(isAr ? rtlText : uiAlign) }}>• {L(it)}</Text>
           ))}
         </View>
       ) : null}
@@ -148,42 +155,42 @@ export default function SunnahScreen() {
             <MaterialIcons name="schedule" size={18} color={colors.primary} />
             <Text style={{ fontSize: 13, fontWeight: "800", color: colors.primary }}>{tt("Nu", "Now", "الآن")}</Text>
           </View>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{nowMoment.title}</Text>
-          <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{nowMoment.hint}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{L(nowMoment.title)}</Text>
+          <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{L(nowMoment.hint)}</Text>
           {renderMoment(nowMoment)}
           {ShareBtn(nowMoment, true)}
         </View>
 
         {/* Quick actions */}
-        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>{tt("Snel: wat ga je nu doen?", "Quick: what are you about to do?", "بحسب فِعلك الآن")}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, ...uiAlign }}>{tt("Snel: wat ga je nu doen?", "Quick: what are you about to do?", "بحسب فِعلك الآن")}</Text>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
           {actions.map((m) => (
             <TouchableOpacity key={m.id} onPress={() => setSel(sel === m.id ? null : m.id)} style={{ backgroundColor: sel === m.id ? colors.primary : colors.surface, borderWidth: 1, borderColor: sel === m.id ? colors.primary : colors.border, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: sel === m.id ? "#fff" : colors.foreground }}>{m.quick}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: sel === m.id ? "#fff" : colors.foreground }}>{L(m.quick)}</Text>
             </TouchableOpacity>
           ))}
         </View>
 
-        {/* Selected action — shown INLINE right under the chips (no scrolling needed) */}
+        {/* Selected action — inline under the chips */}
         {selMoment ? (
           <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, padding: 14, marginTop: 10 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{selMoment.title}</Text>
-            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{selMoment.hint}</Text>
+            <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{L(selMoment.title)}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{L(selMoment.hint)}</Text>
             {renderMoment(selMoment)}
             {ShareBtn(selMoment, false)}
           </View>
         ) : null}
 
         {/* All moments (browsable) */}
-        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 20, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>{tt("Alle momenten", "All moments", "كلُّ المواضع")}</Text>
+        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 20, marginBottom: 8, ...uiAlign }}>{tt("Alle momenten", "All moments", "كلُّ المواضع")}</Text>
         {MOMENTS.map((m) => {
           const isOpen = open === m.id;
           return (
             <View key={m.id} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
               <TouchableOpacity onPress={() => setOpen(isOpen ? null : m.id)} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{m.title}</Text>
-                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>{m.hint}</Text>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, ...uiAlign }}>{L(m.title)}</Text>
+                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, ...uiAlign }}>{L(m.hint)}</Text>
                 </View>
                 <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
               </TouchableOpacity>

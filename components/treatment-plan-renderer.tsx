@@ -1,6 +1,19 @@
 import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useI18n } from "@/lib/i18n";
+
+// Per-text direction: align by the script of the text itself, so Arabic content
+// stays readable (RTL) while non-Arabic content follows LTR — regardless of the
+// stored plan's original language. The surrounding UI follows the user's choice.
+function isArabicText(text: string | undefined | null): boolean {
+  if (!text) return false;
+  return /[؀-ۿ]/.test(text);
+}
+function textDir(text: string | undefined | null) {
+  const ar = isArabicText(text);
+  return { textAlign: ar ? ("right" as const) : ("left" as const), writingDirection: ar ? ("rtl" as const) : ("ltr" as const) };
+}
 
 /**
  * Treatment Plan Renderer
@@ -189,6 +202,8 @@ function groupIntoSections(blocks: ParsedBlock[]): Section[] {
 }
 
 export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange }: TreatmentPlanRendererProps) {
+  const { language, isRTL } = useI18n();
+  const doneLabel = language === "ar" ? "مكتمل" : language === "en" ? "completed" : "voltooid";
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   
@@ -239,8 +254,8 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
               { backgroundColor: colors.primary, width: `${totalTasks > 0 ? (completedCount / totalTasks) * 100 : 0}%` }
             ]} />
           </View>
-          <Text style={[styles.progressText, { color: colors.muted }]}>
-            {completedCount}/{totalTasks} مكتمل
+          <Text style={[styles.progressText, { color: colors.muted, textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" }]}>
+            {completedCount}/{totalTasks} {doneLabel}
           </Text>
         </View>
       )}
@@ -257,7 +272,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
             <Pressable
               onPress={() => toggleSection(sIdx)}
               style={({ pressed }) => [{
-                flexDirection: "row-reverse",
+                flexDirection: isArabicText(section.title) ? "row-reverse" : "row",
                 alignItems: "center",
                 justifyContent: "space-between",
                 padding: 12,
@@ -270,18 +285,17 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
                   fontSize: 15,
                   fontWeight: "800",
                   color: isExpanded ? colors.primary : colors.foreground,
-                  textAlign: "right",
-                  writingDirection: "rtl",
+                  ...textDir(section.title),
                 }}>
                   {section.title}
                 </Text>
                 {sectionTotal > 0 && (
-                  <Text style={{ fontSize: 11, color: colors.muted, textAlign: "right", marginTop: 2 }}>
-                    {sectionCompleted}/{sectionTotal} مكتمل
+                  <Text style={{ fontSize: 11, color: colors.muted, marginTop: 2, ...textDir(section.title) }}>
+                    {sectionCompleted}/{sectionTotal} {doneLabel}
                   </Text>
                 )}
               </View>
-              <Text style={{ fontSize: 14, color: colors.primary, marginLeft: 8 }}>
+              <Text style={{ fontSize: 14, color: colors.primary, marginHorizontal: 8 }}>
                 {isExpanded ? "▲" : "▼"}
               </Text>
             </Pressable>
@@ -293,19 +307,19 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
                   switch (block.type) {
                     case "heading2":
                       return (
-                        <Text key={idx} style={[styles.heading2, { color: colors.foreground }]}>
+                        <Text key={idx} style={[styles.heading2, { color: colors.foreground }, textDir(block.text)]}>
                           {block.text}
                         </Text>
                       );
                     case "heading3":
                       return (
-                        <Text key={idx} style={[styles.heading3, { color: colors.foreground }]}>
+                        <Text key={idx} style={[styles.heading3, { color: colors.foreground }, textDir(block.text)]}>
                           {block.text}
                         </Text>
                       );
                     case "paragraph":
                       return (
-                        <Text key={idx} style={[styles.paragraph, { color: colors.foreground }]}>
+                        <Text key={idx} style={[styles.paragraph, { color: colors.foreground }, textDir(block.text)]}>
                           {block.text}
                         </Text>
                       );
@@ -315,11 +329,12 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
                         <Pressable
                           key={idx}
                           onPress={() => toggleTask(block.key)}
-                          style={({ pressed }) => [styles.taskRow, { opacity: pressed ? 0.7 : 1 }]}
+                          style={({ pressed }) => [styles.taskRow, { flexDirection: isArabicText(block.text) ? "row-reverse" : "row", opacity: pressed ? 0.7 : 1 }]}
                         >
                           <Text style={[
                             styles.taskText,
                             { color: isCompleted ? colors.muted : colors.foreground },
+                            textDir(block.text),
                             isCompleted && styles.taskTextCompleted,
                           ]}>
                             {block.text}
@@ -340,7 +355,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
                     case "warning":
                       return (
                         <View key={idx} style={[styles.warningBox, { backgroundColor: colors.warning + "15", borderColor: colors.warning + "40" }]}>
-                          <Text style={[styles.warningText, { color: colors.warning }]}>
+                          <Text style={[styles.warningText, { color: colors.warning }, textDir(block.text)]}>
                             ⚠️ {block.text}
                           </Text>
                         </View>
