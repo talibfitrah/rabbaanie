@@ -1,0 +1,25 @@
+app/_layout.tsx
+  s_168adbdaf097e9::t_2f6530f1059c28 508
+app/(tabs)/index.tsx
+  s_168adbdaf097e9::t_1958bc9c3fdde6 808-814
+app/sunnah.tsx
+  s_168adbdaf097e9::t_7069088ba19495 1-122
+data/sunnah-companion.json
+  s_168adbdaf097e9::t_1c98562b5f9323 1-152
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c1d53fc24acd35fafe14bfe0b239c57016c3fc4b",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
