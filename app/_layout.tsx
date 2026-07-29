@@ -20,7 +20,7 @@ import * as Notifications from "expo-notifications";
 
 import { trpc, createTRPCClient } from "@/lib/trpc";
 import { initManusRuntime, subscribeSafeAreaInsets } from "@/lib/_core/manus-runtime";
-import { AppProvider } from "@/lib/app-context";
+import { AppProvider, useAppState } from "@/lib/app-context";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
@@ -77,6 +77,7 @@ export const unstable_settings = {
 
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuthContext();
+  const { state: appState, loading: appLoading } = useAppState();
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
@@ -122,16 +123,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     if (loading && !timedOut) return;
     const inAuthGroup = segments[0] === "login" || segments[0] === "oauth" || segments[0] === "register" || segments[0] === "forgot-password";
-    console.log("[AuthGate] Check:", { isAuthenticated, loading, timedOut, segment: segments[0], inAuthGroup });
+    const inSetup = segments[0] === "onboarding" || segments[0] === "language-select" || segments[0] === "permissions-setup";
+    // Don't gate on the profile before the local state has hydrated (treat as done).
+    const profileDone = appLoading ? true : !!appState?.onboardingCompleted;
+    console.log("[AuthGate] Check:", { isAuthenticated, loading, timedOut, segment: segments[0], inAuthGroup, profileDone });
     // Login is REQUIRED - redirect to login if not authenticated
     if (!isAuthenticated && !inAuthGroup) {
-      // Not authenticated and not on login page -> redirect to login
       router.replace("/login");
     } else if (isAuthenticated && inAuthGroup) {
-      // Authenticated but still on login page -> redirect to main app
-      router.replace("/(tabs)");
+      // Authenticated but still on login page -> main app (or onboarding if profile not completed)
+      router.replace(profileDone ? "/(tabs)" : "/onboarding");
+    } else if (isAuthenticated && !profileDone && !inAuthGroup && !inSetup) {
+      // MANDATORY: no app access until the basic profile is completed (msg 476).
+      // Complete users are skipped straight back by onboarding/index's own guard.
+      router.replace("/onboarding");
     }
-  }, [isAuthenticated, loading, timedOut, segments, router]);
+  }, [isAuthenticated, loading, timedOut, segments, router, appLoading, appState?.onboardingCompleted]);
 
   if (loading && !timedOut) {
     // Show beautiful loading screen while auth is resolving
