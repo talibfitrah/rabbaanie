@@ -1,7 +1,9 @@
 import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
+import { getApiBaseUrl } from "@/constants/oauth";
 
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
@@ -9,6 +11,12 @@ import { useI18n } from "@/lib/i18n";
 function isArabicText(text: string | undefined | null): boolean {
   if (!text) return false;
   return /[؀-ۿ]/.test(text);
+}
+// Stable short hash for caching a translation per (plan text, target language).
+function hashStr(s: string): string {
+  let h = 5381;
+  for (let i = 0; i < s.length; i++) h = ((h << 5) + h + s.charCodeAt(i)) | 0;
+  return (h >>> 0).toString(36);
 }
 function textDir(text: string | undefined | null) {
   const ar = isArabicText(text);
@@ -204,6 +212,47 @@ function groupIntoSections(blocks: ParsedBlock[]): Section[] {
 export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange }: TreatmentPlanRendererProps) {
   const { language, isRTL } = useI18n();
   const doneLabel = language === "ar" ? "مكتمل" : language === "en" ? "completed" : "voltooid";
+  const trLabels = language === "ar"
+    ? { translating: "جارٍ الترجمة…", auto: "مترجَمٌ آليًّا إلى لغتك", showOrig: "إظهار الأصل", showTr: "إظهار الترجمة" }
+    : language === "en"
+    ? { translating: "Translating…", auto: "Auto-translated to your language", showOrig: "Show original", showTr: "Show translation" }
+    : { translating: "Aan het vertalen…", auto: "Automatisch vertaald naar jouw taal", showOrig: "Toon origineel", showTr: "Toon vertaling" };
+
+  // Auto-translate the plan into the VIEWER's language when it was authored in a
+  // different one (e.g. a father's Arabic plan viewed by a Dutch-speaking mother).
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const planIsArabic = isArabicText(planText);
+  const needsTranslation = (planIsArabic && language !== "ar") || (!planIsArabic && language === "ar");
+
+  useEffect(() => {
+    let alive = true;
+    setTranslated(null);
+    setShowOriginal(false);
+    if (!needsTranslation || !planText.trim()) return;
+    const key = `@plan_tr_${language}_${hashStr(planText)}`;
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(key);
+        if (cached) { if (alive) setTranslated(cached); return; }
+        if (alive) setTranslating(true);
+        const res = await fetch(`${getApiBaseUrl()}/api/advice/translate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text: planText, targetLang: language }),
+        });
+        const data = await res.json();
+        const tr = (data?.translation || "").trim();
+        if (tr) { await AsyncStorage.setItem(key, tr); if (alive) setTranslated(tr); }
+      } catch { /* keep original on failure */ }
+      finally { if (alive) setTranslating(false); }
+    })();
+    return () => { alive = false; };
+  }, [planText, language, needsTranslation]);
+
+  const effectiveText = (!showOriginal && translated) ? translated : planText;
+
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   
@@ -217,11 +266,11 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   
   useEffect(() => {
     if (onProgressChange) {
-      const blocks = parsePlanText(planText);
+      const blocks = parsePlanText(effectiveText);
       const totalTasks = blocks.filter(b => b.type === "task").length;
       onProgressChange(completedTasks.size, totalTasks);
     }
-  }, [completedTasks, planText]);
+  }, [completedTasks, effectiveText]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);
@@ -238,13 +287,32 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
     setExpandedSections(next);
   };
   
-  const blocks = parsePlanText(planText);
+  const blocks = parsePlanText(effectiveText);
   const sections = groupIntoSections(blocks);
   const totalTasks = blocks.filter(b => b.type === "task").length;
   const completedCount = completedTasks.size;
   
   return (
     <View style={styles.container}>
+      {/* Auto-translation notice + toggle (shown when the plan is in another language) */}
+      {needsTranslation && (translating || translated) ? (
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 10, backgroundColor: colors.primary + "12", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 7 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, flex: 1 }}>
+            <MaterialIcons name="translate" size={14} color={colors.primary} />
+            <Text style={{ fontSize: 11, color: colors.primary, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+              {translating ? trLabels.translating : trLabels.auto}
+            </Text>
+          </View>
+          {translated ? (
+            <Pressable onPress={() => setShowOriginal((v) => !v)} hitSlop={8}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>
+                {showOriginal ? trLabels.showTr : trLabels.showOrig}
+              </Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+
       {/* Overall Progress bar */}
       {totalTasks > 0 && (
         <View style={styles.progressContainer}>
