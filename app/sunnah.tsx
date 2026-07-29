@@ -88,8 +88,8 @@ export default function SunnahScreen() {
       </View>
 
       {/* Duas */}
-      {SectionTitle("menu-book", tt("De vaststaande doe'aa's", "The established du'as", "الأدعيةُ الثابتة"))}
-      {m.duas.map((d, i) => (
+      {m.duas && m.duas.length ? SectionTitle("menu-book", tt("De vaststaande doe'aa's", "The established du'as", "الأدعيةُ الثابتة")) : null}
+      {(m.duas || []).map((d, i) => (
         <View key={i} style={{ marginTop: 8, paddingTop: 8, borderTopWidth: i === 0 ? 0 : 0.5, borderTopColor: colors.border }}>
           <Text style={{ fontSize: 16.5, fontWeight: "700", color: colors.foreground, lineHeight: 30, ...rtlText }}>{d.text}</Text>
           {lang !== "ar" && (d.nl || d.en) ? (
