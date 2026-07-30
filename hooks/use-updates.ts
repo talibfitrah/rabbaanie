@@ -1,6 +1,26 @@
-import { useState, useEffect, useCallback } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import { Alert, Platform } from "react-native";
-import * as Updates from "expo-updates";
+import * as Application from "expo-application";
+import Constants from "expo-constants";
+import * as FileSystem from "expo-file-system/legacy";
+import * as IntentLauncher from "expo-intent-launcher";
+import { evaluateRelease, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
+
+const LATEST_RELEASE_URL =
+  "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
+const CHECK_TIMEOUT_MS = 10_000;
+// Cancel only a STALLED download (no bytes for this long) — a big APK on a slow
+// connection may legitimately take many minutes, so we don't bound total time.
+const DOWNLOAD_STALL_MS = 60_000;
+// Cached download filename convention. Downloads go to <name>.apk.part and are
+// renamed to <name>.apk on success, so a file ending in .apk is always complete.
+const APK_PREFIX = "rabbaanie-v";
+// Android grants read access on the content:// URI to the installer.
+const FLAG_GRANT_READ_URI_PERMISSION = 1;
+// Android always sets versionName; on web/dev it is null, so fall back to the
+// configured app version (Settings displays this) rather than a bogus 0.0.0.
+const INSTALLED_VERSION =
+  Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "0.0.0";
 
 export interface UpdateState {
   isChecking: boolean;
@@ -8,30 +28,152 @@ export interface UpdateState {
   isUpdateAvailable: boolean;
   currentVersion: string;
   lastChecked: Date | null;
+  downloadProgress: number;
   error: string | null;
 }
 
-/**
- * Hook for managing OTA updates via expo-updates.
- * Checks for updates on mount and provides manual check/apply functions.
- */
-export function useUpdates(language: string = "ar") {
-  const [state, setState] = useState<UpdateState>({
-    isChecking: false,
-    isDownloading: false,
-    isUpdateAvailable: false,
-    currentVersion: Updates.runtimeVersion || "1.0.0",
-    lastChecked: null,
-    error: null,
-  });
+// One updater for the whole app. The root layout (silent launch check) and the
+// Settings screen mount separate useUpdates() calls but must reflect ONE shared
+// download/check — a global flag with per-instance React state would let a
+// launch-triggered download run with no visible progress. So state lives in a
+// module-level store that every consumer subscribes to.
+let store: UpdateState = {
+  isChecking: false,
+  isDownloading: false,
+  isUpdateAvailable: false,
+  currentVersion: INSTALLED_VERSION,
+  lastChecked: null,
+  downloadProgress: 0,
+  error: null,
+};
+let pending: PendingUpdate | null = null;
+// Updated on every render; alerts fire in whatever language the app is in now.
+let currentLanguage = "ar";
+// Set true only when the silent launch check actually fires, so a remount
+// before the 3s delay re-arms the timer instead of losing the check.
+let launchCheckDone = false;
 
-  const tx = (nl: string, en: string, ar: string) =>
-    language === "ar" ? ar : language === "en" ? en : nl;
+const listeners = new Set<() => void>();
+const subscribe = (l: () => void) => {
+  listeners.add(l);
+  return () => {
+    listeners.delete(l);
+  };
+};
+const getSnapshot = () => store;
+const set = (patch: Partial<UpdateState>) => {
+  store = { ...store, ...patch };
+  for (const l of listeners) l();
+};
 
-  const checkForUpdate = useCallback(async (silent: boolean = false) => {
-    // In development or web, updates are not available
-    if (__DEV__ || Platform.OS === "web") {
-      if (!silent) {
+const tx = (nl: string, en: string, ar: string) =>
+  currentLanguage === "ar" ? ar : currentLanguage === "en" ? en : nl;
+
+async function downloadAndApplyUpdate() {
+  // Snapshot the target: a check completing mid-download can reassign or null
+  // the module-level `pending`, and we must not mix one version's URL with
+  // another version's filename.
+  const target = pending;
+  if (__DEV__ || Platform.OS !== "android" || !target) return;
+  if (store.isDownloading) return;
+  set({ isDownloading: true, downloadProgress: 0, error: null });
+
+  const fileUri = `${FileSystem.cacheDirectory}${APK_PREFIX}${target.version}.apk`;
+  const partUri = `${fileUri}.part`;
+
+  try {
+    const info = await FileSystem.getInfoAsync(fileUri);
+    if (!info.exists) {
+      try {
+        await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+        let lastPercent = -1;
+        let stallTimer: ReturnType<typeof setTimeout> | undefined;
+        const download = FileSystem.createDownloadResumable(
+          target.apkUrl,
+          partUri,
+          {},
+          (p) => {
+            resetStall(); // bytes arrived — not stalled
+            const total = p.totalBytesExpectedToWrite;
+            if (total <= 0) return;
+            // Update at whole-percent steps only — every tick would re-render
+            // consumers hundreds of times per download.
+            const percent = Math.floor((p.totalBytesWritten / total) * 100);
+            if (percent !== lastPercent) {
+              lastPercent = percent;
+              set({ downloadProgress: percent / 100 });
+            }
+          }
+        );
+        function resetStall() {
+          clearTimeout(stallTimer);
+          stallTimer = setTimeout(() => {
+            download.cancelAsync().catch(() => {});
+          }, DOWNLOAD_STALL_MS);
+        }
+        resetStall();
+        let result;
+        try {
+          result = await download.downloadAsync();
+        } finally {
+          clearTimeout(stallTimer);
+        }
+        if (!result || result.status !== 200) {
+          throw new Error(`Download failed with status ${result?.status ?? "unknown"}`);
+        }
+        await FileSystem.moveAsync({ from: partUri, to: fileUri });
+      } catch (e: any) {
+        await FileSystem.deleteAsync(partUri, { idempotent: true }).catch(() => {});
+        throw e;
+      }
+    }
+  } catch (e: any) {
+    set({ isDownloading: false, error: e.message || "Download failed" });
+    Alert.alert(
+      tx("Fout", "Error", "خطأ"),
+      tx(
+        "Het downloaden van de update is mislukt. Probeer het later opnieuw.",
+        "Failed to download the update. Please try again later.",
+        "فشل تنزيل التحديث. يرجى المحاولة لاحقاً."
+      )
+    );
+    return;
+  }
+
+  // The APK is complete and valid. A failure launching the installer (intent
+  // unavailable, "install unknown apps" not granted) must NOT delete it — the
+  // user can retry or grant permission and the cached file is reused.
+  try {
+    const contentUri = await FileSystem.getContentUriAsync(fileUri);
+    // INSTALL_PACKAGE is not in the ActivityAction enum; the raw Android action
+    // string is accepted.
+    await IntentLauncher.startActivityAsync(
+      "android.intent.action.INSTALL_PACKAGE",
+      {
+        data: contentUri,
+        type: "application/vnd.android.package-archive",
+        flags: FLAG_GRANT_READ_URI_PERMISSION,
+      }
+    );
+  } catch (e: any) {
+    set({ error: e.message || "Install failed" });
+    Alert.alert(
+      tx("Installatie", "Installation", "التثبيت"),
+      tx(
+        "De update is gedownload maar kon niet worden geopend. Sta 'onbekende apps installeren' toe en probeer opnieuw.",
+        "The update was downloaded but could not be opened. Allow 'install unknown apps' and try again.",
+        "تم تنزيل التحديث لكن تعذّر فتحه. اسمح بتثبيت التطبيقات غير المعروفة ثم أعد المحاولة."
+      )
+    );
+  } finally {
+    set({ isDownloading: false });
+  }
+}
+
+async function checkForUpdate(silent: boolean = false) {
+  if (__DEV__ || Platform.OS !== "android") {
+    if (!silent) {
+      if (__DEV__) {
         Alert.alert(
           tx("Ontwikkelmodus", "Development Mode", "وضع التطوير"),
           tx(
@@ -40,127 +182,143 @@ export function useUpdates(language: string = "ar") {
             "التحديثات غير متاحة في وضع التطوير."
           )
         );
-      }
-      return;
-    }
-
-    setState((s) => ({ ...s, isChecking: true, error: null }));
-
-    try {
-      const update = await Updates.checkForUpdateAsync();
-      setState((s) => ({
-        ...s,
-        isChecking: false,
-        isUpdateAvailable: update.isAvailable,
-        lastChecked: new Date(),
-      }));
-
-      if (update.isAvailable) {
+      } else {
         Alert.alert(
-          tx("Update beschikbaar", "Update Available", "تحديث متاح"),
+          tx("Niet beschikbaar", "Not Available", "غير متاح"),
           tx(
-            "Er is een nieuwe versie beschikbaar. Wilt u nu updaten?",
-            "A new version is available. Would you like to update now?",
-            "يوجد إصدار جديد متاح. هل تريد التحديث الآن؟"
-          ),
-          [
-            {
-              text: tx("Later", "Later", "لاحقاً"),
-              style: "cancel",
-            },
-            {
-              text: tx("Updaten", "Update Now", "تحديث الآن"),
-              onPress: () => downloadAndApplyUpdate(),
-            },
-          ]
-        );
-      } else if (!silent) {
-        Alert.alert(
-          tx("Geen update", "No Update", "لا يوجد تحديث"),
-          tx(
-            "U heeft de nieuwste versie.",
-            "You have the latest version.",
-            "لديك أحدث إصدار."
-          )
-        );
-      }
-    } catch (e: any) {
-      setState((s) => ({
-        ...s,
-        isChecking: false,
-        error: e.message || "Unknown error",
-      }));
-      if (!silent) {
-        Alert.alert(
-          tx("Fout", "Error", "خطأ"),
-          tx(
-            "Kan niet controleren op updates. Probeer het later opnieuw.",
-            "Unable to check for updates. Please try again later.",
-            "تعذر التحقق من التحديثات. يرجى المحاولة لاحقاً."
+            "Updates zijn alleen beschikbaar in de Android-app.",
+            "Updates are only available in the Android app.",
+            "التحديثات متاحة فقط في تطبيق أندرويد."
           )
         );
       }
     }
-  }, [language]);
+    return;
+  }
 
-  const downloadAndApplyUpdate = useCallback(async () => {
-    if (__DEV__ || Platform.OS === "web") return;
+  // Shared guard: one check at a time app-wide, so the launch check and a
+  // manual check can't double-fetch or stack two "Update Available" alerts.
+  if (store.isChecking) return;
+  set({ isChecking: true, error: null });
 
-    setState((s) => ({ ...s, isDownloading: true, error: null }));
-
+  try {
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
+    let release: { tag_name: string; assets?: { name: string; browser_download_url: string }[] };
     try {
-      const result = await Updates.fetchUpdateAsync();
-      if (result.isNew) {
-        Alert.alert(
-          tx("Update gereed", "Update Ready", "التحديث جاهز"),
-          tx(
-            "De update is gedownload. De app wordt nu opnieuw gestart.",
-            "The update has been downloaded. The app will now restart.",
-            "تم تنزيل التحديث. سيتم إعادة تشغيل التطبيق الآن."
-          ),
-          [
-            {
-              text: tx("Herstarten", "Restart", "إعادة التشغيل"),
-              onPress: async () => {
-                await Updates.reloadAsync();
-              },
-            },
-          ]
-        );
-      }
-    } catch (e: any) {
-      setState((s) => ({
-        ...s,
-        isDownloading: false,
-        error: e.message || "Download failed",
-      }));
+      const res = await fetch(LATEST_RELEASE_URL, {
+        signal: controller.signal,
+        headers: { Accept: "application/vnd.github+json" },
+      });
+      if (!res.ok) throw new Error(`GitHub API responded ${res.status}`);
+      release = await res.json();
+    } finally {
+      clearTimeout(timeout);
+    }
+
+    pending = evaluateRelease(release, INSTALLED_VERSION);
+    set({
+      isChecking: false,
+      isUpdateAvailable: pending !== null,
+      lastChecked: new Date(),
+      error: null,
+    });
+
+    if (pending !== null) {
+      Alert.alert(
+        tx("Update beschikbaar", "Update Available", "تحديث متاح"),
+        tx(
+          "Er is een nieuwe versie beschikbaar. Wilt u nu updaten?",
+          "A new version is available. Would you like to update now?",
+          "يوجد إصدار جديد متاح. هل تريد التحديث الآن؟"
+        ),
+        [
+          { text: tx("Later", "Later", "لاحقاً"), style: "cancel" },
+          {
+            text: tx("Updaten", "Update Now", "تحديث الآن"),
+            onPress: () => downloadAndApplyUpdate(),
+          },
+        ]
+      );
+    } else if (!silent) {
+      Alert.alert(
+        tx("Geen update", "No Update", "لا يوجد تحديث"),
+        tx("U heeft de nieuwste versie.", "You have the latest version.", "لديك أحدث إصدار.")
+      );
+    }
+  } catch (e: any) {
+    // A check was attempted, so record the time (avoids "Never checked" showing
+    // above the error banner). A silent launch check must not leave an error
+    // banner for an attempt the user never made (offline, rate limit); only
+    // user-initiated checks record the error.
+    set({
+      isChecking: false,
+      lastChecked: new Date(),
+      ...(silent ? {} : { error: e.message || "Unknown error" }),
+    });
+    if (!silent) {
       Alert.alert(
         tx("Fout", "Error", "خطأ"),
         tx(
-          "Het downloaden van de update is mislukt. Probeer het later opnieuw.",
-          "Failed to download the update. Please try again later.",
-          "فشل تنزيل التحديث. يرجى المحاولة لاحقاً."
+          "Kan niet controleren op updates. Probeer het later opnieuw.",
+          "Unable to check for updates. Please try again later.",
+          "تعذر التحقق من التحديثات. يرجى المحاولة لاحقاً."
         )
       );
-    } finally {
-      setState((s) => ({ ...s, isDownloading: false }));
     }
-  }, [language]);
+  }
+}
 
-  // Auto-check on mount (silent)
+/**
+ * Subscribe to the shared updater state. Mount with autoCheck=true exactly once
+ * (root layout) to run the silent launch check and clean up leftover downloads;
+ * other mounts (Settings) get the same state plus the manual check/apply actions.
+ */
+export function useUpdates(language: string = "ar", autoCheck: boolean = false) {
+  currentLanguage = language;
+  // Third arg (server snapshot) is required: web.output is "static", so routes
+  // are server-rendered at export time and React demands getServerSnapshot.
+  const snapshot = useSyncExternalStore(subscribe, getSnapshot, getSnapshot);
+
+  // Launch instance only: sweep leftover APK downloads, then check silently
+  // after a 3s delay so the app finishes loading first. Guarded to run once.
   useEffect(() => {
-    if (!__DEV__ && Platform.OS !== "web") {
-      // Delay check by 3 seconds to let app finish loading
-      const timer = setTimeout(() => {
-        checkForUpdate(true);
-      }, 3000);
-      return () => clearTimeout(timer);
-    }
-  }, []);
+    if (!autoCheck || __DEV__ || Platform.OS !== "android" || launchCheckDone) return;
 
-  return {
-    ...state,
-    checkForUpdate,
-    downloadAndApplyUpdate,
-  };
+    (async () => {
+      try {
+        if (store.isDownloading) return;
+        const dir = FileSystem.cacheDirectory;
+        if (!dir) return;
+        const entries = await FileSystem.readDirectoryAsync(dir);
+        const stale = entries.filter((name) => {
+          if (!name.startsWith(APK_PREFIX)) return false;
+          // Orphaned partial downloads are always stale.
+          if (name.endsWith(".apk.part")) return true;
+          if (!name.endsWith(".apk")) return false;
+          // Keep an APK newer than what's installed: the user may have
+          // downloaded it and be mid-retry (e.g. after granting install
+          // permission, which force-restarts the app). Delete already-installed
+          // or unparseable ones.
+          const version = name.slice(APK_PREFIX.length, -".apk".length);
+          return !isNewerVersion(version, INSTALLED_VERSION);
+        });
+        await Promise.all(
+          stale.map((name) => FileSystem.deleteAsync(`${dir}${name}`, { idempotent: true }))
+        );
+      } catch {
+        // Cleanup is best-effort; never block or crash on it.
+      }
+    })();
+
+    const timer = setTimeout(() => {
+      launchCheckDone = true;
+      checkForUpdate(true);
+    }, 3000);
+    return () => clearTimeout(timer);
+  }, [autoCheck]);
+
+  // downloadAndApplyUpdate is not returned: it is invoked directly from the
+  // "Update Now" alert action, and no consumer calls it via the hook.
+  return { ...snapshot, checkForUpdate };
 }

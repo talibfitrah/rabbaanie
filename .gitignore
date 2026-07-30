@@ -82,3 +82,6 @@ local-docs/
 /assets/data/library/
 /assets/data/tarbiya/
 /assets/data/years/
+
+# gstack local security reports
+.gstack/
