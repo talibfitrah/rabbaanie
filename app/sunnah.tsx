@@ -10,9 +10,21 @@ import sunnahData from "@/data/sunnah-companion.json";
 type Loc = string | { ar?: string; nl?: string; en?: string };
 type Dua = { text: string; translit?: string; nl?: string; en?: string; source: Loc; reward?: Loc; reflect?: Loc };
 type Advice = { think?: Loc[]; feel?: Loc[]; speak?: Loc[]; act?: Loc[] };
-type Moment = { id: string; kind: "time" | "action"; period: string; title: Loc; quick: Loc; hint: Loc; ikhlas: Loc; duas: Dua[]; deeds: Loc[]; advice: Advice };
+type Moment = { id: string; kind: "time" | "action"; period: string; cat?: string; title: Loc; quick: Loc; hint: Loc; ikhlas: Loc; duas: Dua[]; deeds: Loc[]; advice: Advice };
 
 const MOMENTS = (sunnahData as any).moments as Moment[];
+
+// Daa3iyah (msg 603): group the moments into 8 topics shown at the top of the screen.
+const CATS = [
+  { key: "salah", icon: "mosque", ar: "الصلاة والمسجد", nl: "Gebed & moskee", en: "Prayer & mosque" },
+  { key: "tahara", icon: "water-drop", ar: "الطهارة", nl: "Reiniging", en: "Purification" },
+  { key: "food", icon: "restaurant", ar: "الطعام والشراب", nl: "Eten & drinken", en: "Food & drink" },
+  { key: "home", icon: "home", ar: "البيت والأسرة", nl: "Huis & gezin", en: "Home & family" },
+  { key: "dhikr", icon: "menu-book", ar: "الذكر والقرآن", nl: "Dhikr & Koran", en: "Dhikr & Qur'an" },
+  { key: "travel", icon: "directions-walk", ar: "الخروج والسفر", nl: "Uitgaan & reizen", en: "Outings & travel" },
+  { key: "states", icon: "healing", ar: "الأحوال والمصائب", nl: "Toestanden", en: "States & trials" },
+  { key: "nature", icon: "wb-sunny", ar: "الطبيعة والأوقات", nl: "Natuur & tijden", en: "Nature & times" },
+] as const;
 
 function nowMomentId(h: number): string {
   if (h >= 3 && h < 6) return "waking";
@@ -37,12 +49,10 @@ export default function SunnahScreen() {
   const rtlText = { textAlign: "left" as const, writingDirection: "rtl" as const };
   const uiAlign = { textAlign: "left" as const };
 
-  const [sel, setSel] = useState<string | null>(null);
   const [open, setOpen] = useState<string | null>(null);
   const nowId = useMemo(() => nowMomentId(new Date().getHours()), []);
   const nowMoment = MOMENTS.find((m) => m.id === nowId) || MOMENTS[0];
-  const selMoment = sel ? MOMENTS.find((m) => m.id === sel) : null;
-  const actions = MOMENTS.filter((m) => m.kind === "action");
+  const [selCat, setSelCat] = useState<string>(nowMoment.cat || CATS[0].key);
 
   const shareMoment = (m: Moment) => {
     const body =
@@ -163,48 +173,43 @@ export default function SunnahScreen() {
           {ShareBtn(nowMoment, true)}
         </View>
 
-        {/* Quick actions */}
-        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, ...uiAlign }}>{tt("Snel: wat ga je nu doen?", "Quick: what are you about to do?", "بحسب فِعلك الآن")}</Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
-          {actions.map((m) => (
-            <TouchableOpacity key={m.id} onPress={() => setSel(sel === m.id ? null : m.id)} style={{ backgroundColor: sel === m.id ? colors.primary : colors.surface, borderWidth: 1, borderColor: sel === m.id ? colors.primary : colors.border, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: sel === m.id ? "#fff" : colors.foreground }}>{L(m.quick)}</Text>
-            </TouchableOpacity>
-          ))}
-        </View>
-
-        {/* Selected action — inline under the chips */}
-        {selMoment ? (
-          <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1.5, borderColor: colors.primary, padding: 14, marginTop: 10 }}>
-            <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{L(selMoment.title)}</Text>
-            <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{L(selMoment.hint)}</Text>
-            {renderMoment(selMoment)}
-            {ShareBtn(selMoment, false)}
-          </View>
-        ) : null}
-
-        {/* All moments (browsable) */}
-        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 20, marginBottom: 8, ...uiAlign }}>{tt("Alle momenten", "All moments", "كلُّ المواضع")}</Text>
-        {MOMENTS.map((m) => {
-          const isOpen = open === m.id;
-          return (
-            <View key={m.id} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
-              <TouchableOpacity onPress={() => setOpen(isOpen ? null : m.id)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                <View style={{ flex: 1 }}>
-                  <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, ...uiAlign }}>{L(m.title)}</Text>
-                  <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, ...uiAlign }}>{L(m.hint)}</Text>
-                </View>
-                <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+        {/* Topics — 8 categories at the top (msg 603) */}
+        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, ...uiAlign }}>{tt("Onderwerpen", "Topics", "الأبواب")}</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4, flexDirection: isRTL ? "row-reverse" : "row" }}>
+          {CATS.map((c) => {
+            const on = selCat === c.key;
+            return (
+              <TouchableOpacity key={c.key} onPress={() => { setSelCat(c.key); setOpen(null); }} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: on ? colors.primary : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 }}>
+                <MaterialIcons name={c.icon as any} size={15} color={on ? "#fff" : colors.primary} />
+                <Text style={{ fontSize: 13, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{tt(c.nl, c.en, c.ar)}</Text>
               </TouchableOpacity>
-              {isOpen ? (
-                <View>
-                  {renderMoment(m)}
-                  {ShareBtn(m, false)}
-                </View>
-              ) : null}
-            </View>
-          );
-        })}
+            );
+          })}
+        </ScrollView>
+
+        {/* Moments of the selected topic */}
+        <View style={{ marginTop: 10 }}>
+          {MOMENTS.filter((m) => m.cat === selCat).map((m) => {
+            const isOpen = open === m.id;
+            return (
+              <View key={m.id} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
+                <TouchableOpacity onPress={() => setOpen(isOpen ? null : m.id)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, ...uiAlign }}>{L(m.title)}</Text>
+                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, ...uiAlign }}>{L(m.hint)}</Text>
+                  </View>
+                  <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+                </TouchableOpacity>
+                {isOpen ? (
+                  <View>
+                    {renderMoment(m)}
+                    {ShareBtn(m, false)}
+                  </View>
+                ) : null}
+              </View>
+            );
+          })}
+        </View>
       </ScrollView>
     </View>
   );

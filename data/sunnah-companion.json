@@ -130,7 +130,8 @@
       "en": "Do not pick up your phone before wudu and remembrance"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "wudu",
@@ -288,7 +289,8 @@
       "en": "Make wudu before sleeping, in a state of purity"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "morning-adhkar",
@@ -441,7 +443,8 @@
       "en": "Do not let devices distract you from your portion"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "leave-home",
@@ -572,7 +575,8 @@
       "en": "Do not waste your time on the useless and guard your heart from attachment to temptations"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "enter-masjid",
@@ -698,7 +702,8 @@
       "en": "Strive for the first row"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "leave-masjid",
@@ -808,7 +813,8 @@
       "en": "Do not shortchange people in their goods"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "post-prayer",
@@ -956,7 +962,8 @@
       "en": "Complete the rawatib to secure a house in Paradise"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "eating",
@@ -1103,7 +1110,8 @@
       "en": "Share with others and do not eat alone"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "enter-home",
@@ -1224,7 +1232,8 @@
       "en": "Give your house a share of your prayer and recitation; do not make it a grave"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "evening-adhkar",
@@ -1356,7 +1365,8 @@
       "en": "Sleep early, in purity and with remembrance"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "sleep",
@@ -1514,7 +1524,8 @@
       "en": "Keep away what would keep you from Fajr"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "bathroom",
@@ -1645,7 +1656,8 @@
       "en": "Clean with the left and purify yourself"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "dressing",
@@ -1760,7 +1772,8 @@
       "en": "Give away what remains of your clothes"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "travel",
@@ -1887,7 +1900,8 @@
       "en": "Do not neglect a prayer under pretext of travel, but shorten it and take the licence as the law permits"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "sneeze",
@@ -1997,7 +2011,8 @@
       "en": "Do not yawn raising the voice, for yawning is from the devil; suppress it"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "distress",
@@ -2134,7 +2149,8 @@
       "en": "Take the means while relying on Allaah"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "market",
@@ -2259,7 +2275,8 @@
       "en": "Support your family from the lawful"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "adhan",
@@ -2358,7 +2375,8 @@
       "en": "Cut off your idle talk and turn to the call"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "adhan-iqamah",
@@ -2442,7 +2460,8 @@
       "en": "Supplicate softly and insistently"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "fajr-walk",
@@ -2520,7 +2539,8 @@
       "en": "Arrange the means to wake at night"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "duha",
@@ -2591,7 +2611,8 @@
       "en": "Be grateful for a health many lack"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "witr",
@@ -2680,7 +2701,8 @@
       "en": "Sleep early so you can rise for the night prayer"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "friday",
@@ -2774,7 +2796,8 @@
       "en": "Do not step over people's necks, and do not speak idly while the imam preaches"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "fasting",
@@ -2870,7 +2893,8 @@
       "en": "Feed a fasting person and you have the like of his reward"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "quran",
@@ -2955,7 +2979,8 @@
       "en": "Take a daily portion you do not abandon"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "salawat",
@@ -3026,7 +3051,8 @@
       "en": "Love him more than yourself, your wealth and your child"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "istighfar",
@@ -3109,7 +3135,8 @@
       "en": "Follow the bad deed with a good one; it erases it"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "drinking",
@@ -3187,7 +3214,8 @@
       "en": "Do not waste water, even at a river"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "shoes",
@@ -3253,7 +3281,8 @@
       "en": "Keep to this Sunnah until it becomes a habit"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "mirror",
@@ -3319,7 +3348,8 @@
       "en": "Beware of self-admiration over your beauty"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "greeting",
@@ -3402,7 +3432,8 @@
       "en": "Spread the greeting among whom you know and whom you do not know"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "parents",
@@ -3487,7 +3518,8 @@
       "en": "Hasten to serve them before they ask you"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "kin",
@@ -3553,7 +3585,8 @@
       "en": "Keep the tie, even with a greeting, a call or a gift"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "charity",
@@ -3619,7 +3652,8 @@
       "en": "Do not follow your charity with reminder or hurt"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "sick-visit",
@@ -3702,7 +3736,8 @@
       "en": "Instil in him a good opinion of Allaah, not despair"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "graves",
@@ -3780,7 +3815,8 @@
       "en": "Work for after death before you are visited"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "afflicted",
@@ -3856,7 +3892,8 @@
       "en": "Be merciful with the afflicted and do not vaunt over him"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "anger",
@@ -3939,7 +3976,8 @@
       "en": "Be silent, for many a word in anger destroys"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "calamity",
@@ -4022,7 +4060,8 @@
       "en": "Say good or be silent, for the angels say amin"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "istikhara",
@@ -4100,7 +4139,8 @@
       "en": "Add to it the counsel of the learned and experienced"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "rain",
@@ -4187,7 +4227,8 @@
       "en": "Rejoice in Allaah's mercy and ask for benefit, not harm"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "wind",
@@ -4253,7 +4294,8 @@
       "en": "Combine hope in its mercy with fear of its punishment"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "crescent",
@@ -4319,7 +4361,8 @@
       "en": "Receive the month with resolve upon good"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "intimacy",
@@ -4402,7 +4445,8 @@
       "en": "Keep the secret and do not divulge what passes between you"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "dream",
@@ -4473,7 +4517,8 @@
       "en": "Do not fear the bad dream, for it is from the devil"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "insomnia",
@@ -4551,7 +4596,8 @@
       "en": "Make wudu and pray two rak'ahs if you lie awake"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "thunder-lightning",
@@ -4656,7 +4702,8 @@
       "en": "Ask Allaah for safety from the harm of these natural phenomena"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "undressing",
@@ -4736,7 +4783,8 @@
       "en": "Ensure proper covering and avoid unnecessary exposure"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "debt-payment",
@@ -4841,7 +4889,8 @@
       "en": "I avoid taking debt except when necessary"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "buying-selling",
@@ -4956,7 +5005,8 @@
       "en": "Give charity from your halaal earnings even if it is little"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "mounting-vehicle",
@@ -5061,7 +5111,8 @@
       "en": "Make your journey an opportunity for dhikr and du'aa"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "entering-village",
@@ -5161,7 +5212,8 @@
       "en": "Strive for good in the new place and avoid evil"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "high-places",
@@ -5246,7 +5298,8 @@
       "en": "Make your ascent an opportunity to reflect on Allaah's creation and power"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "valleys",
@@ -5336,7 +5389,8 @@
       "en": "Make tasbiH when descending a fixed habit during your travels and movements"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "newborn",
@@ -5441,7 +5495,8 @@
       "en": "I ensure the 3aqeeqah and circumcision at their prescribed time"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "marriage",
@@ -5526,7 +5581,8 @@
       "en": "Pray for the married couple whenever you hear of their marriage or see them"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "entering-toilet",
@@ -5611,7 +5667,8 @@
       "en": "Make sure to say this dhikr every time you enter the toilet"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "breaking-fast",
@@ -5711,7 +5768,8 @@
       "en": "Start with light food and do not be excessive in eating"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "forgot-bismillah",
@@ -5816,7 +5874,8 @@
       "en": "I strive not to repeat the forgetfulness through attentiveness and mindfulness"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "guest-host",
@@ -5901,7 +5960,8 @@
       "en": "Be keen to make du3aa' whenever someone honors you with food or drink"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "yawning",
@@ -5969,7 +6029,8 @@
       "en": "I place my hand over my mouth and suppress the yawn firmly"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "praising-someone",
@@ -6074,7 +6135,8 @@
       "en": "I encourage others to good through sincere praise"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "seeing-beauty",
@@ -6169,7 +6231,8 @@
       "en": "Teach your family and children this dhikr so Allaah protects them from the evil eye"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "fire-sight",
@@ -6254,7 +6317,8 @@
       "en": "Be diligent in obedience and avoid sins out of fear of fire"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "debt-worry",
@@ -6359,7 +6423,8 @@
       "en": "Give charity even if little, for charity repels calamities"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "seeking-forgiveness",
@@ -6464,7 +6529,8 @@
       "en": "Show your readiness to repair what you have damaged through actions"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "eclipse",
@@ -6579,7 +6645,8 @@
       "en": "Give charity and do good to people at this time"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "first-fruits",
@@ -6684,7 +6751,8 @@
       "en": "Eat in moderation and thank Allaah"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "animal-slaughter",
@@ -6794,7 +6862,8 @@
       "en": "I slaughter with one swift motion to minimize pain"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "completing-quran",
@@ -6899,7 +6968,8 @@
       "en": "Resolve to apply what you have learned from the aayaat"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "forgetting-prayer",
@@ -7004,7 +7074,8 @@
       "en": "I set more reminders for prayer times to avoid forgetting in the future"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "between-maghrib-isha",
@@ -7089,7 +7160,8 @@
       "en": "Sit in a quiet place and remember Allaah with khushoo3"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "visiting-graves",
@@ -7194,7 +7266,8 @@
       "en": "Give charity on behalf of the deceased if you can"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "entering-hospital",
@@ -7299,7 +7372,8 @@
       "en": "Give sadaqah on behalf of the sick and give them a share in your du3aa'"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "hearing-rooster",
@@ -7399,7 +7473,8 @@
       "en": "Teach your family and children this blessed soennah"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "hearing-donkey",
@@ -7479,7 +7554,8 @@
       "en": "I make sure to apply this soennah every time"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "seeing-disabled",
@@ -7584,7 +7660,8 @@
       "en": "Help people with disabilities where you can"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "losing-something",
@@ -7674,7 +7751,8 @@
       "en": "I search calmly and ask Allaah for help, without becoming angry or despairing"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "good-news",
@@ -7779,7 +7857,8 @@
       "en": "Give charity or do good to people in gratitude for Allaah's blessing"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "bad-news",
@@ -7884,7 +7963,8 @@
       "en": "Help those affected if possible"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "entering-garden",
@@ -7989,7 +8069,8 @@
       "en": "Give charity from the fruits if they belong to you"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "difficulty-ease",
@@ -8094,7 +8175,8 @@
       "en": "Help others who are going through similar distress"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "assembly-gathering",
@@ -8199,7 +8281,8 @@
       "en": "Make your assemblies places of dhikr and benefit"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "washing-hands",
@@ -8284,7 +8367,8 @@
       "en": "Make washing hands a consistent habit before and after every meal"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "combing-hair",
@@ -8389,7 +8473,8 @@
       "en": "Make your concern for the inner greater than the outer"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "wearing-ring",
@@ -8484,7 +8569,8 @@
       "en": "I adhere to the etiquette of dress and adornment in Islaam"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "entering-shop",
@@ -8589,7 +8675,8 @@
       "en": "Buy what you need and avoid waste and extravagance"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "hearing-bad-word",
@@ -8694,7 +8781,8 @@
       "en": "Occupy yourself with dhikr of Allaah or Qur'aan recitation to purify your heart"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "cutting-nails",
@@ -8784,7 +8872,8 @@
       "en": "I ensure to follow the etiquette of purification and cleanliness in Islaam"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "seeing-sea",
@@ -8889,7 +8978,8 @@
       "en": "Seize the opportunity for du3aa' and dhikr by the sea"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "entering-bathroom",
@@ -8989,7 +9079,8 @@
       "en": "Don't waste water and be moderate in usage"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "hearing-thunder",
@@ -9094,7 +9185,8 @@
       "en": "Seize the time of rainfall for answered du'aa"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "seeing-rainbow",
@@ -9179,7 +9271,8 @@
       "en": "Seize these moments to strengthen your faith and certainty in Allaah"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "entering-elevator",
@@ -9264,7 +9357,8 @@
       "en": "Use these blessings in obedience to Allaah and service to people"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "seeing-accident",
@@ -9369,7 +9463,8 @@
       "en": "Ask Allaah to protect you from such affliction"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "borrowing-money",
@@ -9479,7 +9574,8 @@
       "en": "Give charity, even if little, for blessing in your provision"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "returning-borrowed",
@@ -9594,7 +9690,8 @@
       "en": "I compensate for any deficiency or damage that occurred to the borrowed item"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "seeing-kaaba",
@@ -9699,7 +9796,8 @@
       "en": "Seize this blessed moment for lengthy du'aa'"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "drinking-milk",
@@ -9784,7 +9882,8 @@
       "en": "Drink according to Islaamic etiquette: with the right hand and in three sips, breathing outside the vessel"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "seeing-fire",
@@ -9884,7 +9983,8 @@
       "en": "Avoid lighting fire to harm others"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "hearing-call-prayer",
@@ -9989,7 +10089,8 @@
       "en": "I leave what is in my hands and go directly to prayer"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "planting-tree",
@@ -10074,7 +10175,8 @@
       "en": "Care for what you planted and water it regularly"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "seeing-beggar",
@@ -10179,7 +10281,8 @@
       "en": "Avoid looking at them with contempt"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "wearing-perfume",
@@ -10294,7 +10397,8 @@
       "en": "I avoid forbidden or impure perfume"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "closing-door",
@@ -10399,7 +10503,8 @@
       "en": "I check doors before sleeping"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "extinguishing-fire",
@@ -10489,7 +10594,8 @@
       "en": "Make extinguishing fire a reason to remember the hereafter and work for it"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "covering-vessels",
@@ -10574,7 +10680,8 @@
       "en": "Make covering vessels a consistent daily habit"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "sweeping-house",
@@ -10674,7 +10781,8 @@
       "en": "I involve family in cleaning to teach them cleanliness"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "hearing-dog-bark",
@@ -10774,7 +10882,8 @@
       "en": "I avoid being distracted by interpreting the reason for barking"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-school",
@@ -10859,7 +10968,8 @@
       "en": "Enter with adab and respect for the place of knowledge and those in it"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "finishing-exam",
@@ -10944,7 +11054,8 @@
       "en": "Occupy yourself with dhikr and du3aa' instead of worrying"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "seeing-clouds",
@@ -11024,7 +11135,8 @@
       "en": "Read Allaah's signs in the sky and take lessons from them"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "entering-bank",
@@ -11109,7 +11221,8 @@
       "en": "Deal with honesty and amaanah in all your financial transactions"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "seeing-spider",
@@ -11209,7 +11322,8 @@
       "en": "Make this sighting a reason to increase your faith and piety"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "washing-dishes",
@@ -11294,7 +11408,8 @@
       "en": "Keep the kitchen clean and organized so it may be blessed"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "hearing-siren",
@@ -11399,7 +11514,8 @@
       "en": "I face the qiblah if I can"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "seeing-ant",
@@ -11499,7 +11615,8 @@
       "en": "Follow the example of ants in diligence, effort and cooperation"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "opening-window",
@@ -11604,7 +11721,8 @@
       "en": "I keep the place clean so it remains blessed and good"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "seeing-star",
@@ -11709,7 +11827,8 @@
       "en": "Avoid looking at stars for forbidden astrology purposes"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "watering-plants",
@@ -11814,7 +11933,8 @@
       "en": "Plant what is beneficial and avoid what is harmful"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "seeing-cat",
@@ -11899,7 +12019,8 @@
       "en": "Be gentle with the animal and do not harm it, and feed it if you can"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "tahajjud-prayer",
@@ -12009,7 +12130,8 @@
       "en": "Choose a quiet place away from distractions"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "entering-cemetery",
@@ -12119,7 +12241,8 @@
       "en": "Recite the Qur'aan if you know this to be soennah"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "hearing-good-news",
@@ -12224,7 +12347,8 @@
       "en": "Give charity in gratitude to Allaah for this blessing"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "breaking-something",
@@ -12309,7 +12433,8 @@
       "en": "I deal with the situation calmly and wisely"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "mounting-animal",
@@ -12414,7 +12539,8 @@
       "en": "Adhere to travel etiquette from the Prophetic Soennah"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "descending-valley",
@@ -12519,7 +12645,8 @@
       "en": "Ensure safety and caution when descending in rough terrain"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "ascending-hill",
@@ -12599,7 +12726,8 @@
       "en": "Utilize heights for du'aa as they are places where prayers are likely answered"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "entering-town",
@@ -12684,7 +12812,8 @@
       "en": "Be sure to make this du3aa' every time you enter a new town"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "fear-people",
@@ -12789,7 +12918,8 @@
       "en": "I avoid injustice so I need not fear anyone"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "debt-difficulty",
@@ -12904,7 +13034,8 @@
       "en": "Ensure you perform Salaah on time and increase nawaafil"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "seeking-guidance",
@@ -12989,7 +13120,8 @@
       "en": "Follow what you know of the truth and ask for more guidance"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "enemy-meeting",
@@ -13094,7 +13226,8 @@
       "en": "Stand firm in your position and do not retreat"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "ruler-meeting",
@@ -13194,7 +13327,8 @@
       "en": "Do not bow or prostrate to anyone other than Allaah regardless of pressure"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "illness-onset",
@@ -13299,7 +13433,8 @@
       "en": "Be patient and do not complain about Allaah's decree"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "funeral-prayer",
@@ -13404,7 +13539,8 @@
       "en": "Follow the janazah to the cemetery if you can"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "after-burial",
@@ -13509,7 +13645,8 @@
       "en": "Continue praying for the deceased after leaving the cemetery"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "closing-gathering",
@@ -13594,7 +13731,8 @@
       "en": "Make kaffaratul-madjlis a consistent habit when ending any session"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "forgetting-dhikr",
@@ -13699,7 +13837,8 @@
       "en": "Use a tasbeeH or count on your fingers to keep track of adhkaar"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-washroom",
@@ -13799,7 +13938,8 @@
       "en": "Teach your children this prophetic adab"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "exiting-washroom",
@@ -13904,7 +14044,8 @@
       "en": "I exit with etiquette and tranquility without haste"
      }
     ]
-   }
+   },
+   "cat": "tahara"
   },
   {
    "id": "difficulty-memorizing",
@@ -14009,7 +14150,8 @@
       "en": "Make sure to understand the meanings of what you memorize"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-exam",
@@ -14109,7 +14251,8 @@
       "en": "Make du3aa' at every difficult question"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "lost-way",
@@ -14194,7 +14337,8 @@
       "en": "I move calmly and use available means to find the way"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "vehicle-breakdown",
@@ -14299,7 +14443,8 @@
       "en": "I remain calm and treat people with good character"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "signing-contract",
@@ -14404,7 +14549,8 @@
       "en": "I treat the other party in the contract with justice and excellence"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "job-interview",
@@ -14509,7 +14655,8 @@
       "en": "Present your skills with humility without arrogance"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "receiving-salary",
@@ -14614,7 +14761,8 @@
       "en": "Save a portion for the future and give Allaah's right in it"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "power-outage",
@@ -14724,7 +14872,8 @@
       "en": "Check on the safety of elderly and children"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "hearing-news",
@@ -14824,7 +14973,8 @@
       "en": "Offer practical help according to ability"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "child-misbehaving",
@@ -14929,7 +15079,8 @@
       "en": "Combine firmness and mercy in discipline"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "spouse-disagreement",
@@ -15039,7 +15190,8 @@
       "en": "Look for compromises that satisfy both parties"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "neighbor-problem",
@@ -15144,7 +15296,8 @@
       "en": "Maintain neighborly etiquette despite disputes"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "social-media",
@@ -15249,7 +15402,8 @@
       "en": "I follow accounts that remind me of Allaah and benefit me"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "natural-disaster",
@@ -15354,7 +15508,8 @@
       "en": "Help disaster victims with what you can"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "entering-friday-prayer",
@@ -15469,7 +15624,8 @@
       "en": "Sit close to the imam if possible"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "entering-kitchen",
@@ -15574,7 +15730,8 @@
       "en": "Do not waste food and protect it from spoilage"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "seeing-muslim-brother",
@@ -15679,7 +15836,8 @@
       "en": "Honor your brother and be good to him"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-car",
@@ -15805,7 +15963,8 @@
       "en": "Supplicate to Allaah for safety at the beginning and end of the journey"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "hearing-adhan-response",
@@ -15906,7 +16065,8 @@
       "en": "Stop talking and activities out of respect for the adhan"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "forgetting-dhikr-makeup",
@@ -15991,7 +16151,8 @@
       "en": "Start dhikr immediately upon remembering and don't delay"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-workplace",
@@ -16076,7 +16237,8 @@
       "en": "Perform your work with itqaan and amaanah as Allaah commanded"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "seeing-first-moon",
@@ -16181,7 +16343,8 @@
       "en": "Plan good deeds for the new month"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "between-soennah-fard",
@@ -16261,7 +16424,8 @@
       "en": "Seize these brief moments for du3aa'"
      }
     ]
-   }
+   },
+   "cat": "salah"
   },
   {
    "id": "wearing-shoes",
@@ -16351,7 +16515,8 @@
       "en": "Make putting on shoes an opportunity to remember Allaah's blessings upon you"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "removing-shoes",
@@ -16436,7 +16601,8 @@
       "en": "Make removing shoes an opportunity for dhikr and reflection"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "entering-library",
@@ -16531,7 +16697,8 @@
       "en": "Act upon what you learn and teach others good"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "starting-study",
@@ -16631,7 +16798,8 @@
       "en": "Start by reviewing what you previously learned"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "finishing-meal",
@@ -16736,7 +16904,8 @@
       "en": "Make this hamd a consistent habit with every meal"
      }
     ]
-   }
+   },
+   "cat": "food"
   },
   {
    "id": "seeing-affliction",
@@ -16841,7 +17010,8 @@
       "en": "Help those in need according to your ability"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "entering-garden-park",
@@ -16946,7 +17116,8 @@
       "en": "Make these moments an opportunity to draw closer to Allaah and make du3aa'"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "before-intercourse",
@@ -17056,7 +17227,8 @@
       "en": "Avoid what the sharee3ah prohibits"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "completing-task",
@@ -17161,7 +17333,8 @@
       "en": "Use success as motivation for more good deeds"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "before-important-decision",
@@ -17256,7 +17429,8 @@
       "en": "Do not wait for a dream or supernatural sign"
      }
     ]
-   }
+   },
+   "cat": "states"
   },
   {
    "id": "after-good-deed",
@@ -17361,7 +17535,8 @@
       "en": "Supplicate to Allaah to accept this deed from you"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "seeing-new-construction",
@@ -17466,7 +17641,8 @@
       "en": "Pray for the builders and workers for success and safety"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "before-exam-answer",
@@ -17561,7 +17737,8 @@
       "en": "Read the question carefully before answering"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "after-mistake",
@@ -17666,7 +17843,8 @@
       "en": "Take measures to avoid repeating the same mistake"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "entering-new-city",
@@ -17746,7 +17924,8 @@
       "en": "Make sure to say this du3aa' every time you enter a new city"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "before-meeting",
@@ -17846,7 +18025,8 @@
       "en": "Observe the etiquette of gatherings such as listening and paying good attention"
      }
     ]
-   }
+   },
+   "cat": "dhikr"
   },
   {
    "id": "seeing-beautiful-nature",
@@ -17951,7 +18131,8 @@
       "en": "Let these beautiful scenes motivate you to increase worship and obedience"
      }
     ]
-   }
+   },
+   "cat": "nature"
   },
   {
    "id": "returning-from-journey",
@@ -18051,7 +18232,8 @@
       "en": "Pray two rak3aat in gratitude to Allaah for safety"
      }
     ]
-   }
+   },
+   "cat": "travel"
   },
   {
    "id": "before-entering-home-guest",
@@ -18136,7 +18318,8 @@
       "en": "I wait patiently and politely for permission"
      }
     ]
-   }
+   },
+   "cat": "home"
   },
   {
    "id": "after-sneezing-response",
@@ -18216,7 +18399,8 @@
       "en": "I ensure not to neglect this soennah when hearing sneezing"
      }
     ]
-   }
+   },
+   "cat": "states"
   }
  ]
 }
