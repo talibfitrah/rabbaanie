@@ -20,11 +20,12 @@ export default function AdminSubscriptionsScreen() {
   const align = isRTL ? "right" : "left";
   const admin = (trpc as any).admin;
 
-  const [tab, setTab] = useState<"subs" | "coupons">("subs");
+  const [tab, setTab] = useState<"subs" | "coupons" | "info">("subs");
   const subs = admin.subscriptionsList.useQuery();
   const stats = admin.subscriptionStats.useQuery();
   const couponsQ = admin.couponsList.useQuery();
-  const refetchAll = () => { subs.refetch(); stats.refetch(); couponsQ.refetch(); };
+  const infoQ = admin.subscriberInfoList.useQuery();
+  const refetchAll = () => { subs.refetch(); stats.refetch(); couponsQ.refetch(); infoQ.refetch(); };
 
   const grant = admin.grantSubscription.useMutation({ onSuccess: refetchAll });
   const revoke = admin.revokeSubscription.useMutation({ onSuccess: refetchAll });
@@ -42,6 +43,8 @@ export default function AdminSubscriptionsScreen() {
   const inp = { backgroundColor: colors.background, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, borderWidth: 1, borderColor: colors.border, textAlign: align as "right" | "left" };
   const subsData = (subs.data as any[]) || [];
   const couponsData = (couponsQ.data as any[]) || [];
+  const infoData = (infoQ.data as any[]) || [];
+  const maritalAr: Record<string, string> = { single: "أعزب", married: "متزوّج", widowed: "أرمل", divorced: "مطلّق" };
 
   function doGrant() {
     const uid = Number(gUser); const days = Number(gDays);
@@ -63,9 +66,9 @@ export default function AdminSubscriptionsScreen() {
       </View>
 
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, padding: 12 }}>
-        {(["subs", "coupons"] as const).map((t) => (
+        {(["subs", "coupons", "info"] as const).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={{ flex: 1, backgroundColor: tab === t ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 9, alignItems: "center", borderWidth: 1, borderColor: tab === t ? colors.primary : colors.border }}>
-            <Text style={{ color: tab === t ? "#fff" : colors.foreground, fontWeight: "700", fontSize: 13 }}>{t === "subs" ? "المشتركون" : "الكوبونات"}</Text>
+            <Text style={{ color: tab === t ? "#fff" : colors.foreground, fontWeight: "700", fontSize: 12.5 }}>{t === "subs" ? "المشتركون" : t === "coupons" ? "الكوبونات" : "البيانات"}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -98,7 +101,7 @@ export default function AdminSubscriptionsScreen() {
               );
             })}
           </>
-        ) : (
+        ) : tab === "coupons" ? (
           <>
             <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.border }}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: align }}>إنشاء كوبون</Text>
@@ -123,6 +126,19 @@ export default function AdminSubscriptionsScreen() {
                     <Text style={{ color: c.active ? "#c0392b" : colors.primary, fontWeight: "700", fontSize: 12 }}>{c.active ? "تعطيل" : "تفعيل"}</Text>
                   </TouchableOpacity>
                 </View>
+              </View>
+            ))}
+          </>
+        ) : (
+          <>
+            {infoQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : infoData.length === 0 ? (
+              <Text style={{ color: colors.muted, textAlign: "center", marginTop: 30 }}>لا بيانات مشتركين بعد.</Text>
+            ) : infoData.map((s) => (
+              <View key={s.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: colors.border }}>
+                <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: align }}>{s.firstName} {s.lastName}{s.userId ? ` · #${s.userId}` : ""}</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 3 }}>{maritalAr[s.maritalStatus] || s.maritalStatus} · {s.phone}</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.email}</Text>
+                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.address}</Text>
               </View>
             ))}
           </>

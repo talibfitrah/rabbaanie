@@ -27,6 +27,21 @@ export default function SubscribeScreen() {
   const [coupon, setCoupon] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  // Required subscriber info (msg 636)
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [maritalStatus, setMaritalStatus] = useState("");
+  const [address, setAddress] = useState("");
+  const [email, setEmail] = useState(((user as any)?.email as string) || "");
+  const [phone, setPhone] = useState("");
+  const info = { firstName: firstName.trim(), lastName: lastName.trim(), maritalStatus, address: address.trim(), email: email.trim(), phone: phone.trim() };
+  const infoComplete = Object.values(info).every(Boolean);
+  const MARITAL = [
+    { k: "single", ar: "أعزب/عزباء", nl: "Alleenstaand", en: "Single" },
+    { k: "married", ar: "متزوّج/ة", nl: "Getrouwd", en: "Married" },
+    { k: "widowed", ar: "أرمل/ة", nl: "Weduwe", en: "Widowed" },
+    { k: "divorced", ar: "مطلّق/ة", nl: "Gescheiden", en: "Divorced" },
+  ];
 
   const loadStatus = useCallback(async () => {
     if (!uid) { setLoading(false); return; }
@@ -39,9 +54,10 @@ export default function SubscribeScreen() {
 
   async function subscribe() {
     if (!isAuthenticated || !uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا لتشترك.", "Log eerst in om te abonneren.", "Please log in first to subscribe.")); return; }
+    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, email: (user as any)?.email, lang: language }) });
+      const r = await fetch(`${getApiBaseUrl()}/api/subscription/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
       const d = await r.json();
       if (d.url) Linking.openURL(d.url);
       else setMsg(L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later."));
@@ -52,9 +68,10 @@ export default function SubscribeScreen() {
     const code = coupon.trim();
     if (!code) return;
     if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
+    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/redeem-coupon`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid }) });
+      const r = await fetch(`${getApiBaseUrl()}/api/subscription/redeem-coupon`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info }) });
       const d = await r.json();
       if (d.ok) { setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓")); setCoupon(""); loadStatus(); }
       else {
@@ -86,6 +103,24 @@ export default function SubscribeScreen() {
           </View>
         ) : (
           <>
+            {/* Required subscriber info (msg 636) */}
+            <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 }}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: align }}>{L3("معلوماتك (إلزاميّة)", "Uw gegevens (verplicht)", "Your details (required)")}</Text>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 8 }}>
+                <TextInput value={firstName} onChangeText={setFirstName} placeholder={L3("الاسم", "Voornaam", "First name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+                <TextInput value={lastName} onChangeText={setLastName} placeholder={L3("اللقب", "Achternaam", "Last name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+              </View>
+              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+                {MARITAL.map((m) => (
+                  <TouchableOpacity key={m.k} onPress={() => setMaritalStatus(m.k)} style={{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: maritalStatus === m.k ? colors.primary : colors.border, backgroundColor: maritalStatus === m.k ? colors.primary : colors.background }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: maritalStatus === m.k ? "#fff" : colors.foreground }}>{L3(m.ar, m.nl, m.en)}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+              <TextInput value={address} onChangeText={setAddress} placeholder={L3("العنوان", "Adres", "Address")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
+              <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder={L3("البريد الإلكترونيّ", "E-mail", "Email")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
+              <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={L3("الهاتف", "Telefoon", "Phone")} placeholderTextColor={colors.muted} style={inputStyle} />
+            </View>
             <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
               <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
               <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
