@@ -1430,7 +1430,8 @@ export default function SettingsScreen() {
                   language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
                   language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
                 );
-              } else router.push(`/feedback?kind=${row.key}` as any);
+              } else if (row.key === "contact") router.push("/support" as any);
+              else router.push(`/feedback?kind=${row.key}` as any);
             }}
             style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderTopWidth: i === 0 ? 0 : 0.5, borderTopColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
           >
