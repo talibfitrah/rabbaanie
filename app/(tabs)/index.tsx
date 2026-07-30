@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet, Linking, Alert } from "react-native";
+import { DONATE_URL } from "@/constants/donate";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -436,6 +437,19 @@ export default function AlgemeenScreen() {
           )}
           <Pressable onPress={() => router.push("/child-account/login" as any)} style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#E3F2FD" }, pressed && { opacity: 0.5 }]}>
             <MaterialIcons name="child-care" size={22} color="#1565C0" />
+          </Pressable>
+          {/* صدقة — الرئيسية، بجانب زر الطفل (msg 577) */}
+          <Pressable
+            onPress={() => {
+              if (DONATE_URL) Linking.openURL(DONATE_URL);
+              else Alert.alert(
+                tx(lang, "Doneer (Sadaqah)", "Give Sadaqah", "تصدّق"),
+                tx(lang, "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.", "The donation (Sadaqah) option will be available soon, in shaa Allaah.", "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله."),
+              );
+            }}
+            style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#2E7D32" }, pressed && { opacity: 0.6 }]}
+          >
+            <MaterialIcons name="volunteer-activism" size={20} color="#fff" />
           </Pressable>
         </View>
         {/* Brand: logo on the right, name «ربّانيّ» on the left (RTL: dot is
