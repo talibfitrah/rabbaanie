@@ -1,0 +1,21 @@
+lib/app-version.ts
+  s_168adbdaf097e9::t_3bda4fbcedd426 1-31
+lib/app-version.test.ts
+  s_168adbdaf097e9::t_dc2063f4f7936b 1-49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f5ad483df86ff77db6782f89d942ee19e1f5f039",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-fable-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
