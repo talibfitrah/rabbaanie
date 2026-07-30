@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { SUPPORT_WHATSAPP } from "@/constants/support";
+import { useRemoteConfig } from "@/hooks/use-remote-config";
 
 /**
  * Technical-support assistant (msg 583/584): the user first chats with a bounded
@@ -21,6 +22,7 @@ export default function SupportScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const scrollRef = useRef<ScrollView>(null);
+  const remoteCfg = useRemoteConfig();
   const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
   const align = isRTL ? "right" : "left";
 
@@ -59,7 +61,8 @@ export default function SupportScreen() {
   function contactHuman() {
     const lastUser = [...messages].reverse().find((m) => m.role === "user");
     const ctx = L3("السلام عليكم، أحتاج مساعدةً تقنيّةً في تطبيق ربّانيّ", "As-salaamu 3alaykum, ik heb technische hulp nodig bij de Rabbaanie-app", "As-salaamu 3alaykum, I need technical help with the Rabbaanie app") + (lastUser ? `:\n${lastUser.content}` : ".");
-    if (SUPPORT_WHATSAPP) Linking.openURL(`https://wa.me/${SUPPORT_WHATSAPP}?text=${encodeURIComponent(ctx)}`);
+    const wa = remoteCfg.supportWhatsapp || SUPPORT_WHATSAPP;
+    if (wa) Linking.openURL(`https://wa.me/${wa}?text=${encodeURIComponent(ctx)}`);
     else Alert.alert(L3("واتساب الفريق", "WhatsApp van het team", "Team WhatsApp"), L3("سيُفعَّل التواصل المباشر عبر واتساب قريبًا إن شاء الله.", "Direct contact via WhatsApp komt binnenkort, in shaa Allaah.", "Direct WhatsApp contact will be available soon, in shaa Allaah."));
   }
 

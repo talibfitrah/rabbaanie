@@ -12,6 +12,7 @@ import { useAppState } from "@/lib/app-context";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { DONATE_URL } from "@/constants/donate";
+import { useRemoteConfig } from "@/hooks/use-remote-config";
 import { withTimeout } from "@/lib/location-utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
@@ -192,6 +193,7 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t, language, setLanguage, isRTL } = useI18n();
   const isEn = language === "en";
+  const remoteCfg = useRemoteConfig();
   const { colorScheme, setColorScheme } = useThemeContext();
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
@@ -1425,7 +1427,8 @@ export default function SettingsScreen() {
           <Pressable key={row.key}
             onPress={() => {
               if (row.key === "donate") {
-                if (DONATE_URL) Linking.openURL(DONATE_URL);
+                const donateUrl = remoteCfg.donateUrl || DONATE_URL;
+                if (donateUrl) Linking.openURL(donateUrl);
                 else Alert.alert(
                   language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
                   language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
