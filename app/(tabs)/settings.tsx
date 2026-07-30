@@ -12,6 +12,7 @@ import { useAppState } from "@/lib/app-context";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { DONATE_URL } from "@/constants/donate";
+import { SUPPORT_WHATSAPP } from "@/constants/support";
 import { useRemoteConfig } from "@/hooks/use-remote-config";
 import { withTimeout } from "@/lib/location-utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -1422,6 +1423,7 @@ export default function SettingsScreen() {
         {[
           { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
           { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
+          { key: "whatsapp", icon: "chat", color: "#25D366", ar: "تواصل عبر واتساب", nl: "Direct via WhatsApp", en: "Chat on WhatsApp" },
           { key: "suggestion", icon: "lightbulb-outline", color: "#7C3AED", ar: "اقترح فكرةً", nl: "Doe een suggestie", en: "Send a suggestion" },
         ].map((row, i) => (
           <Pressable key={row.key}
@@ -1432,6 +1434,14 @@ export default function SettingsScreen() {
                 else Alert.alert(
                   language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
                   language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
+                );
+              } else if (row.key === "whatsapp") {
+                const wa = remoteCfg.supportWhatsapp || SUPPORT_WHATSAPP;
+                const ctx = language === "ar" ? "السلام عليكم، أحتاج مساعدةً تقنيّةً في تطبيق ربّانيّ" : isEn ? "As-salaamu 3alaykum, I need technical help with the Rabbaanie app" : "As-salaamu 3alaykum, ik heb technische hulp nodig bij de Rabbaanie-app";
+                if (wa) Linking.openURL(`https://wa.me/${wa}?text=${encodeURIComponent(ctx)}`);
+                else Alert.alert(
+                  language === "ar" ? "واتساب الفريق" : isEn ? "Team WhatsApp" : "WhatsApp van het team",
+                  language === "ar" ? "سيُفعَّل التواصل عبر واتساب قريبًا إن شاء الله." : isEn ? "WhatsApp contact will be available soon, in shaa Allaah." : "Contact via WhatsApp komt binnenkort, in shaa Allaah.",
                 );
               } else if (row.key === "contact") router.push("/support" as any);
               else router.push(`/feedback?kind=${row.key}` as any);
