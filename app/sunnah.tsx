@@ -21,7 +21,7 @@ const CATS = [
   { key: "food", icon: "restaurant", ar: "الطعام والشراب", nl: "Eten & drinken", en: "Food & drink" },
   { key: "home", icon: "home", ar: "البيت والأسرة", nl: "Huis & gezin", en: "Home & family" },
   { key: "dhikr", icon: "menu-book", ar: "الذكر والقرآن", nl: "Dhikr & Koran", en: "Dhikr & Qur'an" },
-  { key: "travel", icon: "directions-walk", ar: "الخروج والسفر", nl: "Uitgaan & reizen", en: "Outings & travel" },
+  { key: "travel", icon: "luggage", ar: "الخروج والسفر", nl: "Uitgaan & reizen", en: "Outings & travel" },
   { key: "states", icon: "healing", ar: "الأحوال والمصائب", nl: "Toestanden", en: "States & trials" },
   { key: "nature", icon: "wb-sunny", ar: "الطبيعة والأوقات", nl: "Natuur & tijden", en: "Nature & times" },
 ] as const;
