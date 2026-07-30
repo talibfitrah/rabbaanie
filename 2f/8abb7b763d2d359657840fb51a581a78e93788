@@ -1,0 +1,31 @@
+hooks/use-remote-config.ts
+  s_168adbdaf097e9::t_f99fd10f9111c0 1-24
+app/support.tsx
+  s_168adbdaf097e9::t_58216216380321 64-65
+  s_168adbdaf097e9::t_64a579f2292f67 25
+  s_168adbdaf097e9::t_270e2aac33fe16 10
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_fa0c1667d01bf0 15
+  s_168adbdaf097e9::t_61b7f3a8449ce0 1430-1431
+  s_168adbdaf097e9::t_1f243b30a2f8bb 196
+app/(tabs)/index.tsx
+  s_168adbdaf097e9::t_0a91b317fb1b3a 85
+  s_168adbdaf097e9::t_c345a574940501 446-447
+  s_168adbdaf097e9::t_09b1a5ec1eac89 4
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2f8abb7b763d2d359657840fb51a581a78e93788",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
