@@ -1411,6 +1411,39 @@ export default function SettingsScreen() {
         </View>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color={colors.muted} />
       </Pressable>
+      {/* الدعم والتواصل — تصدّق / تواصل مع الفريق التقني / اقتراح (msg 564) */}
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 8, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+        {language === "ar" ? "الدعم والتواصل" : isEn ? "Support & contact" : "Steun & contact"}
+      </Text>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
+        {[
+          { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
+          { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
+          { key: "suggestion", icon: "lightbulb-outline", color: "#7C3AED", ar: "اقترح فكرةً", nl: "Doe een suggestie", en: "Send a suggestion" },
+        ].map((row, i) => (
+          <Pressable key={row.key}
+            onPress={() => {
+              if (row.key === "donate") {
+                const url = ""; // رابط التصدّق — يُملأ لاحقًا؛ عند تعبئته يُفتح مباشرةً
+                if (url) Linking.openURL(url);
+                else Alert.alert(
+                  language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
+                  language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
+                );
+              } else router.push(`/feedback?kind=${row.key}` as any);
+            }}
+            style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderTopWidth: i === 0 ? 0 : 0.5, borderTopColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: row.color + "15", alignItems: "center", justifyContent: "center" }}>
+                <MaterialIcons name={row.icon as any} size={20} color={row.color} />
+              </View>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? row.ar : isEn ? row.en : row.nl}</Text>
+            </View>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={22} color={colors.muted} />
+          </Pressable>
+        ))}
+      </View>
       <SettingsCollapsible title={language === "ar" ? "الموقع" : isEn ? "Location" : "Locatie"} icon="location-on" colors={colors} isRTL={isRTL}>
         <Text className="text-xs mb-4 leading-4" style={{ color: colors.muted }}>
           {t("settings.gps_desc_full")}

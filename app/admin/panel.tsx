@@ -45,6 +45,7 @@ export default function AdminPanelScreen() {
     { ar: "إضافة كتاب", sub: "يظهر في المكتبة ويستفيد منه الذكاء الاصطناعي", icon: "menu-book", route: "/admin/add-book" },
     { ar: "إدارة المحتوى", sub: "المقالات والنصائح والمفاهيم", icon: "article", route: "/admin/content" },
     { ar: "رسالة جماعية", sub: "إشعار لكل المستخدمين أو نوع منهم", icon: "campaign", route: "/admin/broadcast" },
+    { ar: "الرسائل والاقتراحات", sub: "رسائل التواصل والاقتراحات من التطبيق والموقع", icon: "feedback", route: "/admin/feedback" },
   ];
 
   return (
