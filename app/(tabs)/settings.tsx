@@ -1421,6 +1421,7 @@ export default function SettingsScreen() {
       </Text>
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
         {[
+          { key: "subscribe", icon: "workspace-premium", color: "#C4A35A", ar: "الاشتراك السنويّ", nl: "Jaarabonnement", en: "Annual subscription" },
           { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
           { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
           { key: "whatsapp", icon: "chat", color: "#25D366", ar: "تواصل عبر واتساب", nl: "Direct via WhatsApp", en: "Chat on WhatsApp" },
@@ -1428,6 +1429,7 @@ export default function SettingsScreen() {
         ].map((row, i) => (
           <Pressable key={row.key}
             onPress={() => {
+              if (row.key === "subscribe") { router.push("/subscribe" as any); return; }
               if (row.key === "donate") {
                 const donateUrl = remoteCfg.donateUrl || DONATE_URL;
                 if (donateUrl) Linking.openURL(donateUrl);

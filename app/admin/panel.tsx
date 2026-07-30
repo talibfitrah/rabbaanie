@@ -46,6 +46,7 @@ export default function AdminPanelScreen() {
     { ar: "إدارة المحتوى", sub: "المقالات والنصائح والمفاهيم", icon: "article", route: "/admin/content" },
     { ar: "رسالة جماعية", sub: "إشعار لكل المستخدمين أو نوع منهم", icon: "campaign", route: "/admin/broadcast" },
     { ar: "الرسائل والاقتراحات", sub: "رسائل التواصل والاقتراحات من التطبيق والموقع", icon: "feedback", route: "/admin/feedback" },
+    { ar: "الاشتراكات والكوبونات", sub: "المشتركون، منح اشتراكات، وإنشاء كوبونات", icon: "workspace-premium", route: "/admin/subscriptions" },
   ];
 
   return (
