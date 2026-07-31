@@ -6,6 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
+import * as Clipboard from "expo-clipboard";
 
 /**
  * Admin management of subscriptions & coupons (msg 560/608). Grant/revoke
@@ -20,11 +21,12 @@ export default function AdminSubscriptionsScreen() {
   const align = isRTL ? "right" : "left";
   const admin = (trpc as any).admin;
 
-  const [tab, setTab] = useState<"subs" | "coupons" | "info">("subs");
+  const [tab, setTab] = useState<"info" | "subs" | "coupons">("info");
+  const [search, setSearch] = useState("");
   const subs = admin.subscriptionsList.useQuery();
   const stats = admin.subscriptionStats.useQuery();
   const couponsQ = admin.couponsList.useQuery();
-  const infoQ = admin.subscriberInfoList.useQuery();
+  const infoQ = admin.subscribersOverview.useQuery();
   const refetchAll = () => { subs.refetch(); stats.refetch(); couponsQ.refetch(); infoQ.refetch(); };
 
   const grant = admin.grantSubscription.useMutation({ onSuccess: refetchAll });
@@ -44,7 +46,6 @@ export default function AdminSubscriptionsScreen() {
   const subsData = (subs.data as any[]) || [];
   const couponsData = (couponsQ.data as any[]) || [];
   const infoData = (infoQ.data as any[]) || [];
-  const maritalAr: Record<string, string> = { single: "أعزب", married: "متزوّج", widowed: "أرمل", divorced: "مطلّق" };
 
   function doGrant() {
     const uid = Number(gUser); const days = Number(gDays);
@@ -66,9 +67,9 @@ export default function AdminSubscriptionsScreen() {
       </View>
 
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, padding: 12 }}>
-        {(["subs", "coupons", "info"] as const).map((t) => (
+        {(["info", "subs", "coupons"] as const).map((t) => (
           <TouchableOpacity key={t} onPress={() => setTab(t)} style={{ flex: 1, backgroundColor: tab === t ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 9, alignItems: "center", borderWidth: 1, borderColor: tab === t ? colors.primary : colors.border }}>
-            <Text style={{ color: tab === t ? "#fff" : colors.foreground, fontWeight: "700", fontSize: 12.5 }}>{t === "subs" ? "المشتركون" : t === "coupons" ? "الكوبونات" : "البيانات"}</Text>
+            <Text style={{ color: tab === t ? "#fff" : colors.foreground, fontWeight: "700", fontSize: 12.5 }}>{t === "info" ? "المستخدمون" : t === "subs" ? "الاشتراكات" : "الكوبونات"}</Text>
           </TouchableOpacity>
         ))}
       </View>
@@ -132,40 +133,51 @@ export default function AdminSubscriptionsScreen() {
         ) : (
           <>
             <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginBottom: 10, lineHeight: 19 }}>
-              كلُّ من أدخل بياناته فله اشتراكٌ عامّ (الخدمات العامة). امنحه الاشتراكَ الخاصّ ليصل إلى كلِّ الخدمات، أو ألغِه فيعود عامًّا.
+              كلُّ مستخدمٍ سجّل فله اشتراكٌ عامّ (الخدمات العامة). امنحه الاشتراكَ الخاصّ ليصل إلى كلِّ الخدمات، أو ألغِه فيعود عامًّا.
             </Text>
-            {infoQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : infoData.length === 0 ? (
-              <Text style={{ color: colors.muted, textAlign: "center", marginTop: 30 }}>لا بيانات مشتركين بعد.</Text>
-            ) : infoData.map((s) => {
-              const activeSub = subsData.find((sub: any) => s.userId && sub.userId === s.userId && sub.status === "active" && new Date(sub.expiresAt) > new Date());
-              const isSpecial = !!activeSub;
+            <TextInput value={search} onChangeText={setSearch} placeholder="ابحث بالرقم المميّز أو الاسم أو البريد" placeholderTextColor={colors.muted} style={{ ...inp, marginBottom: 10 }} />
+            {infoQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : (() => {
+              const q = search.trim().toLowerCase();
+              const list = infoData.filter((u: any) => !q || String(u.publicId || "").toLowerCase().includes(q) || String(u.name || "").toLowerCase().includes(q) || String(u.email || "").toLowerCase().includes(q) || `${u.firstName || ""} ${u.lastName || ""}`.toLowerCase().includes(q));
+              if (list.length === 0) return <Text style={{ color: colors.muted, textAlign: "center", marginTop: 30 }}>لا مستخدمين.</Text>;
               return (
-              <View key={s.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: isSpecial ? colors.primary : colors.border }}>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
-                  <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: align }}>{s.firstName} {s.lastName}{s.userId ? ` · #${s.userId}` : ""}</Text>
-                  <View style={{ backgroundColor: (isSpecial ? colors.primary : colors.muted) + "22", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 10.5, fontWeight: "700", color: isSpecial ? colors.primary : colors.muted }}>{isSpecial ? "خاصّ" : "عامّ"}</Text>
-                  </View>
-                </View>
-                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 3 }}>{maritalAr[s.maritalStatus] || s.maritalStatus} · {s.phone}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.email}</Text>
-                <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.address}</Text>
-                {s.userId ? (
-                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }}>
-                    {isSpecial ? (
-                      <TouchableOpacity onPress={() => revoke.mutate({ id: activeSub.id })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
-                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
-                      </TouchableOpacity>
-                    ) : (
-                      <TouchableOpacity onPress={() => grant.mutate({ userId: s.userId, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
-                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
-                      </TouchableOpacity>
-                    )}
-                  </View>
-                ) : null}
-              </View>
+                <>
+                  <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginBottom: 8 }}>{list.length} مستخدمًا</Text>
+                  {list.map((u: any) => {
+                    const isSpecial = !!u.special;
+                    const displayName = (u.firstName || u.lastName) ? `${u.firstName || ""} ${u.lastName || ""}`.trim() : (u.name || "—");
+                    const idText = u.publicId || `#${u.id}`;
+                    return (
+                      <View key={u.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: isSpecial ? colors.primary : colors.border }}>
+                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                          <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: align }}>{displayName}</Text>
+                          <View style={{ backgroundColor: (isSpecial ? colors.primary : colors.muted) + "22", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 }}>
+                            <Text style={{ fontSize: 10.5, fontWeight: "700", color: isSpecial ? colors.primary : colors.muted }}>{isSpecial ? "خاصّ" : "عامّ"}</Text>
+                          </View>
+                        </View>
+                        <TouchableOpacity onPress={() => { Clipboard.setStringAsync(idText); Alert.alert("تمّ النسخ", idText); }} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginTop: 5 }}>
+                          <MaterialIcons name="content-copy" size={13} color={colors.primary} />
+                          <Text style={{ fontSize: 12.5, color: colors.primary, fontWeight: "700" }}>{idText}</Text>
+                        </TouchableOpacity>
+                        {u.email ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.email}</Text> : null}
+                        {u.phone ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.phone}</Text> : null}
+                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }}>
+                          {isSpecial ? (
+                            <TouchableOpacity onPress={() => u.subscriptionId && revoke.mutate({ id: u.subscriptionId })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
+                            </TouchableOpacity>
+                          ) : (
+                            <TouchableOpacity onPress={() => grant.mutate({ userId: u.id, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
+                            </TouchableOpacity>
+                          )}
+                        </View>
+                      </View>
+                    );
+                  })}
+                </>
               );
-            })}
+            })()}
           </>
         )}
       </ScrollView>

@@ -65,6 +65,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates } from "@/hooks/use-updates";
 import { useSubscription } from "@/hooks/use-subscription";
+import * as Clipboard from "expo-clipboard";
 import { getSessionRole } from "@/lib/_core/auth";
 
 
@@ -1202,19 +1203,23 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* My ID card */}
+      {/* My ID card — tappable to copy (msg 743) */}
       {isAuthenticated && myIdQuery.data?.publicId && (
-        <View style={{ backgroundColor: colors.primary + "08", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+        <Pressable
+          onPress={() => { Clipboard.setStringAsync(myIdQuery.data?.publicId ?? ""); Alert.alert(language === "ar" ? "تمّ النسخ" : isEn ? "Copied" : "Gekopieerd", myIdQuery.data?.publicId ?? ""); }}
+          style={({ pressed }) => [{ backgroundColor: colors.primary + "08", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, opacity: pressed ? 0.7 : 1 }]}
+        >
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 18 }}>🆔</Text>
+            <MaterialIcons name="badge" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "رقم هويتي" : isEn ? "My ID" : "Mijn ID"}</Text>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "رقمي المميّز (انقر للنسخ)" : isEn ? "My ID (tap to copy)" : "Mijn ID (tik om te kopiëren)"}</Text>
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, textAlign: isRTL ? "right" : "left" }}>
               {myIdQuery.data.publicId}
             </Text>
           </View>
-        </View>
+          <MaterialIcons name="content-copy" size={18} color={colors.primary} />
+        </Pressable>
       )}
 
       {/* Dark mode & Language */}
@@ -1748,12 +1753,18 @@ export default function SettingsScreen() {
       <SettingsCollapsible title={language === "ar" ? "الملف الشخصي" : isEn ? "My Profile" : "Mijn Profiel"} icon="person" colors={colors} isRTL={isRTL} defaultOpen={false}>
         {/* ID display */}
         {isAuthenticated && myIdQuery.data?.publicId && (
-          <View style={{ backgroundColor: colors.primary + "08", borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.primary + "20" }}>
-            <Text style={{ color: colors.muted, fontSize: 11 }}>{language === "ar" ? "رقم هويتي" : isEn ? "My ID" : "Mijn ID"}</Text>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, marginTop: 2 }}>
-              {myIdQuery.data.publicId}
-            </Text>
-          </View>
+          <Pressable
+            onPress={() => { Clipboard.setStringAsync(myIdQuery.data?.publicId ?? ""); Alert.alert(language === "ar" ? "تمّ النسخ" : isEn ? "Copied" : "Gekopieerd", myIdQuery.data?.publicId ?? ""); }}
+            style={({ pressed }) => [{ backgroundColor: colors.primary + "08", borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.primary + "20", opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={{ color: colors.muted, fontSize: 11, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "رقمي المميّز (انقر للنسخ)" : isEn ? "My ID (tap to copy)" : "Mijn ID (tik om te kopiëren)"}</Text>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginTop: 2 }}>
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                {myIdQuery.data.publicId}
+              </Text>
+              <MaterialIcons name="content-copy" size={16} color={colors.primary} />
+            </View>
+          </Pressable>
         )}
         {/* Spouse/Mother info if married */}
         {state.parentProfile.gender === "man" && state.parentProfile.partnerName && (
