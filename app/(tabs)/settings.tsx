@@ -64,6 +64,7 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates } from "@/hooks/use-updates";
+import { useSubscription } from "@/hooks/use-subscription";
 import { getSessionRole } from "@/lib/_core/auth";
 
 
@@ -199,6 +200,7 @@ export default function SettingsScreen() {
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
   const { isAuthenticated } = useAuth();
+  const { subscribed } = useSubscription();
   const [adminRole, setAdminRole] = useState<string | null>(null);
   useEffect(() => { getSessionRole().then(setAdminRole); }, []);
   const isAdminUser = ["admin", "super_admin", "moderator"].includes(adminRole || "");
@@ -1165,6 +1167,25 @@ export default function SettingsScreen() {
         {t("settings.title")}
       </Text>
 
+      {/* Subscription — prominent dedicated entry (msg 704/724) */}
+      <Pressable
+        onPress={() => router.push("/subscribe" as any)}
+        style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, backgroundColor: colors.primary, borderRadius: 16, padding: 16, marginBottom: 16, opacity: pressed ? 0.9 : 1 }]}
+      >
+        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "#ffffff22", alignItems: "center", justifyContent: "center" }}>
+          <MaterialIcons name="workspace-premium" size={26} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "اشتراكي" : isEn ? "My subscription" : "Mijn abonnement"}</Text>
+          <Text style={{ color: "#ffffffcc", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+            {subscribed
+              ? (language === "ar" ? "أنت مشترك ✓ — اطّلع على التفاصيل" : isEn ? "Subscribed ✓ — view details" : "Geabonneerd ✓ — details")
+              : (language === "ar" ? "اطّلع على اشتراكك والخدمات" : isEn ? "View your subscription & services" : "Bekijk uw abonnement en diensten")}
+          </Text>
+        </View>
+        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color="#ffffffcc" />
+      </Pressable>
+
       {/* Quick status summary */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <View style={{ flex: 1, minWidth: 100, backgroundColor: colors.primary + "12", borderRadius: 12, padding: 12, alignItems: "center" }}>
@@ -1422,7 +1443,6 @@ export default function SettingsScreen() {
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
         {[
           { key: "share", icon: "share", color: "#1B4332", ar: "شارك ربّانيّ", nl: "Deel Rabbaanie", en: "Share Rabbaanie" },
-          { key: "subscribe", icon: "workspace-premium", color: "#C4A35A", ar: "الاشتراك السنويّ", nl: "Jaarabonnement", en: "Annual subscription" },
           { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
           { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
           { key: "whatsapp", icon: "chat", color: "#25D366", ar: "تواصل عبر واتساب", nl: "Direct via WhatsApp", en: "Chat on WhatsApp" },
@@ -1431,10 +1451,9 @@ export default function SettingsScreen() {
           <Pressable key={row.key}
             onPress={() => {
               if (row.key === "share") {
-                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على منهج أهل السنّة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the way of Ahl al-Sunnah, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens Ahl al-Sunnah, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
+                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على الكتاب والسنّة وفهم الصحابة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the Qur'an, the Sunnah and the understanding of the Companions, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens de Koran, de Soennah en het begrip van de metgezellen, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
                 return;
               }
-              if (row.key === "subscribe") { router.push("/subscribe" as any); return; }
               if (row.key === "donate") {
                 const donateUrl = remoteCfg.donateUrl || DONATE_URL;
                 if (donateUrl) Linking.openURL(donateUrl);
