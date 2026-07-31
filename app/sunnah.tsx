@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { View, Text, ScrollView, TouchableOpacity, Share } from "react-native";
+import { View, Text, ScrollView, TouchableOpacity, Share, TextInput } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -53,6 +53,21 @@ export default function SunnahScreen() {
   const nowId = useMemo(() => nowMomentId(new Date().getHours()), []);
   const nowMoment = MOMENTS.find((m) => m.id === nowId) || MOMENTS[0];
   const [selCat, setSelCat] = useState<string>(nowMoment.cat || CATS[0].key);
+
+  // Search across ALL moments (Daa3iyah msg 674) — Arabic diacritics/tatweel-insensitive.
+  const [query, setQuery] = useState("");
+  const norm = (s: string) => s.toLowerCase()
+    .replace(/[ً-ْٰـ]/g, "").replace(/[أإآ]/g, "ا").replace(/ى/g, "ي").replace(/ة/g, "ه").trim();
+  const momentText = (m: Moment) => {
+    const parts: string[] = [];
+    [m.title, m.quick, m.hint, m.ikhlas].forEach((v) => { if (v) { parts.push(typeof v === "string" ? v : (v.ar || "")); parts.push(L(v)); } });
+    (m.duas || []).forEach((d) => { parts.push(d.text || ""); if (d.reflect) parts.push(L(d.reflect)); });
+    (m.deeds || []).forEach((d) => parts.push(L(d)));
+    return norm(parts.join(" "));
+  };
+  const q = norm(query);
+  const searching = q.length > 0;
+  const results = useMemo(() => (searching ? MOMENTS.filter((m) => momentText(m).includes(q)) : []), [q, lang]);
 
   const shareMoment = (m: Moment) => {
     const body =
@@ -157,6 +172,29 @@ export default function SunnahScreen() {
     </TouchableOpacity>
   );
 
+  const catLabel = (key?: string) => { const c = CATS.find((x) => x.key === key); return c ? tt(c.nl, c.en, c.ar) : ""; };
+  const momentCard = (m: Moment, showCat: boolean) => {
+    const isOpen = open === m.id;
+    return (
+      <View key={m.id} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
+        <TouchableOpacity onPress={() => setOpen(isOpen ? null : m.id)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, ...uiAlign }}>{L(m.title)}</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, ...uiAlign }}>{L(m.hint)}</Text>
+            {showCat ? <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary, marginTop: 4, ...uiAlign }}>{catLabel(m.cat)}</Text> : null}
+          </View>
+          <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+        </TouchableOpacity>
+        {isOpen ? (
+          <View>
+            {renderMoment(m)}
+            {ShareBtn(m, false)}
+          </View>
+        ) : null}
+      </View>
+    );
+  };
+
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {Header}
@@ -173,43 +211,50 @@ export default function SunnahScreen() {
           {ShareBtn(nowMoment, true)}
         </View>
 
-        {/* Topics — 8 categories at the top (msg 603) */}
-        <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, ...uiAlign }}>{tt("Onderwerpen", "Topics", "الأبواب")}</Text>
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4, flexDirection: isRTL ? "row-reverse" : "row" }}>
-          {CATS.map((c) => {
-            const on = selCat === c.key;
-            return (
-              <TouchableOpacity key={c.key} onPress={() => { setSelCat(c.key); setOpen(null); }} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: on ? colors.primary : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 }}>
-                <MaterialIcons name={c.icon as any} size={15} color={on ? "#fff" : colors.primary} />
-                <Text style={{ fontSize: 13, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{tt(c.nl, c.en, c.ar)}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-
-        {/* Moments of the selected topic */}
-        <View style={{ marginTop: 10 }}>
-          {MOMENTS.filter((m) => m.cat === selCat).map((m) => {
-            const isOpen = open === m.id;
-            return (
-              <View key={m.id} style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, padding: 14, marginBottom: 10 }}>
-                <TouchableOpacity onPress={() => setOpen(isOpen ? null : m.id)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
-                  <View style={{ flex: 1 }}>
-                    <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, ...uiAlign }}>{L(m.title)}</Text>
-                    <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, ...uiAlign }}>{L(m.hint)}</Text>
-                  </View>
-                  <MaterialIcons name={isOpen ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
-                </TouchableOpacity>
-                {isOpen ? (
-                  <View>
-                    {renderMoment(m)}
-                    {ShareBtn(m, false)}
-                  </View>
-                ) : null}
-              </View>
-            );
-          })}
+        {/* Search across all moments (msg 674) */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 12, paddingHorizontal: 12, marginTop: 18 }}>
+          <MaterialIcons name="search" size={18} color={colors.muted} />
+          <TextInput
+            value={query}
+            onChangeText={setQuery}
+            placeholder={tt("Zoek in momenten…", "Search moments…", "ابحث في المواضع…")}
+            placeholderTextColor={colors.muted}
+            style={{ flex: 1, fontSize: 14, color: colors.foreground, paddingVertical: 10, ...uiAlign }}
+          />
+          {searching ? (
+            <TouchableOpacity onPress={() => setQuery("")}><MaterialIcons name="close" size={18} color={colors.muted} /></TouchableOpacity>
+          ) : null}
         </View>
+
+        {searching ? (
+          <View style={{ marginTop: 12 }}>
+            <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8, ...uiAlign }}>{results.length} {tt("resultaten", "results", "نتيجة")}</Text>
+            {results.length ? results.map((m) => momentCard(m, true)) : (
+              <Text style={{ fontSize: 13, color: colors.muted, marginTop: 8, ...uiAlign }}>{tt("Geen resultaten", "No results", "لا نتائج")}</Text>
+            )}
+          </View>
+        ) : (
+          <View>
+            {/* Topics — 8 categories at the top (msg 603) */}
+            <Text style={{ fontSize: 14, fontWeight: "800", color: colors.foreground, marginTop: 18, marginBottom: 8, ...uiAlign }}>{tt("Onderwerpen", "Topics", "الأبواب")}</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8, paddingBottom: 4, flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {CATS.map((c) => {
+                const on = selCat === c.key;
+                return (
+                  <TouchableOpacity key={c.key} onPress={() => { setSelCat(c.key); setOpen(null); }} style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: on ? colors.primary : colors.surface, borderWidth: 1, borderColor: on ? colors.primary : colors.border, borderRadius: 999, paddingVertical: 7, paddingHorizontal: 13 }}>
+                    <MaterialIcons name={c.icon as any} size={15} color={on ? "#fff" : colors.primary} />
+                    <Text style={{ fontSize: 13, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{tt(c.nl, c.en, c.ar)}</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+
+            {/* Moments of the selected topic */}
+            <View style={{ marginTop: 10 }}>
+              {MOMENTS.filter((m) => m.cat === selCat).map((m) => momentCard(m, false))}
+            </View>
+          </View>
+        )}
       </ScrollView>
     </View>
   );
