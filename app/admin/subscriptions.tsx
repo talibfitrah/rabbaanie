@@ -33,6 +33,8 @@ export default function AdminSubscriptionsScreen() {
   const revoke = admin.revokeSubscription.useMutation({ onSuccess: refetchAll });
   const createCoupon = admin.createCoupon.useMutation({ onSuccess: refetchAll });
   const toggleCoupon = admin.setCouponActive.useMutation({ onSuccess: refetchAll });
+  const bulkCoupons = admin.createCouponsBulk.useMutation({ onSuccess: (r: any) => { refetchAll(); Alert.alert("تمّ", `أُنشئ ${r?.created ?? 0} كوبونًا.`); } });
+  const couponsExportQ = admin.couponsExport.useQuery(undefined, { enabled: false });
 
   const [gUser, setGUser] = useState("");
   const [gDays, setGDays] = useState("365");
@@ -40,6 +42,7 @@ export default function AdminSubscriptionsScreen() {
   const [cDays, setCDays] = useState("365");
   const [cPrice, setCPrice] = useState("15");
   const [cMax, setCMax] = useState("1");
+  const [cCount, setCCount] = useState("10");
 
   const fmt = (d: any) => { try { return new Date(d).toLocaleDateString(); } catch { return ""; } };
   const inp = { backgroundColor: colors.background, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, borderWidth: 1, borderColor: colors.border, textAlign: align as "right" | "left" };
@@ -56,6 +59,24 @@ export default function AdminSubscriptionsScreen() {
     const code = cCode.trim(); if (!code) { Alert.alert("خطأ", "أدخل رمزَ الكوبون."); return; }
     createCoupon.mutate({ code, durationDays: Number(cDays) || 365, priceCents: Math.round((Number(cPrice) || 0) * 100), maxUses: Number(cMax) || 1 });
     setCCode("");
+  }
+  function doBulkCoupons() {
+    const count = Number(cCount) || 0;
+    if (count < 1) { Alert.alert("خطأ", "أدخل عددَ الكوبونات."); return; }
+    bulkCoupons.mutate({ count, prefix: cCode.trim() || "RABB", durationDays: Number(cDays) || 365, priceCents: Math.round((Number(cPrice) || 0) * 100), maxUses: Number(cMax) || 1 });
+  }
+  async function doExportCoupons() {
+    try {
+      const res = await couponsExportQ.refetch();
+      const csv = (res.data as any)?.csv;
+      if (!csv) { Alert.alert("تعذّر", "لا كوبونات للتصدير."); return; }
+      const FileSystem: any = await import("expo-file-system/legacy");
+      const Sharing: any = await import("expo-sharing");
+      const uri = FileSystem.documentDirectory + `coupons_${Date.now()}.csv`;
+      await FileSystem.writeAsStringAsync(uri, csv, { encoding: FileSystem.EncodingType.UTF8 });
+      if (await Sharing.isAvailableAsync()) await Sharing.shareAsync(uri, { mimeType: "text/csv", dialogTitle: "تصدير الكوبونات" });
+      else Alert.alert("تعذّرت المشاركة", "المشاركة غير متاحة على هذا الجهاز.");
+    } catch (e: any) { Alert.alert("تعذّر التصدير", e?.message || ""); }
   }
 
   return (
@@ -112,8 +133,18 @@ export default function AdminSubscriptionsScreen() {
                 <TextInput value={cPrice} onChangeText={setCPrice} keyboardType="decimal-pad" placeholder="السعر €" placeholderTextColor={colors.muted} style={{ ...inp, flex: 1 }} />
                 <TextInput value={cMax} onChangeText={setCMax} keyboardType="number-pad" placeholder="مرّات" placeholderTextColor={colors.muted} style={{ ...inp, flex: 1 }} />
               </View>
-              <TouchableOpacity onPress={doCreateCoupon} disabled={createCoupon.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "700" }}>إنشاء</Text></TouchableOpacity>
+              <TouchableOpacity onPress={doCreateCoupon} disabled={createCoupon.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: "center" }}><Text style={{ color: "#fff", fontWeight: "700" }}>إنشاء كوبونٍ واحد</Text></TouchableOpacity>
+              <View style={{ height: 1, backgroundColor: colors.border, marginVertical: 12 }} />
+              <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 8, textAlign: align }}>توليدٌ بالجملة: يُستعمل «الرمز» أعلاه بادئةً لأكوادٍ عشوائيّة.</Text>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
+                <TextInput value={cCount} onChangeText={setCCount} keyboardType="number-pad" placeholder="العدد" placeholderTextColor={colors.muted} style={{ ...inp, flex: 1 }} />
+                <TouchableOpacity onPress={doBulkCoupons} disabled={bulkCoupons.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", flex: 2 }}><Text style={{ color: "#fff", fontWeight: "700" }}>{bulkCoupons.isPending ? "..." : "توليد عدّة كوبونات"}</Text></TouchableOpacity>
+              </View>
             </View>
+            <TouchableOpacity onPress={doExportCoupons} disabled={couponsExportQ.isFetching} style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 10, paddingVertical: 11, alignItems: "center", justifyContent: "center", marginBottom: 12 }}>
+              <MaterialIcons name="file-download" size={18} color={colors.primary} />
+              <Text style={{ color: colors.primary, fontWeight: "800" }}>{couponsExportQ.isFetching ? "..." : "تصدير الكوبونات (Excel/CSV)"}</Text>
+            </TouchableOpacity>
             {couponsQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : couponsData.length === 0 ? (
               <Text style={{ color: colors.muted, textAlign: "center", marginTop: 30 }}>لا كوبونات بعد.</Text>
             ) : couponsData.map((c) => (
