@@ -34,6 +34,7 @@ import {
 } from "@/lib/network-store";
 import { DatePicker } from "@/components/date-picker";
 import { SyncToast } from "@/components/sync-toast";
+import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -86,6 +87,7 @@ export default function MessagesScreen() {
   const userGender = state.parentProfile.gender || "man";
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
+  const { subscribed } = usePremiumGate();
 
   const [activeTab, setActiveTab] = useState<Tab>("parents");
   const [selected, setSelected] = useState<SelectedConversation | null>(null);
@@ -167,12 +169,13 @@ export default function MessagesScreen() {
 
   const handleSend = useCallback(() => {
     if (!newMessage.trim() || !selected) return;
+    if (!subscribed) { router.push("/subscribe" as any); return; }
     sendDirectMutation.mutate({
       recipientId: selected.id,
       content: newMessage.trim(),
       childId: selected.sharedChildren?.[0]?.id,
     });
-  }, [newMessage, selected, sendDirectMutation]);
+  }, [newMessage, selected, sendDirectMutation, subscribed, router]);
 
   // Partner link mutation
   const linkPartner = trpc.links.linkPartnerByPublicId.useMutation({

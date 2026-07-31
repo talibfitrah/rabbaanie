@@ -20,6 +20,7 @@ import {
   type FavoriteAdvice,
 } from "@/lib/advice-prefs";
 import { scheduleDailyAdviceNotification, showAdviceWidget } from "@/lib/daily-advice-notification";
+import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -251,6 +252,7 @@ export default function PersonalAdviceScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
+  const { subscribed } = usePremiumGate();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{title: string; icon: string; content: string}> | null>(null);
@@ -412,6 +414,7 @@ export default function PersonalAdviceScreen() {
   }
 
   async function fetchAdvice() {
+    if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
       const baseUrl = getApiBaseUrl();
@@ -561,6 +564,7 @@ export default function PersonalAdviceScreen() {
       style={{ flex: 1, backgroundColor: colors.background, direction: isRTL ? "rtl" : "ltr" }}
       contentContainerStyle={{ paddingTop: insets.top + 16, paddingBottom: insets.bottom + 40, paddingHorizontal: 20 }}
     >
+      <PremiumNotice />
       <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
         <Text style={{ color: colors.primary, fontSize: 14 }}>{tx(lang, "\u2190 Terug", "\u2190 Back", "\u2190 رجوع")}</Text>
       </Pressable>

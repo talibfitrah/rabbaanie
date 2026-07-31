@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWeeklyData } from "@/hooks/use-weekly-data";
 import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
+import { PremiumNotice } from "@/components/premium-notice";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -376,6 +377,7 @@ export default function WeeklyScreen() {
       <View style={{ paddingTop: insets.top }}>
         <DateTimeHeader />
       </View>
+      <PremiumNotice />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 16 }}>
         {/* Title */}

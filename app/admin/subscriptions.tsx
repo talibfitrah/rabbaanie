@@ -131,16 +131,41 @@ export default function AdminSubscriptionsScreen() {
           </>
         ) : (
           <>
+            <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginBottom: 10, lineHeight: 19 }}>
+              كلُّ من أدخل بياناته فله اشتراكٌ عامّ (الخدمات العامة). امنحه الاشتراكَ الخاصّ ليصل إلى كلِّ الخدمات، أو ألغِه فيعود عامًّا.
+            </Text>
             {infoQ.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : infoData.length === 0 ? (
               <Text style={{ color: colors.muted, textAlign: "center", marginTop: 30 }}>لا بيانات مشتركين بعد.</Text>
-            ) : infoData.map((s) => (
-              <View key={s.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: colors.border }}>
-                <Text style={{ fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: align }}>{s.firstName} {s.lastName}{s.userId ? ` · #${s.userId}` : ""}</Text>
+            ) : infoData.map((s) => {
+              const activeSub = subsData.find((sub: any) => s.userId && sub.userId === s.userId && sub.status === "active" && new Date(sub.expiresAt) > new Date());
+              const isSpecial = !!activeSub;
+              return (
+              <View key={s.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 13, marginBottom: 9, borderWidth: 1, borderColor: isSpecial ? colors.primary : colors.border }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+                  <Text style={{ flex: 1, fontSize: 15, fontWeight: "800", color: colors.foreground, textAlign: align }}>{s.firstName} {s.lastName}{s.userId ? ` · #${s.userId}` : ""}</Text>
+                  <View style={{ backgroundColor: (isSpecial ? colors.primary : colors.muted) + "22", borderRadius: 8, paddingHorizontal: 9, paddingVertical: 3 }}>
+                    <Text style={{ fontSize: 10.5, fontWeight: "700", color: isSpecial ? colors.primary : colors.muted }}>{isSpecial ? "خاصّ" : "عامّ"}</Text>
+                  </View>
+                </View>
                 <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 3 }}>{maritalAr[s.maritalStatus] || s.maritalStatus} · {s.phone}</Text>
                 <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.email}</Text>
                 <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{s.address}</Text>
+                {s.userId ? (
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }}>
+                    {isSpecial ? (
+                      <TouchableOpacity onPress={() => revoke.mutate({ id: activeSub.id })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
+                      </TouchableOpacity>
+                    ) : (
+                      <TouchableOpacity onPress={() => grant.mutate({ userId: s.userId, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                        <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
+                      </TouchableOpacity>
+                    )}
+                  </View>
+                ) : null}
               </View>
-            ))}
+              );
+            })}
           </>
         )}
       </ScrollView>
