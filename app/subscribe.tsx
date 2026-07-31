@@ -50,7 +50,29 @@ export default function SubscribeScreen() {
       setStatus(await r.json());
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [uid]);
-  useEffect(() => { loadStatus(); }, [loadStatus]);
+  const loadInfo = useCallback(async () => {
+    if (!uid) return;
+    try {
+      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info?userId=${uid}`);
+      const d = await r.json();
+      if (d) {
+        setFirstName(d.firstName || ""); setLastName(d.lastName || ""); setMaritalStatus(d.maritalStatus || "");
+        setAddress(d.address || ""); setEmail(d.email || ((user as any)?.email as string) || ""); setPhone(d.phone || "");
+      }
+    } catch { /* ignore */ }
+  }, [uid, user]);
+  useEffect(() => { loadStatus(); loadInfo(); }, [loadStatus, loadInfo]);
+
+  async function saveInfo() {
+    if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
+    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
+    setBusy(true); setMsg("");
+    try {
+      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
+      const d = await r.json();
+      setMsg(d.ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save."));
+    } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
+  }
 
   async function subscribe() {
     if (!isAuthenticated || !uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا لتشترك.", "Log eerst in om te abonneren.", "Please log in first to subscribe.")); return; }
@@ -95,17 +117,28 @@ export default function SubscribeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {loading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : status?.subscribed ? (
-          <View style={{ backgroundColor: colors.primary + "12", borderColor: colors.primary, borderWidth: 1.5, borderRadius: 16, padding: 18, alignItems: "center" }}>
-            <MaterialIcons name="verified" size={44} color={colors.primary} />
-            <Text style={{ fontSize: 17, fontWeight: "800", color: colors.foreground, marginTop: 10, textAlign: "center" }}>{L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}</Text>
-            <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text>
-          </View>
-        ) : (
+        {loading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : (
           <>
-            {/* Required subscriber info (msg 636) */}
+            {/* Status banner (msg 701): clearly show paid / not-paid */}
+            {status?.subscribed ? (
+              <View style={{ backgroundColor: colors.primary + "12", borderColor: colors.primary, borderWidth: 1.5, borderRadius: 16, padding: 18, alignItems: "center", marginBottom: 14 }}>
+                <MaterialIcons name="verified" size={40} color={colors.primary} />
+                <Text style={{ fontSize: 17, fontWeight: "800", color: colors.foreground, marginTop: 8, textAlign: "center" }}>{L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}</Text>
+                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text>
+              </View>
+            ) : (
+              <View style={{ backgroundColor: "#FFF7E6", borderColor: "#E9C46A", borderWidth: 1.5, borderRadius: 16, padding: 16, marginBottom: 14 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                  <MaterialIcons name="info-outline" size={22} color="#B8860B" />
+                  <Text style={{ fontSize: 15, fontWeight: "800", color: "#7A5B00", flex: 1, textAlign: align }}>{L3("أنت غير مشترك", "U bent niet geabonneerd", "You are not subscribed")}</Text>
+                </View>
+                <Text style={{ fontSize: 13, color: "#7A5B00", marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("اشترك لدعم ربّانيّ والاستفادة الكاملة، أو فعّل كوبونًا.", "Abonneer om Rabbaanie te steunen en volledig te profiteren, of activeer een coupon.", "Subscribe to support Rabbaanie and get full access, or redeem a coupon.")}</Text>
+              </View>
+            )}
+
+            {/* Subscriber info — always shown, editable, savable (msg 701) */}
             <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: align }}>{L3("معلوماتك (إلزاميّة)", "Uw gegevens (verplicht)", "Your details (required)")}</Text>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: align }}>{L3("معلوماتي", "Mijn gegevens", "My details")}</Text>
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 8 }}>
                 <TextInput value={firstName} onChangeText={setFirstName} placeholder={L3("الاسم", "Voornaam", "First name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
                 <TextInput value={lastName} onChangeText={setLastName} placeholder={L3("اللقب", "Achternaam", "Last name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
@@ -119,22 +152,31 @@ export default function SubscribeScreen() {
               </View>
               <TextInput value={address} onChangeText={setAddress} placeholder={L3("العنوان", "Adres", "Address")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
               <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder={L3("البريد الإلكترونيّ", "E-mail", "Email")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
-              <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={L3("الهاتف", "Telefoon", "Phone")} placeholderTextColor={colors.muted} style={inputStyle} />
-            </View>
-            <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
-              <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
-              <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
-              <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
-                {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+              <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={L3("الهاتف", "Telefoon", "Phone")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 10 }} />
+              <TouchableOpacity onPress={saveInfo} disabled={busy} style={{ backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
+                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 14 }}>{L3("حفظ معلوماتي", "Mijn gegevens opslaan", "Save my details")}</Text>
               </TouchableOpacity>
             </View>
-            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟", "Heeft u een coupon?", "Have a coupon?")}</Text>
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
-              <TextInput value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
-              <TouchableOpacity onPress={redeem} disabled={busy || !coupon.trim()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", opacity: busy || !coupon.trim() ? 0.5 : 1 }}>
-                <Text style={{ color: "#fff", fontWeight: "700" }}>{L3("تفعيل", "Activeren", "Redeem")}</Text>
-              </TouchableOpacity>
-            </View>
+
+            {/* Subscribe + coupon — only when not subscribed */}
+            {!status?.subscribed && (
+              <>
+                <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
+                  <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
+                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
+                  <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
+                    {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+                  </TouchableOpacity>
+                </View>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟", "Heeft u een coupon?", "Have a coupon?")}</Text>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
+                  <TextInput value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+                  <TouchableOpacity onPress={redeem} disabled={busy || !coupon.trim()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", opacity: busy || !coupon.trim() ? 0.5 : 1 }}>
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>{L3("تفعيل", "Activeren", "Redeem")}</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            )}
           </>
         )}
         {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
