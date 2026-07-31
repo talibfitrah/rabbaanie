@@ -199,16 +199,25 @@ export default function SunnahScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       {Header}
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 96 }}>
-        {/* «الآن» card */}
+        {/* «الآن» card — collapsed by default; opens only on tap (msg 681) */}
         <View style={{ backgroundColor: colors.primary + "12", borderRadius: 16, borderWidth: 1.5, borderColor: colors.primary, padding: 16 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <MaterialIcons name="schedule" size={18} color={colors.primary} />
-            <Text style={{ fontSize: 13, fontWeight: "800", color: colors.primary }}>{tt("Nu", "Now", "الآن")}</Text>
-          </View>
-          <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{L(nowMoment.title)}</Text>
-          <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{L(nowMoment.hint)}</Text>
-          {renderMoment(nowMoment)}
-          {ShareBtn(nowMoment, true)}
+          <TouchableOpacity onPress={() => setOpen(open === nowMoment.id ? null : nowMoment.id)} style={{ flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+            <View style={{ flex: 1 }}>
+              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 4 }}>
+                <MaterialIcons name="schedule" size={18} color={colors.primary} />
+                <Text style={{ fontSize: 13, fontWeight: "800", color: colors.primary }}>{tt("Nu", "Now", "الآن")}</Text>
+              </View>
+              <Text style={{ fontSize: 16, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{L(nowMoment.title)}</Text>
+              <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{L(nowMoment.hint)}</Text>
+            </View>
+            <MaterialIcons name={open === nowMoment.id ? "expand-less" : "expand-more"} size={24} color={colors.primary} />
+          </TouchableOpacity>
+          {open === nowMoment.id ? (
+            <View>
+              {renderMoment(nowMoment)}
+              {ShareBtn(nowMoment, true)}
+            </View>
+          ) : null}
         </View>
 
         {/* Search across all moments (msg 674) */}
