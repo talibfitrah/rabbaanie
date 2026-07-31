@@ -42,6 +42,25 @@ export default function SubscribeScreen() {
     { k: "widowed", ar: "أرمل/ة", nl: "Weduwe", en: "Widowed" },
     { k: "divorced", ar: "مطلّق/ة", nl: "Gescheiden", en: "Divorced" },
   ];
+  // Tier explainer (msg 720): what General (free) vs Special (paid) unlocks.
+  const GENERAL = [
+    { k: "adhkar", icon: "auto-stories", ar: "الأذكار", nl: "Adhkaar", en: "Adhkaar" },
+    { k: "prayer", icon: "mosque", ar: "الصلاة والمواقيت", nl: "Gebedstijden", en: "Prayer times" },
+    { k: "fitrah", icon: "eco", ar: "الفطرة", nl: "Fitrah", en: "Fitrah" },
+    { k: "self", icon: "balance", ar: "ضبط النفس", nl: "Zelfbeheersing", en: "Self-control" },
+    { k: "sunnah", icon: "wb-sunny", ar: "رفيق السنّة", nl: "Sunnah-metgezel", en: "Sunnah companion" },
+    { k: "library", icon: "local-library", ar: "المكتبة", nl: "Bibliotheek", en: "Library" },
+  ];
+  const SPECIAL = [
+    { k: "advisor", icon: "forum", ar: "المستشار التربويّ", nl: "Slimme adviseur", en: "Smart advisor" },
+    { k: "children", icon: "description", ar: "تحليل بيئة الأطفال", nl: "Kindanalyse", en: "Child analysis" },
+    { k: "advice", icon: "lightbulb", ar: "النصائح الشخصيّة", nl: "Persoonlijk advies", en: "Personal advice" },
+    { k: "weekly", icon: "event", ar: "الخطّة الأسبوعيّة", nl: "Weekplan", en: "Weekly plan" },
+    { k: "treat", icon: "healing", ar: "خطط العلاج", nl: "Behandelplannen", en: "Treatment plans" },
+    { k: "family", icon: "home", ar: "إدارة العائلة", nl: "Gezinsbeheer", en: "Family" },
+    { k: "messages", icon: "mail", ar: "مراسلة المتخصّصين", nl: "Berichten", en: "Messages" },
+    { k: "network", icon: "hub", ar: "الشبكة والربط", nl: "Netwerk", en: "Network" },
+  ];
 
   const loadStatus = useCallback(async () => {
     if (!uid) { setLoading(false); return; }
@@ -135,6 +154,37 @@ export default function SubscribeScreen() {
                 <Text style={{ fontSize: 13, color: "#7A5B00", marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("اشترك لدعم ربّانيّ والاستفادة الكاملة، أو فعّل كوبونًا.", "Abonneer om Rabbaanie te steunen en volledig te profiteren, of activeer een coupon.", "Subscribe to support Rabbaanie and get full access, or redeem a coupon.")}</Text>
               </View>
             )}
+
+            {/* Tier explainer (msg 720): General (free) vs Special (paid), with icons */}
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginBottom: 14 }}>
+              <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <MaterialIcons name="eco" size={20} color={colors.primary} />
+                  <Text style={{ fontWeight: "800", fontSize: 13, color: colors.foreground, flex: 1, textAlign: align }}>{L3("العامّ", "Algemeen", "General")}</Text>
+                </View>
+                <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 10, textAlign: align }}>{L3("مجّانيّ — بإدخال بياناتك", "Gratis — met uw gegevens", "Free — with your details")}</Text>
+                {GENERAL.map((s) => (
+                  <View key={s.k} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 7 }}>
+                    <MaterialIcons name={s.icon as any} size={15} color={colors.muted} />
+                    <Text style={{ fontSize: 11.5, color: colors.foreground, flex: 1, textAlign: align }}>{L3(s.ar, s.nl, s.en)}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary, borderRadius: 14, padding: 12 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+                  <MaterialIcons name="workspace-premium" size={20} color={colors.primary} />
+                  <Text style={{ fontWeight: "800", fontSize: 13, color: colors.foreground, flex: 1, textAlign: align }}>{L3("الخاصّ", "Speciaal", "Special")}</Text>
+                </View>
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>€12 <Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}>{L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
+                <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 10, textAlign: align }}>{L3("كلُّ ما في العامّ، وزيادةً:", "Alles van Algemeen, plus:", "Everything in General, plus:")}</Text>
+                {SPECIAL.map((s) => (
+                  <View key={s.k} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 7 }}>
+                    <MaterialIcons name={s.icon as any} size={15} color={colors.primary} />
+                    <Text style={{ fontSize: 11.5, color: colors.foreground, flex: 1, textAlign: align }}>{L3(s.ar, s.nl, s.en)}</Text>
+                  </View>
+                ))}
+              </View>
+            </View>
 
             {/* Subscriber info — always shown, editable, savable (msg 701) */}
             <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 }}>

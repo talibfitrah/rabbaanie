@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Platform, ActivityIndicator, Linking, TextInput, FlatList,
+import { View, Text, Pressable, ScrollView, Alert, Platform, ActivityIndicator, Linking, Share, TextInput, FlatList,
   KeyboardAvoidingView,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -1421,6 +1421,7 @@ export default function SettingsScreen() {
       </Text>
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
         {[
+          { key: "share", icon: "share", color: "#1B4332", ar: "شارك ربّانيّ", nl: "Deel Rabbaanie", en: "Share Rabbaanie" },
           { key: "subscribe", icon: "workspace-premium", color: "#C4A35A", ar: "الاشتراك السنويّ", nl: "Jaarabonnement", en: "Annual subscription" },
           { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
           { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
@@ -1429,6 +1430,10 @@ export default function SettingsScreen() {
         ].map((row, i) => (
           <Pressable key={row.key}
             onPress={() => {
+              if (row.key === "share") {
+                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على منهج أهل السنّة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the way of Ahl al-Sunnah, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens Ahl al-Sunnah, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
+                return;
+              }
               if (row.key === "subscribe") { router.push("/subscribe" as any); return; }
               if (row.key === "donate") {
                 const donateUrl = remoteCfg.donateUrl || DONATE_URL;
