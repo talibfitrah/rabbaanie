@@ -670,13 +670,17 @@ export default function AlgemeenScreen() {
           </Pressable>
         </View>
       ) : (
-        /* Collapsed summary after answering - merged with tip */
-        <View style={[s.checkinSection, { flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginHorizontal: 16, marginBottom: 16 }]}>
-          <View style={[s.tipBanner, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+        /* Collapsed summary after answering - tip banner full-width + tappable */
+        <View style={[s.checkinSection, { marginHorizontal: 16, marginBottom: 16, gap: 8 }]}>
+          <Pressable
+            onPress={() => router.push("/details/tips-today" as any)}
+            style={({ pressed }) => [s.tipBanner, { marginHorizontal: 0, marginBottom: 0 }, pressed && { opacity: 0.85 }]}
+          >
             <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
-            <Text style={s.tipBannerText} numberOfLines={2}>{todayMainTip}</Text>
-          </View>
-          <View style={[s.checkinDismissedCard, { flex: 1, marginHorizontal: 0, marginBottom: 0 }]}>
+            <Text style={[s.tipBannerText, { flex: 1 }]} numberOfLines={3}>{todayMainTip}</Text>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#C4A35A" />
+          </Pressable>
+          <View style={[s.checkinDismissedCard, { marginHorizontal: 0, marginBottom: 0 }]}>
             <MaterialIcons name="check-circle" size={16} color="#1B4332" />
             <Text style={s.checkinDismissedText} numberOfLines={2}>
               {tx(lang, "Dagelijkse check-in voltooid", "Daily check-in completed", "تم إكمال المراجعة اليومية")}

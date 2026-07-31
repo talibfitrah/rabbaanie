@@ -27,6 +27,18 @@ import {
   type SavedPrayerLocation,
 } from "./prayer-data";
 
+// Reminder body/subtitle in the user's language: Arabic + translation for nl/en (msg 734).
+function dhikrBody(d: { text: string; textNL?: string; textEN?: string }, language: string): string {
+  if (language === "nl" && d.textNL) return d.text + "\n" + d.textNL;
+  if (language === "en" && d.textEN) return d.text + "\n" + d.textEN;
+  return d.text;
+}
+function dhikrReward(d: { reward?: string; rewardNL?: string; rewardEN?: string }, language: string): string {
+  if (language === "nl" && d.rewardNL) return d.rewardNL;
+  if (language === "en" && d.rewardEN) return d.rewardEN;
+  return d.reward || "";
+}
+
 // ============ NOTIFICATION TYPES ============
 
 const MURAQABA_TYPE = "muraqaba_reminder";
@@ -86,8 +98,8 @@ export async function scheduleImanNotifications(
       await Notifications.scheduleNotificationAsync({
         content: {
           title: language === "ar" ? "المراقبة - الله يراك" : language === "en" ? "Self-Monitoring - Allah Sees You" : "Zelfreflectie - Allah Ziet Je",
-          body: dhikr.text,
-          subtitle: dhikr.reward || "",
+          body: dhikrBody(dhikr, language),
+          subtitle: dhikrReward(dhikr, language),
           data: { type: MURAQABA_TYPE, url: "/details/adhkar?type=muraqaba", ruling: "واجب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
           ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
@@ -132,7 +144,7 @@ export async function scheduleImanNotifications(
                 await Notifications.scheduleNotificationAsync({
                   content: {
                     title: language === "ar" ? "الإخلاص قبل الصلاة" : language === "en" ? "Sincerity Before Prayer" : "Oprechtheid Vóór het Gebed",
-                    body: randomIkhlas.text,
+                    body: dhikrBody(randomIkhlas, language),
                     data: { type: IKHLAS_TYPE, url: "/details/adhkar?type=ikhlas", ruling: "واجب", showPopup: true },
                     ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID } : {}),
                   },
@@ -157,8 +169,8 @@ export async function scheduleImanNotifications(
       await Notifications.scheduleNotificationAsync({
         content: {
           title: language === "ar" ? "الخشوع في الصلاة" : language === "en" ? "Humility in Prayer" : "Khushoo in het Gebed",
-          body: randomKhushoo.text,
-          subtitle: randomKhushoo.reward || "",
+          body: dhikrBody(randomKhushoo, language),
+          subtitle: dhikrReward(randomKhushoo, language),
           data: { type: KHUSHOO_TYPE, url: "/details/adhkar?type=khushoo", ruling: "واجب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
           ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
@@ -182,8 +194,8 @@ export async function scheduleImanNotifications(
       await Notifications.scheduleNotificationAsync({
         content: {
           title: language === "ar" ? "الدعاء لأولادك" : language === "en" ? "Du'a for Your Children" : "Smeekbede voor Je Kinderen",
-          body: randomDua.text,
-          subtitle: randomDua.source || "",
+          body: dhikrBody(randomDua, language),
+          subtitle: dhikrReward(randomDua, language),
           data: { type: DUA_CHILDREN_TYPE, url: "/details/adhkar?type=dua-children", ruling: "مستحب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
           ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
