@@ -73,7 +73,7 @@ export default function SunnahScreen() {
     const body =
       `🕌 ${L(m.title)}\n\n` +
       `• ${tt("Ikhlaas", "Sincerity", "تذكيرُ الإخلاص")}: ${L(m.ikhlas)}\n\n` +
-      m.duas.map((d) => `• ${d.text}${d.translit ? `\n${d.translit}` : ""}${!isAr && (d.nl || d.en) ? `\n${tt(d.nl || "", d.en || "", "")}` : ""}\n(${L(d.source)})${d.reward ? `\n${tt("Beloning", "Reward", "الأجر")}: ${L(d.reward)}` : ""}`).join("\n\n") +
+      m.duas.map((d) => `• ${d.text}${!isAr && d.translit ? `\n${d.translit}` : ""}${!isAr && (d.nl || d.en) ? `\n${tt(d.nl || "", d.en || "", "")}` : ""}\n(${L(d.source)})${d.reward ? `\n${tt("Beloning", "Reward", "الأجر")}: ${L(d.reward)}` : ""}`).join("\n\n") +
       `\n\n— ${tt("Metgezel van de Soennah, Rabbaanie", "Sunnah Companion, Rabbaanie", "رفيق السنّة، تطبيق ربّانيّ")}`;
     Share.share({ message: body }).catch(() => {});
   };
