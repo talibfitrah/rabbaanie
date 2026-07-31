@@ -1,0 +1,136 @@
+app/(tabs)/settings.tsx
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 2620,2699,2704-2716
+  s_c57d7c3b91fc8d::t_836c187db3c829 2717
+app.config.ts
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 41-54,58,63,81-82
+app/_layout.tsx
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 24-25,147-154,482
+hooks/use-updates.ts
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1,3-23,31,35-106,108-127,130-141,143-171,173-176,178,180-182,185,187,189-191,196-197,199-202,204-207,209-259,263-265,269-281,283-284,286,288-323
+lib/app-version.ts
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1-53
+.github/workflows/release.yml
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1-91
+lib/app-version.test.ts
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1-84
+docs/superpowers/plans/2026-07-23-apk-updater.md
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1-758
+package.json
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 43,51
+.gitignore
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 85-87
+docs/superpowers/specs/2026-07-23-apk-updater-design.md
+  s_c57d7c3b91fc8d::t_75825815f3bcaa 1-96
+assets/data/library/book_1.json
+  s_c57d7c3b91fc8d::t_35ea10e6f47a56 1-1291
+assets/data/library/book_10.json
+  s_c57d7c3b91fc8d::t_fea5184cc9a0c2 1-7662
+assets/data/library/book_11.json
+  s_c57d7c3b91fc8d::t_4606b75b215fc6 1-269
+assets/data/library/book_12.json
+  s_c57d7c3b91fc8d::t_535c5b907bd1ba 1-147
+assets/data/library/book_13.json
+  s_c57d7c3b91fc8d::t_9cf225b288c824 1-133
+assets/data/library/book_14.json
+  s_c57d7c3b91fc8d::t_93d7b58ac173ca 1-93
+assets/data/library/book_15.json
+  s_c57d7c3b91fc8d::t_1f53781d2d2d39 1-639
+assets/data/library/book_16.json
+  s_c57d7c3b91fc8d::t_9cad55c678e82e 1-1197
+assets/data/library/book_17.json
+  s_c57d7c3b91fc8d::t_a744ef6910ebf0 1-415
+assets/data/library/book_18.json
+  s_c57d7c3b91fc8d::t_7c4843b6e97619 1-353
+assets/data/library/book_19.json
+  s_c57d7c3b91fc8d::t_31e88401fa49e7 1-607
+assets/data/library/book_2.json
+  s_c57d7c3b91fc8d::t_fa92077bc1007d 1-522
+assets/data/library/book_20.json
+  s_c57d7c3b91fc8d::t_78e4a3fadd247c 1-745
+assets/data/library/book_21.json
+  s_c57d7c3b91fc8d::t_751bd462d2c767 1-231
+assets/data/library/book_22.json
+  s_c57d7c3b91fc8d::t_8f0b67d985669d 1-235
+assets/data/library/book_23.json
+  s_c57d7c3b91fc8d::t_2c311513e79976 1-467
+assets/data/library/book_24.json
+  s_c57d7c3b91fc8d::t_fbd5bf2f3d235f 1-325
+assets/data/library/book_25.json
+  s_c57d7c3b91fc8d::t_9de23fd6c394fd 1-597
+assets/data/library/book_26.json
+  s_c57d7c3b91fc8d::t_2f129dbd4ccd09 1-1049
+assets/data/library/book_27.json
+  s_c57d7c3b91fc8d::t_4ae614a9975799 1-61
+assets/data/library/book_28.json
+  s_c57d7c3b91fc8d::t_cd84b064173f7a 1-85
+assets/data/library/book_29.json
+  s_c57d7c3b91fc8d::t_c516d7e37f1272 1-45
+assets/data/library/book_3.json
+  s_c57d7c3b91fc8d::t_def973c3d6c14e 1-11184
+assets/data/library/book_30.json
+  s_c57d7c3b91fc8d::t_a8a5cbbb5e0c78 1-61
+assets/data/library/book_31.json
+  s_c57d7c3b91fc8d::t_ad8b4b3682d2f9 1-45
+assets/data/library/book_32.json
+  s_c57d7c3b91fc8d::t_52d0988db98a11 1-29
+assets/data/library/book_33.json
+  s_c57d7c3b91fc8d::t_46c296cd9c1283 1-101
+assets/data/library/book_34.json
+  s_c57d7c3b91fc8d::t_5212cb40ce72c4 1-61
+assets/data/library/book_35.json
+  s_c57d7c3b91fc8d::t_13ca23f0f37323 1-37
+assets/data/library/book_36.json
+  s_c57d7c3b91fc8d::t_4a1071d88c45fc 1-29
+assets/data/library/book_37.json
+  s_c57d7c3b91fc8d::t_1511917a3cf094 1-37
+assets/data/library/book_38.json
+  s_c57d7c3b91fc8d::t_4eb34c21d13ec1 1-29
+assets/data/library/book_39.json
+  s_c57d7c3b91fc8d::t_130dfcff250ce1 1-61
+assets/data/library/book_4.json
+  s_c57d7c3b91fc8d::t_44a9596864de51 1-5749
+assets/data/library/book_40.json
+  s_c57d7c3b91fc8d::t_96c83dd74edd05 1-101
+assets/data/library/book_41.json
+  s_c57d7c3b91fc8d::t_6ef98db469fb7a 1-69
+assets/data/library/book_42.json
+  s_c57d7c3b91fc8d::t_82975dc30fcfe0 1-45
+assets/data/library/book_43.json
+  s_c57d7c3b91fc8d::t_d9f044ee9dacdb 1-29
+assets/data/library/book_44.json
+  s_c57d7c3b91fc8d::t_cb248d06747f04 1-26
+assets/data/library/book_45.json
+  s_c57d7c3b91fc8d::t_0f0726e04a0013 1-1092
+assets/data/library/book_5.json
+  s_c57d7c3b91fc8d::t_d98ddc2446a73b 1-4665
+assets/data/library/book_6.json
+  s_c57d7c3b91fc8d::t_d75e72b6ca7598 1-2435
+assets/data/library/book_7.json
+  s_c57d7c3b91fc8d::t_2b1bd1616cdee6 1-1284
+assets/data/library/book_8.json
+  s_c57d7c3b91fc8d::t_b8044eecc34f4e 1-1214
+assets/data/library/book_9.json
+  s_c57d7c3b91fc8d::t_47876418dd2984 1-1033
+assets/data/library/cover_urls.json
+  s_c57d7c3b91fc8d::t_79a13d1b6396d3 1-16
+assets/data/library/index.json
+  s_c57d7c3b91fc8d::t_dd95b9a13b8285 1-872
+pnpm-lock.yaml
+  s_c57d7c3b91fc8d::t_9cb1ada5ce936e 68-70,92-94
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "2236af2a4cc2d11b24e73bc1bfd8594f73bba057",
+  "prompts": {},
+  "sessions": {
+    "s_c57d7c3b91fc8d": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e3f642fc-eaec-4461-9559-06b8151b17b2",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
