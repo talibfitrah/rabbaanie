@@ -11,7 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWeeklyData } from "@/hooks/use-weekly-data";
 import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
-import { PremiumNotice } from "@/components/premium-notice";
+import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -371,8 +371,11 @@ export default function WeeklyScreen() {
     return lang === "nl" ? `Jaar ${y} (${y} jaar)` : `Year ${y} (${y} years old)`;
   })();
 
+  const { subscribed: _psub, loading: _pload } = usePremiumGate();
+  if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
+
   return (
-    
+
     <View style={[s.container, { backgroundColor: colors.background }]}>
       <View style={{ paddingTop: insets.top }}>
         <DateTimeHeader />

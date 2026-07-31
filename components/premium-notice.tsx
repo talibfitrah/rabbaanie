@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity } from "react-native";
+import { Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
@@ -24,6 +24,35 @@ export function PremiumNotice() {
       </Text>
       <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={22} color="#B8860B" />
     </TouchableOpacity>
+  );
+}
+
+/**
+ * Full-screen gate (msg 829): renders `children` only for subscribers; everyone
+ * else sees a locked view with a subscribe CTA — so special services cannot be
+ * accessed without the annual membership (parity with the website gating).
+ */
+export function PremiumGate({ children }: { children: React.ReactNode }) {
+  const colors = useColors();
+  const router = useRouter();
+  const { language, isRTL } = useI18n();
+  const { subscribed, loading } = useSubscription();
+  const tx = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
+  if (loading) return null;
+  if (subscribed) return <>{children}</>;
+  return (
+    <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: colors.background }}>
+      <MaterialIcons name="lock" size={56} color="#B8860B" />
+      <Text style={{ color: colors.text, fontWeight: "800", fontSize: 18, textAlign: "center", marginTop: 16 }}>
+        {tx("خدمةٌ خاصّةٌ بالمشتركين", "Dienst voor abonnees", "A subscribers' service")}
+      </Text>
+      <Text style={{ color: colors.muted, fontSize: 14, textAlign: "center", marginTop: 8, lineHeight: 22, writingDirection: isRTL ? "rtl" : "ltr" }}>
+        {tx("اشترك بالعضويّة السنويّة (١٢€) لتفتح هذه الخدمة لأسرتك، بلا إعلانات.", "Word jaarlid (€12) om deze dienst voor uw gezin te openen, advertentievrij.", "Get the annual membership (€12) to unlock this service for your family, ad-free.")}
+      </Text>
+      <TouchableOpacity onPress={() => router.push("/subscribe" as any)} style={{ marginTop: 22, backgroundColor: "#1B4332", paddingVertical: 13, paddingHorizontal: 30, borderRadius: 12 }}>
+        <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{tx("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>
+      </TouchableOpacity>
+    </View>
   );
 }
 
