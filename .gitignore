@@ -78,3 +78,7 @@ local-docs/
 
 # gstack local security reports
 .gstack/
+
+# Local tool output (knowledge graph, browser session artifacts)
+graphify-out/
+.playwright-mcp/
