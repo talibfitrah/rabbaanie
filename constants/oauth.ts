@@ -2,17 +2,7 @@ import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import * as ReactNative from "react-native";
 
-// Extract scheme from bundle ID (last segment timestamp, prefixed with "manus")
-// Must match the same transformation as app.config.ts
-const rawBundleId = "com.app.opvoedadvies_apk";
-const bundleId = rawBundleId
-  .replace(/[-_]/g, ".")
-  .replace(/[^a-zA-Z0-9.]/g, "")
-  .replace(/\.+/g, ".")
-  .replace(/^\.+|\.+$/g, "")
-  .toLowerCase();
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+import { APP_SCHEME } from "./app-identity";
 
 const env = {
   portal: process.env.EXPO_PUBLIC_OAUTH_PORTAL_URL ?? "",
@@ -21,7 +11,7 @@ const env = {
   ownerId: process.env.EXPO_PUBLIC_OWNER_OPEN_ID ?? "",
   ownerName: process.env.EXPO_PUBLIC_OWNER_NAME ?? "",
   apiBaseUrl: process.env.EXPO_PUBLIC_API_BASE_URL ?? "",
-  deepLinkScheme: schemeFromBundleId,
+  deepLinkScheme: APP_SCHEME,
 };
 
 export const OAUTH_PORTAL_URL = env.portal;

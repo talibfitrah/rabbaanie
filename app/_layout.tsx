@@ -113,7 +113,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (loading && !timedOut) return;
-    const inAuthGroup = segments[0] === "login" || segments[0] === "oauth" || segments[0] === "register" || segments[0] === "forgot-password";
+    const inAuthGroup = segments[0] === "login" || segments[0] === "oauth" || segments[0] === "forgot-password";
     console.log("[AuthGate] Check:", { isAuthenticated, loading, timedOut, segment: segments[0], inAuthGroup });
     // Login is REQUIRED - redirect to login if not authenticated
     if (!isAuthenticated && !inAuthGroup) {
@@ -489,7 +489,6 @@ export default function RootLayout() {
                   <Stack.Screen name="language-select" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="child" options={{ headerShown: false, animation: "slide_from_right" }} />
                   <Stack.Screen name="login" options={{ gestureEnabled: false }} />
-                  <Stack.Screen name="register" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="forgot-password" options={{ gestureEnabled: true, animation: "slide_from_bottom" }} />
                   <Stack.Screen name="permissions-setup" options={{ gestureEnabled: false }} />
                   <Stack.Screen name="oauth/callback" options={{ gestureEnabled: false }} />

@@ -59,7 +59,7 @@ import {
 import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
-import { useUpdates } from "@/hooks/use-updates";
+import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
 
 
 const REMINDER_OPTIONS_KEYS = [
@@ -1817,8 +1817,19 @@ export default function SettingsScreen() {
         </SettingsCollapsible>
       )}
 
-      {/* App Updates Section */}
-      <SettingsCollapsible title={language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App Updates"} icon="system-update" colors={colors} isRTL={isRTL}>
+      {/* App Updates Section — in the Play build the updater controls are gone
+          (Play does the updating), so the section is titled for what it still
+          shows rather than promising updates it does not perform. */}
+      <SettingsCollapsible
+        title={
+          UPDATER_ENABLED
+            ? (language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App-updates")
+            : (language === "ar" ? "إصدار التطبيق" : isEn ? "App Version" : "App-versie")
+        }
+        icon="system-update"
+        colors={colors}
+        isRTL={isRTL}
+      >
         <UpdateSection colors={colors} language={language} isRTL={isRTL} isEn={isEn} />
       </SettingsCollapsible>
 
@@ -2646,14 +2657,14 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
               v{currentVersion}
             </Text>
           </View>
-          {!isUpdateAvailable && (
+          {UPDATER_ENABLED && !isUpdateAvailable && (
             <View style={{ backgroundColor: colors.success + "20", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: "600", color: colors.success }}>
                 {tx("Bijgewerkt", "Up to date", "محدّث")}
               </Text>
             </View>
           )}
-          {isUpdateAvailable && (
+          {UPDATER_ENABLED && isUpdateAvailable && (
             <View style={{ backgroundColor: colors.warning + "20", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: "600", color: colors.warning }}>
                 {tx("Update beschikbaar", "Update available", "تحديث متاح")}
@@ -2663,6 +2674,10 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
         </View>
       </View>
 
+      {/* Update controls exist only in the sideload build — the Play build is
+          updated by Play itself and must not offer its own updater. */}
+      {UPDATER_ENABLED && (
+      <>
       {/* Last Checked */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
         <MaterialIcons name="schedule" size={16} color={colors.muted} />
@@ -2728,6 +2743,8 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
           </Text>
         </View>
       </View>
+      </>
+      )}
     </View>
   );
 }

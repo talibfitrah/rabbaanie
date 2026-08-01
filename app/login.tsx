@@ -62,9 +62,9 @@ export default function LoginScreen() {
           ));
         } else if (response.status === 404) {
           setError(tx(
-            "Account niet gevonden. Maak eerst een account aan.",
-            "Account not found. Please register first.",
-            "الحساب غير موجود. سجّل أولاً."
+            "Geen account gevonden met dit e-mailadres.",
+            "No account found with this email address.",
+            "لا يوجد حساب بهذا البريد الإلكتروني."
           ));
         } else {
           setError(data.error || data.message || "Login failed");
@@ -332,17 +332,6 @@ export default function LoginScreen() {
                 </Text>
               </TouchableOpacity>
 
-              {/* Register Link */}
-              <View style={{ alignItems: "center", marginTop: 16 }}>
-                <TouchableOpacity onPress={() => router.push("/register")} activeOpacity={0.7}>
-                  <Text style={{ fontSize: 14, color: colors.muted }}>
-                    {tx("Nog geen account? ", "Don't have an account? ", "ليس لديك حساب؟ ")}
-                    <Text style={{ color: colors.primary, fontWeight: "600" }}>
-                      {tx("Registreer", "Register", "سجّل الآن")}
-                    </Text>
-                  </Text>
-                </TouchableOpacity>
-              </View>
             </View>
           </View>
         </ScrollView>

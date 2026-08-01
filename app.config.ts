@@ -1,48 +1,50 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
-
-// Bundle ID format: space.manus.<project_name_dots>.<timestamp>
-// e.g., "my-app" created at 2024-01-15 10:30:45 -> "space.manus.my.app.t20240115103045"
-// Bundle ID can only contain letters, numbers, and dots
-// Android requires each dot-separated segment to start with a letter
-const rawBundleId = "com.app.opvoedadvies_apk";
-const bundleId =
-  rawBundleId
-    .replace(/[-_]/g, ".") // Replace hyphens/underscores with dots
-    .replace(/[^a-zA-Z0-9.]/g, "") // Remove invalid chars
-    .replace(/\.+/g, ".") // Collapse consecutive dots
-    .replace(/^\.+|\.+$/g, "") // Trim leading/trailing dots
-    .toLowerCase()
-    .split(".")
-    .map((segment) => {
-      // Android requires each segment to start with a letter
-      // Prefix with 'x' if segment starts with a digit
-      return /^[a-zA-Z]/.test(segment) ? segment : "x" + segment;
-    })
-    .join(".") || "space.manus.app";
-// Extract timestamp from bundle ID and prefix with "manus" for deep link scheme
-// e.g., "space.manus.my.app.t20240115103045" -> "manus20240115103045"
-const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-const schemeFromBundleId = `manus${timestamp}`;
+import { APP_PACKAGE, APP_SCHEME } from "./constants/app-identity.js";
 
 const env = {
   // App branding - update these values directly (do not use env vars)
   appName: "\u0631\u0628\u0651\u0627\u0646\u064A\u0651",
+  // Left at the old value on purpose. The slug is Expo project identity, never
+  // shown to users and absent from the Play listing, so renaming it buys nothing
+  // for the store submission while touching how the project is identified to
+  // Expo tooling right before the first release. Change it separately if ever.
   appSlug: "opvoedadvies_apk",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
   logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343602506/hDLuUkY85hL92tUfMz5bZ4/logo_hands_circle_notext-6n223JNfdi7RAqyCbpkijv.png",
-  scheme: schemeFromBundleId,
-  iosBundleId: bundleId,
-  androidPackage: bundleId,
+  scheme: APP_SCHEME,
+  iosBundleId: APP_PACKAGE,
+  androidPackage: APP_PACKAGE,
 };
 
+// Which channel this build is for. Google Play forbids an app distributed on
+// Play from updating itself outside Play's own mechanism, so the Play build must
+// ship WITHOUT the in-app APK updater and WITHOUT REQUEST_INSTALL_PACKAGES.
+// Defaults to "play" so a forgotten env var yields the restricted (safe) build
+// rather than silently shipping the forbidden permission to the Play Console.
+//
+// Namespaced: a bare DISTRIBUTION is commonly set by container images and distro
+// tooling, and because an unrecognised value throws, that collision would break
+// every expo command (including the config regeneration Gradle runs in preBuild)
+// on any machine that happens to define it.
+const DISTRIBUTION = process.env.APP_DISTRIBUTION ?? "play";
+if (DISTRIBUTION !== "play" && DISTRIBUTION !== "github") {
+  throw new Error(`APP_DISTRIBUTION must be "play" or "github", got "${DISTRIBUTION}"`);
+}
+const isGithubBuild = DISTRIBUTION === "github";
+
 // APP_VERSION comes from the release tag in CI (see release.yml); the fallback
-// applies to local dev builds only. Numbering continues from Manus 1.1.29.
+// applies to local dev builds only. The shipped lineage is ahead of what the
+// original updater plan assumed (it said "continues from Manus 1.1.29"): the
+// build actually distributed to users is 1.4.69, hosted at
+// api.rabbaanie.com/downloads under the legacy com.app.opvoedadvies.apk id.
+// Keep this fallback at or above that so a local build never claims to be older
+// than what users already run.
 // versionCode is ALWAYS derived from the version here, so name and code can
 // never diverge and a missing/empty env var can't yield an invalid 0.
-const APP_VERSION = process.env.APP_VERSION ?? "1.2.0";
+const APP_VERSION = process.env.APP_VERSION ?? "1.4.69";
 // Same shape the release workflow enforces on the tag: three parts, minor/patch
 // 0-999 (the versionCode formula collides beyond that), no leading zeros. This
 // makes a bad local APP_VERSION fail loudly instead of shipping a wrong code.
@@ -51,6 +53,14 @@ if (!/^(0|[1-9]\d*)\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})$/.test(APP_VERSION)) {
 }
 const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
 const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
+// Google Play requires 1 <= versionCode <= 2100000000. Both ends are reachable
+// from a tag the regex above accepts — v0.0.0 yields 0, and any major >= 2100
+// overflows — and Play rejects the upload rather than the build, so catch it here.
+if (APP_VERSION_CODE < 1 || APP_VERSION_CODE > 2_100_000_000) {
+  throw new Error(
+    `APP_VERSION "${APP_VERSION}" yields versionCode ${APP_VERSION_CODE}, outside Play's 1..2100000000`
+  );
+}
 
 const config: ExpoConfig = {
   name: env.appName,
@@ -79,7 +89,34 @@ const config: ExpoConfig = {
     softwareKeyboardLayoutMode: "pan",
     package: env.androidPackage,
     versionCode: APP_VERSION_CODE,
-    permissions: ["POST_NOTIFICATIONS", "USE_FULL_SCREEN_INTENT", "SCHEDULE_EXACT_ALARM", "VIBRATE", "WAKE_LOCK", "REQUEST_INSTALL_PACKAGES"],
+    permissions: [
+      "POST_NOTIFICATIONS",
+      "USE_FULL_SCREEN_INTENT",
+      "SCHEDULE_EXACT_ALARM",
+      "VIBRATE",
+      "WAKE_LOCK",
+      // Sideload channel only — see DISTRIBUTION above.
+      ...(isGithubBuild ? ["REQUEST_INSTALL_PACKAGES"] : []),
+    ],
+    // Permissions pulled in by dependencies that this app never exercises.
+    // blockedPermissions emits tools:node="remove", which wins in the manifest
+    // merger no matter which library added them — expo-camera's plugin is
+    // auto-applied with its defaults, so subtracting via plugin options does
+    // not work.
+    //
+    //   SYSTEM_ALERT_WINDOW  Expo's template adds it for the dev-menu overlay.
+    //     Nothing here draws over other apps, and left in it combines with
+    //     PACKAGE_USAGE_STATS (child app-usage monitoring) plus a child-inclusive
+    //     target audience into the permission set Play screens as stalkerware.
+    //   RECORD_AUDIO  expo-camera declares it for video capture. The camera is
+    //     used only for QR scanning and still photos, and the only expo-av calls
+    //     are Audio.Sound playback, so nothing records. A microphone permission
+    //     on an app whose declared audience includes children is a review flag
+    //     with no feature behind it.
+    blockedPermissions: [
+      "android.permission.SYSTEM_ALERT_WINDOW",
+      "android.permission.RECORD_AUDIO",
+    ],
     intentFilters: [
       {
         action: "VIEW",
@@ -171,7 +208,7 @@ const config: ExpoConfig = {
     [
       "expo-location",
       {
-        locationWhenInUsePermission: "Opvoedadvies gebruikt uw locatie voor locatiegebonden adviezen en waarschuwingen.",
+        locationWhenInUsePermission: "Rabbaanie gebruikt uw locatie voor gebedstijden, qibla-richting en locatiegebonden adviezen.",
       },
     ],
 
@@ -193,6 +230,12 @@ const config: ExpoConfig = {
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,
+          // Left off deliberately. R8 breaks reflection-based code, and this app
+          // carries several surfaces that use it: react-native-android-widget,
+          // the Kotlin usage-stats module, and Expo's autolinked modules. No
+          // release build of this app has ever succeeded, so there is no
+          // known-good baseline to compare a minified build against. Turn these
+          // on as their own change, then verify the resulting build on a device.
           enableProguardInReleaseBuilds: false,
           enableShrinkResourcesInReleaseBuilds: false,
         },
@@ -202,6 +245,11 @@ const config: ExpoConfig = {
   experiments: {
     typedRoutes: true,
     reactCompiler: false,
+  },
+  // Read at runtime by hooks/use-updates.ts so the Play build never offers an
+  // in-app update, matching the permission gating above.
+  extra: {
+    distribution: DISTRIBUTION,
   },
 };
 
