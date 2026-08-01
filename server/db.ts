@@ -138,6 +138,19 @@ export async function getUserByOpenId(openId: string) {
   return result.length > 0 ? result[0] : undefined;
 }
 
+/**
+ * Look up a user by email. Used by the OAuth gate to tell "no account at all"
+ * apart from "account exists but was created with a password on the website" —
+ * never to grant a session, because the OAuth userinfo carries no
+ * email-verified flag and an unverified match would be an account-takeover.
+ */
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  const result = await db.select().from(users).where(eq(users.email, email)).limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
 export async function getUserById(id: number) {
   const db = await getDb();
   if (!db) return undefined;

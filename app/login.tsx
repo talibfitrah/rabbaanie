@@ -119,6 +119,28 @@ export default function LoginScreen() {
         const token = url.searchParams.get("token");
         const userParam = url.searchParams.get("user");
 
+        // Accounts are created on the website, so a Google identity with no
+        // Rabbaanie account is denied. State the outcome and nothing more — no
+        // link and no signup wording, which Play's Payments policy treats as
+        // steering when the account behind it is a paid subscription.
+        const denied = url.searchParams.get("error");
+        if (denied === "no_account") {
+          setError(tx(
+            "Geen Rabbaanie-account gevonden voor dit Google-account.",
+            "No Rabbaanie account is linked to this Google account.",
+            "لا يوجد حساب ربّانيّ مرتبط بحساب Google هذا."
+          ));
+          return;
+        }
+        if (denied === "email_account") {
+          setError(tx(
+            "Dit e-mailadres heeft een account met een wachtwoord. Log hierboven in met je e-mailadres.",
+            "This email has a password account. Sign in with your email and password above.",
+            "هذا البريد لديه حساب بكلمة مرور. سجّل الدخول أعلاه ببريدك وكلمة المرور."
+          ));
+          return;
+        }
+
         if (token && userParam) {
           try {
             const userData = JSON.parse(decodeURIComponent(userParam));
@@ -138,6 +160,13 @@ export default function LoginScreen() {
             console.error("[Login] Failed to parse Google user:", parseErr);
           }
         }
+        // Reached when the callback carried neither a session nor a known error
+        // code; without this the sheet just closed and the screen sat silent.
+        setError(tx(
+          "Google-inloggen mislukt. Probeer het opnieuw.",
+          "Google sign-in failed. Please try again.",
+          "فشل تسجيل الدخول بـ Google. حاول مرة أخرى."
+        ));
       } else if (result.type === "cancel" || result.type === "dismiss") {
         return;
       }
