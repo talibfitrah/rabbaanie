@@ -192,7 +192,8 @@ export default function SettingsScreen() {
   const { colorScheme, setColorScheme } = useThemeContext();
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
+  const deleteAccountMutation = trpc.profile.deleteAccount.useMutation();
   const myIdQuery = trpc.links.getMyId.useQuery(undefined, { enabled: isAuthenticated });
   const [showFrequency, setShowFrequency] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -992,6 +993,46 @@ export default function SettingsScreen() {
           onPress: async () => {
             await resetState();
             router.replace("/onboarding");
+          },
+        },
+      ]
+    );
+  };
+
+  // Google Play requires an in-app way to request account deletion for any app
+  // carrying user accounts, and the Data safety form has to point at one.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      language === "ar" ? "حذف الحساب؟" : isEn ? "Delete account?" : "Account verwijderen?",
+      language === "ar"
+        ? "سيتم حذف حسابك وبياناتك. لا يمكن التراجع عن هذا، وسيتم تسجيل خروجك."
+        : isEn
+          ? "Your account and its data will be deleted. This cannot be undone and you will be signed out."
+          : "Je account en gegevens worden verwijderd. Dit kan niet ongedaan worden gemaakt en je wordt uitgelogd.",
+      [
+        { text: language === "ar" ? "إلغاء" : isEn ? "Cancel" : "Annuleren", style: "cancel" },
+        {
+          text: language === "ar" ? "حذف" : isEn ? "Delete" : "Verwijderen",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccountMutation.mutateAsync();
+            } catch {
+              Alert.alert(
+                language === "ar" ? "فشل الحذف" : isEn ? "Deletion failed" : "Verwijderen mislukt",
+                language === "ar"
+                  ? "تعذر حذف حسابك. حاول مرة أخرى لاحقًا."
+                  : isEn
+                    ? "We could not delete your account. Please try again later."
+                    : "We konden je account niet verwijderen. Probeer het later opnieuw."
+              );
+              return;
+            }
+            // Only clear the device once the server confirmed, otherwise the
+            // user is signed out of an account that still exists.
+            await resetState();
+            await logout();
+            router.replace("/login");
           },
         },
       ]
@@ -1909,6 +1950,26 @@ export default function SettingsScreen() {
           {t("settings.reset_all")}
         </Text>
       </Pressable>
+
+      {/* Account deletion — required by Google Play for apps with accounts */}
+      {isAuthenticated && (
+        <Pressable
+          onPress={handleDeleteAccount}
+          disabled={deleteAccountMutation.isPending}
+          style={({ pressed }) => [{
+            backgroundColor: colors.error,
+            borderRadius: 12,
+            paddingVertical: 16,
+            alignItems: "center" as const,
+            marginTop: 12,
+            opacity: pressed || deleteAccountMutation.isPending ? 0.7 : 1,
+          }]}
+        >
+          <Text style={{ fontWeight: "bold", color: "#fff" }}>
+            {language === "ar" ? "حذف الحساب" : isEn ? "Delete account" : "Account verwijderen"}
+          </Text>
+        </Pressable>
+      )}
       </ScrollView>
     </View>
   );

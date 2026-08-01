@@ -963,6 +963,17 @@ Respond in JSON format:
 // USER PROFILE ROUTER
 // ============================================================
 const profileRouter = router({
+  /**
+   * Self-service account deletion. Google Play requires an in-app path to
+   * request deletion for any app that carries user accounts, and the Data
+   * safety form has to declare one. Soft delete: db.deleteUser stamps
+   * deletedAt, which the partner lookups already filter on.
+   */
+  deleteAccount: protectedProcedure.mutation(async ({ ctx }) => {
+    await db.deleteUser(ctx.user.id);
+    return { deleted: true };
+  }),
+
   /** Save user profile to server */
   save: protectedProcedure
     .input(z.object({ profileData: z.any() }))
