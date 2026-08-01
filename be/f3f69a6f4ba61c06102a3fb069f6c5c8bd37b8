@@ -1,0 +1,23 @@
+server/web-auth.ts
+  s_ae540d9f842a02::t_ac01f0b844b6f1 8
+  s_ae540d9f842a02::t_7a93ab502e904c 120-126
+server/db.ts
+  s_ae540d9f842a02::t_4d2d40ff2736d0 137-145
+  s_ae540d9f842a02::t_65884b8311ed0e 158-164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "bef3f69a6f4ba61c06102a3fb069f6c5c8bd37b8",
+  "prompts": {},
+  "sessions": {
+    "s_ae540d9f842a02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b03c9fb-df2f-4a99-a074-3162075d1c60",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
