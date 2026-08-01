@@ -5,7 +5,7 @@ import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
 import { getDb } from "./db";
 import { users, userFunctions } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { and, eq, isNull } from "drizzle-orm";
 
 const SALT_ROUNDS = 12;
 
@@ -117,8 +117,13 @@ export function registerWebAuthRoutes(app: Express) {
         return;
       }
 
-      // Find user by email
-      const [user] = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      // Find user by email, excluding soft-deleted accounts so a deleted user
+      // cannot log back in with their old password.
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, email), isNull(users.deletedAt)))
+        .limit(1);
       if (!user) {
         res.status(401).json({ error: "Invalid email or password" });
         return;
