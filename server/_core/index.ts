@@ -16,6 +16,7 @@ import { mountPublicSite } from "../public-site";
 import { mountWebDashboard } from "../web-dashboard";
 import { mountAdminPanel } from "../admin-panel";
 import { registerWebAuthRoutes } from "../web-auth";
+import { registerLegalRoutes } from "../legal";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -70,6 +71,7 @@ async function startServer() {
   registerStorageProxy(app);
   registerOAuthRoutes(app);
   registerWebAuthRoutes(app);
+  registerLegalRoutes(app);
   registerQuranRoutes(app);
   registerAdhkarRoutes(app);
 

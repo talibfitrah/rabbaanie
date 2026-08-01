@@ -18,6 +18,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Import native module (safe - returns fallbacks on web/iOS)
 import * as UsageStatsNative from "../modules/usage-stats/src";
+import { APP_PACKAGE } from "../constants/app-identity";
 
 const APP_USAGE_KEY = "child_app_usage_sessions";
 const EXTERNAL_USAGE_KEY = "child_external_app_usage";
@@ -243,8 +244,13 @@ export async function syncUsageToServer(childAccountId: number, apiBaseUrl: stri
     const allApps = [
       // In-app screens
       ...Object.entries(screenTotals).map(([screen, seconds]) => ({
-        packageName: "space.manus.opvoedadvies",
-        appName: `Rabbaani - ${screen}`,
+        // Deliberately NOT the bare package name: UsageStatsModule does not
+        // exclude this app from getDailyUsage, so the parent would receive these
+        // synthetic per-screen rows and the OS's own row for the app under one
+        // identifier, with no way to tell them apart. The suffix is not an
+        // installed package, so it cannot collide.
+        packageName: `${APP_PACKAGE}.screens`,
+        appName: `Rabbaanie - ${screen}`,
         usageSeconds: seconds,
         category: categorizeScreen(screen),
         openCount: 0,

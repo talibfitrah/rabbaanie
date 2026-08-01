@@ -1,7 +1,19 @@
 import { COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
 import type { Express, Request, Response } from "express";
-import { getUserByOpenId, upsertUser } from "../db";
+import { getUserByEmail, getUserByOpenId, upsertUser } from "../db";
 import { getSessionCookieOptions } from "./cookies";
+
+/**
+ * Raised when an OAuth identity authenticates successfully but has no Rabbaanie
+ * account. `reason` reaches the client as an `error` query param so the sign-in
+ * screen can state which case it is.
+ */
+export class NoAccountError extends Error {
+  constructor(readonly reason: "no_account" | "email_account") {
+    super(reason);
+    this.name = "NoAccountError";
+  }
+}
 import { sdk } from "./sdk";
 
 function getQueryParam(req: Request, key: string): string | undefined {
@@ -9,7 +21,7 @@ function getQueryParam(req: Request, key: string): string | undefined {
   return typeof value === "string" ? value : undefined;
 }
 
-async function syncUser(userInfo: {
+export async function syncUser(userInfo: {
   openId?: string | null;
   name?: string | null;
   email?: string | null;
@@ -18,6 +30,20 @@ async function syncUser(userInfo: {
 }) {
   if (!userInfo.openId) {
     throw new Error("openId missing from user info");
+  }
+
+  // Sign-in only: accounts are created on rabbaanie.com, never here. This used to
+  // be an unconditional upsert, so a first-time OAuth identity silently minted a
+  // full account and walked straight past the subscription.
+  const existing = await getUserByOpenId(userInfo.openId);
+  if (!existing) {
+    // Distinguish "no account" from "account exists but was created with a
+    // password on the website" so the app can say which. Deliberately NOT a
+    // login path: the OAuth userinfo has no email-verified flag, so granting a
+    // session on an email match would let anyone claim an account by signing up
+    // to the identity provider with someone else's address.
+    const byEmail = userInfo.email ? await getUserByEmail(userInfo.email) : undefined;
+    throw new NoAccountError(byEmail ? "email_account" : "no_account");
   }
 
   const lastSignedIn = new Date();
@@ -91,6 +117,10 @@ export function registerOAuthRoutes(app: Express) {
         "http://localhost:8081";
       res.redirect(302, frontendUrl);
     } catch (error) {
+      if (error instanceof NoAccountError) {
+        res.status(403).json({ error: error.reason });
+        return;
+      }
       console.error("[OAuth] Callback failed", error);
       res.status(500).json({ error: "OAuth callback failed" });
     }
@@ -180,6 +210,10 @@ export function registerOAuthRoutes(app: Express) {
         user: buildUserResponse(user),
       });
     } catch (error) {
+      if (error instanceof NoAccountError) {
+        res.status(403).json({ error: error.reason });
+        return;
+      }
       console.error("[OAuth] Mobile exchange failed", error);
       res.status(500).json({ error: "OAuth mobile exchange failed" });
     }

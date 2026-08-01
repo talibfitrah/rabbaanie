@@ -12,6 +12,20 @@ jobs:
     runs-on: ubuntu-latest
     # All actions SHA-pinned: a moved tag on a compromised action must not be
     # able to tamper with the APK users install.
+    env:
+      # This is the sideload channel: it keeps the in-app APK updater and the
+      # REQUEST_INSTALL_PACKAGES permission it needs. play-release.yml must NOT
+      # set this (its default of "play" is what strips both).
+      #
+      # Job-level, NOT step-level. expo-constants registers a Gradle task that
+      # re-executes app.config.ts on every build and bundles the result as the
+      # `app.config` asset that Constants.expoConfig reads at runtime
+      # (expo-constants/scripts/get-app-config-android.gradle: it is marked
+      # outputs.upToDateWhen { false } and wired into preBuild). Setting this on
+      # the prebuild step alone puts the permission in the manifest while the
+      # Gradle step re-evaluates the config with DISTRIBUTION unset — shipping a
+      # sideload APK whose updater is permanently dead.
+      APP_DISTRIBUTION: github
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
 
@@ -48,18 +62,49 @@ jobs:
       # Gate the signed release on the updater logic: a regression in version
       # comparison or asset selection must not ship. Scoped to the updater
       # tests (the wider suite has pre-existing data-fixture failures).
+      # oauth-login-flow pins the package name. A rename breaks upgrades on this
+      # channel too — Android installs a changed package alongside the old app
+      # instead of updating it — so both channels gate on it, not just Play.
       - name: Verify
         run: |
           pnpm exec tsc --noEmit
-          pnpm exec vitest run lib/app-version.test.ts
+          pnpm exec vitest run lib/app-version.test.ts tests/oauth-login-flow.test.ts
 
-      # Reads APP_VERSION / APP_VERSION_CODE from env via app.config.ts
+      # Reads APP_VERSION / APP_VERSION_CODE and APP_DISTRIBUTION from the job env.
       - name: Generate native Android project
         run: pnpm exec expo prebuild --platform android --no-install
 
       - name: Build release APK
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
+
+      # Mirror image of the Play gate: this channel's whole purpose is the
+      # self-updater, so assert the permission IS present and that the config
+      # Gradle embedded actually says "github". Without this, a DISTRIBUTION
+      # regression ships green and only surfaces as users reporting that
+      # updates stopped arriving.
+      - name: Assert this is a working sideload build
+        run: |
+          MERGED=$(find android/app/build/intermediates/merged_manifests/release \
+                     -name AndroidManifest.xml | head -n1)
+          if [ -z "$MERGED" ]; then
+            echo "Could not locate the merged release manifest" >&2
+            exit 1
+          fi
+          if ! grep -q "android.permission.REQUEST_INSTALL_PACKAGES" "$MERGED"; then
+            echo "REQUEST_INSTALL_PACKAGES missing — the updater cannot install anything" >&2
+            exit 1
+          fi
+          # Read the app.config asset out of the PACKAGED APK rather than the
+          # build intermediate — the packaged copy is what Constants.expoConfig
+          # actually reads on device, so this proves the shipped artifact.
+          APK=android/app/build/outputs/apk/release/app-release.apk
+          if ! unzip -p "$APK" assets/app.config | grep -q '"distribution":"github"'; then
+            echo "Packaged config is not distribution=github — updater would be dead:" >&2
+            unzip -p "$APK" assets/app.config | grep -o '"distribution":"[^"]*"' >&2 || true
+            exit 1
+          fi
+          echo "Sideload build verified: permission present, distribution=github."
 
       - name: Sign APK
         env:
@@ -68,9 +113,11 @@ jobs:
           ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
           ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
         run: |
-          # Delete the decrypted keystore no matter how this step exits.
+          # Delete the decrypted keystore no matter how this step exits, and
+          # create it under a restrictive umask so it is never group/world
+          # readable while it exists.
           trap 'rm -f release.p12' EXIT
-          echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.p12
+          ( umask 077; echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.p12 )
           BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
           "$BUILD_TOOLS/apksigner" sign \
             --ks release.p12 --ks-type PKCS12 \
@@ -79,10 +126,26 @@ jobs:
             --key-pass env:ANDROID_KEY_PASSWORD \
             --out "rabbaanie-v${APP_VERSION}.apk" \
             android/app/build/outputs/apk/release/app-release.apk
-          # After v1.2.0 ships, pin the expected signer here so a wrong/rotated
-          # keystore fails the build instead of publishing a non-upgradable APK:
-          #   "$BUILD_TOOLS/apksigner" verify --print-certs "rabbaanie-v${APP_VERSION}.apk" | grep -q "SHA-256 digest: <fingerprint>"
-          "$BUILD_TOOLS/apksigner" verify --print-certs "rabbaanie-v${APP_VERSION}.apk"
+          # Pinned signer: a wrong or rotated keystore must fail here rather than
+          # publish an APK that existing installs cannot upgrade to (Android
+          # refuses an update signed by a different key).
+          EXPECTED="d81a74e972038b3096f7a10b811744a476335f98cbc5bf9408ba233e21f35b63"
+          CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs "rabbaanie-v${APP_VERSION}.apk")
+          echo "$CERTS"
+          # Anchored on "certificate SHA-256 digest" specifically: --print-certs
+          # also emits a public-key digest line, and matching either would make
+          # the pin weaker than it looks.
+          if ! echo "$CERTS" | grep -qi "certificate SHA-256 digest: $EXPECTED"; then
+            echo "APK is not signed by the expected certificate" >&2
+            exit 1
+          fi
+          # grep -q would pass on "expected cert AND some other signer too", so
+          # count as well — the invariant is signed by that cert and nothing else.
+          SIGNERS=$(echo "$CERTS" | grep -ci "certificate SHA-256 digest:" || true)
+          if [ "$SIGNERS" -ne 1 ]; then
+            echo "Expected exactly 1 signer, found $SIGNERS" >&2
+            exit 1
+          fi
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2

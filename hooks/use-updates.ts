@@ -22,6 +22,13 @@ const FLAG_GRANT_READ_URI_PERMISSION = 1;
 const INSTALLED_VERSION =
   Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "0.0.0";
 
+// Google Play forbids an app distributed on Play from updating itself by any
+// mechanism other than Play's own. The Play build therefore ships without
+// REQUEST_INSTALL_PACKAGES (see DISTRIBUTION in app.config.ts) — this flag keeps
+// the matching code paths dark so nothing can attempt an install it cannot do.
+// Settings reads it to hide the update controls entirely.
+export const UPDATER_ENABLED = Constants.expoConfig?.extra?.distribution === "github";
+
 export interface UpdateState {
   isChecking: boolean;
   isDownloading: boolean;
@@ -74,7 +81,7 @@ async function downloadAndApplyUpdate() {
   // the module-level `pending`, and we must not mix one version's URL with
   // another version's filename.
   const target = pending;
-  if (__DEV__ || Platform.OS !== "android" || !target) return;
+  if (__DEV__ || !UPDATER_ENABLED || Platform.OS !== "android" || !target) return;
   if (store.isDownloading) return;
   set({ isDownloading: true, downloadProgress: 0, error: null });
 
@@ -171,7 +178,7 @@ async function downloadAndApplyUpdate() {
 }
 
 async function checkForUpdate(silent: boolean = false) {
-  if (__DEV__ || Platform.OS !== "android") {
+  if (__DEV__ || !UPDATER_ENABLED || Platform.OS !== "android") {
     if (!silent) {
       if (__DEV__) {
         Alert.alert(
@@ -183,6 +190,8 @@ async function checkForUpdate(silent: boolean = false) {
           )
         );
       } else {
+        // Non-Android, non-dev. The Play build cannot land here — Settings hides
+        // the only control that calls this — so there is no Play-specific branch.
         Alert.alert(
           tx("Niet beschikbaar", "Not Available", "غير متاح"),
           tx(
@@ -283,7 +292,7 @@ export function useUpdates(language: string = "ar", autoCheck: boolean = false) 
   // Launch instance only: sweep leftover APK downloads, then check silently
   // after a 3s delay so the app finishes loading first. Guarded to run once.
   useEffect(() => {
-    if (!autoCheck || __DEV__ || Platform.OS !== "android" || launchCheckDone) return;
+    if (!autoCheck || __DEV__ || !UPDATER_ENABLED || Platform.OS !== "android" || launchCheckDone) return;
 
     (async () => {
       try {

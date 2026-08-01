@@ -1,4 +1,5 @@
 import { describe, it, expect, vi, beforeEach } from "vitest";
+import { APP_PACKAGE, APP_SCHEME } from "../constants/app-identity";
 
 /**
  * Tests for the OAuth login flow fixes:
@@ -8,32 +9,19 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 
 // Test the core logic without importing the actual module (which has RN dependencies)
 describe("OAuth Login Flow - Logic Tests", () => {
-  it("should derive correct scheme from bundle ID", () => {
-    // Replicate the logic from constants/oauth.ts
-    const rawBundleId = "com.app.opvoedadvies_apk";
-    const bundleId = rawBundleId
-      .replace(/[-_]/g, ".")
-      .replace(/[^a-zA-Z0-9.]/g, "")
-      .replace(/\.+/g, ".")
-      .replace(/^\.+|\.+$/g, "")
-      .toLowerCase()
-      .split(".")
-      .map((segment) => (/^[a-zA-Z]/.test(segment) ? segment : "x" + segment))
-      .join(".");
-    const timestamp = bundleId.split(".").pop()?.replace(/^t/, "") ?? "";
-    const scheme = `manus${timestamp}`;
-
-    expect(bundleId).toBe("com.app.opvoedadvies.apk");
-    expect(timestamp).toBe("apk");
-    expect(scheme).toBe("manusapk");
+  // The package name is permanent once published to Google Play — this test
+  // exists so a rename can never happen by accident.
+  it("pins the published package name and deep link scheme", () => {
+    expect(APP_PACKAGE).toBe("com.rabbaanie.app");
+    expect(APP_SCHEME).toBe("rabbaanie");
   });
 
   it("should construct correct native redirect URI", () => {
-    const apiBaseUrl = "https://opvoedapp-hdluuky8.manus.space";
+    const apiBaseUrl = "https://api.rabbaanie.com";
     const redirectUri = `${apiBaseUrl}/api/oauth/native-callback`;
 
     expect(redirectUri).toBe(
-      "https://opvoedapp-hdluuky8.manus.space/api/oauth/native-callback"
+      "https://api.rabbaanie.com/api/oauth/native-callback"
     );
   });
 
@@ -41,7 +29,7 @@ describe("OAuth Login Flow - Logic Tests", () => {
     const portalUrl = "https://manus.im";
     const appId = "testAppId";
     const redirectUri =
-      "https://opvoedapp-hdluuky8.manus.space/api/oauth/native-callback";
+      "https://api.rabbaanie.com/api/oauth/native-callback";
     const state = Buffer.from(redirectUri, "utf-8").toString("base64");
 
     const url = new URL(`${portalUrl}/app-auth`);
@@ -62,7 +50,7 @@ describe("OAuth Login Flow - Logic Tests", () => {
   it("should parse deep link URL params correctly", () => {
     // Simulate what the app receives after successful OAuth
     const deepLinkUrl =
-      "manusapk:///oauth/callback?sessionToken=abc123&user=eyJpZCI6MSwibmFtZSI6IlRlc3QifQ==";
+      "rabbaanie:///oauth/callback?sessionToken=abc123&user=eyJpZCI6MSwibmFtZSI6IlRlc3QifQ==";
 
     const url = new URL(deepLinkUrl);
     const sessionToken = url.searchParams.get("sessionToken");
@@ -80,7 +68,7 @@ describe("OAuth Login Flow - Logic Tests", () => {
 
   it("should handle error in deep link URL", () => {
     const deepLinkUrl =
-      "manusapk:///oauth/callback?error=OAuth%20mobile%20exchange%20failed";
+      "rabbaanie:///oauth/callback?error=OAuth%20mobile%20exchange%20failed";
 
     const url = new URL(deepLinkUrl);
     const error = url.searchParams.get("error");

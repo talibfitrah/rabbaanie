@@ -59,7 +59,7 @@ import {
 import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
-import { useUpdates } from "@/hooks/use-updates";
+import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
 
 
 const REMINDER_OPTIONS_KEYS = [
@@ -192,7 +192,8 @@ export default function SettingsScreen() {
   const { colorScheme, setColorScheme } = useThemeContext();
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, logout } = useAuth();
+  const deleteAccountMutation = trpc.profile.deleteAccount.useMutation();
   const myIdQuery = trpc.links.getMyId.useQuery(undefined, { enabled: isAuthenticated });
   const [showFrequency, setShowFrequency] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -992,6 +993,46 @@ export default function SettingsScreen() {
           onPress: async () => {
             await resetState();
             router.replace("/onboarding");
+          },
+        },
+      ]
+    );
+  };
+
+  // Google Play requires an in-app way to request account deletion for any app
+  // carrying user accounts, and the Data safety form has to point at one.
+  const handleDeleteAccount = () => {
+    Alert.alert(
+      language === "ar" ? "حذف الحساب؟" : isEn ? "Delete account?" : "Account verwijderen?",
+      language === "ar"
+        ? "سيتم حذف حسابك وبياناتك. لا يمكن التراجع عن هذا، وسيتم تسجيل خروجك."
+        : isEn
+          ? "Your account and its data will be deleted. This cannot be undone and you will be signed out."
+          : "Je account en gegevens worden verwijderd. Dit kan niet ongedaan worden gemaakt en je wordt uitgelogd.",
+      [
+        { text: language === "ar" ? "إلغاء" : isEn ? "Cancel" : "Annuleren", style: "cancel" },
+        {
+          text: language === "ar" ? "حذف" : isEn ? "Delete" : "Verwijderen",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              await deleteAccountMutation.mutateAsync();
+            } catch {
+              Alert.alert(
+                language === "ar" ? "فشل الحذف" : isEn ? "Deletion failed" : "Verwijderen mislukt",
+                language === "ar"
+                  ? "تعذر حذف حسابك. حاول مرة أخرى لاحقًا."
+                  : isEn
+                    ? "We could not delete your account. Please try again later."
+                    : "We konden je account niet verwijderen. Probeer het later opnieuw."
+              );
+              return;
+            }
+            // Only clear the device once the server confirmed, otherwise the
+            // user is signed out of an account that still exists.
+            await resetState();
+            await logout();
+            router.replace("/login");
           },
         },
       ]
@@ -1817,8 +1858,19 @@ export default function SettingsScreen() {
         </SettingsCollapsible>
       )}
 
-      {/* App Updates Section */}
-      <SettingsCollapsible title={language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App Updates"} icon="system-update" colors={colors} isRTL={isRTL}>
+      {/* App Updates Section — in the Play build the updater controls are gone
+          (Play does the updating), so the section is titled for what it still
+          shows rather than promising updates it does not perform. */}
+      <SettingsCollapsible
+        title={
+          UPDATER_ENABLED
+            ? (language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App-updates")
+            : (language === "ar" ? "إصدار التطبيق" : isEn ? "App Version" : "App-versie")
+        }
+        icon="system-update"
+        colors={colors}
+        isRTL={isRTL}
+      >
         <UpdateSection colors={colors} language={language} isRTL={isRTL} isEn={isEn} />
       </SettingsCollapsible>
 
@@ -1898,6 +1950,26 @@ export default function SettingsScreen() {
           {t("settings.reset_all")}
         </Text>
       </Pressable>
+
+      {/* Account deletion — required by Google Play for apps with accounts */}
+      {isAuthenticated && (
+        <Pressable
+          onPress={handleDeleteAccount}
+          disabled={deleteAccountMutation.isPending}
+          style={({ pressed }) => [{
+            backgroundColor: colors.error,
+            borderRadius: 12,
+            paddingVertical: 16,
+            alignItems: "center" as const,
+            marginTop: 12,
+            opacity: pressed || deleteAccountMutation.isPending ? 0.7 : 1,
+          }]}
+        >
+          <Text style={{ fontWeight: "bold", color: "#fff" }}>
+            {language === "ar" ? "حذف الحساب" : isEn ? "Delete account" : "Account verwijderen"}
+          </Text>
+        </Pressable>
+      )}
       </ScrollView>
     </View>
   );
@@ -2646,14 +2718,14 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
               v{currentVersion}
             </Text>
           </View>
-          {!isUpdateAvailable && (
+          {UPDATER_ENABLED && !isUpdateAvailable && (
             <View style={{ backgroundColor: colors.success + "20", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: "600", color: colors.success }}>
                 {tx("Bijgewerkt", "Up to date", "محدّث")}
               </Text>
             </View>
           )}
-          {isUpdateAvailable && (
+          {UPDATER_ENABLED && isUpdateAvailable && (
             <View style={{ backgroundColor: colors.warning + "20", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 4 }}>
               <Text style={{ fontSize: 11, fontWeight: "600", color: colors.warning }}>
                 {tx("Update beschikbaar", "Update available", "تحديث متاح")}
@@ -2663,6 +2735,10 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
         </View>
       </View>
 
+      {/* Update controls exist only in the sideload build — the Play build is
+          updated by Play itself and must not offer its own updater. */}
+      {UPDATER_ENABLED && (
+      <>
       {/* Last Checked */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingHorizontal: 4 }}>
         <MaterialIcons name="schedule" size={16} color={colors.muted} />
@@ -2728,6 +2804,8 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
           </Text>
         </View>
       </View>
+      </>
+      )}
     </View>
   );
 }

@@ -134,7 +134,34 @@ export async function upsertUser(user: InsertUser): Promise<void> {
 export async function getUserByOpenId(openId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  const result = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+  // Excludes soft-deleted accounts: every caller is an auth path
+  // (sdk.authenticateRequest and the OAuth sign-in gate). Without this, a
+  // deleted account keeps authenticating on its existing session token and can
+  // sign in again, so deletion would not actually revoke access.
+  const result = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.openId, openId), isNull(users.deletedAt)))
+    .limit(1);
+  return result.length > 0 ? result[0] : undefined;
+}
+
+/**
+ * Look up a user by email. Used by the OAuth gate to tell "no account at all"
+ * apart from "account exists but was created with a password on the website" —
+ * never to grant a session, because the OAuth userinfo carries no
+ * email-verified flag and an unverified match would be an account-takeover.
+ */
+export async function getUserByEmail(email: string) {
+  const db = await getDb();
+  if (!db) return undefined;
+  // Soft-deleted accounts are excluded here too, so a deleted user gets
+  // "no account" from the OAuth gate rather than "use your password".
+  const result = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.email, email), isNull(users.deletedAt)))
+    .limit(1);
   return result.length > 0 ? result[0] : undefined;
 }
 
