@@ -1,0 +1,120 @@
+app/_layout.tsx
+  s_ae540d9f842a02::t_f98c7be82abf5f 116
+package.json
+  s_ae540d9f842a02::t_34434435e676b1 3
+  s_bc6624d330d620::t_b0b0a3231f1637 118-121
+app.config.ts
+  s_ae540d9f842a02::t_203902d159db7c 39-44
+  s_bc6624d330d620::t_3e378e62897335 101-119
+  s_bc6624d330d620::t_fdb5f4ac4cc8a6 249-253
+  s_bc6624d330d620::t_f68528b873a73f 9-12
+  s_bc6624d330d620::t_ccd5ec12a2a438 17-19,22-26,33,35-36
+  s_bc6624d330d620::t_c1464e8926cb0a 56-63
+  s_bc6624d330d620::t_5bcb177327ecaa 32,34
+  s_bc6624d330d620::t_d6996786ca4916 92-100
+  s_bc6624d330d620::t_6616fbb7d3c360 233-238
+  s_ae540d9f842a02::t_a1b8d3344a1951 47
+  s_bc6624d330d620::t_a55a2a9e7c01a7 4
+  s_bc6624d330d620::t_b635085894b05e 211
+  s_bc6624d330d620::t_86d9fd38709fe9 27-31
+  s_bc6624d330d620::t_f8851c8d40378c 37
+.npmrc
+  s_bc6624d330d620::t_7b5f5820ff12a0 2-6
+app/+not-found.tsx
+  s_ae540d9f842a02::t_6a2d1986ee8cb1 4,11,22
+  s_ae540d9f842a02::t_dfc60f5870b769 1-2,14,17-20
+  s_ae540d9f842a02::t_5fa1096e80e639 3,13,15-16
+  s_ae540d9f842a02::t_1edb4e89f7b06b 7
+  s_ae540d9f842a02::t_aadbc7f31a6e32 5-6,8-10,12,21
+hooks/use-updates.ts
+  s_bc6624d330d620::t_533df4b453150e 295
+  s_bc6624d330d620::t_8d53e013690005 84
+  s_bc6624d330d620::t_0b840fe995174b 181
+  s_bc6624d330d620::t_283fd1c0e8c0f0 193-194
+  s_bc6624d330d620::t_7925c5f1f49e0c 25-31
+app/login.tsx
+  s_ae540d9f842a02::t_c5377624f8b66c 65-67
+.github/workflows/release.yml
+  s_bc6624d330d620::t_22f4b2102bbadc 81-97,105-107
+  s_bc6624d330d620::t_48681d182e56e8 28,73
+  s_bc6624d330d620::t_2398732944992a 65-67,71
+  s_bc6624d330d620::t_805a00a2d2fb6a 15-27
+  s_bc6624d330d620::t_c75aff5ef9f60c 98-104
+  s_bc6624d330d620::t_7d985cfc876974 129-132,139,147-148
+  s_bc6624d330d620::t_ef0ad64a890a80 133-138,140-146
+  s_bc6624d330d620::t_68957e784b384d 116-118,120
+  s_bc6624d330d620::t_86daa50704b490 108
+constants/oauth.ts
+  s_bc6624d330d620::t_72d93d1dac1774 5
+  s_bc6624d330d620::t_b3c81de39c1754 14
+constants/app-identity.js
+  s_bc6624d330d620::t_3394bd37dfc5d5 3,14,39-50
+  s_bc6624d330d620::t_4bcd3b3e51b060 37-38,52
+  s_bc6624d330d620::t_a6adc8a0160489 4-13
+  s_bc6624d330d620::t_3f1207fcbf3932 1,17-33,36,51
+  s_bc6624d330d620::t_fb86e815bf2cc6 2
+  s_bc6624d330d620::t_bab8642fa33446 15-16
+  s_bc6624d330d620::t_54860e77c1231a 34-35
+.github/workflows/play-release.yml
+  s_bc6624d330d620::t_70d44c59062e23 156-161,166-167,171-175
+  s_bc6624d330d620::t_7e838f312c8121 68-69,73
+  s_bc6624d330d620::t_e1a08f81a289e6 81-85,91-97,121,152-155,168-170,176-178
+  s_bc6624d330d620::t_2018a0a4e1d374 98-102,104-109,115,117-119,122
+  s_bc6624d330d620::t_eeed65541838b8 86-90,103,112,114,116,120
+  s_bc6624d330d620::t_76a330a93df2c9 110-111,113
+  s_bc6624d330d620::t_0efe65d5a53c05 130-133
+  s_bc6624d330d620::t_04a17d57c56678 124-127,139-150
+  s_bc6624d330d620::t_4bebd26fea1317 1-8,25-67,70-72,74-80,123,128-129,134-138,151,162-163,179-185
+  s_bc6624d330d620::t_d24d020031687b 164-165
+  s_bc6624d330d620::t_d627da17deb9e2 9-24
+tests/oauth-login-flow.test.ts
+  s_bc6624d330d620::t_fcac9adecc42a1 32,53,71
+  s_bc6624d330d620::t_814a132f932ae5 12-16,20
+  s_bc6624d330d620::t_f1b0137ea7bb1e 2
+  s_bc6624d330d620::t_eb628c5e686987 24
+app/(tabs)/settings.tsx
+  s_bc6624d330d620::t_fabcea5e2a7d86 2660,2667
+  s_bc6624d330d620::t_2b6609cd597092 62
+  s_bc6624d330d620::t_23a718127f046c 2677-2680
+  s_bc6624d330d620::t_95859b806fb00e 2746-2747
+  s_bc6624d330d620::t_6195941c910570 1826
+  s_bc6624d330d620::t_ed7672e8354a26 1820-1825,1827-1832
+lib/app-usage-tracker.ts
+  s_bc6624d330d620::t_d613037824d969 253
+  s_bc6624d330d620::t_603d9c47fb57b2 21
+  s_bc6624d330d620::t_0e7d9640977700 247-252
+CLAUDE.md
+  s_751243e97b402a::t_adb88713f049a3 66-75
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "e6b88aea0808825ea2ce461859b41bf1209ff12a",
+  "prompts": {},
+  "sessions": {
+    "s_751243e97b402a": {
+      "agent_id": {
+        "tool": "codex",
+        "id": "019fbac3-2c53-7c72-9aad-f6b712fd1910",
+        "model": "gpt-5.6-sol"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    },
+    "s_ae540d9f842a02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b03c9fb-df2f-4a99-a074-3162075d1c60",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    },
+    "s_bc6624d330d620": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "28d9bf61-1d2a-448d-befb-924bf8402de6",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
