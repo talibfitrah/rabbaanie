@@ -8,6 +8,7 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   TextInput,
+  Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
@@ -22,6 +23,13 @@ import {
   GoogleSignInError,
 } from "@/lib/google-oauth";
 import Svg, { Path } from "react-native-svg";
+import Constants from "expo-constants";
+
+// Set from APP_DISTRIBUTION in app.config.ts ("play" | "github"); "play" is the
+// default there, so an absent/unknown value fails closed to the Play wording.
+const IS_SIDELOAD_BUILD =
+  Constants.expoConfig?.extra?.distribution === "github";
+const SUPPORT_EMAIL = "support@albunyaan.tv";
 
 /**
  * Login Screen - Email/Password + Google Sign-In
@@ -562,6 +570,56 @@ export default function LoginScreen() {
                   </TouchableOpacity>
                 </>
               )}
+
+              {/* Sideload build points at the website; the Play build must not,
+                  because rabbaanie.com sells the subscription outside Play
+                  billing (anti-steering). Play users get a support contact —
+                  allowed app furniture — so a stranded user still has a path. */}
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(
+                    IS_SIDELOAD_BUILD
+                      ? "https://rabbaanie.com"
+                      : `mailto:${SUPPORT_EMAIL}`,
+                  ).catch(() => {})
+                }
+                accessibilityRole="link"
+                activeOpacity={0.6}
+                style={{
+                  minHeight: 44,
+                  marginTop: 8,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: colors.muted,
+                    textAlign: "center",
+                  }}
+                >
+                  {IS_SIDELOAD_BUILD
+                    ? tx(
+                        "Nog geen account? Ga naar ",
+                        "No account yet? Go to ",
+                        "ليس لديك حساب؟ انتقل إلى ",
+                      )
+                    : tx(
+                        "Hulp nodig bij het inloggen? Mail ",
+                        "Need help signing in? Contact ",
+                        "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
+                      )}
+                  <Text
+                    style={{
+                      color: colors.primary,
+                      textDecorationLine: "underline",
+                    }}
+                  >
+                    {IS_SIDELOAD_BUILD ? "rabbaanie.com" : SUPPORT_EMAIL}
+                  </Text>
+                </Text>
+              </TouchableOpacity>
             </View>
           </View>
         </ScrollView>

@@ -33,6 +33,17 @@ describe("release channel policy gates", () => {
     expect(config.extra?.releaseFeatures).toEqual({
       childMonitoring: false,
     });
+    // login.tsx keys the sign-up link off this exact value. If it stops being
+    // "play" here, the Play build starts linking to rabbaanie.com, which sells
+    // the subscription outside Play billing (anti-steering violation).
+    expect(config.extra?.distribution).toBe("play");
+  });
+
+  it("defaults to the Play channel when APP_DISTRIBUTION is unset", async () => {
+    delete process.env.APP_DISTRIBUTION;
+    vi.resetModules();
+    const config = (await import("../app.config")).default;
+    expect(config.extra?.distribution).toBe("play");
   });
 
   it("retains the sideload-only capabilities for GitHub builds", async () => {
@@ -47,5 +58,6 @@ describe("release channel policy gates", () => {
     expect(config.extra?.releaseFeatures).toEqual({
       childMonitoring: true,
     });
+    expect(config.extra?.distribution).toBe("github");
   });
 });
