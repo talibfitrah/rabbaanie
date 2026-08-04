@@ -1,0 +1,39 @@
+hooks/use-subscription.ts
+  s_630a2be95d1962::t_38b0be49ca87a3 30,38-46
+  s_630a2be95d1962::t_8ce9a8c9eb3ea1 57
+app/(tabs)/settings.tsx
+  s_630a2be95d1962::t_b75a37387c6a0e 2737-2743
+  s_630a2be95d1962::t_c6c08031c2e7fe 2698
+  s_630a2be95d1962::t_cebeaf79102765 2844-2886
+  s_630a2be95d1962::t_c8717274933b27 2713-2715
+app/(tabs)/notification-settings.tsx
+  s_630a2be95d1962::t_902d917dc03cfa 433-436
+hooks/use-push-notifications.ts
+  s_630a2be95d1962::t_2facb448143187 99-101,104
+  s_630a2be95d1962::t_7507f8285df85d 105
+app/(tabs)/messages.tsx
+  s_630a2be95d1962::t_dbb318fbcaeda1 91
+  s_630a2be95d1962::t_d8f496d454c0e4 173-176,183
+app/add-child.tsx
+  s_630a2be95d1962::t_fe928cdf9d4c88 25
+  s_630a2be95d1962::t_a7a757b0d131ba 37
+app/child/environment.tsx
+  s_630a2be95d1962::t_fbf0dff697817d 263
+  s_630a2be95d1962::t_620b1b554de9f1 307
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "e50ba8e78568a6af6ce7f4c7899bae894d3adcbf",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
