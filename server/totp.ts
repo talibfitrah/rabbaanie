@@ -2,7 +2,7 @@
  * TOTP (Time-based One-Time Password) implementation for admin 2FA.
  * Uses HMAC-SHA1 as per RFC 6238.
  */
-import { createHmac, randomBytes } from "crypto";
+import { createHash, createHmac, randomBytes } from "crypto";
 import { getDb } from "./db";
 import { admin2fa } from "../drizzle/schema";
 import { eq } from "drizzle-orm";
@@ -35,7 +35,11 @@ function base32Decode(encoded: string): Buffer {
 }
 
 /** Generate a TOTP code for a given secret and time */
-export function generateTOTP(secret: string, timeStep: number = 30, digits: number = 6): string {
+export function generateTOTP(
+  secret: string,
+  timeStep: number = 30,
+  digits: number = 6,
+): string {
   const time = Math.floor(Date.now() / 1000 / timeStep);
   const timeBuffer = Buffer.alloc(8);
   timeBuffer.writeBigUInt64BE(BigInt(time));
@@ -80,7 +84,11 @@ export function verifyTOTP(secret: string, token: string): boolean {
 }
 
 /** Generate otpauth:// URI for QR code */
-export function generateOTPAuthURI(secret: string, email: string, issuer: string = "Opvoedadvies"): string {
+export function generateOTPAuthURI(
+  secret: string,
+  email: string,
+  issuer: string = "Rabbaanie",
+): string {
   return `otpauth://totp/${encodeURIComponent(issuer)}:${encodeURIComponent(email)}?secret=${secret}&issuer=${encodeURIComponent(issuer)}&algorithm=SHA1&digits=6&period=30`;
 }
 
@@ -94,12 +102,33 @@ export function generateBackupCodes(count: number = 8): string[] {
   return codes;
 }
 
+export function hashBackupCode(code: string): string {
+  return createHash("sha256").update(code.trim().toUpperCase()).digest("hex");
+}
+
+export function normalizeStoredBackupCodes(value: unknown): string[] {
+  let parsed = value;
+  if (typeof parsed === "string") {
+    try {
+      parsed = JSON.parse(parsed);
+    } catch {
+      return [];
+    }
+  }
+  return Array.isArray(parsed)
+    ? parsed.filter((code): code is string => typeof code === "string")
+    : [];
+}
+
 // ============================================================
 // Database operations for 2FA
 // ============================================================
 
 /** Setup 2FA for a user (generates secret, not yet verified) */
-export async function setup2FA(userId: number, email: string): Promise<{ secret: string; uri: string; backupCodes: string[] }> {
+export async function setup2FA(
+  userId: number,
+  email: string,
+): Promise<{ secret: string; uri: string; backupCodes: string[] }> {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
 
@@ -107,28 +136,46 @@ export async function setup2FA(userId: number, email: string): Promise<{ secret:
   const backupCodes = generateBackupCodes();
   const uri = generateOTPAuthURI(secret, email);
 
-  // Upsert: delete existing then insert
+  const [existing] = await db
+    .select()
+    .from(admin2fa)
+    .where(eq(admin2fa.userId, userId));
+  if (existing?.verified) {
+    throw new Error("Two-factor authentication is already enabled");
+  }
+
+  // Replace only an incomplete enrollment. Verified factors must be disabled
+  // with a current factor before another setup can begin.
   await db.delete(admin2fa).where(eq(admin2fa.userId, userId));
   await db.insert(admin2fa).values({
     userId,
     secret,
     verified: false,
-    backupCodes: JSON.stringify(backupCodes),
+    backupCodes: backupCodes.map(hashBackupCode),
   });
 
   return { secret, uri, backupCodes };
 }
 
 /** Verify and activate 2FA */
-export async function verify2FASetup(userId: number, token: string): Promise<boolean> {
+export async function verify2FASetup(
+  userId: number,
+  token: string,
+): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
 
-  const [record] = await db.select().from(admin2fa).where(eq(admin2fa.userId, userId));
+  const [record] = await db
+    .select()
+    .from(admin2fa)
+    .where(eq(admin2fa.userId, userId));
   if (!record) return false;
 
   if (verifyTOTP(record.secret, token)) {
-    await db.update(admin2fa).set({ verified: true }).where(eq(admin2fa.userId, userId));
+    await db
+      .update(admin2fa)
+      .set({ verified: true })
+      .where(eq(admin2fa.userId, userId));
     return true;
   }
   return false;
@@ -139,27 +186,44 @@ export async function has2FA(userId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
 
-  const [record] = await db.select().from(admin2fa).where(eq(admin2fa.userId, userId));
+  const [record] = await db
+    .select()
+    .from(admin2fa)
+    .where(eq(admin2fa.userId, userId));
   return record?.verified === true;
 }
 
 /** Verify 2FA token for login */
-export async function verify2FALogin(userId: number, token: string): Promise<boolean> {
+export async function verify2FALogin(
+  userId: number,
+  token: string,
+): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
 
-  const [record] = await db.select().from(admin2fa).where(eq(admin2fa.userId, userId));
+  const [record] = await db
+    .select()
+    .from(admin2fa)
+    .where(eq(admin2fa.userId, userId));
   if (!record || !record.verified) return false;
 
   // Check TOTP
   if (verifyTOTP(record.secret, token)) return true;
 
   // Check backup codes
-  const backupCodes: string[] = record.backupCodes ? JSON.parse(JSON.stringify(record.backupCodes)) : [];
-  const idx = backupCodes.indexOf(token.toUpperCase());
+  const backupCodes = normalizeStoredBackupCodes(record.backupCodes);
+  const normalizedToken = token.trim().toUpperCase();
+  const tokenHash = hashBackupCode(normalizedToken);
+  const idx = backupCodes.findIndex(
+    (stored) =>
+      stored === tokenHash || stored.toUpperCase() === normalizedToken,
+  );
   if (idx >= 0) {
     backupCodes.splice(idx, 1);
-    await db.update(admin2fa).set({ backupCodes: JSON.stringify(backupCodes) }).where(eq(admin2fa.userId, userId));
+    await db
+      .update(admin2fa)
+      .set({ backupCodes })
+      .where(eq(admin2fa.userId, userId));
     return true;
   }
 
@@ -174,13 +238,18 @@ export async function disable2FA(userId: number): Promise<void> {
 }
 
 /** Get 2FA status for a user */
-export async function get2FAStatus(userId: number): Promise<{ enabled: boolean; hasBackupCodes: boolean }> {
+export async function get2FAStatus(
+  userId: number,
+): Promise<{ enabled: boolean; hasBackupCodes: boolean }> {
   const db = await getDb();
   if (!db) return { enabled: false, hasBackupCodes: false };
 
-  const [record] = await db.select().from(admin2fa).where(eq(admin2fa.userId, userId));
+  const [record] = await db
+    .select()
+    .from(admin2fa)
+    .where(eq(admin2fa.userId, userId));
   if (!record) return { enabled: false, hasBackupCodes: false };
 
-  const backupCodes: string[] = record.backupCodes ? JSON.parse(JSON.stringify(record.backupCodes)) : [];
+  const backupCodes = normalizeStoredBackupCodes(record.backupCodes);
   return { enabled: record.verified, hasBackupCodes: backupCodes.length > 0 };
 }

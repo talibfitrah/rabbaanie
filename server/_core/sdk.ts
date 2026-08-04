@@ -1,4 +1,8 @@
-import { AXIOS_TIMEOUT_MS, COOKIE_NAME, ONE_YEAR_MS } from "../../shared/const.js";
+import {
+  AXIOS_TIMEOUT_MS,
+  COOKIE_NAME,
+  ONE_YEAR_MS,
+} from "../../shared/const.js";
 import { ForbiddenError } from "../../shared/_core/errors.js";
 import axios, { type AxiosInstance } from "axios";
 import { parse as parseCookieHeader } from "cookie";
@@ -6,6 +10,11 @@ import type { Request } from "express";
 import { SignJWT, jwtVerify } from "jose";
 import type { User } from "../../drizzle/schema";
 import * as db from "../db";
+import {
+  getSessionVersion,
+  isSessionTokenRevoked,
+  revokeSessionToken,
+} from "./session-revocation";
 import { ENV } from "./env";
 import type {
   ExchangeTokenRequest,
@@ -22,6 +31,8 @@ export type SessionPayload = {
   openId: string;
   appId: string;
   name: string;
+  twoFactorVerifiedAt?: number;
+  sessionVersion?: number;
 };
 
 const EXCHANGE_TOKEN_PATH = `/webdev.v1.WebDevAuthPublicService/ExchangeToken`;
@@ -43,7 +54,10 @@ class OAuthService {
     return redirectUri;
   }
 
-  async getTokenByCode(code: string, state: string): Promise<ExchangeTokenResponse> {
+  async getTokenByCode(
+    code: string,
+    state: string,
+  ): Promise<ExchangeTokenResponse> {
     const payload: ExchangeTokenRequest = {
       clientId: ENV.appId,
       grantType: "authorization_code",
@@ -51,15 +65,23 @@ class OAuthService {
       redirectUri: this.decodeState(state),
     };
 
-    const { data } = await this.client.post<ExchangeTokenResponse>(EXCHANGE_TOKEN_PATH, payload);
+    const { data } = await this.client.post<ExchangeTokenResponse>(
+      EXCHANGE_TOKEN_PATH,
+      payload,
+    );
 
     return data;
   }
 
-  async getUserInfoByToken(token: ExchangeTokenResponse): Promise<GetUserInfoResponse> {
-    const { data } = await this.client.post<GetUserInfoResponse>(GET_USER_INFO_PATH, {
-      accessToken: token.accessToken,
-    });
+  async getUserInfoByToken(
+    token: ExchangeTokenResponse,
+  ): Promise<GetUserInfoResponse> {
+    const { data } = await this.client.post<GetUserInfoResponse>(
+      GET_USER_INFO_PATH,
+      {
+        accessToken: token.accessToken,
+      },
+    );
 
     return data;
   }
@@ -86,11 +108,16 @@ class SDKServer {
   ): string | null {
     if (fallback && fallback.length > 0) return fallback;
     if (!Array.isArray(platforms) || platforms.length === 0) return null;
-    const set = new Set<string>(platforms.filter((p): p is string => typeof p === "string"));
+    const set = new Set<string>(
+      platforms.filter((p): p is string => typeof p === "string"),
+    );
     if (set.has("REGISTERED_PLATFORM_EMAIL")) return "email";
     if (set.has("REGISTERED_PLATFORM_GOOGLE")) return "google";
     if (set.has("REGISTERED_PLATFORM_APPLE")) return "apple";
-    if (set.has("REGISTERED_PLATFORM_MICROSOFT") || set.has("REGISTERED_PLATFORM_AZURE"))
+    if (
+      set.has("REGISTERED_PLATFORM_MICROSOFT") ||
+      set.has("REGISTERED_PLATFORM_AZURE")
+    )
       return "microsoft";
     if (set.has("REGISTERED_PLATFORM_GITHUB")) return "github";
     const first = Array.from(set)[0];
@@ -102,7 +129,10 @@ class SDKServer {
    * @example
    * const tokenResponse = await sdk.exchangeCodeForToken(code, state);
    */
-  async exchangeCodeForToken(code: string, state: string): Promise<ExchangeTokenResponse> {
+  async exchangeCodeForToken(
+    code: string,
+    state: string,
+  ): Promise<ExchangeTokenResponse> {
     return this.oauthService.getTokenByCode(code, state);
   }
 
@@ -135,6 +165,32 @@ class SDKServer {
     return new Map(Object.entries(parsed));
   }
 
+  getRequestSessionToken(req: Request): string | null {
+    const authHeader = req.headers.authorization || req.headers.Authorization;
+    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
+      return authHeader.slice("Bearer ".length).trim() || null;
+    }
+    return this.parseCookies(req.headers.cookie).get(COOKIE_NAME) || null;
+  }
+
+  async revokeRequestSession(req: Request): Promise<boolean> {
+    const token = this.getRequestSessionToken(req);
+    if (!token) return false;
+
+    try {
+      const secretKey = this.getSessionSecret();
+      const { payload } = await jwtVerify(token, secretKey, {
+        algorithms: ["HS256"],
+      });
+      const expiresAt =
+        typeof payload.exp === "number" ? payload.exp * 1000 : Date.now();
+      await revokeSessionToken(token, new Date(expiresAt));
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
   private getSessionSecret() {
     const secret = ENV.cookieSecret;
     return new TextEncoder().encode(secret);
@@ -147,13 +203,20 @@ class SDKServer {
    */
   async createSessionToken(
     openId: string,
-    options: { expiresInMs?: number; name?: string } = {},
+    options: {
+      expiresInMs?: number;
+      name?: string;
+      twoFactorVerifiedAt?: number;
+    } = {},
   ): Promise<string> {
+    const sessionVersion = await getSessionVersion(openId);
     return this.signSession(
       {
         openId,
         appId: ENV.appId,
         name: options.name || "",
+        twoFactorVerifiedAt: options.twoFactorVerifiedAt,
+        sessionVersion,
       },
       options,
     );
@@ -172,15 +235,21 @@ class SDKServer {
       openId: payload.openId,
       appId: payload.appId,
       name: payload.name,
+      twoFactorVerifiedAt: payload.twoFactorVerifiedAt,
+      sessionVersion: payload.sessionVersion ?? 0,
     })
       .setProtectedHeader({ alg: "HS256", typ: "JWT" })
       .setExpirationTime(expirationSeconds)
       .sign(secretKey);
   }
 
-  async verifySession(
-    cookieValue: string | undefined | null,
-  ): Promise<{ openId: string; appId: string; name: string } | null> {
+  async verifySession(cookieValue: string | undefined | null): Promise<{
+    openId: string;
+    appId: string;
+    name: string;
+    twoFactorVerifiedAt: number | null;
+    sessionVersion: number;
+  } | null> {
     if (!cookieValue) {
       console.warn("[Auth] Missing session cookie");
       return null;
@@ -191,10 +260,30 @@ class SDKServer {
       const { payload } = await jwtVerify(cookieValue, secretKey, {
         algorithms: ["HS256"],
       });
-      const { openId, appId, name } = payload as Record<string, unknown>;
+      if (await isSessionTokenRevoked(cookieValue)) {
+        console.warn("[Auth] Revoked session rejected");
+        return null;
+      }
+      const { openId, appId, name, twoFactorVerifiedAt, sessionVersion } =
+        payload as Record<string, unknown>;
 
-      if (!isNonEmptyString(openId) || !isNonEmptyString(appId) || !isNonEmptyString(name)) {
+      if (
+        !isNonEmptyString(openId) ||
+        !isNonEmptyString(appId) ||
+        !isNonEmptyString(name)
+      ) {
         console.warn("[Auth] Session payload missing required fields");
+        return null;
+      }
+
+      const tokenSessionVersion =
+        typeof sessionVersion === "number" ? sessionVersion : 0;
+      if (
+        !Number.isSafeInteger(tokenSessionVersion) ||
+        tokenSessionVersion < 0 ||
+        tokenSessionVersion !== (await getSessionVersion(openId))
+      ) {
+        console.warn("[Auth] Stale session rejected");
         return null;
       }
 
@@ -202,6 +291,9 @@ class SDKServer {
         openId,
         appId,
         name,
+        twoFactorVerifiedAt:
+          typeof twoFactorVerifiedAt === "number" ? twoFactorVerifiedAt : null,
+        sessionVersion: tokenSessionVersion,
       };
     } catch (error) {
       console.warn("[Auth] Session verification failed", String(error));
@@ -209,7 +301,9 @@ class SDKServer {
     }
   }
 
-  async getUserInfoWithJwt(jwtToken: string): Promise<GetUserInfoWithJwtResponse> {
+  async getUserInfoWithJwt(
+    jwtToken: string,
+  ): Promise<GetUserInfoWithJwtResponse> {
     const payload: GetUserInfoWithJwtRequest = {
       jwtToken,
       projectId: ENV.appId,
@@ -233,14 +327,7 @@ class SDKServer {
 
   async authenticateRequest(req: Request): Promise<AuthenticatedUser> {
     // Regular authentication flow
-    const authHeader = req.headers.authorization || req.headers.Authorization;
-    let token: string | undefined;
-    if (typeof authHeader === "string" && authHeader.startsWith("Bearer ")) {
-      token = authHeader.slice("Bearer ".length).trim();
-    }
-
-    const cookies = this.parseCookies(req.headers.cookie);
-    const sessionCookie = token || cookies.get(COOKIE_NAME);
+    const sessionCookie = this.getRequestSessionToken(req);
     const session = await this.verifySession(sessionCookie);
 
     if (!session) {
@@ -287,7 +374,10 @@ class SDKServer {
       lastSignedIn: signedInAt,
     });
 
-    return user;
+    return {
+      ...user,
+      twoFactorVerifiedAt: session.twoFactorVerifiedAt,
+    };
   }
 }
 
@@ -297,9 +387,12 @@ const CRON_OPEN_ID_PREFIX = "cron_";
 export type AuthenticatedUser = User & {
   taskUid?: string;
   isCron?: boolean;
+  twoFactorVerifiedAt?: number | null;
 };
 
-function buildCronUser(userInfo: GetUserInfoWithJwtResponse): AuthenticatedUser {
+function buildCronUser(
+  userInfo: GetUserInfoWithJwtResponse,
+): AuthenticatedUser {
   const now = new Date();
   return {
     id: -1,

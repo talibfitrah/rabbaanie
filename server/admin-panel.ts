@@ -9,7 +9,7 @@ import { eq } from "drizzle-orm";
 // ROLE HIERARCHY & PERMISSIONS
 // ═══════════════════════════════════════════════════════════════════════
 const ADMIN_ROLES = ["super_admin", "admin", "moderator"] as const;
-type AdminRole = typeof ADMIN_ROLES[number];
+type AdminRole = (typeof ADMIN_ROLES)[number];
 
 interface Permission {
   view: boolean;
@@ -23,48 +23,135 @@ interface Permission {
 }
 
 const ROLE_PERMISSIONS: Record<AdminRole, Permission> = {
-  super_admin: { view: true, create: true, edit: true, delete: true, manageRoles: true, manageSettings: true, viewLogs: true, sendNotifications: true },
-  admin: { view: true, create: true, edit: true, delete: true, manageRoles: false, manageSettings: true, viewLogs: true, sendNotifications: true },
-  moderator: { view: true, create: true, edit: true, delete: false, manageRoles: false, manageSettings: false, viewLogs: false, sendNotifications: false },
+  super_admin: {
+    view: true,
+    create: true,
+    edit: true,
+    delete: true,
+    manageRoles: true,
+    manageSettings: true,
+    viewLogs: true,
+    sendNotifications: true,
+  },
+  admin: {
+    view: true,
+    create: true,
+    edit: true,
+    delete: true,
+    manageRoles: false,
+    manageSettings: true,
+    viewLogs: true,
+    sendNotifications: true,
+  },
+  moderator: {
+    view: true,
+    create: true,
+    edit: true,
+    delete: false,
+    manageRoles: false,
+    manageSettings: false,
+    viewLogs: false,
+    sendNotifications: false,
+  },
 };
 
 function getRoleLabel(role: string): string {
   switch (role) {
-    case "super_admin": return "Super Admin";
-    case "admin": return "Admin";
-    case "moderator": return "Moderator";
-    case "specialist": return "Specialist";
-        case "teacher": return "Leraar";
-    case "kennisdrager": return "Kennisdrager";
-    case "doctor": return "Arts";
-    default: return "Gebruiker";
+    case "super_admin":
+      return "Super Admin";
+    case "admin":
+      return "Admin";
+    case "moderator":
+      return "Moderator";
+    case "specialist":
+      return "Specialist";
+    case "teacher":
+      return "Leraar";
+    case "kennisdrager":
+      return "Kennisdrager";
+    case "doctor":
+      return "Arts";
+    default:
+      return "Gebruiker";
   }
 }
 function getRoleBadgeColor(role: string): string {
   switch (role) {
-    case "super_admin": return "#7B1FA2";
-    case "admin": return "#1565C0";
-    case "moderator": return "#2E7D32";
-    case "specialist": return "#E65100";
-    case "teacher": return "#00695C";
-    case "kennisdrager": return "#4527A0";
-    case "doctor": return "#C62828";
-    default: return "#546E7A";
+    case "super_admin":
+      return "#7B1FA2";
+    case "admin":
+      return "#1565C0";
+    case "moderator":
+      return "#2E7D32";
+    case "specialist":
+      return "#E65100";
+    case "teacher":
+      return "#00695C";
+    case "kennisdrager":
+      return "#4527A0";
+    case "doctor":
+      return "#C62828";
+    default:
+      return "#546E7A";
   }
 }
 
 // ═══════════════════════════════════════════════════════════════════════
 // MIDDLEWARE: Admin-only auth
 // ═══════════════════════════════════════════════════════════════════════
-async function requireAdminAuth(req: Request, res: Response, next: NextFunction) {
+async function requireAdminAuth(
+  req: Request,
+  res: Response,
+  next: NextFunction,
+) {
   try {
     const authResult = await sdk.authenticateRequest(req);
     const db = await getDb();
-    if (!db) { res.redirect("/auth/login"); return; }
+    if (!db) {
+      res.redirect("/auth/login");
+      return;
+    }
 
-    const [user] = await db.select().from(users).where(eq(users.openId, (authResult as any).openId || "")).limit(1);
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(eq(users.openId, (authResult as any).openId || ""))
+      .limit(1);
     if (!user || !(ADMIN_ROLES as readonly string[]).includes(user.role)) {
       res.redirect("/auth/login?error=unauthorized");
+      return;
+    }
+    const { has2FA } = await import("./totp");
+    const enrolled = await has2FA(user.id);
+    const enrollmentOnlyPath =
+      req.path === "/admin-panel/2fa-setup" ||
+      req.path === "/admin-api/2fa/setup" ||
+      req.path === "/admin-api/2fa/verify";
+    if (!enrolled) {
+      if (enrollmentOnlyPath) {
+        (req as any).adminUser = user;
+        next();
+      } else if (req.originalUrl.startsWith("/admin-api/")) {
+        res.status(403).json({
+          error: "Administrator two-factor enrollment required",
+          setupUrl: "/admin-panel/2fa-setup",
+        });
+      } else {
+        res.redirect("/admin-panel/2fa-setup");
+      }
+      return;
+    }
+    const verifiedAt = (authResult as any)?.twoFactorVerifiedAt;
+    const hasRecentFactor =
+      typeof verifiedAt === "number" &&
+      verifiedAt <= Date.now() &&
+      Date.now() - verifiedAt <= 10 * 60 * 1000;
+    if (!hasRecentFactor) {
+      if (req.originalUrl.startsWith("/admin-api/")) {
+        res.status(401).json({ error: "Two-factor verification required" });
+      } else {
+        res.redirect("/auth/login?two_factor_required=1");
+      }
       return;
     }
     (req as any).adminUser = user;
@@ -74,26 +161,56 @@ async function requireAdminAuth(req: Request, res: Response, next: NextFunction)
   }
 }
 
+function requireAdminPermission(permission: keyof Permission) {
+  return (req: Request, res: Response, next: NextFunction) => {
+    const user = (req as any).adminUser;
+    const role = user?.role as AdminRole | undefined;
+    if (!role || !ROLE_PERMISSIONS[role]?.[permission]) {
+      res.status(403).json({ error: "Insufficient admin permission" });
+      return;
+    }
+    next();
+  };
+}
+
 // ═══════════════════════════════════════════════════════════════════════
 // MOUNT ADMIN PANEL
 // ═══════════════════════════════════════════════════════════════════════
 export function mountAdminPanel(app: Express) {
   // ─── Audit Log API ─────────────────────────────────────────────────
-  app.get("/admin-api/audit-log", requireAdminAuth, async (req, res) => {
-    const { getAuditLog } = await import("./audit");
-    const limit = parseInt(req.query.limit as string) || 50;
-    const logs = await getAuditLog(limit);
-    res.json({ logs });
-  });
+  app.get(
+    "/admin-api/audit-log",
+    requireAdminAuth,
+    requireAdminPermission("viewLogs"),
+    async (req, res) => {
+      const { getAuditLog } = await import("./audit");
+      const limit = parseInt(req.query.limit as string) || 50;
+      const logs = await getAuditLog(limit);
+      res.json({ logs });
+    },
+  );
 
   // ─── 2FA Setup API ─────────────────────────────────────────────────
   app.post("/admin-api/2fa/setup", requireAdminAuth, async (req, res) => {
     const user = (req as any).adminUser;
-    const { setup2FA } = await import("./totp");
+    const { has2FA, setup2FA } = await import("./totp");
+    if (await has2FA(user.id)) {
+      res.status(409).json({
+        error: "Two-factor authentication is already enabled",
+      });
+      return;
+    }
     const result = await setup2FA(user.id, user.email || user.name || "admin");
     // Log audit
     const { logAudit } = await import("./audit");
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "enable_2fa", description: "2FA setup gestart", ipAddress: req.ip });
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "enable_2fa",
+      description: "2FA setup gestart",
+      ipAddress: req.ip,
+    });
     res.json(result);
   });
 
@@ -104,17 +221,37 @@ export function mountAdminPanel(app: Express) {
     const success = await verify2FASetup(user.id, token);
     if (success) {
       const { logAudit } = await import("./audit");
-      await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "verify_2fa", description: "2FA succesvol geactiveerd", ipAddress: req.ip });
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "verify_2fa",
+        description: "2FA succesvol geactiveerd",
+        ipAddress: req.ip,
+      });
     }
     res.json({ success });
   });
 
   app.post("/admin-api/2fa/disable", requireAdminAuth, async (req, res) => {
     const user = (req as any).adminUser;
-    const { disable2FA } = await import("./totp");
+    const token =
+      typeof req.body?.token === "string" ? req.body.token.trim() : "";
+    const { disable2FA, verify2FALogin } = await import("./totp");
+    if (!(await verify2FALogin(user.id, token))) {
+      res.status(401).json({ error: "Current two-factor code required" });
+      return;
+    }
     await disable2FA(user.id);
     const { logAudit } = await import("./audit");
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "disable_2fa", description: "2FA uitgeschakeld", ipAddress: req.ip });
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "disable_2fa",
+      description: "2FA uitgeschakeld",
+      ipAddress: req.ip,
+    });
     res.json({ success: true });
   });
 
@@ -129,7 +266,12 @@ export function mountAdminPanel(app: Express) {
   app.get("/admin-api/export/:type", requireAdminAuth, async (req, res) => {
     const user = (req as any).adminUser;
     const { logAudit } = await import("./audit");
-    const { exportUsersCSV, exportChildrenCSV, exportFamiliesCSV, exportAuditLogCSV } = await import("./csv-export");
+    const {
+      exportUsersCSV,
+      exportChildrenCSV,
+      exportFamiliesCSV,
+      exportAuditLogCSV,
+    } = await import("./csv-export");
 
     let csv = "";
     let filename = "export.csv";
@@ -155,7 +297,15 @@ export function mountAdminPanel(app: Express) {
         return;
     }
 
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "export_data", entityType: req.params.type, description: `Data export: ${req.params.type}`, ipAddress: req.ip });
+    await logAudit({
+      userId: user.id,
+      userName: user.name,
+      userRole: user.role,
+      action: "export_data",
+      entityType: req.params.type,
+      description: `Data export: ${req.params.type}`,
+      ipAddress: req.ip,
+    });
 
     res.setHeader("Content-Type", "text/csv; charset=utf-8");
     res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
@@ -166,14 +316,33 @@ export function mountAdminPanel(app: Express) {
   app.get("/admin-panel/api/search", requireAdminAuth, async (req, res) => {
     try {
       const q = ((req.query.q as string) || "").toLowerCase().trim();
-      if (!q || q.length < 2) { res.json({ results: [] }); return; }
+      if (!q || q.length < 2) {
+        res.json({ results: [] });
+        return;
+      }
       const db = await getDb();
-      if (!db) { res.json({ results: [] }); return; }
+      if (!db) {
+        res.json({ results: [] });
+        return;
+      }
       const allUsers = await db.select().from(users);
-      const results: Array<{type: string; id: number; name: string; detail: string}> = [];
+      const results: Array<{
+        type: string;
+        id: number;
+        name: string;
+        detail: string;
+      }> = [];
       for (const u of allUsers) {
-        if ((u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q)) {
-          results.push({ type: "user", id: u.id, name: u.name || u.email || "Onbekend", detail: u.email || u.role || "" });
+        if (
+          (u.name || "").toLowerCase().includes(q) ||
+          (u.email || "").toLowerCase().includes(q)
+        ) {
+          results.push({
+            type: "user",
+            id: u.id,
+            name: u.name || u.email || "Onbekend",
+            detail: u.email || u.role || "",
+          });
         }
       }
       try {
@@ -184,41 +353,75 @@ export function mountAdminPanel(app: Express) {
           if (Array.isArray(children)) {
             for (const child of children) {
               if (child && (child.name || "").toLowerCase().includes(q)) {
-                results.push({ type: "child", id: f.id, name: child.name, detail: "Gezin #" + f.id });
+                results.push({
+                  type: "child",
+                  id: f.id,
+                  name: child.name,
+                  detail: "Gezin #" + f.id,
+                });
               }
             }
           }
         }
-      } catch(_e) { /* ignore */ }
+      } catch (_e) {
+        /* ignore */
+      }
       res.json({ results: results.slice(0, 10) });
-    } catch(_e) {
+    } catch (_e) {
       res.json({ results: [] });
     }
   });
 
   // ─── Push Test API ────────────────────────────────────────────────────
-  app.post("/admin-panel/api/push-test", requireAdminAuth, async (req, res) => {
-    try {
-      const user = (req as any).adminUser;
-      const db = await getDb();
-      if (!db) { res.json({ success: false, error: "Database niet beschikbaar" }); return; }
-      const allUsers = await db.select().from(users);
-      const tokens = allUsers.filter(u => u.pushToken).map(u => u.pushToken!);
-      if (tokens.length === 0) {
-        res.json({ success: true, count: 0, message: "Geen apparaten met push-token gevonden" });
-        return;
-      }
+  app.post(
+    "/admin-panel/api/push-test",
+    requireAdminAuth,
+    requireAdminPermission("sendNotifications"),
+    async (req, res) => {
       try {
-        const { notifyOwner } = await import("./_core/notification");
-        await notifyOwner({ title: "Test-Notificatie", content: "Dit is een test vanuit het admin panel. Push-meldingen werken correct!" });
-      } catch(_e) { /* best effort */ }
-      const { logAudit } = await import("./audit");
-      await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "push_test", description: `Push test verzonden naar ${tokens.length} apparaten`, ipAddress: req.ip });
-      res.json({ success: true, count: tokens.length });
-    } catch(_e) {
-      res.json({ success: false, error: "Fout bij verzenden" });
-    }
-  });
+        const user = (req as any).adminUser;
+        const db = await getDb();
+        if (!db) {
+          res.json({ success: false, error: "Database niet beschikbaar" });
+          return;
+        }
+        const allUsers = await db.select().from(users);
+        const tokens = allUsers
+          .filter((u) => u.pushToken)
+          .map((u) => u.pushToken!);
+        if (tokens.length === 0) {
+          res.json({
+            success: true,
+            count: 0,
+            message: "Geen apparaten met push-token gevonden",
+          });
+          return;
+        }
+        try {
+          const { notifyOwner } = await import("./_core/notification");
+          await notifyOwner({
+            title: "Test-Notificatie",
+            content:
+              "Dit is een test vanuit het admin panel. Push-meldingen werken correct!",
+          });
+        } catch (_e) {
+          /* best effort */
+        }
+        const { logAudit } = await import("./audit");
+        await logAudit({
+          userId: user.id,
+          userName: user.name,
+          userRole: user.role,
+          action: "push_test",
+          description: `Push test verzonden naar ${tokens.length} apparaten`,
+          ipAddress: req.ip,
+        });
+        res.json({ success: true, count: tokens.length });
+      } catch (_e) {
+        res.json({ success: false, error: "Fout bij verzenden" });
+      }
+    },
+  );
 
   // ─── Data API (panel-authenticated) ─────────────────────────────────
   app.get("/admin-api/dashboard", requireAdminAuth, async (req, res) => {
@@ -265,33 +468,74 @@ export function mountAdminPanel(app: Express) {
     res.json(contacts);
   });
 
-  app.post("/admin-api/network-contacts", requireAdminAuth, async (req, res) => {
-    const { name, category, email, phone, specialization, city, country, bio, languages } = req.body || {};
-    if (!name || !category) { res.status(400).json({ error: "Naam en categorie zijn vereist" }); return; }
-    const db = await import("./db");
-    const adminUser = (req as any).adminUser;
-    const id = await db.addNetworkContact({
-      name, category, email: email || null, phone: phone || null,
-      specialization: specialization || null, city: city || null,
-      country: country || null, bio: bio || null,
-      languages: languages ? JSON.parse(languages) : null,
-      addedBy: adminUser?.id || null,
-    });
-    const { logAudit } = await import("./audit");
-    await logAudit({ userId: adminUser?.id || 0, userName: adminUser?.name || "Admin", action: "add_network_contact", description: `${category}: ${name} toegevoegd` });
-    res.json({ success: true, id });
-  });
+  app.post(
+    "/admin-api/network-contacts",
+    requireAdminAuth,
+    requireAdminPermission("create"),
+    async (req, res) => {
+      const {
+        name,
+        category,
+        email,
+        phone,
+        specialization,
+        city,
+        country,
+        bio,
+        languages,
+      } = req.body || {};
+      if (!name || !category) {
+        res.status(400).json({ error: "Naam en categorie zijn vereist" });
+        return;
+      }
+      const db = await import("./db");
+      const adminUser = (req as any).adminUser;
+      const id = await db.addNetworkContact({
+        name,
+        category,
+        email: email || null,
+        phone: phone || null,
+        specialization: specialization || null,
+        city: city || null,
+        country: country || null,
+        bio: bio || null,
+        languages: languages ? JSON.parse(languages) : null,
+        addedBy: adminUser?.id || null,
+      });
+      const { logAudit } = await import("./audit");
+      await logAudit({
+        userId: adminUser?.id || 0,
+        userName: adminUser?.name || "Admin",
+        action: "add_network_contact",
+        description: `${category}: ${name} toegevoegd`,
+      });
+      res.json({ success: true, id });
+    },
+  );
 
-  app.delete("/admin-api/network-contacts/:id", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    if (!id) { res.status(400).json({ error: "Ongeldig ID" }); return; }
-    const db = await import("./db");
-    await db.deleteNetworkContact(id);
-    const adminUser = (req as any).adminUser;
-    const { logAudit } = await import("./audit");
-    await logAudit({ userId: adminUser?.id || 0, userName: adminUser?.name || "Admin", action: "delete_network_contact", description: `Contact #${id} verwijderd` });
-    res.json({ success: true });
-  });
+  app.delete(
+    "/admin-api/network-contacts/:id",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      if (!id) {
+        res.status(400).json({ error: "Ongeldig ID" });
+        return;
+      }
+      const db = await import("./db");
+      await db.deleteNetworkContact(id);
+      const adminUser = (req as any).adminUser;
+      const { logAudit } = await import("./audit");
+      await logAudit({
+        userId: adminUser?.id || 0,
+        userName: adminUser?.name || "Admin",
+        action: "delete_network_contact",
+        description: `Contact #${id} verwijderd`,
+      });
+      res.json({ success: true });
+    },
+  );
 
   // ========== CMS API ENDPOINTS ==========
   app.get("/admin-api/cms/categories", requireAdminAuth, async (req, res) => {
@@ -300,18 +544,39 @@ export function mountAdminPanel(app: Express) {
     res.json(cats);
   });
 
-  app.post("/admin-api/cms/categories", requireAdminAuth, async (req, res) => {
-    const { slug, nameNl, nameEn, nameAr, appSection, ageGroup, sortOrder } = req.body || {};
-    if (!slug || !nameNl) { res.status(400).json({ error: "slug en nameNl vereist" }); return; }
-    const db = await import("./db");
-    const id = await db.createContentCategory({ slug, nameNl, nameEn: nameEn || nameNl, nameAr: nameAr || nameNl, appSection: appSection || 'general', ageGroup, sortOrder });
-    res.json({ success: true, id });
-  });
+  app.post(
+    "/admin-api/cms/categories",
+    requireAdminAuth,
+    requireAdminPermission("create"),
+    async (req, res) => {
+      const { slug, nameNl, nameEn, nameAr, appSection, ageGroup, sortOrder } =
+        req.body || {};
+      if (!slug || !nameNl) {
+        res.status(400).json({ error: "slug en nameNl vereist" });
+        return;
+      }
+      const db = await import("./db");
+      const id = await db.createContentCategory({
+        slug,
+        nameNl,
+        nameEn: nameEn || nameNl,
+        nameAr: nameAr || nameNl,
+        appSection: appSection || "general",
+        ageGroup,
+        sortOrder,
+      });
+      res.json({ success: true, id });
+    },
+  );
 
   app.get("/admin-api/cms/content", requireAdminAuth, async (req, res) => {
     const db = await import("./db");
     const { status, categoryId, contentType } = req.query as any;
-    const items = await db.getAllContentItems({ status, categoryId: categoryId ? parseInt(categoryId) : undefined, contentType });
+    const items = await db.getAllContentItems({
+      status,
+      categoryId: categoryId ? parseInt(categoryId) : undefined,
+      contentType,
+    });
     // Get translations for each item
     const results: any[] = [];
     for (const item of items) {
@@ -322,153 +587,364 @@ export function mountAdminPanel(app: Express) {
     res.json(results);
   });
 
-  app.post("/admin-api/cms/content", requireAdminAuth, async (req, res) => {
-    const { contentType, categoryId, originalLanguage, tags, mediaUrl, titleNl, titleEn, titleAr, bodyNl, bodyEn, bodyAr, summaryNl, summaryEn, summaryAr } = req.body || {};
-    if (!contentType) { res.status(400).json({ error: "contentType vereist" }); return; }
-    const db = await import("./db");
-    const adminUser = (req as any).adminUser;
-    const id = await db.createContentItem({ contentType, categoryId: categoryId ? parseInt(categoryId) : undefined, originalLanguage: originalLanguage || 'nl', tags: tags ? JSON.stringify(tags.split(',').map((t: string) => t.trim())) : undefined, authorId: adminUser?.id, mediaUrl });
-    // Save translations
-    if (titleNl) await db.upsertContentTranslation(id, 'nl', { title: titleNl, summary: summaryNl, body: bodyNl });
-    if (titleEn) await db.upsertContentTranslation(id, 'en', { title: titleEn, summary: summaryEn, body: bodyEn });
-    if (titleAr) await db.upsertContentTranslation(id, 'ar', { title: titleAr, summary: summaryAr, body: bodyAr });
-    const { logAudit } = await import("./audit");
-    await logAudit({ userId: adminUser?.id || 0, userName: adminUser?.name || 'Admin', action: 'create_content' as any, description: `Content #${id} aangemaakt (${contentType})` });
-    res.json({ success: true, id });
-  });
-
-  app.put("/admin-api/cms/content/:id", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const { contentType, categoryId, status, tags, mediaUrl, titleNl, titleEn, titleAr, bodyNl, bodyEn, bodyAr, summaryNl, summaryEn, summaryAr } = req.body || {};
-    const db = await import("./db");
-    const updateData: any = {};
-    if (contentType) updateData.contentType = contentType;
-    if (categoryId) updateData.categoryId = parseInt(categoryId);
-    if (status) { updateData.status = status; if (status === 'published') updateData.publishedAt = new Date(); }
-    if (tags) updateData.tags = JSON.stringify(tags.split(',').map((t: string) => t.trim()));
-    if (mediaUrl) updateData.mediaUrl = mediaUrl;
-    if (Object.keys(updateData).length > 0) await db.updateContentItem(id, updateData);
-    // Update translations
-    if (titleNl) await db.upsertContentTranslation(id, 'nl', { title: titleNl, summary: summaryNl, body: bodyNl });
-    if (titleEn) await db.upsertContentTranslation(id, 'en', { title: titleEn, summary: summaryEn, body: bodyEn });
-    if (titleAr) await db.upsertContentTranslation(id, 'ar', { title: titleAr, summary: summaryAr, body: bodyAr });
-    res.json({ success: true });
-  });
-
-  app.put("/admin-api/cms/content/:id/publish", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const db = await import("./db");
-    await db.updateContentItem(id, { status: 'published', publishedAt: new Date() });
-    res.json({ success: true });
-  });
-
-  app.delete("/admin-api/cms/content/:id", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const db = await import("./db");
-    await db.deleteContentItem(id);
-    res.json({ success: true });
-  });
-
-  app.post("/admin-api/cms/content/:id/translate", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const { targetLanguage } = req.body || {};
-    if (!targetLanguage) { res.status(400).json({ error: "targetLanguage vereist" }); return; }
-    const db = await import("./db");
-    const translations = await db.getContentTranslations(id);
-    // Find source translation (prefer original language)
-    const item = await db.getContentItemById(id);
-    const sourceLang = item?.originalLanguage || 'nl';
-    const source = translations.find((t: any) => t.language === sourceLang) || translations[0];
-    if (!source) { res.status(400).json({ error: "Geen brontekst gevonden om te vertalen" }); return; }
-    // Use built-in LLM for translation
-    try {
-      const { invokeLLM } = await import("./_core/llm");
-      const langNames: Record<string, string> = { nl: 'Nederlands', en: 'English', ar: 'Arabic' };
-      const prompt = `Translate the following content from ${langNames[source.language]} to ${langNames[targetLanguage]}. Keep the same formatting and structure. Return ONLY the translation, nothing else.\n\nTitle: ${source.title}\n\nSummary: ${source.summary || ''}\n\nBody: ${source.body || ''}`;
-      const result = await invokeLLM({ messages: [{ role: 'user', content: prompt }] });
-      const text = typeof result === 'string' ? result : (result as any)?.content || '';
-      // Parse the translated parts
-      const titleMatch = text.match(/Title:\s*(.+?)(?:\n|$)/i);
-      const summaryMatch = text.match(/Summary:\s*(.+?)(?:\n\n|Body:|$)/is);
-      const bodyMatch = text.match(/Body:\s*(.+)/is);
-      const translatedTitle = titleMatch ? titleMatch[1].trim() : text.split('\n')[0] || source.title;
-      const translatedSummary = summaryMatch ? summaryMatch[1].trim() : '';
-      const translatedBody = bodyMatch ? bodyMatch[1].trim() : text;
-      await db.upsertContentTranslation(id, targetLanguage, { title: translatedTitle, summary: translatedSummary, body: translatedBody, isAutoTranslated: true });
-      res.json({ success: true, title: translatedTitle, summary: translatedSummary, body: translatedBody });
-    } catch (e: any) {
-      res.status(500).json({ error: 'Vertaling mislukt: ' + (e.message || 'onbekende fout') });
-    }
-  });
-
-  app.post("/admin-api/cms/content/:id/files", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const { fileName, fileType, fileData, fileSize, language } = req.body || {};
-    if (!fileName || !fileType || !fileData) { res.status(400).json({ error: "fileName, fileType en fileData (base64) vereist" }); return; }
-    try {
-      const { storagePut } = await import("./storage");
-      const buffer = Buffer.from(fileData, 'base64');
-      const mimeTypes: Record<string, string> = {
-        'pdf': 'application/pdf',
-        'docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-        'doc': 'application/msword',
-        'xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-        'xls': 'application/vnd.ms-excel',
-      };
-      const ext = fileName.split('.').pop()?.toLowerCase() || '';
-      const mime = mimeTypes[ext] || 'application/octet-stream';
-      const { key, url } = await storagePut(`cms-files/${id}/${fileName}`, buffer, mime);
+  app.post(
+    "/admin-api/cms/content",
+    requireAdminAuth,
+    requireAdminPermission("create"),
+    async (req, res) => {
+      const {
+        contentType,
+        categoryId,
+        originalLanguage,
+        tags,
+        mediaUrl,
+        titleNl,
+        titleEn,
+        titleAr,
+        bodyNl,
+        bodyEn,
+        bodyAr,
+        summaryNl,
+        summaryEn,
+        summaryAr,
+      } = req.body || {};
+      if (!contentType) {
+        res.status(400).json({ error: "contentType vereist" });
+        return;
+      }
       const db = await import("./db");
-      const fileId = await db.addContentFile({ contentId: id, fileName, fileType: ext, filePath: url, fileSize: fileSize || buffer.length, language: language || 'nl' });
-      res.json({ success: true, id: fileId, url });
-    } catch (e: any) {
-      console.error('[CMS File Upload]', e);
-      res.status(500).json({ error: 'Upload mislukt: ' + (e.message || 'onbekend') });
-    }
-  });
+      const adminUser = (req as any).adminUser;
+      const id = await db.createContentItem({
+        contentType,
+        categoryId: categoryId ? parseInt(categoryId) : undefined,
+        originalLanguage: originalLanguage || "nl",
+        tags: tags
+          ? JSON.stringify(tags.split(",").map((t: string) => t.trim()))
+          : undefined,
+        authorId: adminUser?.id,
+        mediaUrl,
+      });
+      // Save translations
+      if (titleNl)
+        await db.upsertContentTranslation(id, "nl", {
+          title: titleNl,
+          summary: summaryNl,
+          body: bodyNl,
+        });
+      if (titleEn)
+        await db.upsertContentTranslation(id, "en", {
+          title: titleEn,
+          summary: summaryEn,
+          body: bodyEn,
+        });
+      if (titleAr)
+        await db.upsertContentTranslation(id, "ar", {
+          title: titleAr,
+          summary: summaryAr,
+          body: bodyAr,
+        });
+      const { logAudit } = await import("./audit");
+      await logAudit({
+        userId: adminUser?.id || 0,
+        userName: adminUser?.name || "Admin",
+        action: "create_content" as any,
+        description: `Content #${id} aangemaakt (${contentType})`,
+      });
+      res.json({ success: true, id });
+    },
+  );
 
-  // Translate to ALL missing languages at once
-  app.post("/admin-api/cms/content/:id/translate-all", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const db = await import("./db");
-    const translations = await db.getContentTranslations(id);
-    const item = await db.getContentItemById(id);
-    const sourceLang = item?.originalLanguage || 'nl';
-    const source = translations.find((t: any) => t.language === sourceLang) || translations[0];
-    if (!source) { res.status(400).json({ error: "Geen brontekst gevonden" }); return; }
-    const allLangs = ['nl', 'en', 'ar'];
-    const existingLangs = translations.map((t: any) => t.language);
-    const missingLangs = allLangs.filter(l => !existingLangs.includes(l));
-    if (missingLangs.length === 0) { res.json({ success: true, translated: [], message: "Alle vertalingen bestaan al" }); return; }
-    try {
-      const { invokeLLM } = await import("./_core/llm");
-      const langNames: Record<string, string> = { nl: 'Nederlands', en: 'English', ar: 'Arabic' };
-      const results: string[] = [];
-      for (const targetLang of missingLangs) {
-        const prompt = `Translate the following content from ${langNames[source.language]} to ${langNames[targetLang]}. Keep the same formatting and structure. Return ONLY the translation in this exact format:\nTitle: ...\nSummary: ...\nBody: ...\n\nTitle: ${source.title}\n\nSummary: ${source.summary || ''}\n\nBody: ${source.body || ''}`;
-        const result = await invokeLLM({ messages: [{ role: 'user', content: prompt }] });
-        const text = typeof result === 'string' ? result : (result as any)?.content || '';
+  app.put(
+    "/admin-api/cms/content/:id",
+    requireAdminAuth,
+    requireAdminPermission("edit"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const {
+        contentType,
+        categoryId,
+        status,
+        tags,
+        mediaUrl,
+        titleNl,
+        titleEn,
+        titleAr,
+        bodyNl,
+        bodyEn,
+        bodyAr,
+        summaryNl,
+        summaryEn,
+        summaryAr,
+      } = req.body || {};
+      const db = await import("./db");
+      const updateData: any = {};
+      if (contentType) updateData.contentType = contentType;
+      if (categoryId) updateData.categoryId = parseInt(categoryId);
+      if (status) {
+        updateData.status = status;
+        if (status === "published") updateData.publishedAt = new Date();
+      }
+      if (tags)
+        updateData.tags = JSON.stringify(
+          tags.split(",").map((t: string) => t.trim()),
+        );
+      if (mediaUrl) updateData.mediaUrl = mediaUrl;
+      if (Object.keys(updateData).length > 0)
+        await db.updateContentItem(id, updateData);
+      // Update translations
+      if (titleNl)
+        await db.upsertContentTranslation(id, "nl", {
+          title: titleNl,
+          summary: summaryNl,
+          body: bodyNl,
+        });
+      if (titleEn)
+        await db.upsertContentTranslation(id, "en", {
+          title: titleEn,
+          summary: summaryEn,
+          body: bodyEn,
+        });
+      if (titleAr)
+        await db.upsertContentTranslation(id, "ar", {
+          title: titleAr,
+          summary: summaryAr,
+          body: bodyAr,
+        });
+      res.json({ success: true });
+    },
+  );
+
+  app.put(
+    "/admin-api/cms/content/:id/publish",
+    requireAdminAuth,
+    requireAdminPermission("edit"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const db = await import("./db");
+      await db.updateContentItem(id, {
+        status: "published",
+        publishedAt: new Date(),
+      });
+      res.json({ success: true });
+    },
+  );
+
+  app.delete(
+    "/admin-api/cms/content/:id",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const db = await import("./db");
+      await db.deleteContentItem(id);
+      res.json({ success: true });
+    },
+  );
+
+  app.post(
+    "/admin-api/cms/content/:id/translate",
+    requireAdminAuth,
+    requireAdminPermission("edit"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const { targetLanguage } = req.body || {};
+      if (!targetLanguage) {
+        res.status(400).json({ error: "targetLanguage vereist" });
+        return;
+      }
+      const db = await import("./db");
+      const translations = await db.getContentTranslations(id);
+      // Find source translation (prefer original language)
+      const item = await db.getContentItemById(id);
+      const sourceLang = item?.originalLanguage || "nl";
+      const source =
+        translations.find((t: any) => t.language === sourceLang) ||
+        translations[0];
+      if (!source) {
+        res
+          .status(400)
+          .json({ error: "Geen brontekst gevonden om te vertalen" });
+        return;
+      }
+      // Use built-in LLM for translation
+      try {
+        const { invokeLLM } = await import("./_core/llm");
+        const langNames: Record<string, string> = {
+          nl: "Nederlands",
+          en: "English",
+          ar: "Arabic",
+        };
+        const prompt = `Translate the following content from ${langNames[source.language]} to ${langNames[targetLanguage]}. Keep the same formatting and structure. Return ONLY the translation, nothing else.\n\nTitle: ${source.title}\n\nSummary: ${source.summary || ""}\n\nBody: ${source.body || ""}`;
+        const result = await invokeLLM({
+          messages: [{ role: "user", content: prompt }],
+        });
+        const text =
+          typeof result === "string" ? result : (result as any)?.content || "";
+        // Parse the translated parts
         const titleMatch = text.match(/Title:\s*(.+?)(?:\n|$)/i);
         const summaryMatch = text.match(/Summary:\s*(.+?)(?:\n\n|Body:|$)/is);
         const bodyMatch = text.match(/Body:\s*(.+)/is);
-        const translatedTitle = titleMatch ? titleMatch[1].trim() : text.split('\n')[0] || source.title;
-        const translatedSummary = summaryMatch ? summaryMatch[1].trim() : '';
+        const translatedTitle = titleMatch
+          ? titleMatch[1].trim()
+          : text.split("\n")[0] || source.title;
+        const translatedSummary = summaryMatch ? summaryMatch[1].trim() : "";
         const translatedBody = bodyMatch ? bodyMatch[1].trim() : text;
-        await db.upsertContentTranslation(id, targetLang, { title: translatedTitle, summary: translatedSummary, body: translatedBody, isAutoTranslated: true });
-        results.push(targetLang);
+        await db.upsertContentTranslation(id, targetLanguage, {
+          title: translatedTitle,
+          summary: translatedSummary,
+          body: translatedBody,
+          isAutoTranslated: true,
+        });
+        res.json({
+          success: true,
+          title: translatedTitle,
+          summary: translatedSummary,
+          body: translatedBody,
+        });
+      } catch (e: any) {
+        res.status(500).json({
+          error: "Vertaling mislukt: " + (e.message || "onbekende fout"),
+        });
       }
-      res.json({ success: true, translated: results, message: `Vertaald naar: ${results.join(', ')}` });
-    } catch (e: any) {
-      res.status(500).json({ error: 'Vertaling mislukt: ' + (e.message || 'onbekend') });
-    }
-  });
+    },
+  );
 
-  app.delete("/admin-api/cms/files/:id", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const db = await import("./db");
-    await db.deleteContentFile(id);
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/cms/content/:id/files",
+    requireAdminAuth,
+    requireAdminPermission("edit"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const { fileName, fileType, fileData, fileSize, language } =
+        req.body || {};
+      if (!fileName || !fileType || !fileData) {
+        res
+          .status(400)
+          .json({ error: "fileName, fileType en fileData (base64) vereist" });
+        return;
+      }
+      try {
+        const { storagePut } = await import("./storage");
+        const buffer = Buffer.from(fileData, "base64");
+        const mimeTypes: Record<string, string> = {
+          pdf: "application/pdf",
+          docx: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+          doc: "application/msword",
+          xlsx: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+          xls: "application/vnd.ms-excel",
+        };
+        const ext = fileName.split(".").pop()?.toLowerCase() || "";
+        const mime = mimeTypes[ext] || "application/octet-stream";
+        const { key, url } = await storagePut(
+          `cms-files/${id}/${fileName}`,
+          buffer,
+          mime,
+        );
+        const db = await import("./db");
+        const fileId = await db.addContentFile({
+          contentId: id,
+          fileName,
+          fileType: ext,
+          filePath: url,
+          fileSize: fileSize || buffer.length,
+          language: language || "nl",
+        });
+        res.json({ success: true, id: fileId, url });
+      } catch (e: any) {
+        console.error("[CMS File Upload]", e);
+        res
+          .status(500)
+          .json({ error: "Upload mislukt: " + (e.message || "onbekend") });
+      }
+    },
+  );
+
+  // Translate to ALL missing languages at once
+  app.post(
+    "/admin-api/cms/content/:id/translate-all",
+    requireAdminAuth,
+    requireAdminPermission("edit"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const db = await import("./db");
+      const translations = await db.getContentTranslations(id);
+      const item = await db.getContentItemById(id);
+      const sourceLang = item?.originalLanguage || "nl";
+      const source =
+        translations.find((t: any) => t.language === sourceLang) ||
+        translations[0];
+      if (!source) {
+        res.status(400).json({ error: "Geen brontekst gevonden" });
+        return;
+      }
+      const allLangs = ["nl", "en", "ar"];
+      const existingLangs = translations.map((t: any) => t.language);
+      const missingLangs = allLangs.filter((l) => !existingLangs.includes(l));
+      if (missingLangs.length === 0) {
+        res.json({
+          success: true,
+          translated: [],
+          message: "Alle vertalingen bestaan al",
+        });
+        return;
+      }
+      try {
+        const { invokeLLM } = await import("./_core/llm");
+        const langNames: Record<string, string> = {
+          nl: "Nederlands",
+          en: "English",
+          ar: "Arabic",
+        };
+        const results: string[] = [];
+        for (const targetLang of missingLangs) {
+          const prompt = `Translate the following content from ${langNames[source.language]} to ${langNames[targetLang]}. Keep the same formatting and structure. Return ONLY the translation in this exact format:\nTitle: ...\nSummary: ...\nBody: ...\n\nTitle: ${source.title}\n\nSummary: ${source.summary || ""}\n\nBody: ${source.body || ""}`;
+          const result = await invokeLLM({
+            messages: [{ role: "user", content: prompt }],
+          });
+          const text =
+            typeof result === "string"
+              ? result
+              : (result as any)?.content || "";
+          const titleMatch = text.match(/Title:\s*(.+?)(?:\n|$)/i);
+          const summaryMatch = text.match(/Summary:\s*(.+?)(?:\n\n|Body:|$)/is);
+          const bodyMatch = text.match(/Body:\s*(.+)/is);
+          const translatedTitle = titleMatch
+            ? titleMatch[1].trim()
+            : text.split("\n")[0] || source.title;
+          const translatedSummary = summaryMatch ? summaryMatch[1].trim() : "";
+          const translatedBody = bodyMatch ? bodyMatch[1].trim() : text;
+          await db.upsertContentTranslation(id, targetLang, {
+            title: translatedTitle,
+            summary: translatedSummary,
+            body: translatedBody,
+            isAutoTranslated: true,
+          });
+          results.push(targetLang);
+        }
+        res.json({
+          success: true,
+          translated: results,
+          message: `Vertaald naar: ${results.join(", ")}`,
+        });
+      } catch (e: any) {
+        res
+          .status(500)
+          .json({ error: "Vertaling mislukt: " + (e.message || "onbekend") });
+      }
+    },
+  );
+
+  app.delete(
+    "/admin-api/cms/files/:id",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const db = await import("./db");
+      await db.deleteContentFile(id);
+      res.json({ success: true });
+    },
+  );
 
   // ========== INVITATION CODES API ==========
   app.get("/admin-api/invitation-codes", requireAdminAuth, async (req, res) => {
@@ -477,22 +953,43 @@ export function mountAdminPanel(app: Express) {
     res.json(codes);
   });
 
-  app.post("/admin-api/invitation-codes", requireAdminAuth, async (req, res) => {
-    const { functionRole, restrictedEmail, maxUses, expiresAt } = req.body || {};
-    if (!functionRole) { res.status(400).json({ error: "functionRole vereist" }); return; }
-    const db = await import("./db");
-    const adminUser = (req as any).adminUser;
-    const code = `${functionRole.substring(0, 3).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
-    const id = await db.createInvitationCode({ code, functionRole, restrictedEmail, maxUses: maxUses ? parseInt(maxUses) : undefined, createdBy: adminUser?.id, expiresAt: expiresAt ? new Date(expiresAt) : undefined });
-    res.json({ success: true, id, code });
-  });
+  app.post(
+    "/admin-api/invitation-codes",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { functionRole, restrictedEmail, maxUses, expiresAt } =
+        req.body || {};
+      if (!functionRole) {
+        res.status(400).json({ error: "functionRole vereist" });
+        return;
+      }
+      const db = await import("./db");
+      const adminUser = (req as any).adminUser;
+      const code = `${functionRole.substring(0, 3).toUpperCase()}-${Date.now().toString(36).toUpperCase()}-${Math.random().toString(36).substring(2, 6).toUpperCase()}`;
+      const id = await db.createInvitationCode({
+        code,
+        functionRole,
+        restrictedEmail,
+        maxUses: maxUses ? parseInt(maxUses) : undefined,
+        createdBy: adminUser?.id,
+        expiresAt: expiresAt ? new Date(expiresAt) : undefined,
+      });
+      res.json({ success: true, id, code });
+    },
+  );
 
-  app.put("/admin-api/invitation-codes/:id/deactivate", requireAdminAuth, async (req, res) => {
-    const id = parseInt(req.params.id);
-    const db = await import("./db");
-    await db.deactivateInvitationCode(id);
-    res.json({ success: true });
-  });
+  app.put(
+    "/admin-api/invitation-codes/:id/deactivate",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const id = parseInt(req.params.id);
+      const db = await import("./db");
+      await db.deactivateInvitationCode(id);
+      res.json({ success: true });
+    },
+  );
 
   app.get("/admin-api/messages", requireAdminAuth, async (req, res) => {
     const db = await import("./db");
@@ -501,16 +998,37 @@ export function mountAdminPanel(app: Express) {
     res.json(msgs);
   });
 
-  app.post("/admin-api/users/role", requireAdminAuth, async (req, res) => {
-    const { userId, role } = req.body || {};
-    if (!userId || !role) { res.status(400).json({ error: "userId en role vereist" }); return; }
-    const db = await import("./db");
-    await db.updateUserRole(userId, role);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "role_change", entityType: "user", entityId: userId, description: `Rol gewijzigd naar ${role}`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/role",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { userId, role } = req.body || {};
+      if (
+        !Number.isInteger(userId) ||
+        userId <= 0 ||
+        !["user", ...ADMIN_ROLES].includes(role)
+      ) {
+        res.status(400).json({ error: "Ongeldige userId of rol" });
+        return;
+      }
+      const db = await import("./db");
+      await db.updateUserRole(userId, role);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "role_change",
+        entityType: "user",
+        entityId: userId,
+        description: `Rol gewijzigd naar ${role}`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
   // ─── Authorization Roles API ─────────────────────────────────────
   app.get("/admin-api/users/auth-roles", requireAdminAuth, async (req, res) => {
@@ -519,27 +1037,61 @@ export function mountAdminPanel(app: Express) {
     res.json(roles);
   });
 
-  app.post("/admin-api/users/auth-roles/add", requireAdminAuth, async (req, res) => {
-    const { userId, role } = req.body || {};
-    if (!userId || !role) { res.status(400).json({ error: "userId en role vereist" }); return; }
-    const db = await import("./db");
-    await db.addUserAuthRole(userId, role, (req as any).adminUser.id);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "role_change", entityType: "user", entityId: userId, description: `Autorisatierol '${role}' toegevoegd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/auth-roles/add",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { userId, role } = req.body || {};
+      if (!userId || !role) {
+        res.status(400).json({ error: "userId en role vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.addUserAuthRole(userId, role, (req as any).adminUser.id);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "role_change",
+        entityType: "user",
+        entityId: userId,
+        description: `Autorisatierol '${role}' toegevoegd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/users/auth-roles/remove", requireAdminAuth, async (req, res) => {
-    const { userId, role } = req.body || {};
-    if (!userId || !role) { res.status(400).json({ error: "userId en role vereist" }); return; }
-    const db = await import("./db");
-    await db.removeUserAuthRole(userId, role);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "role_change", entityType: "user", entityId: userId, description: `Autorisatierol '${role}' verwijderd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/auth-roles/remove",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { userId, role } = req.body || {};
+      if (!userId || !role) {
+        res.status(400).json({ error: "userId en role vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.removeUserAuthRole(userId, role);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "role_change",
+        entityType: "user",
+        entityId: userId,
+        description: `Autorisatierol '${role}' verwijderd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
   // ─── User Functions API ─────────────────────────────────────
   app.get("/admin-api/users/functions", requireAdminAuth, async (req, res) => {
@@ -548,85 +1100,209 @@ export function mountAdminPanel(app: Express) {
     res.json(functions);
   });
 
-  app.post("/admin-api/users/functions/add", requireAdminAuth, async (req, res) => {
-    const { userId, functionRole, specialization, city } = req.body || {};
-    if (!userId || !functionRole) { res.status(400).json({ error: "userId en functionRole vereist" }); return; }
-    const db = await import("./db");
-    await db.addUserFunction(userId, functionRole, specialization, city, (req as any).adminUser.id);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "function_change", entityType: "user", entityId: userId, description: `Functie '${functionRole}' toegevoegd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/functions/add",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { userId, functionRole, specialization, city } = req.body || {};
+      if (!userId || !functionRole) {
+        res.status(400).json({ error: "userId en functionRole vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.addUserFunction(
+        userId,
+        functionRole,
+        specialization,
+        city,
+        (req as any).adminUser.id,
+      );
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "function_change",
+        entityType: "user",
+        entityId: userId,
+        description: `Functie '${functionRole}' toegevoegd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/users/functions/remove", requireAdminAuth, async (req, res) => {
-    const { userId, functionRole } = req.body || {};
-    if (!userId || !functionRole) { res.status(400).json({ error: "userId en functionRole vereist" }); return; }
-    const db = await import("./db");
-    await db.removeUserFunction(userId, functionRole);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "function_change", entityType: "user", entityId: userId, description: `Functie '${functionRole}' verwijderd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/functions/remove",
+    requireAdminAuth,
+    requireAdminPermission("manageRoles"),
+    async (req, res) => {
+      const { userId, functionRole } = req.body || {};
+      if (!userId || !functionRole) {
+        res.status(400).json({ error: "userId en functionRole vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.removeUserFunction(userId, functionRole);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "function_change",
+        entityType: "user",
+        entityId: userId,
+        description: `Functie '${functionRole}' verwijderd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/users/delete", requireAdminAuth, async (req, res) => {
-    const { userId } = req.body || {};
-    if (!userId) { res.status(400).json({ error: "userId vereist" }); return; }
-    const db = await import("./db");
-    await db.deleteUser(userId);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "delete_user", entityType: "user", entityId: userId, description: `Gebruiker #${userId} verwijderd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/users/delete",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const { userId } = req.body || {};
+      if (!userId) {
+        res.status(400).json({ error: "userId vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.deleteUser(userId);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "delete_user",
+        entityType: "user",
+        entityId: userId,
+        description: `Gebruiker #${userId} verwijderd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/families/delete", requireAdminAuth, async (req, res) => {
-    const { familyId } = req.body || {};
-    if (!familyId) { res.status(400).json({ error: "familyId vereist" }); return; }
-    const db = await import("./db");
-    await db.deleteFamily(familyId);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "delete_family", entityType: "family", entityId: familyId, description: `Gezin #${familyId} verwijderd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/families/delete",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const { familyId } = req.body || {};
+      if (!familyId) {
+        res.status(400).json({ error: "familyId vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.deleteFamily(familyId);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "delete_family",
+        entityType: "family",
+        entityId: familyId,
+        description: `Gezin #${familyId} verwijderd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/children/delete", requireAdminAuth, async (req, res) => {
-    const { childId } = req.body || {};
-    if (!childId) { res.status(400).json({ error: "childId vereist" }); return; }
-    const db = await import("./db");
-    await db.deleteChild(childId);
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "delete_child", entityType: "child", entityId: childId, description: `Kind #${childId} verwijderd`, ipAddress: req.ip });
-    res.json({ success: true });
-  });
+  app.post(
+    "/admin-api/children/delete",
+    requireAdminAuth,
+    requireAdminPermission("delete"),
+    async (req, res) => {
+      const { childId } = req.body || {};
+      if (!childId) {
+        res.status(400).json({ error: "childId vereist" });
+        return;
+      }
+      const db = await import("./db");
+      await db.deleteChild(childId);
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "delete_child",
+        entityType: "child",
+        entityId: childId,
+        description: `Kind #${childId} verwijderd`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true });
+    },
+  );
 
-  app.post("/admin-api/broadcast", requireAdminAuth, async (req, res) => {
-    const { subject, message, target } = req.body || {};
-    if (!subject || !message) { res.status(400).json({ error: "subject en message vereist" }); return; }
-    // Send broadcast notification
-    try {
-      const { notifyOwner } = await import("./_core/notification");
-      await notifyOwner({ title: subject, content: message });
-    } catch(_e) { /* best effort */ }
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "send_broadcast", description: `Broadcast: ${subject} (doelgroep: ${target || 'all'})`, ipAddress: req.ip });
-    res.json({ success: true, sent: 1, target: target || 'all' });
-  });
+  app.post(
+    "/admin-api/broadcast",
+    requireAdminAuth,
+    requireAdminPermission("sendNotifications"),
+    async (req, res) => {
+      const { subject, message, target } = req.body || {};
+      if (!subject || !message) {
+        res.status(400).json({ error: "subject en message vereist" });
+        return;
+      }
+      // Send broadcast notification
+      try {
+        const { notifyOwner } = await import("./_core/notification");
+        await notifyOwner({ title: subject, content: message });
+      } catch (_e) {
+        /* best effort */
+      }
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "send_broadcast",
+        description: `Broadcast: ${subject} (doelgroep: ${target || "all"})`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true, sent: 1, target: target || "all" });
+    },
+  );
 
-  app.post("/admin-api/settings", requireAdminAuth, async (req, res) => {
-    const settings = req.body || {};
-    // Persist settings (in production this would save to DB)
-    const { logAudit } = await import("./audit");
-    const user = (req as any).adminUser;
-    await logAudit({ userId: user.id, userName: user.name, userRole: user.role, action: "update_settings", description: `Instellingen bijgewerkt: ${Object.keys(settings).join(', ')}`, ipAddress: req.ip });
-    res.json({ success: true, settings });
-  });
+  app.post(
+    "/admin-api/settings",
+    requireAdminAuth,
+    requireAdminPermission("manageSettings"),
+    async (req, res) => {
+      const settings = req.body || {};
+      // Persist settings (in production this would save to DB)
+      const { logAudit } = await import("./audit");
+      const user = (req as any).adminUser;
+      await logAudit({
+        userId: user.id,
+        userName: user.name,
+        userRole: user.role,
+        action: "update_settings",
+        description: `Instellingen bijgewerkt: ${Object.keys(settings).join(", ")}`,
+        ipAddress: req.ip,
+      });
+      res.json({ success: true, settings });
+    },
+  );
 
   // ─── Admin Panel Pages ─────────────────────────────────────────────
+  app.get("/admin-panel/2fa-setup", requireAdminAuth, (_req, res) => {
+    res.send(generate2FAEnrollmentPage());
+  });
+
   app.get("/admin-panel", requireAdminAuth, (req, res) => {
     res.send(generateAdminPanel((req as any).adminUser));
   });
@@ -634,6 +1310,96 @@ export function mountAdminPanel(app: Express) {
   app.get("/admin-panel/*", requireAdminAuth, (req, res) => {
     res.send(generateAdminPanel((req as any).adminUser));
   });
+}
+
+function generate2FAEnrollmentPage(): string {
+  return `<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Rabbaanie — Secure administrator account</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { margin: 0; min-height: 100vh; display: grid; place-items: center; padding: 24px; background: #f0f2f5; color: #1a1a2e; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }
+    main { width: min(560px, 100%); padding: 32px; border-radius: 16px; background: #fff; box-shadow: 0 12px 40px rgba(0,0,0,.12); }
+    h1 { margin: 0 0 12px; color: #1b4332; font-size: 1.6rem; }
+    p { line-height: 1.55; }
+    button { border: 0; border-radius: 8px; padding: 12px 18px; background: #1b4332; color: #fff; font-weight: 700; cursor: pointer; }
+    input { width: 100%; margin: 14px 0; padding: 12px; border: 1px solid #bcc5c0; border-radius: 8px; font-size: 1.1rem; }
+    code { display: block; overflow-wrap: anywhere; padding: 10px; border-radius: 6px; background: #eef5f1; }
+    #setup, #message { display: none; }
+    #codes { display: grid; grid-template-columns: repeat(2, 1fr); gap: 6px; margin: 12px 0; font-family: monospace; }
+    .warning { color: #8a3b00; }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>Two-factor authentication required</h1>
+    <p>Your administrator account cannot access privileged data until you secure it with an authenticator app.</p>
+    <button id="start" type="button">Start secure setup</button>
+    <section id="setup">
+      <p>Add this secret to your authenticator app:</p>
+      <code id="secret"></code>
+      <p class="warning">Save these one-use backup codes now. They are shown only once:</p>
+      <div id="codes"></div>
+      <label for="token">Enter the current six-digit code</label>
+      <input id="token" inputmode="numeric" autocomplete="one-time-code" maxlength="6" pattern="[0-9]{6}">
+      <button id="verify" type="button">Verify and activate</button>
+    </section>
+    <p id="message" role="alert"></p>
+  </main>
+  <script>
+    const start = document.getElementById('start');
+    const setup = document.getElementById('setup');
+    const message = document.getElementById('message');
+    function showMessage(text, isError) {
+      message.textContent = text;
+      message.style.display = 'block';
+      message.style.color = isError ? '#b71c1c' : '#1b5e20';
+    }
+    start.addEventListener('click', async () => {
+      start.disabled = true;
+      try {
+        const response = await fetch('/admin-api/2fa/setup', { method: 'POST' });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.error || 'Setup failed');
+        document.getElementById('secret').textContent = data.secret;
+        const codes = document.getElementById('codes');
+        codes.replaceChildren(...data.backupCodes.map((value) => {
+          const item = document.createElement('span');
+          item.textContent = value;
+          return item;
+        }));
+        setup.style.display = 'block';
+        start.style.display = 'none';
+      } catch (error) {
+        start.disabled = false;
+        showMessage(error instanceof Error ? error.message : 'Setup failed', true);
+      }
+    });
+    document.getElementById('verify').addEventListener('click', async () => {
+      const token = document.getElementById('token').value.trim();
+      if (!/^\\d{6}$/.test(token)) {
+        showMessage('Enter a valid six-digit code.', true);
+        return;
+      }
+      const response = await fetch('/admin-api/2fa/verify', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token }),
+      });
+      const data = await response.json();
+      if (!response.ok || !data.success) {
+        showMessage(data.error || 'Invalid code. Try again.', true);
+        return;
+      }
+      showMessage('Two-factor authentication is active. Sign in again to continue.', false);
+      setTimeout(() => { window.location.href = '/auth/logout'; }, 900);
+    });
+  </script>
+</body>
+</html>`;
 }
 
 // ═══════════════════════════════════════════════════════════════════════
@@ -880,14 +1646,14 @@ function generateAdminPanel(adminUser: any): string {
       <a class="mobile-nav-item" data-mpage="notifications"><span>\ud83d\udd14</span> Notificaties</a>
       <a class="mobile-nav-item" data-mpage="newsletters"><span>\ud83d\udcf0</span> Nieuwsbrieven</a>
       <div class="mobile-nav-section">Systeem</div>
-      ${perms.manageRoles ? '<a class="mobile-nav-item" data-mpage="roles"><span>\ud83d\udd10</span> Rollen & Rechten</a>' : ''}
-      ${perms.manageRoles ? '<a class="mobile-nav-item" data-mpage="invitations"><span>\ud83c\udf9f\ufe0f</span> Uitnodigingscodes</a>' : ''}
-      ${perms.manageSettings ? '<a class="mobile-nav-item" data-mpage="settings"><span>\u2699\ufe0f</span> Instellingen</a>' : ''}
+      ${perms.manageRoles ? '<a class="mobile-nav-item" data-mpage="roles"><span>\ud83d\udd10</span> Rollen & Rechten</a>' : ""}
+      ${perms.manageRoles ? '<a class="mobile-nav-item" data-mpage="invitations"><span>\ud83c\udf9f\ufe0f</span> Uitnodigingscodes</a>' : ""}
+      ${perms.manageSettings ? '<a class="mobile-nav-item" data-mpage="settings"><span>\u2699\ufe0f</span> Instellingen</a>' : ""}
       <a class="mobile-nav-item" data-mpage="2fa"><span>\ud83d\udee1\ufe0f</span> 2FA Beveiliging</a>
       <a class="mobile-nav-item" data-mpage="export"><span>\u2b07\ufe0f</span> Data Export</a>
-      ${perms.viewLogs ? '<a class="mobile-nav-item" data-mpage="logs"><span>\ud83d\udcc4</span> Systeemlog</a>' : ''}
+      ${perms.viewLogs ? '<a class="mobile-nav-item" data-mpage="logs"><span>\ud83d\udcc4</span> Systeemlog</a>' : ""}
       <div style="border-top:1px solid rgba(255,255,255,0.1); margin-top:16px; padding:16px 24px;">
-        <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-bottom:8px;">Ingelogd als: <strong style="color:white;">${adminUser.name || adminUser.email || 'Admin'}</strong></div>
+        <div style="font-size:0.8rem; color:rgba(255,255,255,0.6); margin-bottom:8px;">Ingelogd als: <strong style="color:white;">${adminUser.name || adminUser.email || "Admin"}</strong></div>
         <a class="mobile-nav-item" onclick="handleLogout()" style="padding-left:0;"><span>\ud83d\udeaa</span> Uitloggen</a>
       </div>
     </div>
@@ -923,20 +1689,24 @@ function generateAdminPanel(adminUser: any): string {
         <a class="nav-item" data-page="newsletters"><span class="icon">📰</span> Nieuwsbrieven</a>
       </div>
 
-      ${perms.manageRoles || perms.manageSettings ? `
+      ${
+        perms.manageRoles || perms.manageSettings
+          ? `
       <div class="nav-group">
         <div class="nav-group-title">Systeem</div>
-        ${perms.manageRoles ? '<a class="nav-item" data-page="roles"><span class="icon">🔐</span> Rollen & Rechten</a>' : ''}
-        ${perms.manageRoles ? '<a class="nav-item" data-page="invitations"><span class="icon">🎟️</span> Uitnodigingscodes</a>' : ''}
-        ${perms.manageSettings ? '<a class="nav-item" data-page="settings"><span class="icon">⚙️</span> Instellingen</a>' : ''}
+        ${perms.manageRoles ? '<a class="nav-item" data-page="roles"><span class="icon">🔐</span> Rollen & Rechten</a>' : ""}
+        ${perms.manageRoles ? '<a class="nav-item" data-page="invitations"><span class="icon">🎟️</span> Uitnodigingscodes</a>' : ""}
+        ${perms.manageSettings ? '<a class="nav-item" data-page="settings"><span class="icon">⚙️</span> Instellingen</a>' : ""}
         <a class="nav-item" data-page="2fa"><span class="icon">🛡️</span> 2FA Beveiliging</a>
         <a class="nav-item" data-page="export"><span class="icon">⬇️</span> Data Export</a>
-        ${perms.viewLogs ? '<a class="nav-item" data-page="logs"><span class="icon">📄</span> Systeemlog</a>' : ''}
-      </div>` : ''}
+        ${perms.viewLogs ? '<a class="nav-item" data-page="logs"><span class="icon">📄</span> Systeemlog</a>' : ""}
+      </div>`
+          : ""
+      }
 
       <div class="sidebar-footer">
         <div style="font-size:0.8rem; opacity:0.7; margin-bottom:8px;">
-          Ingelogd als: <strong>${adminUser.name || adminUser.email || 'Admin'}</strong>
+          Ingelogd als: <strong>${adminUser.name || adminUser.email || "Admin"}</strong>
         </div>
         <a class="nav-item" onclick="handleLogout()" style="padding-left:0; opacity:0.6;"><span class="icon">🚪</span> Uitloggen</a>
       </div>
@@ -981,7 +1751,7 @@ function generateAdminPanel(adminUser: any): string {
           <div><h2>Gebruikers</h2><p class="subtitle">Beheer alle geregistreerde gebruikers</p></div>
           <div style="display:flex; gap:8px;">
             <div class="search-bar"><input type="search" id="user-search" placeholder="Zoek gebruiker..." oninput="filterUsers()"></div>
-            ${perms.create ? '<button class="btn btn-primary" onclick="showCreateUserModal()">+ Nieuwe gebruiker</button>' : ''}
+            ${perms.create ? '<button class="btn btn-primary" onclick="showCreateUserModal()">+ Nieuwe gebruiker</button>' : ""}
           </div>
         </div>
         <div class="card" style="padding:0; overflow:hidden;">
@@ -1022,7 +1792,7 @@ function generateAdminPanel(adminUser: any): string {
       <div id="page-network" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Netwerk</h2><p class="subtitle">Specialisten, leraren, kennisdragers en artsen</p></div>
-          ${perms.create ? '<button class="btn btn-primary" onclick="document.getElementById(\'modal-add-network\').classList.add(\'active\');">+ Toevoegen</button>' : ''}
+          ${perms.create ? "<button class=\"btn btn-primary\" onclick=\"document.getElementById('modal-add-network').classList.add('active');\">+ Toevoegen</button>" : ""}
         </div>
         <div style="display:grid; grid-template-columns: 1fr 1fr; gap:20px;">
           <div class="card">
@@ -1066,7 +1836,7 @@ function generateAdminPanel(adminUser: any): string {
       <div id="page-content" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Content Management</h2><p class="subtitle">Artikelen, adviezen en bronnen in 3 talen (NL/EN/AR)</p></div>
-          ${perms.create ? `<button class="btn btn-primary" onclick="showCreateContentModal()">+ Nieuwe content</button>` : ''}
+          ${perms.create ? `<button class="btn btn-primary" onclick="showCreateContentModal()">+ Nieuwe content</button>` : ""}
         </div>
         <!-- Filter bar -->
         <div class="card" style="margin-bottom:16px; display:flex; gap:12px; flex-wrap:wrap; align-items:center;">
@@ -1208,7 +1978,7 @@ function generateAdminPanel(adminUser: any): string {
         <div style="margin-top:24px;">
           <div class="page-header">
             <div><h3>Categorie\u00ebn</h3><p class="subtitle">Beheer content-categorie\u00ebn per app-sectie</p></div>
-            ${perms.create ? `<button class="btn" onclick="showCreateCategoryModal()">+ Nieuwe categorie</button>` : ''}
+            ${perms.create ? `<button class="btn" onclick="showCreateCategoryModal()">+ Nieuwe categorie</button>` : ""}
           </div>
           <div class="card" style="padding:0; overflow:hidden;">
             <table>
@@ -1223,7 +1993,7 @@ function generateAdminPanel(adminUser: any): string {
       <div id="page-messages" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Berichten</h2><p class="subtitle">Alle berichten in het systeem</p></div>
-          ${perms.sendNotifications ? '<button class="btn btn-primary" onclick="showBroadcastModal()">📢 Broadcast bericht</button>' : ''}
+          ${perms.sendNotifications ? '<button class="btn btn-primary" onclick="showBroadcastModal()">📢 Broadcast bericht</button>' : ""}
         </div>
         <div class="card">
           <div style="overflow-x:auto;">
@@ -1239,7 +2009,7 @@ function generateAdminPanel(adminUser: any): string {
       <div id="page-notifications" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Notificaties</h2><p class="subtitle">Push-notificaties beheren</p></div>
-          ${perms.sendNotifications ? '<button class="btn btn-primary" onclick="showNotificationModal()">+ Nieuwe notificatie</button>' : ''}
+          ${perms.sendNotifications ? '<button class="btn btn-primary" onclick="showNotificationModal()">+ Nieuwe notificatie</button>' : ""}
         </div>
         <!-- Push Test Card -->
         <div class="push-test-card">
@@ -1267,7 +2037,7 @@ function generateAdminPanel(adminUser: any): string {
       <div id="page-newsletters" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Nieuwsbrieven</h2><p class="subtitle">E-mail campagnes beheren</p></div>
-          ${perms.create ? `<button class="btn btn-primary" onclick="document.getElementById('modal-create-newsletter').classList.add('active')">+ Nieuwe nieuwsbrief</button>` : ''}
+          ${perms.create ? `<button class="btn btn-primary" onclick="document.getElementById('modal-create-newsletter').classList.add('active')">+ Nieuwe nieuwsbrief</button>` : ""}
         </div>
         <div class="card" style="padding:0; overflow:hidden;">
           <table>
@@ -1278,7 +2048,9 @@ function generateAdminPanel(adminUser: any): string {
       </div>
 
       <!-- Roles & Permissions Page -->
-      ${perms.manageRoles ? `
+      ${
+        perms.manageRoles
+          ? `
       <div id="page-roles" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Rollen & Rechten</h2><p class="subtitle">Autorisatierollen en uitvoerende functies beheren</p></div>
@@ -1388,10 +2160,14 @@ function generateAdminPanel(adminUser: any): string {
           <div class="card-header"><h3>Overzicht: Gebruikers met rollen & functies</h3></div>
           <div id="roles-functions-overview" style="margin-top:12px;"><p style="color:var(--muted);">Laden...</p></div>
         </div>
-      </div>` : ''}
+      </div>`
+          : ""
+      }
 
       <!-- Settings Page -->
-      ${perms.manageSettings ? `
+      ${
+        perms.manageSettings
+          ? `
       <div id="page-settings" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Instellingen</h2><p class="subtitle">Systeemconfiguratie</p></div>
@@ -1436,10 +2212,14 @@ function generateAdminPanel(adminUser: any): string {
           </div>
           <button class="btn btn-primary" onclick="saveSecuritySettings()">Beveiligingsinstellingen opslaan</button>
         </div>
-      </div>` : ''}
+      </div>`
+          : ""
+      }
 
       <!-- Invitation Codes Page -->
-      ${perms.manageRoles ? `
+      ${
+        perms.manageRoles
+          ? `
       <div id="page-invitations" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Uitnodigingscodes</h2><p class="subtitle">Codes per functie voor registratie (specialist, leraar, arts, etc.)</p></div>
@@ -1451,10 +2231,14 @@ function generateAdminPanel(adminUser: any): string {
             <tbody id="invitations-table"><tr><td colspan="7" style="text-align:center; padding:24px; color:var(--muted);">Laden...</td></tr></tbody>
           </table>
         </div>
-      </div>` : ''}
+      </div>`
+          : ""
+      }
 
       <!-- Logs Page -->
-      ${perms.viewLogs ? `
+      ${
+        perms.viewLogs
+          ? `
       <div id="page-logs" class="page" style="display:none;">
         <div class="page-header">
           <div><h2>Systeemlog</h2><p class="subtitle">Audit trail en systeemgebeurtenissen</p></div>
@@ -1463,7 +2247,9 @@ function generateAdminPanel(adminUser: any): string {
         <div class="card" id="logs-container">
           <div class="activity-item"><div class="activity-dot" style="background:var(--success);"></div><div><div class="activity-text">Systeem gestart</div><div class="activity-time">Nu</div></div></div>
         </div>
-      </div>` : ''}
+      </div>`
+          : ""
+      }
 
       <!-- Activity Page -->
       <div id="page-activity" class="page" style="display:none;">
@@ -1659,6 +2445,12 @@ function generateAdminPanel(adminUser: any): string {
     let allFamilies = [];
     let allChildren = [];
 
+    function escapeHtml(value) {
+      return String(value == null ? '' : value).replace(/[&<>"']/g, function(char) {
+        return ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' })[char];
+      });
+    }
+
     // Navigation
     document.querySelectorAll('.nav-item[data-page]').forEach(item => {
       item.addEventListener('click', () => {
@@ -1806,7 +2598,7 @@ function generateAdminPanel(adminUser: any): string {
         var pageData = data.slice(startIdx, startIdx + perPage);
         document.getElementById('cms-result-count').textContent = totalFiltered + ' items' + (totalFiltered !== data.length ? ' (gefilterd)' : '') + ' — pagina ' + cmsPagination.page + ' van ' + Math.max(totalPages, 1);
         if (pageData.length === 0) {
-          table.innerHTML = '<tr><td colspan="9" class="empty-state">Geen content gevonden' + (searchQuery ? ' voor "' + searchQuery + '"' : '') + '.</td></tr>';
+          table.innerHTML = '<tr><td colspan="9" class="empty-state">Geen content gevonden' + (searchQuery ? ' voor "' + escapeHtml(searchQuery) + '"' : '') + '.</td></tr>';
           renderPagination(totalPages);
           return;
         }
@@ -1823,19 +2615,19 @@ function generateAdminPanel(adminUser: any): string {
           if (arT) langs.push('AR');
           var cat = cmsCategories.find(function(c) { return c.id === item.categoryId; });
           var catName = cat ? cat.nameNl : '-';
-          var tags = (item.tags || []).map(function(t) { return '<span style="background:#F3E5F5;color:#7B1FA2;padding:1px 5px;border-radius:3px;font-size:0.7rem;margin-right:2px;">' + t + '</span>'; }).join('') || '<span style="color:var(--muted);font-size:0.8rem;">-</span>';
+          var tags = (item.tags || []).map(function(t) { return '<span style="background:#F3E5F5;color:#7B1FA2;padding:1px 5px;border-radius:3px;font-size:0.7rem;margin-right:2px;">' + escapeHtml(t) + '</span>'; }).join('') || '<span style="color:var(--muted);font-size:0.8rem;">-</span>';
           var statusColor = item.status === 'published' ? '#E8F5E9' : item.status === 'archived' ? '#ECEFF1' : item.status === 'scheduled' ? '#E8EAF6' : '#FFF3E0';
           var statusTextColor = item.status === 'published' ? '#2E7D32' : item.status === 'archived' ? '#546E7A' : item.status === 'scheduled' ? '#283593' : '#E65100';
           var date = item.createdAt ? new Date(item.createdAt).toLocaleDateString('nl-NL') : '-';
           var isChecked = cmsSelectedIds.indexOf(item.id) !== -1;
           return '<tr style="' + (isChecked ? 'background:#E3F2FD;' : '') + '">' +
             '<td><input type="checkbox" class="cms-item-cb" data-id="' + item.id + '" ' + (isChecked ? 'checked' : '') + ' onchange="toggleItemSelect(' + item.id + ', this.checked)"></td>' +
-            '<td><strong>' + title + '</strong></td>' +
-            '<td>' + (typeLabels[item.contentType] || item.contentType) + '</td>' +
-            '<td>' + catName + '</td>' +
+            '<td><strong>' + escapeHtml(title) + '</strong></td>' +
+            '<td>' + escapeHtml(typeLabels[item.contentType] || item.contentType) + '</td>' +
+            '<td>' + escapeHtml(catName) + '</td>' +
             '<td>' + tags + '</td>' +
             '<td>' + langs.map(function(l) { return '<span style="background:#E3F2FD;color:#1565C0;padding:1px 6px;border-radius:3px;font-size:0.75rem;margin-right:2px;">' + l + '</span>'; }).join('') + '</td>' +
-            '<td><span style="background:' + statusColor + ';color:' + statusTextColor + ';padding:2px 8px;border-radius:4px;font-size:0.8rem;">' + (statusLabels[item.status] || item.status) + '</span></td>' +
+            '<td><span style="background:' + statusColor + ';color:' + statusTextColor + ';padding:2px 8px;border-radius:4px;font-size:0.8rem;">' + escapeHtml(statusLabels[item.status] || item.status) + '</span></td>' +
             '<td>' + date + '</td>' +
             '<td style="white-space:nowrap;"><div style="display:flex;flex-wrap:wrap;gap:3px;">' +
             '<button class="btn btn-sm btn-outline" onclick="previewContent(' + item.id + ')" title="Preview">\uD83D\uDC41</button>' +
@@ -1855,7 +2647,7 @@ function generateAdminPanel(adminUser: any): string {
         renderPagination(totalPages);
         updateBulkToolbar();
       } catch(e) {
-        table.innerHTML = '<tr><td colspan="9" class="empty-state">Fout bij laden: ' + e.message + '</td></tr>';
+        table.innerHTML = '<tr><td colspan="9" class="empty-state">Fout bij laden: ' + escapeHtml(e.message) + '</td></tr>';
       }
     }
 
@@ -1986,10 +2778,10 @@ function generateAdminPanel(adminUser: any): string {
       });
       if (!t) { content.innerHTML = '<p style="color:var(--muted);text-align:center;">Geen vertaling beschikbaar voor ' + currentPreviewLang.toUpperCase() + '</p>'; return; }
       content.innerHTML = '<div style="direction:'+dir+';text-align:'+( dir==='rtl'?'right':'left')+';">' +
-        '<div style="background:#1B4332;color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;"><h3 style="margin:0;font-size:1.1rem;">' + (t.title || '') + '</h3></div>' +
-        (t.summary ? '<p style="color:#666;font-size:0.9rem;margin-bottom:12px;">' + t.summary + '</p>' : '') +
-        '<div style="font-size:0.9rem;line-height:1.6;">' + (t.body || '').split(String.fromCharCode(10)).join('<br>') + '</div>' +
-        ((item.files || []).length ? '<div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px;"><strong>Bestanden:</strong><ul>' + item.files.map(function(f){return '<li><a href="'+f.fileUrl+'" target="_blank">'+f.fileName+'</a></li>';}).join('') + '</ul></div>' : '') +
+        '<div style="background:#1B4332;color:#fff;padding:12px 16px;border-radius:10px;margin-bottom:12px;"><h3 style="margin:0;font-size:1.1rem;">' + escapeHtml(t.title || '') + '</h3></div>' +
+        (t.summary ? '<p style="color:#666;font-size:0.9rem;margin-bottom:12px;">' + escapeHtml(t.summary) + '</p>' : '') +
+        '<div style="font-size:0.9rem;line-height:1.6;">' + escapeHtml(t.body || '').split(String.fromCharCode(10)).join('<br>') + '</div>' +
+        ((item.files || []).length ? '<div style="margin-top:16px;border-top:1px solid #eee;padding-top:12px;"><strong>Bestanden:</strong><ul>' + item.files.map(function(f){return '<li><a href="'+escapeHtml(f.fileUrl)+'" target="_blank" rel="noopener noreferrer">'+escapeHtml(f.fileName)+'</a></li>';}).join('') + '</ul></div>' : '') +
         '</div>';
     }
     function closePreviewModal() { document.getElementById('preview-modal').style.display = 'none'; }
@@ -2005,7 +2797,7 @@ function generateAdminPanel(adminUser: any): string {
         var dir = lang === 'ar' ? 'rtl' : 'ltr';
         return '<div style="border:1px solid #eee;border-radius:10px;padding:12px;direction:'+dir+';">' +
           '<h4 style="margin:0 0 8px;color:#1565C0;">' + lang.toUpperCase() + '</h4>' +
-          (t ? '<h5 style="margin:0 0 6px;">' + (t.title||'') + '</h5><p style="font-size:0.85rem;color:#666;">' + (t.summary||'') + '</p><div style="font-size:0.8rem;margin-top:8px;">' + (t.body||'').substring(0,300) + (t.body && t.body.length > 300 ? '...' : '') + '</div>' : '<p style="color:var(--muted);">Geen vertaling</p>') +
+          (t ? '<h5 style="margin:0 0 6px;">' + escapeHtml(t.title||'') + '</h5><p style="font-size:0.85rem;color:#666;">' + escapeHtml(t.summary||'') + '</p><div style="font-size:0.8rem;margin-top:8px;">' + escapeHtml((t.body||'').substring(0,300)) + (t.body && t.body.length > 300 ? '...' : '') + '</div>' : '<p style="color:var(--muted);">Geen vertaling</p>') +
           '</div>';
       }).join('');
       document.getElementById('compare-modal').style.display = 'flex';
@@ -2057,7 +2849,7 @@ function generateAdminPanel(adminUser: any): string {
       var notes = item?.notes || [];
       var content = document.getElementById('notes-content');
       content.innerHTML = '<div style="margin-bottom:12px;">' +
-        (notes.length ? notes.map(function(n) { return '<div style="border-bottom:1px solid #eee;padding:8px 0;"><p style="margin:0;">' + n.text + '</p><small style="color:var(--muted);">' + (n.author||'Admin') + ' - ' + (n.date ? new Date(n.date).toLocaleString('nl-NL') : '') + '</small></div>'; }).join('') : '<p style="color:var(--muted);">Nog geen notities.</p>') +
+        (notes.length ? notes.map(function(n) { return '<div style="border-bottom:1px solid #eee;padding:8px 0;"><p style="margin:0;">' + escapeHtml(n.text) + '</p><small style="color:var(--muted);">' + escapeHtml(n.author||'Admin') + ' - ' + (n.date ? new Date(n.date).toLocaleString('nl-NL') : '') + '</small></div>'; }).join('') : '<p style="color:var(--muted);">Nog geen notities.</p>') +
         '</div><textarea id="new-note-text" rows="3" placeholder="Nieuwe notitie..." style="width:100%;padding:8px;border-radius:8px;border:1px solid var(--border);margin-bottom:8px;"></textarea>' +
         '<button class="btn btn-primary" onclick="addNote(' + id + ')">Toevoegen</button>';
       document.getElementById('notes-modal').style.display = 'flex';
@@ -2078,7 +2870,7 @@ function generateAdminPanel(adminUser: any): string {
       var log = item?.activityLog || [];
       var content = document.getElementById('activity-content');
       content.innerHTML = log.length ? '<table style="width:100%;font-size:0.85rem;"><thead><tr><th>Actie</th><th>Gebruiker</th><th>Datum</th></tr></thead><tbody>' +
-        log.map(function(entry) { return '<tr><td>' + entry.action + '</td><td>' + (entry.user||'Systeem') + '</td><td>' + new Date(entry.date).toLocaleString('nl-NL') + '</td></tr>'; }).join('') +
+        log.map(function(entry) { return '<tr><td>' + escapeHtml(entry.action) + '</td><td>' + escapeHtml(entry.user||'Systeem') + '</td><td>' + new Date(entry.date).toLocaleString('nl-NL') + '</td></tr>'; }).join('') +
         '</tbody></table>' : '<p style="color:var(--muted);text-align:center;">Geen activiteit geregistreerd.</p>';
       document.getElementById('activity-modal').style.display = 'flex';
     }
@@ -2144,7 +2936,7 @@ function generateAdminPanel(adminUser: any): string {
         var catFilter = document.getElementById('cms-filter-category');
         if (catFilter && cmsCategories.length > 0) {
           var opts = '<option value="">Alle categorieen</option>';
-          cmsCategories.forEach(function(c) { opts += '<option value="' + c.id + '">' + c.nameNl + '</option>'; });
+          cmsCategories.forEach(function(c) { opts += '<option value="' + c.id + '">' + escapeHtml(c.nameNl) + '</option>'; });
           catFilter.innerHTML = opts;
         }
         if (catTable) {
@@ -2153,7 +2945,7 @@ function generateAdminPanel(adminUser: any): string {
           } else {
             var sectionLabels = { fitrah: 'Fitrah', weekly: 'Weekprogramma', treatments: 'Behandelingen', concepts: 'Begrippen', general: 'Algemeen' };
             catTable.innerHTML = cmsCategories.map(function(c) {
-              return '<tr><td>' + c.nameNl + '</td><td>' + (c.nameEn || '-') + '</td><td>' + (c.nameAr || '-') + '</td><td>' + (sectionLabels[c.appSection] || c.appSection) + '</td><td>' + (c.sortOrder || 0) + '</td></tr>';
+              return '<tr><td>' + escapeHtml(c.nameNl) + '</td><td>' + escapeHtml(c.nameEn || '-') + '</td><td>' + escapeHtml(c.nameAr || '-') + '</td><td>' + escapeHtml(sectionLabels[c.appSection] || c.appSection) + '</td><td>' + Number(c.sortOrder || 0) + '</td></tr>';
             }).join('');
           }
         }
@@ -2161,7 +2953,7 @@ function generateAdminPanel(adminUser: any): string {
     }
     function showCreateContentModal() {
       var catOpts = '<option value="">Geen categorie</option>';
-      cmsCategories.forEach(function(c) { catOpts += '<option value="' + c.id + '">' + c.nameNl + ' (' + c.appSection + ')</option>'; });
+      cmsCategories.forEach(function(c) { catOpts += '<option value="' + c.id + '">' + escapeHtml(c.nameNl) + ' (' + escapeHtml(c.appSection) + ')</option>'; });
       var html = '<div class="modal-overlay active" id="modal-cms-create" data-dynamic="true" style="display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">' +
         '<div class="modal" style="max-width:700px;width:90%;max-height:90vh;overflow-y:auto;background:var(--surface);border-radius:16px;padding:32px;">' +
         '<div class="modal-header"><h3>Nieuwe content aanmaken</h3><button class="modal-close" onclick="closeModal(\\'modal-cms-create\\')">&times;</button></div>' +
@@ -2330,7 +3122,7 @@ function generateAdminPanel(adminUser: any): string {
       var maxSize = 50 * 1024 * 1024;
       if (file.size > maxSize) { showToast('Bestand te groot (max 50MB)', 'error'); return; }
       var statusEl = document.getElementById('file-upload-status');
-      statusEl.innerHTML = '<p style="color:var(--primary);">Uploaden: ' + file.name + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)...</p>';
+      statusEl.innerHTML = '<p style="color:var(--primary);">Uploaden: ' + escapeHtml(file.name) + ' (' + (file.size / 1024 / 1024).toFixed(1) + ' MB)...</p>';
       try {
         var reader = new FileReader();
         reader.onload = async function(e) {
@@ -2345,16 +3137,16 @@ function generateAdminPanel(adminUser: any): string {
             language: lang
           });
           if (result.success) {
-            statusEl.innerHTML = '<p style="color:#2E7D32;">\u2713 Bestand geupload: ' + file.name + '</p>';
+            statusEl.innerHTML = '<p style="color:#2E7D32;">\u2713 Bestand geupload: ' + escapeHtml(file.name) + '</p>';
             showToast('Bestand geupload!');
             setTimeout(function() { closeModal('modal-file-upload'); document.getElementById('modal-file-upload')?.remove(); loadCmsContent(); }, 1500);
           } else {
-            statusEl.innerHTML = '<p style="color:#C62828;">Fout: ' + (result.error || 'onbekend') + '</p>';
+            statusEl.innerHTML = '<p style="color:#C62828;">Fout: ' + escapeHtml(result.error || 'onbekend') + '</p>';
           }
         };
         reader.readAsDataURL(file);
       } catch(e) {
-        statusEl.innerHTML = '<p style="color:#C62828;">Upload mislukt: ' + e.message + '</p>';
+        statusEl.innerHTML = '<p style="color:#C62828;">Upload mislukt: ' + escapeHtml(e.message) + '</p>';
       }
     }
     async function editContentItem(id) {
@@ -2366,28 +3158,29 @@ function generateAdminPanel(adminUser: any): string {
         var nlT = item.translations?.find(function(t) { return t.language === 'nl'; }) || {};
         var enT = item.translations?.find(function(t) { return t.language === 'en'; }) || {};
         var arT = item.translations?.find(function(t) { return t.language === 'ar'; }) || {};
+        var itemTags = Array.isArray(item.tags) ? item.tags : (item.tags ? JSON.parse(item.tags) : []);
         var catOpts = '<option value="">Geen categorie</option>';
-        cmsCategories.forEach(function(c) { catOpts += '<option value="' + c.id + '"' + (c.id === item.categoryId ? ' selected' : '') + '>' + c.nameNl + '</option>'; });
+        cmsCategories.forEach(function(c) { catOpts += '<option value="' + c.id + '"' + (c.id === item.categoryId ? ' selected' : '') + '>' + escapeHtml(c.nameNl) + '</option>'; });
         var html = '<div class="modal-overlay active" id="modal-cms-edit" data-dynamic="true" style="display:flex;position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:1000;align-items:center;justify-content:center;">' +
           '<div class="modal" style="max-width:700px;width:90%;max-height:90vh;overflow-y:auto;background:var(--surface);border-radius:16px;padding:32px;">' +
           '<div class="modal-header"><h3>Content bewerken #' + id + '</h3><button class="modal-close" onclick="closeModal(\\'modal-cms-edit\\')">&times;</button></div>' +
           '<div class="modal-body">' +
           '<div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-bottom:16px;">' +
           '<div><label>Categorie</label><select id="cms-edit-category" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;">' + catOpts + '</select></div>' +
-          '<div><label>Tags</label><input id="cms-edit-tags" value="' + (item.tags ? JSON.parse(item.tags).join(', ') : '') + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>' +
+          '<div><label>Tags</label><input id="cms-edit-tags" value="' + escapeHtml(itemTags.join(', ')) + '" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;"></div>' +
           '</div>' +
           '<h4 style="margin:12px 0 8px;">Nederlands</h4>' +
-          '<input id="cms-edit-title-nl" value="' + (nlT.title || '') + '" placeholder="Titel (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
-          '<input id="cms-edit-summary-nl" value="' + (nlT.summary || '') + '" placeholder="Samenvatting (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
-          '<textarea id="cms-edit-body-nl" rows="4" placeholder="Inhoud (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;">' + (nlT.body || '') + '</textarea>' +
+          '<input id="cms-edit-title-nl" value="' + escapeHtml(nlT.title || '') + '" placeholder="Titel (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
+          '<input id="cms-edit-summary-nl" value="' + escapeHtml(nlT.summary || '') + '" placeholder="Samenvatting (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
+          '<textarea id="cms-edit-body-nl" rows="4" placeholder="Inhoud (NL)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;">' + escapeHtml(nlT.body || '') + '</textarea>' +
           '<h4 style="margin:12px 0 8px;">English</h4>' +
-          '<input id="cms-edit-title-en" value="' + (enT.title || '') + '" placeholder="Title (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
-          '<input id="cms-edit-summary-en" value="' + (enT.summary || '') + '" placeholder="Summary (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
-          '<textarea id="cms-edit-body-en" rows="4" placeholder="Content (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;">' + (enT.body || '') + '</textarea>' +
+          '<input id="cms-edit-title-en" value="' + escapeHtml(enT.title || '') + '" placeholder="Title (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
+          '<input id="cms-edit-summary-en" value="' + escapeHtml(enT.summary || '') + '" placeholder="Summary (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;">' +
+          '<textarea id="cms-edit-body-en" rows="4" placeholder="Content (EN)" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;">' + escapeHtml(enT.body || '') + '</textarea>' +
           '<h4 style="margin:12px 0 8px;">\u0639\u0631\u0628\u064A</h4>' +
-          '<input id="cms-edit-title-ar" value="' + (arT.title || '') + '" placeholder="\u0627\u0644\u0639\u0646\u0648\u0627\u0646" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;direction:rtl;">' +
-          '<input id="cms-edit-summary-ar" value="' + (arT.summary || '') + '" placeholder="\u0627\u0644\u0645\u0644\u062E\u0635" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;direction:rtl;">' +
-          '<textarea id="cms-edit-body-ar" rows="4" placeholder="\u0627\u0644\u0645\u062D\u062A\u0648\u0649" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;direction:rtl;">' + (arT.body || '') + '</textarea>' +
+          '<input id="cms-edit-title-ar" value="' + escapeHtml(arT.title || '') + '" placeholder="\u0627\u0644\u0639\u0646\u0648\u0627\u0646" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;direction:rtl;">' +
+          '<input id="cms-edit-summary-ar" value="' + escapeHtml(arT.summary || '') + '" placeholder="\u0627\u0644\u0645\u0644\u062E\u0635" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;margin-bottom:8px;direction:rtl;">' +
+          '<textarea id="cms-edit-body-ar" rows="4" placeholder="\u0627\u0644\u0645\u062D\u062A\u0648\u0649" style="width:100%;padding:8px;border:1px solid var(--border);border-radius:8px;direction:rtl;">' + escapeHtml(arT.body || '') + '</textarea>' +
           '<div style="margin-top:16px;display:flex;gap:8px;">' +
           '<button class="btn btn-primary" onclick="submitEditContent(' + id + ')">Opslaan</button>' +
           '<button class="btn" onclick="submitEditContent(' + id + ', true)">Opslaan & Publiceren</button>' +
@@ -2495,7 +3288,7 @@ function generateAdminPanel(adminUser: any): string {
         allUsers = users;
         const recent = users.slice(0, 5);
         document.getElementById('recent-users').innerHTML = recent.map(u =>
-          '<div class="activity-item"><div class="activity-dot" style="background:var(--info);"></div><div><div class="activity-text">' + (u.name || u.email || 'Anoniem') + '</div><div class="activity-time">' + (u.role || 'user') + '</div></div></div>'
+          '<div class="activity-item"><div class="activity-dot" style="background:var(--info);"></div><div><div class="activity-text">' + escapeHtml(u.name || u.email || 'Anoniem') + '</div><div class="activity-time">' + escapeHtml(u.role || 'user') + '</div></div></div>'
         ).join('');
       }
     }
@@ -2526,7 +3319,7 @@ function generateAdminPanel(adminUser: any): string {
         var actions = PERMS.manageRoles
           ? '<select onchange="changeUserRole(' + u.id + ', this.value)" style="padding:4px 8px; border-radius:4px; border:1px solid var(--border); font-size:0.75rem;"><option value="user"' + (u.role==='user'?' selected':'') + '>Gebruiker</option><option value="moderator"' + (u.role==='moderator'?' selected':'') + '>Moderator</option><option value="admin"' + (u.role==='admin'?' selected':'') + '>Admin</option><option value="super_admin"' + (u.role==='super_admin'?' selected':'') + '>Super Admin</option></select>'
           : '<span style="font-size:0.75rem; color:var(--muted);">Alleen lezen</span>';
-        return '<tr><td>' + u.id + '</td><td>' + (u.name || '-') + '</td><td>' + (u.email || '-') + '</td><td>' + authBadges + '</td><td>' + funcBadges + '</td><td>' + lastLogin + '</td><td>' + actions + '</td></tr>';
+        return '<tr><td>' + u.id + '</td><td>' + escapeHtml(u.name || '-') + '</td><td>' + escapeHtml(u.email || '-') + '</td><td>' + authBadges + '</td><td>' + funcBadges + '</td><td>' + lastLogin + '</td><td>' + actions + '</td></tr>';
       }).join('');
     }
 
@@ -2611,7 +3404,7 @@ function generateAdminPanel(adminUser: any): string {
       }
       tbody.innerHTML = codes.map(function(c) {
         var statusBadge = c.isActive ? '<span style="background:#E8F5E9; color:#2E7D32; padding:2px 8px; border-radius:12px; font-size:12px;">Actief</span>' : '<span style="background:#FFEBEE; color:#C62828; padding:2px 8px; border-radius:12px; font-size:12px;">Inactief</span>';
-        return '<tr><td><code style="background:#f5f5f5; padding:4px 8px; border-radius:4px; font-size:13px;">' + c.code + '</code></td><td><span style="background:' + getFuncColor(c.functionRole) + '; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">' + getFuncLabel(c.functionRole) + '</span></td><td>' + (c.restrictedEmail || '-') + '</td><td>' + (c.maxUses || 'Onbeperkt') + '</td><td>' + (c.usedCount || 0) + '</td><td>' + statusBadge + '</td><td>' + (c.isActive ? '<button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="deactivateInvCode(' + c.id + ')">Deactiveren</button>' : '-') + '</td></tr>';
+        return '<tr><td><code style="background:#f5f5f5; padding:4px 8px; border-radius:4px; font-size:13px;">' + escapeHtml(c.code) + '</code></td><td><span style="background:' + getFuncColor(c.functionRole) + '; color:white; padding:2px 8px; border-radius:12px; font-size:12px;">' + escapeHtml(getFuncLabel(c.functionRole)) + '</span></td><td>' + escapeHtml(c.restrictedEmail || '-') + '</td><td>' + (c.maxUses == null ? 'Onbeperkt' : Number(c.maxUses)) + '</td><td>' + Number(c.usedCount || 0) + '</td><td>' + statusBadge + '</td><td>' + (c.isActive ? '<button class="btn btn-outline" style="padding:4px 8px; font-size:12px;" onclick="deactivateInvCode(' + Number(c.id) + ')">Deactiveren</button>' : '-') + '</td></tr>';
       }).join('');
     }
 
@@ -2674,8 +3467,8 @@ function generateAdminPanel(adminUser: any): string {
       entries.forEach(function(id) {
         var u = userMap[id];
         var rolesHtml = u.authRoles.map(function(r) { return '<span class="badge" style="background:' + getAuthRoleColor(r) + ';color:white;margin:2px;">' + getAuthRoleLabel(r) + ' <span onclick="removeAuthRole(' + id + ', \\'' + r + '\\')" style="cursor:pointer;margin-left:4px;">&times;</span></span>'; }).join(' ') || '<span style="color:var(--muted); font-size:12px;">Geen</span>';
-        var funcsHtml = u.functions.map(function(f) { return '<span class="badge" style="background:' + getFuncColor(f.functionRole) + ';color:white;margin:2px;">' + getFuncLabel(f.functionRole) + (f.specialization ? ' (' + f.specialization + ')' : '') + ' <span onclick="removeUserFunctionById(' + id + ', \\'' + f.functionRole + '\\')" style="cursor:pointer;margin-left:4px;">&times;</span></span>'; }).join(' ') || '<span style="color:var(--muted); font-size:12px;">Geen</span>';
-        html += '<tr><td><strong>' + u.name + '</strong><br><span style="font-size:11px;color:var(--muted);">' + u.email + '</span></td><td>' + rolesHtml + '</td><td>' + funcsHtml + '</td><td><span style="font-size:11px;color:var(--muted);">ID: ' + id + '</span></td></tr>';
+        var funcsHtml = u.functions.map(function(f) { return '<span class="badge" style="background:' + getFuncColor(f.functionRole) + ';color:white;margin:2px;">' + getFuncLabel(f.functionRole) + (f.specialization ? ' (' + escapeHtml(f.specialization) + ')' : '') + ' <span onclick="removeUserFunctionById(' + id + ', \\'' + f.functionRole + '\\')" style="cursor:pointer;margin-left:4px;">&times;</span></span>'; }).join(' ') || '<span style="color:var(--muted); font-size:12px;">Geen</span>';
+        html += '<tr><td><strong>' + escapeHtml(u.name) + '</strong><br><span style="font-size:11px;color:var(--muted);">' + escapeHtml(u.email) + '</span></td><td>' + rolesHtml + '</td><td>' + funcsHtml + '</td><td><span style="font-size:11px;color:var(--muted);">ID: ' + id + '</span></td></tr>';
       });
       html += '</tbody></table>';
       container.innerHTML = html;
@@ -2718,7 +3511,7 @@ function generateAdminPanel(adminUser: any): string {
       allFamilies = families;
       document.getElementById('families-table').innerHTML = families.map(f => {
         const deleteBtn = PERMS.delete ? '<button class="btn btn-sm btn-danger" onclick="deleteFamily(' + f.id + ')">Verwijderen</button>' : '';
-        return '<tr><td>' + f.id + '</td><td>' + (f.name || '-') + '</td><td>' + (f.memberCount || 0) + '</td><td>' + (f.childrenCount || f.childCount || 0) + '</td><td>' + new Date(f.createdAt).toLocaleDateString('nl-NL') + '</td><td>' + deleteBtn + '</td></tr>';
+        return '<tr><td>' + f.id + '</td><td>' + escapeHtml(f.name || '-') + '</td><td>' + (f.memberCount || 0) + '</td><td>' + (f.childrenCount || f.childCount || 0) + '</td><td>' + new Date(f.createdAt).toLocaleDateString('nl-NL') + '</td><td>' + deleteBtn + '</td></tr>';
       }).join('');
     }
 
@@ -2738,7 +3531,7 @@ function generateAdminPanel(adminUser: any): string {
         const age = c.birthDate ? Math.floor((Date.now() - new Date(c.birthDate).getTime()) / 31557600000) : '-';
         const deleteBtn = PERMS.delete ? '<button class="btn btn-sm btn-danger" onclick="deleteChild(' + c.id + ')">Verwijderen</button>' : '';
         var famName = c.familyName || (c.family && c.family.name) || '-';
-        return '<tr><td>' + c.id + '</td><td>' + (c.name || '-') + '</td><td>' + age + '</td><td>' + (c.gender || '-') + '</td><td>' + famName + '</td><td>' + deleteBtn + '</td></tr>';
+        return '<tr><td>' + c.id + '</td><td>' + escapeHtml(c.name || '-') + '</td><td>' + age + '</td><td>' + escapeHtml(c.gender || '-') + '</td><td>' + escapeHtml(famName) + '</td><td>' + deleteBtn + '</td></tr>';
       }).join('');
     }
 
@@ -2759,10 +3552,10 @@ function generateAdminPanel(adminUser: any): string {
         if (items.length === 0) return '<p style="color:var(--muted);">' + emptyMsg + '</p>';
         return items.map(function(c) {
           return '<div class="activity-item" style="display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--border);">' +
-            '<div style="width:40px;height:40px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">' + (c.name ? c.name.charAt(0).toUpperCase() : '?') + '</div>' +
-            '<div style="flex:1;"><div style="font-weight:600;color:var(--text);">' + (c.name || '-') + '</div>' +
-            '<div style="font-size:12px;color:var(--muted);">' + (c.specialization || '') + (c.city ? ' \u2014 ' + c.city : '') + '</div>' +
-            (c.phone ? '<div style="font-size:11px;color:var(--muted);">' + c.phone + '</div>' : '') +
+            '<div style="width:40px;height:40px;border-radius:50%;background:var(--primary);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:bold;font-size:16px;">' + escapeHtml(c.name ? c.name.charAt(0).toUpperCase() : '?') + '</div>' +
+            '<div style="flex:1;"><div style="font-weight:600;color:var(--text);">' + escapeHtml(c.name || '-') + '</div>' +
+            '<div style="font-size:12px;color:var(--muted);">' + escapeHtml(c.specialization || '') + (c.city ? ' \u2014 ' + escapeHtml(c.city) : '') + '</div>' +
+            (c.phone ? '<div style="font-size:11px;color:var(--muted);">' + escapeHtml(c.phone) + '</div>' : '') +
             '</div>' +
             '<button onclick="deleteNetworkContact(' + c.id + ')" style="background:none;border:none;color:var(--error);cursor:pointer;font-size:18px;" title="Verwijderen">\u00d7</button>' +
             '</div>';
@@ -2838,7 +3631,7 @@ function generateAdminPanel(adminUser: any): string {
           } else {
             container.innerHTML = notifLogs.map(function(l) {
               var date = l.createdAt ? new Date(l.createdAt).toLocaleString('nl-NL') : '-';
-              return '<div class="activity-item"><div class="activity-dot" style="background:var(--info);"></div><div><div class="activity-text">' + (l.description || l.action) + '</div><div class="activity-time">' + date + ' — door ' + (l.userName || 'Systeem') + '</div></div></div>';
+              return '<div class="activity-item"><div class="activity-dot" style="background:var(--info);"></div><div><div class="activity-text">' + escapeHtml(l.description || l.action) + '</div><div class="activity-time">' + date + ' — door ' + escapeHtml(l.userName || 'Systeem') + '</div></div></div>';
             }).join('');
           }
         } else {
@@ -2947,7 +3740,7 @@ function generateAdminPanel(adminUser: any): string {
         container.innerHTML = logs.map(log => {
           const dotColor = getActionColor(log.action);
           const time = log.createdAt ? new Date(log.createdAt).toLocaleString('nl-NL') : 'Nu';
-          return '<div class="activity-item"><div class="activity-dot" style="background:' + dotColor + ';"></div><div><div class="activity-text"><strong>' + (log.userName || 'Systeem') + '</strong> (' + (log.userRole || '-') + ') — ' + (log.description || log.action) + '</div><div class="activity-time">' + time + '</div></div></div>';
+          return '<div class="activity-item"><div class="activity-dot" style="background:' + dotColor + ';"></div><div><div class="activity-text"><strong>' + escapeHtml(log.userName || 'Systeem') + '</strong> (' + escapeHtml(log.userRole || '-') + ') — ' + escapeHtml(log.description || log.action) + '</div><div class="activity-time">' + time + '</div></div></div>';
         }).join('');
       } catch {
         showToast('Fout bij laden activiteiten', 'error');
@@ -2966,7 +3759,7 @@ function generateAdminPanel(adminUser: any): string {
         container.innerHTML = msgs.slice(0, 50).map(m => {
           const date = m.createdAt ? new Date(m.createdAt).toLocaleString('nl-NL') : '-';
           const read = m.isRead ? '<span style="color:#2E7D32;">Gelezen</span>' : '<span style="color:#E65100;">Ongelezen</span>';
-          return '<tr><td>' + (m.id || '-') + '</td><td>' + (m.senderId || '-') + '</td><td>' + ((m.content || '').substring(0, 60) + (m.content && m.content.length > 60 ? '...' : '')) + '</td><td>' + read + '</td><td>' + date + '</td></tr>';
+          return '<tr><td>' + (m.id || '-') + '</td><td>' + (m.senderId || '-') + '</td><td>' + escapeHtml((m.content || '').substring(0, 60) + (m.content && m.content.length > 60 ? '...' : '')) + '</td><td>' + read + '</td><td>' + date + '</td></tr>';
         }).join('');
       } catch {
         showToast('Fout bij laden berichten', 'error');
@@ -3031,7 +3824,7 @@ function generateAdminPanel(adminUser: any): string {
         const data = await res.json();
         if (data.success) {
           showToast('2FA succesvol geactiveerd!');
-          load2FAStatus();
+          setTimeout(function() { window.location.href = '/auth/logout'; }, 800);
         } else {
           showToast('Ongeldige code, probeer opnieuw', 'error');
         }
@@ -3042,8 +3835,15 @@ function generateAdminPanel(adminUser: any): string {
 
     async function disable2FA() {
       if (!confirm('Weet u zeker dat u 2FA wilt uitschakelen?')) return;
+      const token = prompt('Voer uw huidige 2FA-code of back-upcode in:');
+      if (!token) return;
       try {
-        await fetch('/admin-api/2fa/disable', { method: 'POST' });
+        const res = await fetch('/admin-api/2fa/disable', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: token.trim() }),
+        });
+        if (!res.ok) { showToast('Ongeldige 2FA-code', 'error'); return; }
         showToast('2FA uitgeschakeld');
         load2FAStatus();
       } catch {
@@ -3103,8 +3903,8 @@ function generateAdminPanel(adminUser: any): string {
               var q = String.fromCharCode(39);
               return '<div class="mobile-search-result" onclick="navigateToSearchResult(' + q + r.type + q + ',' + q + r.id + q + ')">' +
                 '<span>' + icon + '</span>' +
-                '<div style="flex:1;"><div style="font-weight:600;">' + r.name + '</div>' +
-                '<div style="font-size:0.7rem; opacity:0.6;">' + (r.detail || '') + '</div></div>' +
+                '<div style="flex:1;"><div style="font-weight:600;">' + escapeHtml(r.name) + '</div>' +
+                '<div style="font-size:0.7rem; opacity:0.6;">' + escapeHtml(r.detail || '') + '</div></div>' +
                 '<span class="type-badge">' + badge + '</span></div>';
             }).join('');
           } else {

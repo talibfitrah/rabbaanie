@@ -1,13 +1,21 @@
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
+import { OAuth2Client } from "google-auth-library";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
 import { getDb } from "./db";
 import { users, userFunctions } from "../drizzle/schema";
 import { and, eq, isNull } from "drizzle-orm";
+import {
+  completeAdmin2FAChallenge,
+  createAdmin2FAChallenge,
+} from "./admin-2fa-challenge";
+import { has2FA } from "./totp";
 
 const SALT_ROUNDS = 12;
+const ADMIN_ROLES = new Set(["admin", "super_admin", "moderator"]);
+const googleTokenVerifier = new OAuth2Client();
 
 /**
  * Web Authentication System
@@ -31,21 +39,32 @@ export function registerWebAuthRoutes(app: Express) {
   app.post("/auth/register", async (req: Request, res: Response) => {
     try {
       const db = await getDb();
-      if (!db) { res.status(500).json({ error: "Database unavailable" }); return; }
+      if (!db) {
+        res.status(500).json({ error: "Database unavailable" });
+        return;
+      }
       const { name, email, password, language } = req.body;
 
       if (!email || !password || !name) {
-        res.status(400).json({ error: "name, email, and password are required" });
+        res
+          .status(400)
+          .json({ error: "name, email, and password are required" });
         return;
       }
 
       if (password.length < 6) {
-        res.status(400).json({ error: "Password must be at least 6 characters" });
+        res
+          .status(400)
+          .json({ error: "Password must be at least 6 characters" });
         return;
       }
 
       // Check if email already exists
-      const existing = await db.select().from(users).where(eq(users.email, email)).limit(1);
+      const existing = await db
+        .select()
+        .from(users)
+        .where(eq(users.email, email))
+        .limit(1);
       if (existing.length > 0) {
         res.status(409).json({ error: "Email already registered" });
         return;
@@ -69,14 +88,18 @@ export function registerWebAuthRoutes(app: Express) {
       });
 
       // Get the created user
-      const [user] = await db.select().from(users).where(eq(users.openId, openId)).limit(1);
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(eq(users.openId, openId))
+        .limit(1);
 
       // Auto-assign vader/moeder function based on gender from onboarding
       // The gender field comes from the registration form or will be set during onboarding
       // For now, we check if gender was provided in the registration body
       const gender = req.body.gender; // 'man' or 'vrouw'
       if (gender && user) {
-        const autoFunc = gender === 'man' ? 'vader' : 'moeder';
+        const autoFunc = gender === "man" ? "vader" : "moeder";
         await db.insert(userFunctions).values({
           userId: user.id,
           functionRole: autoFunc as any,
@@ -91,12 +114,21 @@ export function registerWebAuthRoutes(app: Express) {
 
       // Set cookie
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       res.json({
         success: true,
         sessionToken,
-        user: { id: user.id, name: user.name, email: user.email, role: user.role, openId: user.openId },
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          openId: user.openId,
+        },
         redirect: "/dashboard",
       });
     } catch (error: any) {
@@ -109,7 +141,10 @@ export function registerWebAuthRoutes(app: Express) {
   app.post("/auth/login", async (req: Request, res: Response) => {
     try {
       const db = await getDb();
-      if (!db) { res.status(500).json({ error: "Database unavailable" }); return; }
+      if (!db) {
+        res.status(500).json({ error: "Database unavailable" });
+        return;
+      }
       const { email, password } = req.body;
 
       if (!email || !password) {
@@ -131,7 +166,10 @@ export function registerWebAuthRoutes(app: Express) {
 
       // Check password
       if (!user.passwordHash) {
-        res.status(401).json({ error: "This account uses OAuth login. Please use the app to sign in." });
+        res.status(401).json({
+          error:
+            "This account uses OAuth login. Please use the app to sign in.",
+        });
         return;
       }
 
@@ -141,8 +179,21 @@ export function registerWebAuthRoutes(app: Express) {
         return;
       }
 
+      if (ADMIN_ROLES.has(user.role) && (await has2FA(user.id))) {
+        const challengeToken = await createAdmin2FAChallenge(user);
+        res.status(202).json({
+          success: false,
+          requires2FA: true,
+          challengeToken,
+        });
+        return;
+      }
+
       // Update last signed in
-      await db.update(users).set({ lastSignedIn: new Date() }).where(eq(users.id, user.id));
+      await db
+        .update(users)
+        .set({ lastSignedIn: new Date() })
+        .where(eq(users.id, user.id));
 
       // Create session token
       const sessionToken = await sdk.createSessionToken(user.openId, {
@@ -152,7 +203,10 @@ export function registerWebAuthRoutes(app: Express) {
 
       // Set cookie
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       // Role-based redirect: admins go to control panel
       const isAdmin = ["admin", "super_admin", "moderator"].includes(user.role);
@@ -161,7 +215,13 @@ export function registerWebAuthRoutes(app: Express) {
       res.json({
         success: true,
         sessionToken,
-        user: { id: user.id, name: user.name, email: user.email, role: user.role, openId: user.openId },
+        user: {
+          id: user.id,
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          openId: user.openId,
+        },
         redirect,
       });
     } catch (error: any) {
@@ -170,8 +230,137 @@ export function registerWebAuthRoutes(app: Express) {
     }
   });
 
+  app.post("/auth/2fa/verify", async (req: Request, res: Response) => {
+    const challengeToken =
+      typeof req.body?.challengeToken === "string"
+        ? req.body.challengeToken
+        : "";
+    const factorCode =
+      typeof req.body?.factorCode === "string"
+        ? req.body.factorCode.trim()
+        : "";
+    const result = await completeAdmin2FAChallenge(
+      challengeToken,
+      factorCode,
+      req.ip || "unknown",
+    );
+    if (!result.ok) {
+      res.status(result.reason === "rate_limited" ? 429 : 401).json({
+        error:
+          result.reason === "rate_limited"
+            ? "Too many verification attempts"
+            : "Invalid or expired verification code",
+      });
+      return;
+    }
+
+    const db = await getDb();
+    if (!db) {
+      res.status(503).json({ error: "Database unavailable" });
+      return;
+    }
+    const [user] = await db
+      .select()
+      .from(users)
+      .where(and(eq(users.id, result.claims.userId), isNull(users.deletedAt)))
+      .limit(1);
+    if (!user || !ADMIN_ROLES.has(user.role)) {
+      res.status(401).json({ error: "Invalid verification challenge" });
+      return;
+    }
+
+    const sessionToken = await sdk.createSessionToken(user.openId, {
+      name: user.name || "Admin",
+      expiresInMs: ONE_YEAR_MS,
+      twoFactorVerifiedAt: Date.now(),
+    });
+    const cookieOptions = getSessionCookieOptions(req);
+    res.cookie(COOKIE_NAME, sessionToken, {
+      ...cookieOptions,
+      maxAge: ONE_YEAR_MS,
+    });
+    res.json({
+      success: true,
+      sessionToken,
+      user: {
+        id: user.id,
+        name: user.name,
+        email: user.email,
+        role: user.role,
+        openId: user.openId,
+      },
+      redirect: "/admin-panel",
+    });
+  });
+
+  // Android Google sign-in. The native SDK obtains an ID token only for an
+  // OAuth client registered to this package and signing certificate. Verify the
+  // Google signature and audience here before issuing a Rabbaanie session.
+  app.post("/auth/google/native", async (req: Request, res: Response) => {
+    try {
+      const idToken =
+        typeof req.body?.idToken === "string" ? req.body.idToken : "";
+      const audience = process.env.GOOGLE_CLIENT_ID || "";
+      if (!idToken || idToken.length > 8_192) {
+        res.status(400).json({ error: "invalid_google_token" });
+        return;
+      }
+      if (!audience) {
+        res.status(503).json({ error: "google_signin_unavailable" });
+        return;
+      }
+
+      const ticket = await googleTokenVerifier.verifyIdToken({
+        idToken,
+        audience,
+      });
+      const payload = ticket.getPayload();
+      if (
+        !payload?.sub ||
+        !payload.email ||
+        payload.email_verified !== true
+      ) {
+        res.status(401).json({ error: "invalid_google_token" });
+        return;
+      }
+
+      const db = await getDb();
+      if (!db) {
+        res.status(503).json({ error: "database_unavailable" });
+        return;
+      }
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, payload.email), isNull(users.deletedAt)))
+        .limit(1);
+      if (!user) {
+        res.status(403).json({ error: "no_account" });
+        return;
+      }
+      if (ADMIN_ROLES.has(user.role) && (await has2FA(user.id))) {
+        res.status(403).json({ error: "admin_2fa_required" });
+        return;
+      }
+
+      await db
+        .update(users)
+        .set({ lastSignedIn: new Date() })
+        .where(eq(users.id, user.id));
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      res.json({ success: true, sessionToken });
+    } catch (error) {
+      console.warn("[GoogleAuth] Native token rejected", String(error));
+      res.status(401).json({ error: "invalid_google_token" });
+    }
+  });
+
   // ─── Logout (web redirect) ────────────────────────────────────────
-  app.get("/auth/logout", (req: Request, res: Response) => {
+  app.get("/auth/logout", async (req: Request, res: Response) => {
+    await sdk.revokeRequestSession(req);
     const cookieOptions = getSessionCookieOptions(req);
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     res.redirect("/auth/login");
@@ -209,6 +398,8 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       appLogin: "Inloggen via de App",
       backToSite: "Terug naar website",
       passwordMismatch: "Wachtwoorden komen niet overeen",
+      twoFactor: "2FA-code of back-upcode",
+      twoFactorPrompt: "Voer uw verificatiecode in om door te gaan.",
       success: "Succesvol! U wordt doorgestuurd...",
     },
     en: {
@@ -233,6 +424,8 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       appLogin: "Sign in via App",
       backToSite: "Back to website",
       passwordMismatch: "Passwords do not match",
+      twoFactor: "2FA or backup code",
+      twoFactorPrompt: "Enter your verification code to continue.",
       success: "Success! Redirecting...",
     },
     ar: {
@@ -257,6 +450,8 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       appLogin: "الدخول عبر التطبيق",
       backToSite: "العودة للموقع",
       passwordMismatch: "كلمتا المرور غير متطابقتين",
+      twoFactor: "رمز التحقق أو الرمز الاحتياطي",
+      twoFactorPrompt: "أدخل رمز التحقق للمتابعة.",
       success: "تم بنجاح! جاري التحويل...",
     },
   };
@@ -269,7 +464,7 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${isLogin ? text.loginTitle : text.registerTitle} — Opvoedadvies</title>
+  <title>${isLogin ? text.loginTitle : text.registerTitle} — Rabbaanie</title>
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
     body {
@@ -473,7 +668,7 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
     <div class="auth-header">
       <div class="auth-logo">🌿</div>
       <h1>${isLogin ? text.loginTitle : text.registerTitle}</h1>
-      <p>Opvoedadvies</p>
+      <p>Rabbaanie</p>
     </div>
 
     <div class="auth-form">
@@ -481,24 +676,41 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       <div class="success-msg" id="success-msg"></div>
 
       <form id="auth-form" onsubmit="handleSubmit(event)">
-        ${!isLogin ? `
+        ${
+          !isLogin
+            ? `
         <div class="form-group">
           <label for="name">${text.name}</label>
           <input type="text" id="name" name="name" placeholder="${text.namePlaceholder}" required>
         </div>
-        ` : ""}
+        `
+            : ""
+        }
 
-        <div class="form-group">
+        <div class="form-group" id="credential-email-group">
           <label for="email">${text.email}</label>
           <input type="email" id="email" name="email" placeholder="${text.emailPlaceholder}" required>
         </div>
 
-        <div class="form-group">
+        ${
+          isLogin
+            ? `
+        <div class="form-group" id="two-factor-group" style="display:none;">
+          <label for="factor-code">${text.twoFactor}</label>
+          <input type="text" id="factor-code" inputmode="numeric" autocomplete="one-time-code" maxlength="9">
+        </div>
+        `
+            : ""
+        }
+
+        <div class="form-group" id="credential-password-group">
           <label for="password">${text.password}</label>
           <input type="password" id="password" name="password" placeholder="${text.passwordPlaceholder}" required minlength="6">
         </div>
 
-        ${!isLogin ? `
+        ${
+          !isLogin
+            ? `
         <div class="form-group">
           <label for="confirm-password">${text.confirmPassword}</label>
           <input type="password" id="confirm-password" name="confirmPassword" placeholder="${text.passwordPlaceholder}" required minlength="6">
@@ -512,7 +724,9 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
             <option value="ar" ${lang === "ar" ? "selected" : ""}>العربية</option>
           </select>
         </div>
-        ` : ""}
+        `
+            : ""
+        }
 
         <button type="submit" class="submit-btn" id="submit-btn">
           ${isLogin ? text.loginBtn : text.registerBtn}
@@ -540,6 +754,24 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
   </div>
 
   <script>
+    let twoFactorMode = false;
+    let twoFactorChallenge = '';
+
+    function activateTwoFactorMode() {
+      twoFactorMode = true;
+      document.getElementById('credential-email-group').style.display = 'none';
+      document.getElementById('credential-password-group').style.display = 'none';
+      document.getElementById('email').required = false;
+      document.getElementById('password').required = false;
+      const factor = document.getElementById('factor-code');
+      factor.required = true;
+      document.getElementById('two-factor-group').style.display = 'block';
+      const errorEl = document.getElementById('error-msg');
+      errorEl.textContent = '${text.twoFactorPrompt}';
+      errorEl.style.display = 'block';
+      factor.focus();
+    }
+
     async function handleSubmit(e) {
       e.preventDefault();
       const errorEl = document.getElementById('error-msg');
@@ -552,7 +784,12 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       const email = document.getElementById('email').value;
       const password = document.getElementById('password').value;
 
-      const body = { email, password };
+      const body = twoFactorMode
+        ? {
+            challengeToken: twoFactorChallenge,
+            factorCode: document.getElementById('factor-code').value.trim(),
+          }
+        : { email, password };
 
       if (isRegister) {
         const name = document.getElementById('name').value;
@@ -573,7 +810,9 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
       submitBtn.textContent = '...';
 
       try {
-        const endpoint = isRegister ? '/auth/register' : '/auth/login';
+        const endpoint = twoFactorMode
+          ? '/auth/2fa/verify'
+          : (isRegister ? '/auth/register' : '/auth/login');
         const res = await fetch(endpoint, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -583,7 +822,12 @@ function generateAuthPage(mode: "login" | "register", lang: string): string {
 
         const data = await res.json();
 
-        if (res.ok && data.success) {
+        if (data.requires2FA) {
+          twoFactorChallenge = data.challengeToken || '';
+          activateTwoFactorMode();
+          submitBtn.disabled = false;
+          submitBtn.textContent = '${isLogin ? text.loginBtn : text.registerBtn}';
+        } else if (res.ok && data.success) {
           successEl.textContent = '${text.success}';
           successEl.style.display = 'block';
           setTimeout(() => {

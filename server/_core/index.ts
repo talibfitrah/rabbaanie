@@ -44,19 +44,46 @@ async function startServer() {
   const app = express();
   const server = createServer(app);
 
-  // Enable CORS for all routes - reflect the request origin to support credentials
+  const allowedOrigins = new Set([
+    "https://rabbaanie.com",
+    "https://www.rabbaanie.com",
+    "https://api.rabbaanie.com",
+  ]);
+  for (const candidate of [
+    process.env.EXPO_WEB_PREVIEW_URL,
+    process.env.EXPO_PACKAGER_PROXY_URL,
+  ]) {
+    if (!candidate) continue;
+    try {
+      allowedOrigins.add(new URL(candidate).origin);
+    } catch {
+      console.warn("[CORS] Ignoring invalid configured origin");
+    }
+  }
+  if (process.env.NODE_ENV !== "production") {
+    allowedOrigins.add("http://localhost:3000");
+    allowedOrigins.add("http://localhost:8081");
+  }
+
+  // Credentialed CORS must never reflect arbitrary attacker-controlled origins.
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin) {
+    if (origin && allowedOrigins.has(origin)) {
       res.header("Access-Control-Allow-Origin", origin);
+      res.header("Vary", "Origin");
+      res.header("Access-Control-Allow-Credentials", "true");
+    } else if (origin) {
+      res.status(403).json({ error: "Origin not allowed" });
+      return;
     }
-    res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    res.header(
+      "Access-Control-Allow-Methods",
+      "GET, POST, PUT, DELETE, OPTIONS",
+    );
     res.header(
       "Access-Control-Allow-Headers",
       "Origin, X-Requested-With, Content-Type, Accept, Authorization",
     );
-    res.header("Access-Control-Allow-Credentials", "true");
-
     // Handle preflight requests
     if (req.method === "OPTIONS") {
       res.sendStatus(200);
@@ -89,7 +116,12 @@ async function startServer() {
     } catch (error: any) {
       console.error("Weekplan error:", error);
       const lang = req.body?.language || "nl";
-      const msg = lang === "ar" ? "حدث خطأ. يرجى المحاولة لاحقًا." : lang === "en" ? "An error occurred. Please try again later." : "Er is een fout opgetreden. Probeer het later opnieuw.";
+      const msg =
+        lang === "ar"
+          ? "حدث خطأ. يرجى المحاولة لاحقًا."
+          : lang === "en"
+            ? "An error occurred. Please try again later."
+            : "Er is een fout opgetreden. Probeer het later opnieuw.";
       res.status(500).json({ plan: msg, error: error.message });
     }
   });
@@ -103,7 +135,12 @@ async function startServer() {
     } catch (error: any) {
       console.error("Quick tips error:", error);
       const lang = req.body?.language || "nl";
-      const tip = lang === "ar" ? "ابدأ يومك بذكر الله والدعاء لأولادك بالهداية والصلاح." : lang === "en" ? "Start your day by remembering Allaah and making du'aa for your children's guidance." : "Begin uw dag met het gedenken van Allaah en maak du'aa voor de leiding van uw kinderen.";
+      const tip =
+        lang === "ar"
+          ? "ابدأ يومك بذكر الله والدعاء لأولادك بالهداية والصلاح."
+          : lang === "en"
+            ? "Start your day by remembering Allaah and making du'aa for your children's guidance."
+            : "Begin uw dag met het gedenken van Allaah en maak du'aa voor de leiding van uw kinderen.";
       res.status(500).json({ tips: [tip], error: error.message });
     }
   });
@@ -117,7 +154,12 @@ async function startServer() {
     } catch (error: any) {
       console.error("General advice error:", error);
       const lang = req.body?.language || "nl";
-      const msg = lang === "ar" ? "ابدأ كل يوم بتقوية صلتك بالله. التربية تبدأ بنفسك." : lang === "en" ? "Start each day by strengthening your own bond with Allaah. Parenting begins with yourself." : "Begin elke dag met het versterken van uw eigen band met Allaah. De opvoeding begint bij uzelf.";
+      const msg =
+        lang === "ar"
+          ? "ابدأ كل يوم بتقوية صلتك بالله. التربية تبدأ بنفسك."
+          : lang === "en"
+            ? "Start each day by strengthening your own bond with Allaah. Parenting begins with yourself."
+            : "Begin elke dag met het versterken van uw eigen band met Allaah. De opvoeding begint bij uzelf.";
       res.status(500).json({ advice: msg, error: error.message });
     }
   });
@@ -131,7 +173,12 @@ async function startServer() {
     } catch (error: any) {
       console.error("Treatment error:", error);
       const lang = req.body?.language || "nl";
-      const msg = lang === "ar" ? "حدث خطأ. يرجى المحاولة لاحقًا." : lang === "en" ? "An error occurred. Please try again later." : "Er is een fout opgetreden. Probeer het later opnieuw.";
+      const msg =
+        lang === "ar"
+          ? "حدث خطأ. يرجى المحاولة لاحقًا."
+          : lang === "en"
+            ? "An error occurred. Please try again later."
+            : "Er is een fout opgetreden. Probeer het later opnieuw.";
       res.status(500).json({ plan: msg, error: error.message });
     }
   });
@@ -142,14 +189,31 @@ async function startServer() {
       // Build context from the Express request using the same createContext used by tRPC
       const ctx = await createContext({ req, res } as any);
       const caller = adviceRouter.createCaller(ctx);
-      const result = await caller.getSpouseAdvice({ language: req.body?.language || "nl" });
+      const result = await caller.getSpouseAdvice({
+        language: req.body?.language || "nl",
+      });
       // Wrap in tRPC-like shape that the client expects: { result: { data: ... } }
-      res.json({ result: { data: { advice: result.advice || "", tips: [], partnerName: result.partnerName || "" } } });
+      res.json({
+        result: {
+          data: {
+            advice: result.advice || "",
+            tips: [],
+            partnerName: result.partnerName || "",
+          },
+        },
+      });
     } catch (error: any) {
       console.error("Spouse advice error:", error);
       const lang = req.body?.language || "nl";
-      const msg = lang === "ar" ? "استمر في دعم شريكك. التربية مسؤولية مشتركة." : lang === "en" ? "Continue supporting your partner. Parenting is a shared responsibility." : "Blijf uw partner steunen. Opvoeding is een gedeelde verantwoordelijkheid.";
-      res.json({ result: { data: { advice: msg, tips: [], partnerName: "" } } });
+      const msg =
+        lang === "ar"
+          ? "استمر في دعم شريكك. التربية مسؤولية مشتركة."
+          : lang === "en"
+            ? "Continue supporting your partner. Parenting is a shared responsibility."
+            : "Blijf uw partner steunen. Opvoeding is een gedeelde verantwoordelijkheid.";
+      res.json({
+        result: { data: { advice: msg, tips: [], partnerName: "" } },
+      });
     }
   });
 

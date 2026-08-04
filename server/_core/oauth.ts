@@ -42,7 +42,9 @@ export async function syncUser(userInfo: {
     // login path: the OAuth userinfo has no email-verified flag, so granting a
     // session on an email match would let anyone claim an account by signing up
     // to the identity provider with someone else's address.
-    const byEmail = userInfo.email ? await getUserByEmail(userInfo.email) : undefined;
+    const byEmail = userInfo.email
+      ? await getUserByEmail(userInfo.email)
+      : undefined;
     throw new NoAccountError(byEmail ? "email_account" : "no_account");
   }
 
@@ -107,7 +109,10 @@ export function registerOAuthRoutes(app: Express) {
       });
 
       const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
+      res.cookie(COOKIE_NAME, sessionToken, {
+        ...cookieOptions,
+        maxAge: ONE_YEAR_MS,
+      });
 
       // Redirect to the frontend URL (Expo web on port 8081)
       // Cookie is set with parent domain so it works across both 3000 and 8081 subdomains
@@ -126,100 +131,14 @@ export function registerOAuthRoutes(app: Express) {
     }
   });
 
-  // Native OAuth callback - server-side redirect flow
-  // Flow:
-  // 1. OAuth portal redirects here with code + state
-  // 2. Server exchanges code for access token (via OAuth server)
-  // 3. Server creates session token
-  // 4. Server redirects to app's deep link with sessionToken + user data
-  //
-  // The deep link scheme is hardcoded (derived from bundle ID: manusapk)
-  // because the OAuth portal may not preserve query parameters in the redirect URI.
-  // This avoids the native app needing to call the API server after receiving the deep link.
-  app.get("/api/oauth/native-callback", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
-
-    // The app's deep link URI is hardcoded based on the bundle ID scheme
-    // Bundle ID: com.app.opvoedadvies.apk -> scheme: manusapk
-    const APP_DEEP_LINK = "manusapk:///oauth/callback";
-
-    console.log("[OAuth] Native callback received:", {
-      hasCode: !!code,
-      hasState: !!state,
-      query: JSON.stringify(req.query),
-    });
-
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-
-    try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-      const user = await syncUser(userInfo);
-
-      const sessionToken = await sdk.createSessionToken(userInfo.openId!, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-
-      // Build user data as base64-encoded JSON
-      const userJson = JSON.stringify(buildUserResponse(user));
-      const userBase64 = Buffer.from(userJson).toString("base64");
-
-      // Redirect to the app's deep link with session token and user data
-      const redirectUrl = `${APP_DEEP_LINK}?sessionToken=${encodeURIComponent(sessionToken)}&user=${encodeURIComponent(userBase64)}`;
-
-      console.log("[OAuth] Native callback: redirecting to app deep link");
-      res.redirect(302, redirectUrl);
-    } catch (error) {
-      console.error("[OAuth] Native callback failed", error);
-      // On error, redirect to the app with an error message
-      const errorMsg = error instanceof Error ? error.message : "OAuth native callback failed";
-      const redirectUrl = `${APP_DEEP_LINK}?error=${encodeURIComponent(errorMsg)}`;
-      res.redirect(302, redirectUrl);
-    }
+  // Retired Manus-native flows returned bearer sessions without PKCE. Current
+  // Android builds use the production /auth/google/* code exchange instead.
+  app.get(["/api/oauth/native-callback", "/api/oauth/mobile"], (_req, res) => {
+    res.status(410).json({ error: "oauth_flow_retired" });
   });
 
-  app.get("/api/oauth/mobile", async (req: Request, res: Response) => {
-    const code = getQueryParam(req, "code");
-    const state = getQueryParam(req, "state");
-
-    if (!code || !state) {
-      res.status(400).json({ error: "code and state are required" });
-      return;
-    }
-
-    try {
-      const tokenResponse = await sdk.exchangeCodeForToken(code, state);
-      const userInfo = await sdk.getUserInfo(tokenResponse.accessToken);
-      const user = await syncUser(userInfo);
-
-      const sessionToken = await sdk.createSessionToken(userInfo.openId!, {
-        name: userInfo.name || "",
-        expiresInMs: ONE_YEAR_MS,
-      });
-
-      const cookieOptions = getSessionCookieOptions(req);
-      res.cookie(COOKIE_NAME, sessionToken, { ...cookieOptions, maxAge: ONE_YEAR_MS });
-
-      res.json({
-        app_session_id: sessionToken,
-        user: buildUserResponse(user),
-      });
-    } catch (error) {
-      if (error instanceof NoAccountError) {
-        res.status(403).json({ error: error.reason });
-        return;
-      }
-      console.error("[OAuth] Mobile exchange failed", error);
-      res.status(500).json({ error: "OAuth mobile exchange failed" });
-    }
-  });
-
-  app.post("/api/auth/logout", (req: Request, res: Response) => {
+  app.post("/api/auth/logout", async (req: Request, res: Response) => {
+    await sdk.revokeRequestSession(req);
     const cookieOptions = getSessionCookieOptions(req);
     res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });
     res.json({ success: true });

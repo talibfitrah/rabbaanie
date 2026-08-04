@@ -4,8 +4,19 @@
  * shared child updates (divorced parents), family reminders & activities
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
+
+function childNotFound(): never {
+  throw new TRPCError({ code: "NOT_FOUND", message: "Child record not found" });
+}
+
+async function requireChildAccess(parentId: number, childAccountId: number) {
+  const account = await db.getChildAccountForParent(parentId, childAccountId);
+  if (!account) childNotFound();
+  return account;
+}
 
 // ============================================================
 // CHILD ACCOUNT ROUTER
@@ -62,14 +73,18 @@ export const childAccountRouter = router({
   /** Get challenges for a child account */
   getChallenges: protectedProcedure
     .input(z.object({ childAccountId: z.number(), date: z.string().optional() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildChallenges(input.childAccountId, input.date);
     }),
 
   /** Complete a challenge */
   completeChallenge: protectedProcedure
     .input(z.object({ challengeId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      const challenge = await db.getChildChallenge(input.challengeId);
+      if (!challenge) childNotFound();
+      await requireChildAccess(ctx.user.id, challenge.childAccountId);
       await db.completeChildChallenge(input.challengeId);
       return { success: true };
     }),
@@ -77,7 +92,8 @@ export const childAccountRouter = router({
   /** Get achievements for a child account */
   getAchievements: protectedProcedure
     .input(z.object({ childAccountId: z.number() }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildAchievements(input.childAccountId);
     }),
 
@@ -89,7 +105,8 @@ export const childAccountRouter = router({
       data: z.any().optional(),
       durationSeconds: z.number().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       await db.logChildActivity({
         childAccountId: input.childAccountId,
         activityType: input.activityType,
@@ -102,7 +119,8 @@ export const childAccountRouter = router({
   /** Get activity log (for parent monitoring) */
   getActivityLog: protectedProcedure
     .input(z.object({ childAccountId: z.number(), limit: z.number().default(50) }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildActivityLog(input.childAccountId, input.limit);
     }),
 });

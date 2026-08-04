@@ -4,9 +4,47 @@
  * app usage tracking, and parent AI consultations
  */
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+
+function notFound(): never {
+  // Do not reveal whether another family owns the requested record.
+  throw new TRPCError({ code: "NOT_FOUND", message: "Child record not found" });
+}
+
+async function requireChildAccess(parentId: number, childAccountId: number) {
+  const account = await db.getChildAccountForParent(parentId, childAccountId);
+  if (!account) notFound();
+  return account;
+}
+
+async function requireTaskAccess(parentId: number, taskId: number) {
+  const task = await db.getCustomTask(taskId);
+  if (!task || task.parentId !== parentId) notFound();
+  await requireChildAccess(parentId, task.childAccountId);
+  return task;
+}
+
+async function requireConversationAccess(
+  parentId: number,
+  conversationId: number,
+) {
+  const conversation = await db.getChildAiConversation(conversationId);
+  if (!conversation) notFound();
+  await requireChildAccess(parentId, conversation.childAccountId);
+  return conversation;
+}
+
+async function requireConsultationAccess(
+  parentId: number,
+  consultationId: number,
+) {
+  const consultation = await db.getParentAiConsultation(consultationId);
+  if (!consultation || consultation.parentId !== parentId) notFound();
+  return consultation;
+}
 
 // ============================================================
 // CUSTOM TASKS ROUTER - Tasks assigned by parent to child
@@ -14,16 +52,23 @@ import * as db from "./db";
 export const customTasksRouter = router({
   /** Create a custom task for a child */
   create: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      title: z.string().min(1),
-      description: z.string().optional(),
-      category: z.enum(["prayer", "quran", "study", "chores", "sport", "other"]).default("other"),
-      priority: z.enum(["low", "medium", "high"]).default("medium"),
-      dueDate: z.string().optional(),
-      recurrence: z.enum(["none", "daily", "weekly", "monthly"]).default("none"),
-    }))
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        title: z.string().trim().min(1).max(200),
+        description: z.string().max(2_000).optional(),
+        category: z
+          .enum(["prayer", "quran", "study", "chores", "sport", "other"])
+          .default("other"),
+        priority: z.enum(["low", "medium", "high"]).default("medium"),
+        dueDate: z.string().optional(),
+        recurrence: z
+          .enum(["none", "daily", "weekly", "monthly"])
+          .default("none"),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       const result = await db.createCustomTask({
         parentId: ctx.user.id,
         childAccountId: input.childAccountId,
@@ -39,11 +84,14 @@ export const customTasksRouter = router({
 
   /** List tasks for a child */
   list: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      status: z.string().optional(),
-    }))
-    .query(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        status: z.string().optional(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getCustomTasks(input.childAccountId, input.status);
     }),
 
@@ -54,19 +102,22 @@ export const customTasksRouter = router({
 
   /** Update a task */
   update: protectedProcedure
-    .input(z.object({
-      taskId: z.number(),
-      title: z.string().optional(),
-      description: z.string().optional(),
-      category: z.string().optional(),
-      priority: z.string().optional(),
-      dueDate: z.string().optional(),
-      status: z.string().optional(),
-      parentFeedback: z.string().optional(),
-      parentVerified: z.boolean().optional(),
-    }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        taskId: z.number(),
+        title: z.string().trim().min(1).max(200).optional(),
+        description: z.string().max(2_000).optional(),
+        category: z.string().optional(),
+        priority: z.string().optional(),
+        dueDate: z.string().optional(),
+        status: z.string().optional(),
+        parentFeedback: z.string().max(2_000).optional(),
+        parentVerified: z.boolean().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
       const { taskId, ...data } = input;
+      await requireTaskAccess(ctx.user.id, taskId);
       await db.updateCustomTask(taskId, data as any);
       return { success: true };
     }),
@@ -74,40 +125,40 @@ export const customTasksRouter = router({
   /** Delete a task */
   delete: protectedProcedure
     .input(z.object({ taskId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireTaskAccess(ctx.user.id, input.taskId);
       await db.deleteCustomTask(input.taskId);
       return { success: true };
     }),
 
   /** Child completes a task */
   complete: protectedProcedure
-    .input(z.object({
-      taskId: z.number(),
-      childNote: z.string().optional(),
-      proofImageUrl: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
-      await db.completeCustomTask(input.taskId, input.childNote, input.proofImageUrl);
+    .input(
+      z.object({
+        taskId: z.number(),
+        childNote: z.string().max(2_000).optional(),
+        proofImageUrl: z.string().url().max(2_048).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const task = await requireTaskAccess(ctx.user.id, input.taskId);
+      await db.completeCustomTask(
+        input.taskId,
+        input.childNote,
+        input.proofImageUrl,
+      );
       // Send notification to parent
       try {
-        const tasks = await db.getCustomTasks(0); // We need the task to get parentId
-        // Get task info directly from DB
-        const database = await db.getDb();
-        if (database) {
-          const { customTasks: ct } = await import("../drizzle/schema");
-          const { eq } = await import("drizzle-orm");
-          const [task] = await database.select().from(ct).where(eq(ct.id, input.taskId)).limit(1);
-          if (task?.parentId) {
-            await db.sendLocalizedPush(
-              task.parentId,
-              "Taak voltooid!", "Task completed!", "\u062a\u0645 \u0625\u0646\u062c\u0627\u0632 \u0627\u0644\u0645\u0647\u0645\u0629!",
-              `Je kind heeft de taak "${task.title}" voltooid`,
-              `Your child completed the task "${task.title}"`,
-              `\u0623\u0643\u0645\u0644 \u0637\u0641\u0644\u0643 \u0627\u0644\u0645\u0647\u0645\u0629 "${task.title}"`,
-              { type: "task_completed", taskId: input.taskId }
-            );
-          }
-        }
+        await db.sendLocalizedPush(
+          task.parentId,
+          "Taak voltooid!",
+          "Task completed!",
+          "\u062a\u0645 \u0625\u0646\u062c\u0627\u0632 \u0627\u0644\u0645\u0647\u0645\u0629!",
+          `Je kind heeft de taak "${task.title}" voltooid`,
+          `Your child completed the task "${task.title}"`,
+          `\u0623\u0643\u0645\u0644 \u0637\u0641\u0644\u0643 \u0627\u0644\u0645\u0647\u0645\u0629 "${task.title}"`,
+          { type: "task_completed", taskId: input.taskId },
+        );
       } catch (e) {
         console.warn("[Notify] Failed to notify parent of task completion:", e);
       }
@@ -121,14 +172,19 @@ export const customTasksRouter = router({
 export const familyChatRouter = router({
   /** Send a message */
   send: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      senderType: z.enum(["parent", "child"]),
-      content: z.string().min(1),
-      messageType: z.enum(["text", "image", "voice", "task_update"]).default("text"),
-      attachmentUrl: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        senderType: z.enum(["parent", "child"]),
+        content: z.string().trim().min(1).max(4_000),
+        messageType: z
+          .enum(["text", "image", "voice", "task_update"])
+          .default("text"),
+        attachmentUrl: z.string().url().max(2_048).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       const result = await db.sendFamilyChatMessage({
         parentId: ctx.user.id,
         childAccountId: input.childAccountId,
@@ -142,11 +198,13 @@ export const familyChatRouter = router({
         try {
           await db.sendLocalizedPush(
             ctx.user.id,
-            "Nieuw bericht van je kind", "New message from your child", "\u0631\u0633\u0627\u0644\u0629 \u062c\u062f\u064a\u062f\u0629 \u0645\u0646 \u0637\u0641\u0644\u0643",
+            "Nieuw bericht van je kind",
+            "New message from your child",
+            "\u0631\u0633\u0627\u0644\u0629 \u062c\u062f\u064a\u062f\u0629 \u0645\u0646 \u0637\u0641\u0644\u0643",
             input.content.substring(0, 100),
             input.content.substring(0, 100),
             input.content.substring(0, 100),
-            { type: "child_message", childAccountId: input.childAccountId }
+            { type: "child_message", childAccountId: input.childAccountId },
           );
         } catch (e) {
           console.warn("[Notify] Failed to notify parent of child message:", e);
@@ -157,33 +215,54 @@ export const familyChatRouter = router({
 
   /** Get messages between parent and child */
   getMessages: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      limit: z.number().default(100),
-    }))
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        limit: z.number().int().min(1).max(200).default(100),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      return db.getFamilyChatMessages(ctx.user.id, input.childAccountId, input.limit);
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      return db.getFamilyChatMessages(
+        ctx.user.id,
+        input.childAccountId,
+        input.limit,
+      );
     }),
 
   /** Mark messages as read */
   markRead: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      readerType: z.enum(["parent", "child"]),
-    }))
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        readerType: z.enum(["parent", "child"]),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
-      await db.markFamilyChatRead(ctx.user.id, input.childAccountId, input.readerType);
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      await db.markFamilyChatRead(
+        ctx.user.id,
+        input.childAccountId,
+        input.readerType,
+      );
       return { success: true };
     }),
 
   /** Get unread count */
   unreadCount: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      readerType: z.enum(["parent", "child"]),
-    }))
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        readerType: z.enum(["parent", "child"]),
+      }),
+    )
     .query(async ({ ctx, input }) => {
-      return db.getUnreadChatCount(ctx.user.id, input.childAccountId, input.readerType);
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      return db.getUnreadChatCount(
+        ctx.user.id,
+        input.childAccountId,
+        input.readerType,
+      );
     }),
 });
 
@@ -193,45 +272,58 @@ export const familyChatRouter = router({
 export const childSummaryRouter = router({
   /** Get daily summary for a child */
   getDaily: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      date: z.string(),
-    }))
-    .query(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        date: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildDailySummary(input.childAccountId, input.date);
     }),
 
   /** Get weekly summary for a child */
   getWeekly: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      startDate: z.string(),
-      endDate: z.string(),
-    }))
-    .query(async ({ input }) => {
-      return db.getChildWeeklySummary(input.childAccountId, input.startDate, input.endDate);
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      return db.getChildWeeklySummary(
+        input.childAccountId,
+        input.startDate,
+        input.endDate,
+      );
     }),
 
   /** Update/create daily summary (called by child's app) */
   upsert: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      date: z.string(),
-      totalAppUsageSeconds: z.number().optional(),
-      morningAdhkarDone: z.boolean().optional(),
-      eveningAdhkarDone: z.boolean().optional(),
-      sleepAdhkarDone: z.boolean().optional(),
-      wakingAdhkarDone: z.boolean().optional(),
-      customTasksCompleted: z.number().optional(),
-      customTasksTotal: z.number().optional(),
-      challengesCompleted: z.number().optional(),
-      aiQuestionsAsked: z.number().optional(),
-      screensVisited: z.any().optional(),
-      firstOpenAt: z.string().optional(),
-      lastCloseAt: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        date: z.string(),
+        totalAppUsageSeconds: z.number().optional(),
+        morningAdhkarDone: z.boolean().optional(),
+        eveningAdhkarDone: z.boolean().optional(),
+        sleepAdhkarDone: z.boolean().optional(),
+        wakingAdhkarDone: z.boolean().optional(),
+        customTasksCompleted: z.number().optional(),
+        customTasksTotal: z.number().optional(),
+        challengesCompleted: z.number().optional(),
+        aiQuestionsAsked: z.number().optional(),
+        screensVisited: z.any().optional(),
+        firstOpenAt: z.string().optional(),
+        lastCloseAt: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
       const { childAccountId, date, ...data } = input;
+      await requireChildAccess(ctx.user.id, childAccountId);
       await db.upsertChildDailySummary(childAccountId, date, data as any);
       return { success: true };
     }),
@@ -243,10 +335,13 @@ export const childSummaryRouter = router({
 export const childAiChatRouter = router({
   /** Create a new conversation */
   createConversation: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-    }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       const result = await db.createChildAiConversation({
         childAccountId: input.childAccountId,
         messages: [],
@@ -257,39 +352,51 @@ export const childAiChatRouter = router({
 
   /** List conversations for a child */
   listConversations: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      limit: z.number().default(20),
-    }))
-    .query(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        limit: z.number().int().min(1).max(50).default(20),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildAiConversations(input.childAccountId, input.limit);
     }),
 
   /** Get a single conversation */
   getConversation: protectedProcedure
     .input(z.object({ conversationId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getChildAiConversation(input.conversationId);
+    .query(async ({ ctx, input }) => {
+      return requireConversationAccess(ctx.user.id, input.conversationId);
     }),
 
   /** Send a message to AI and get response */
   sendMessage: protectedProcedure
-    .input(z.object({
-      conversationId: z.number(),
-      childAccountId: z.number(),
-      message: z.string().min(1),
-      childAge: z.number().optional(),
-      childGender: z.string().optional(),
-      childName: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        conversationId: z.number(),
+        childAccountId: z.number(),
+        message: z.string().trim().min(1).max(2_000),
+        childAge: z.number().int().min(3).max(18).optional(),
+        childGender: z.enum(["jongen", "meisje"]).optional(),
+        childName: z.string().trim().max(128).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
       // Get existing conversation
-      const conversation = await db.getChildAiConversation(input.conversationId);
+      const conversation = await requireConversationAccess(
+        ctx.user.id,
+        input.conversationId,
+      );
+      if (conversation.childAccountId !== input.childAccountId) notFound();
       const existingMessages = (conversation?.messages as any[]) || [];
 
       // Build system prompt based on child's characteristics
-      const ageDesc = input.childAge ? `${input.childAge} jaar oud` : "een kind";
-      const genderDesc = input.childGender === "meisje" ? "een meisje" : "een jongen";
+      const ageDesc = input.childAge
+        ? `${input.childAge} jaar oud`
+        : "een kind";
+      const genderDesc =
+        input.childGender === "meisje" ? "een meisje" : "een jongen";
       const nameDesc = input.childName || "het kind";
 
       const systemPrompt = `Je bent een vriendelijke islamitische adviseur voor kinderen. Je praat met ${nameDesc}, ${genderDesc} van ${ageDesc}.
@@ -308,7 +415,9 @@ REGELS:
       // Build messages for LLM
       const llmMessages: any[] = [
         { role: "system", content: systemPrompt },
-        ...existingMessages.map((m: any) => ({ role: m.role, content: m.content })),
+        ...existingMessages
+          .slice(-20)
+          .map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: input.message },
       ];
 
@@ -316,11 +425,13 @@ REGELS:
       let aiResponse = "";
       try {
         const res = await invokeLLM({
-          
           messages: llmMessages,
+          max_tokens: 800,
         });
         const rawContent = res.choices[0]?.message?.content;
-        aiResponse = (typeof rawContent === "string" ? rawContent : "") || "Sorry, ik kon geen antwoord genereren.";
+        aiResponse =
+          (typeof rawContent === "string" ? rawContent : "") ||
+          "Sorry, ik kon geen antwoord genereren.";
       } catch (e) {
         aiResponse = "Er is een fout opgetreden. Probeer het later opnieuw.";
       }
@@ -328,9 +439,17 @@ REGELS:
       // Update conversation with new messages
       const updatedMessages = [
         ...existingMessages,
-        { role: "user", content: input.message, timestamp: new Date().toISOString() },
-        { role: "assistant", content: aiResponse, timestamp: new Date().toISOString() },
-      ];
+        {
+          role: "user",
+          content: input.message,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content: aiResponse,
+          timestamp: new Date().toISOString(),
+        },
+      ].slice(-100);
 
       const title = conversation?.title || input.message.substring(0, 50);
 
@@ -346,8 +465,11 @@ REGELS:
   /** Parent reviews a conversation (marks as reviewed) */
   markReviewed: protectedProcedure
     .input(z.object({ conversationId: z.number() }))
-    .mutation(async ({ input }) => {
-      await db.updateChildAiConversation(input.conversationId, { parentReviewed: true });
+    .mutation(async ({ ctx, input }) => {
+      await requireConversationAccess(ctx.user.id, input.conversationId);
+      await db.updateChildAiConversation(input.conversationId, {
+        parentReviewed: true,
+      });
       return { success: true };
     }),
 });
@@ -358,16 +480,19 @@ REGELS:
 export const childAppUsageRouter = router({
   /** Log app usage from child's device */
   log: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      date: z.string(),
-      packageName: z.string(),
-      appName: z.string().optional(),
-      usageSeconds: z.number(),
-      category: z.string().optional(),
-      openCount: z.number().optional(),
-    }))
-    .mutation(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        packageName: z.string().min(1).max(255),
+        appName: z.string().max(255).optional(),
+        usageSeconds: z.number().int().min(0).max(86_400),
+        category: z.string().max(64).optional(),
+        openCount: z.number().int().min(0).max(10_000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       await db.logChildAppUsage({
         childAccountId: input.childAccountId,
         date: input.date,
@@ -382,20 +507,27 @@ export const childAppUsageRouter = router({
 
   /** Bulk log app usage (sync all at once) */
   bulkLog: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      date: z.string(),
-      apps: z.array(z.object({
-        packageName: z.string(),
-        appName: z.string().optional(),
-        usageSeconds: z.number(),
-        category: z.string().optional(),
-        openCount: z.number().optional(),
-      })),
-    }))
-    .mutation(async ({ input }) => {
-      for (const app of input.apps) {
-        await db.logChildAppUsage({
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        apps: z
+          .array(
+            z.object({
+              packageName: z.string().min(1).max(255),
+              appName: z.string().max(255).optional(),
+              usageSeconds: z.number().int().min(0).max(86_400),
+              category: z.string().max(64).optional(),
+              openCount: z.number().int().min(0).max(10_000).optional(),
+            }),
+          )
+          .max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      await db.logChildAppUsageBatch(
+        input.apps.map((app) => ({
           childAccountId: input.childAccountId,
           date: input.date,
           packageName: app.packageName,
@@ -403,30 +535,40 @@ export const childAppUsageRouter = router({
           usageSeconds: app.usageSeconds,
           category: app.category || null,
           openCount: app.openCount || 0,
-        });
-      }
+        })),
+      );
       return { success: true, count: input.apps.length };
     }),
 
   /** Get app usage for a specific date */
   getDaily: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      date: z.string(),
-    }))
-    .query(async ({ input }) => {
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        date: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
       return db.getChildAppUsage(input.childAccountId, input.date);
     }),
 
   /** Get app usage for a date range */
   getRange: protectedProcedure
-    .input(z.object({
-      childAccountId: z.number(),
-      startDate: z.string(),
-      endDate: z.string(),
-    }))
-    .query(async ({ input }) => {
-      return db.getChildAppUsageRange(input.childAccountId, input.startDate, input.endDate);
+    .input(
+      z.object({
+        childAccountId: z.number(),
+        startDate: z.string(),
+        endDate: z.string(),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      await requireChildAccess(ctx.user.id, input.childAccountId);
+      return db.getChildAppUsageRange(
+        input.childAccountId,
+        input.startDate,
+        input.endDate,
+      );
     }),
 });
 
@@ -436,11 +578,13 @@ export const childAppUsageRouter = router({
 export const parentAiConsultRouter = router({
   /** Create a new consultation */
   create: protectedProcedure
-    .input(z.object({
-      consultationType: z.enum(["child", "spouse"]),
-      targetId: z.string().optional(),
-      targetName: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        consultationType: z.enum(["child", "spouse"]),
+        targetId: z.string().optional(),
+        targetName: z.string().trim().max(128).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const result = await db.createParentAiConsultation({
         parentId: ctx.user.id,
@@ -455,9 +599,11 @@ export const parentAiConsultRouter = router({
 
   /** List consultations */
   list: protectedProcedure
-    .input(z.object({
-      consultationType: z.string().optional(),
-    }))
+    .input(
+      z.object({
+        consultationType: z.string().optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       return db.getParentAiConsultations(ctx.user.id, input.consultationType);
     }),
@@ -465,31 +611,39 @@ export const parentAiConsultRouter = router({
   /** Get a single consultation */
   get: protectedProcedure
     .input(z.object({ consultationId: z.number() }))
-    .query(async ({ input }) => {
-      return db.getParentAiConsultation(input.consultationId);
+    .query(async ({ ctx, input }) => {
+      return requireConsultationAccess(ctx.user.id, input.consultationId);
     }),
 
   /** Send message and get AI response */
   sendMessage: protectedProcedure
-    .input(z.object({
-      consultationId: z.number(),
-      message: z.string().min(1),
-      consultationType: z.enum(["child", "spouse"]),
-      targetName: z.string().optional(),
-      targetAge: z.number().optional(),
-      targetGender: z.string().optional(),
-      parentGender: z.string().optional(),
-    }))
-    .mutation(async ({ input }) => {
-      const consultation = await db.getParentAiConsultation(input.consultationId);
+    .input(
+      z.object({
+        consultationId: z.number(),
+        message: z.string().trim().min(1).max(2_000),
+        consultationType: z.enum(["child", "spouse"]),
+        targetName: z.string().trim().max(128).optional(),
+        targetAge: z.number().int().min(3).max(18).optional(),
+        targetGender: z.enum(["jongen", "meisje", "man", "vrouw"]).optional(),
+        parentGender: z.enum(["man", "vrouw"]).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const consultation = await requireConsultationAccess(
+        ctx.user.id,
+        input.consultationId,
+      );
       const existingMessages = (consultation?.messages as any[]) || [];
 
       let systemPrompt = "";
 
       if (input.consultationType === "child") {
         const childName = input.targetName || "het kind";
-        const childAge = input.targetAge ? `${input.targetAge} jaar` : "onbekende leeftijd";
-        const childGender = input.targetGender === "meisje" ? "dochter" : "zoon";
+        const childAge = input.targetAge
+          ? `${input.targetAge} jaar`
+          : "onbekende leeftijd";
+        const childGender =
+          input.targetGender === "meisje" ? "dochter" : "zoon";
 
         systemPrompt = `Je bent een islamitische opvoedadviseur. De ouder vraagt advies over hun ${childGender} "${childName}" (${childAge}).
 
@@ -505,8 +659,10 @@ REGELS:
 - Antwoord in het Nederlands tenzij anders gevraagd`;
       } else {
         // Spouse consultation
-        const spouseGender = input.targetGender === "vrouw" ? "echtgenote" : "echtgenoot";
-        const parentRole = input.parentGender === "vrouw" ? "echtgenote" : "echtgenoot";
+        const spouseGender =
+          input.targetGender === "vrouw" ? "echtgenote" : "echtgenoot";
+        const parentRole =
+          input.parentGender === "vrouw" ? "echtgenote" : "echtgenoot";
 
         systemPrompt = `Je bent een islamitische huwelijksadviseur. De ${parentRole} vraagt advies over de relatie met hun ${spouseGender}.
 
@@ -524,27 +680,39 @@ REGELS:
 
       const llmMessages: any[] = [
         { role: "system", content: systemPrompt },
-        ...existingMessages.map((m: any) => ({ role: m.role, content: m.content })),
+        ...existingMessages
+          .slice(-20)
+          .map((m: any) => ({ role: m.role, content: m.content })),
         { role: "user", content: input.message },
       ];
 
       let aiResponse = "";
       try {
         const res = await invokeLLM({
-          
           messages: llmMessages,
+          max_tokens: 1_000,
         });
         const rawContent = res.choices[0]?.message?.content;
-        aiResponse = (typeof rawContent === "string" ? rawContent : "") || "Sorry, ik kon geen antwoord genereren.";
+        aiResponse =
+          (typeof rawContent === "string" ? rawContent : "") ||
+          "Sorry, ik kon geen antwoord genereren.";
       } catch (e) {
         aiResponse = "Er is een fout opgetreden. Probeer het later opnieuw.";
       }
 
       const updatedMessages = [
         ...existingMessages,
-        { role: "user", content: input.message, timestamp: new Date().toISOString() },
-        { role: "assistant", content: aiResponse, timestamp: new Date().toISOString() },
-      ];
+        {
+          role: "user",
+          content: input.message,
+          timestamp: new Date().toISOString(),
+        },
+        {
+          role: "assistant",
+          content: aiResponse,
+          timestamp: new Date().toISOString(),
+        },
+      ].slice(-100);
 
       await db.updateParentAiConsultation(input.consultationId, {
         messages: updatedMessages,
@@ -557,9 +725,13 @@ REGELS:
   /** Delete a consultation */
   delete: protectedProcedure
     .input(z.object({ consultationId: z.number() }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
+      await requireConsultationAccess(ctx.user.id, input.consultationId);
       // We don't actually delete, just clear messages
-      await db.updateParentAiConsultation(input.consultationId, { messages: [], messageCount: 0 });
+      await db.updateParentAiConsultation(input.consultationId, {
+        messages: [],
+        messageCount: 0,
+      });
       return { success: true };
     }),
 });
