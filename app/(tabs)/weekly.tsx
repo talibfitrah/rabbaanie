@@ -148,6 +148,9 @@ export default function WeeklyScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, loading } = useAppState();
+  // Hooks must run unconditionally: hoisted above the early returns below so
+  // the hook count stays constant when `loading` flips.
+  const { subscribed: _psub, loading: _pload } = usePremiumGate();
   const { t, language } = useI18n();
   const lang: Lang = language as Lang;
   const isRTL = lang === "ar";
@@ -372,7 +375,6 @@ export default function WeeklyScreen() {
     return lang === "nl" ? `Jaar ${y} (${y} jaar)` : `Year ${y} (${y} years old)`;
   })();
 
-  const { subscribed: _psub, loading: _pload } = usePremiumGate();
   if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
 
   return (

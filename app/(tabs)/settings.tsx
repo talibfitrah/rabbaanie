@@ -2085,6 +2085,12 @@ export default function SettingsScreen() {
       {isAuthenticated && (
         <Pressable
           onPress={async () => {
+            // Clear local family/profile state BEFORE dropping the session, or
+            // the next account to log in on this device inherits it (the
+            // onboarding gate reads a stale onboardingCompleted and the
+            // debounced persist writes the old family onto the new server row).
+            // Mirrors the delete-account path above.
+            await resetState();
             await logout();
             router.replace("/login");
           }}

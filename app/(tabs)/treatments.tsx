@@ -22,6 +22,9 @@ export default function TreatmentsScreen() {
   const router = useRouter();
   const { state, loading } = useAppState();
   const { t, language } = useI18n();
+  // Hooks must run unconditionally: this sits above the early returns below so
+  // the hook count stays constant when `loading`/onboarding flags flip.
+  const { subscribed: _psub, loading: _pload } = usePremiumGate();
 
   if (loading) {
     return (
@@ -99,7 +102,6 @@ export default function TreatmentsScreen() {
   const dateLocale =
     language === "ar" ? "ar-SA" : language === "en" ? "en-GB" : "nl-NL";
 
-  const { subscribed: _psub, loading: _pload } = usePremiumGate();
   if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
 
   return (

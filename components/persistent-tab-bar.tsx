@@ -15,6 +15,11 @@ const HIDDEN_ROUTES = [
   "/permissions-setup",
   "/oauth",
   "/child-account",
+  // Modal-presented screens: the bar is part of the base layer, so without
+  // this it shows as a strip under the modal sheet.
+  "/details",
+  "/ai-chat",
+  "/chat-notes",
 ];
 
 // All 7 tab definitions matching the main tab bar exactly
