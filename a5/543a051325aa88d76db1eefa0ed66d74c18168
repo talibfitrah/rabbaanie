@@ -1,0 +1,20 @@
+lib/fullscreen-notif.ts
+  s_630a2be95d1962::t_8390ad26d4c6f0 10-15,17
+  s_630a2be95d1962::t_11efa392921bc0 109-118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a5543a051325aa88d76db1eefa0ed66d74c18168",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
