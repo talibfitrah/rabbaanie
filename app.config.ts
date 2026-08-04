@@ -48,6 +48,11 @@ if (DISTRIBUTION !== "play" && DISTRIBUTION !== "github") {
 const isGithubBuild = DISTRIBUTION === "github";
 const USAGE_STATS_MODULE = "expo-usage-stats";
 
+// Custom schemes the Play artifact must never expose: the sideload navigation
+// scheme and the retired OAuth callback scheme. Both are stripped from stale
+// prebuild output because expo prebuild reuses an existing android/ directory.
+const RETIRED_APP_SCHEMES = [env.scheme, `${env.androidPackage}.auth`];
+
 // The local usage-stats module declares both PACKAGE_USAGE_STATS and
 // isMonitoringTool. Google Play only accepts monitoring apps that are
 // exclusively designed and marketed for monitoring; Rabbaanie is a broader
@@ -103,7 +108,9 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
       mainActivity["intent-filter"] ?? []
     ).filter(
       (filter) =>
-        !filter.data?.some((item) => item.$["android:scheme"] === env.scheme),
+        !filter.data?.some((item) =>
+          RETIRED_APP_SCHEMES.includes(item.$["android:scheme"]),
+        ),
     );
     return modConfig;
   });
