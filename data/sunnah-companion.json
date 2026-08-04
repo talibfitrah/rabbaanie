@@ -385,8 +385,8 @@
     },
     {
      "ar": "قراءةُ وردٍ من القرآن",
-     "nl": "Een dagelijkse portie Koran lezen",
-     "en": "Read a daily portion of the Qur'an"
+     "nl": "Een dagelijkse portie Qur'aan lezen",
+     "en": "Read a daily portion of the Qur'aan"
     },
     {
      "ar": "تفقّدُ نيّة اليوم وأهدافه",
@@ -644,8 +644,8 @@
     },
     {
      "ar": "انتظارُ الصلاة في ذكرٍ وقرآن",
-     "nl": "Wachten op het gebed met gedenking en Koran",
-     "en": "Awaiting the prayer with remembrance and Qur'an"
+     "nl": "Wachten op het gebed met gedenking en Qur'aan",
+     "en": "Awaiting the prayer with remembrance and Qur'aan"
     }
    ],
    "advice": {
@@ -2902,13 +2902,13 @@
    "period": "any",
    "title": {
     "ar": "قراءة القرآن",
-    "nl": "Het lezen van de Koran",
-    "en": "Reading the Qur'an"
+    "nl": "Het lezen van de Qur'aan",
+    "en": "Reading the Qur'aan"
    },
    "quick": {
     "ar": "سأقرأ القرآن",
-    "nl": "Ik ga de Koran lezen",
-    "en": "I will read the Qur'an"
+    "nl": "Ik ga de Qur'aan lezen",
+    "en": "I will read the Qur'aan"
    },
    "hint": {
     "ar": "استعذ وتدبّر",
@@ -2917,16 +2917,16 @@
    },
    "ikhlas": {
     "ar": "لا تقرأ القرآنَ هذًّا بلا قلب؛ فهو كلامُ ربّك يُكلّمك، ويأتي يوم القيامة شفيعًا لأصحابه [مسلم]. انوِ التدبّرَ والعملَ لا مجرّد الحروف، واعلم أنّ الماهرَ به مع السفرة الكرام، والذي يتتعتع فيه وهو عليه شاقٌّ له أجران [متفق عليه].",
-    "nl": "Lees de Koran niet gehaast zonder hart; het is het woord van je Heer dat tot je spreekt, en het komt op de Dag der Opstanding als voorspreker voor zijn metgezellen [Moeslim]. Bedoel overpeinzing en handelen, niet enkel de letters, en weet dat wie er bedreven in is met de nobele engelen verkeert, en wie erin hapert terwijl het hem zwaar valt, twee beloningen heeft [overeengekomen].",
-    "en": "Do not read the Qur'an in haste without heart; it is the word of your Lord speaking to you, and it comes on the Day of Resurrection as an intercessor for its companions [Muslim]. Intend reflection and action, not merely the letters, and know that the one proficient in it is with the noble angels, and the one who stammers in it while it is hard on him has two rewards [agreed upon]."
+    "nl": "Lees de Qur'aan niet gehaast zonder hart; het is het woord van je Heer dat tot je spreekt, en het komt op de Dag der Opstanding als voorspreker voor zijn metgezellen [Moeslim]. Bedoel overpeinzing en handelen, niet enkel de letters, en weet dat wie er bedreven in is met de nobele engelen verkeert, en wie erin hapert terwijl het hem zwaar valt, twee beloningen heeft [overeengekomen].",
+    "en": "Do not read the Qur'aan in haste without heart; it is the word of your Lord speaking to you, and it comes on the Day of Resurrection as an intercessor for its companions [Muslim]. Intend reflection and action, not merely the letters, and know that the one proficient in it is with the noble angels, and the one who stammers in it while it is hard on him has two rewards [agreed upon]."
    },
    "duas": [
     {
      "text": "الاستعاذةُ قبله: أَعُوذُ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ، ثمّ البسملة",
      "source": {
       "ar": "﴿فإذا قرأتَ القرآنَ فاستعذ بالله﴾",
-      "nl": "﴿Wanneer je de Koran reciteert, zoek dan toevlucht bij Allaah﴾",
-      "en": "﴿When you recite the Qur'an, seek refuge with Allaah﴾"
+      "nl": "﴿Wanneer je de Qur'aan reciteert, zoek dan toevlucht bij Allaah﴾",
+      "en": "﴿When you recite the Qur'aan, seek refuge with Allaah﴾"
      },
      "translit": "A3oedhue billaahi mina sh-shayTaani r-radjiem, thumma al-basmalah",
      "nl": "De toevluchtzoeking ervoor: Ik zoek toevlucht bij Allaah tegen de vervloekte duivel, daarna de basmala.",
@@ -6866,7 +6866,7 @@
    "cat": "food"
   },
   {
-   "id": "completing-quran",
+   "id": "completing-Qur'aan",
    "kind": "action",
    "period": "any",
    "title": {

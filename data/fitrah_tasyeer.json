@@ -2102,13 +2102,13 @@
             "ar": "ذكر الله"
           },
           "description": {
-            "nl": "Het kind laten horen van dhikr en Quran recitatie",
-            "en": "Letting the child hear dhikr and Quran recitation",
+            "nl": "Het kind laten horen van dhikr en Qur'aan recitatie",
+            "en": "Letting the child hear dhikr and Qur'aan recitation",
             "ar": "إسماع الطفل الذكر وتلاوة القرآن"
           },
           "method": {
-            "nl": "Reciteer Quran en maak dhikr hardop in aanwezigheid van het kind",
-            "en": "Recite Quran and make dhikr aloud in the child's presence",
+            "nl": "Reciteer Qur'aan en maak dhikr hardop in aanwezigheid van het kind",
+            "en": "Recite Qur'aan and make dhikr aloud in the child's presence",
             "ar": "اتل القرآن واذكر الله جهراً بحضور الطفل"
           },
           "id": "dhikr_0_2"

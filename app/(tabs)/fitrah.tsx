@@ -255,7 +255,7 @@ export default function FitrahScreen() {
   }
   function getConceptCategoryLabel(cat: string, l: Lang): string {
     switch (cat) {
-      case "quran": return tx(l, "Qur'aan", "Quran", "القرآن");
+      case "quran": return tx(l, "Qur'aan", "Qur'aan", "القرآن");
       case "sunnah": return tx(l, "Sunnah", "Sunnah", "السنة");
       case "ibn_taymiyyah": return tx(l, "Ibn Taymiyyah", "Ibn Taymiyyah", "ابن تيمية");
       case "ibn_qayyim": return tx(l, "Ibn al-Qayyim", "Ibn al-Qayyim", "ابن القيم");

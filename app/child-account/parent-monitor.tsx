@@ -157,7 +157,7 @@ export default function ParentMonitorScreen() {
   const getCategoryLabel = (cat: string) => {
     const labels: Record<string, Record<string, string>> = {
       prayer: { ar: "صلاة", nl: "Gebed", en: "Prayer" },
-      quran: { ar: "قرآن", nl: "Qur'aan", en: "Qur'an" },
+      quran: { ar: "قرآن", nl: "Qur'aan", en: "Qur'aan" },
       study: { ar: "دراسة", nl: "Studie", en: "Study" },
       chores: { ar: "أعمال منزلية", nl: "Huishoudelijk", en: "Chores" },
       sport: { ar: "رياضة", nl: "Sport", en: "Sport" },

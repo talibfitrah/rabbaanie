@@ -61,7 +61,7 @@ interface PlanGroup {
 function getCardIcon(title: string): string {
   const lower = title.toLowerCase();
   if (lower.includes("صلا") || lower.includes("prayer") || lower.includes("gebed") || lower.includes("salaat")) return "🕌";
-  if (lower.includes("قرآن") || lower.includes("quran") || lower.includes("koran") || lower.includes("تلاو")) return "📖";
+  if (lower.includes("قرآن") || lower.includes("qur'aan") || lower.includes("quran") || lower.includes("koran") || lower.includes("تلاو")) return "📖";
   if (lower.includes("ذكر") || lower.includes("dhikr") || lower.includes("أذكار")) return "📿";
   if (lower.includes("عقيد") || lower.includes("aqeedah") || lower.includes("geloof") || lower.includes("إيمان")) return "🌟";
   if (lower.includes("سلوك") || lower.includes("behavior") || lower.includes("gedrag") || lower.includes("أخلاق") || lower.includes("خلق")) return "💪";

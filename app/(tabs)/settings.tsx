@@ -1456,7 +1456,7 @@ export default function SettingsScreen() {
           <Pressable key={row.key}
             onPress={() => {
               if (row.key === "share") {
-                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على الكتاب والسنّة وفهم الصحابة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the Qur'an, the Sunnah and the understanding of the Companions, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens de Koran, de Soennah en het begrip van de metgezellen, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
+                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على الكتاب والسنّة وفهم الصحابة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the Qur'aan, the Sunnah and the understanding of the Companions, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens de Qur'aan, de Soennah en het begrip van de metgezellen, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
                 return;
               }
               if (row.key === "donate") {
