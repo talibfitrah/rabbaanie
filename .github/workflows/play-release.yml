@@ -1,7 +1,8 @@
 name: play-release
 
-# Builds the Google Play artifact (AAB) from the same tag as the sideload APK,
-# so both channels always ship identical code at identical versions.
+# Builds the Google Play artifact (AAB) from the same tag as the sideload APK.
+# Both channels share source and version, while release gates intentionally
+# remove sideload-only monitoring and updater capabilities from the Play AAB.
 #
 # It deliberately does NOT upload to Play. The first submission must be done by
 # hand in the Play Console to enrol in Play App Signing and complete the store
@@ -32,6 +33,8 @@ permissions:
 jobs:
   build-aab:
     runs-on: ubuntu-latest
+    env:
+      APP_DISTRIBUTION: play
     # All actions SHA-pinned: a moved tag on a compromised action must not be
     # able to tamper with the bundle users install.
     steps:
@@ -70,11 +73,15 @@ jobs:
       - name: Verify
         run: |
           pnpm exec tsc --noEmit
-          pnpm exec vitest run lib/app-version.test.ts tests/oauth-login-flow.test.ts
+          pnpm test:release
 
-      # DISTRIBUTION is deliberately unset — app.config.ts defaults to "play",
-      # which drops REQUEST_INSTALL_PACKAGES and disables the in-app updater.
-      # Google Play forbids an app distributed on Play from updating itself.
+      - name: Verify Firebase client config
+        run: |
+          git ls-files --error-unmatch google-services.json >/dev/null
+          node -e 'const c=require("./google-services.json"); const ok=c.client?.some(x=>x.client_info?.android_client_info?.package_name==="com.rabbaanie.app"); if(!ok) throw new Error("google-services.json does not contain com.rabbaanie.app")'
+
+      # APP_DISTRIBUTION is pinned at job scope. The artifact checks below still
+      # fail closed if config or a future dependency reintroduces a Play-only risk.
       - name: Generate native Android project
         run: pnpm exec expo prebuild --platform android --no-install
 
@@ -125,7 +132,7 @@ jobs:
       # tools:node="remove"), but that only takes effect during the manifest
       # merge — and a future dependency can reintroduce any of them. So assert
       # against the MERGED manifest, which is what actually ships.
-      - name: Assert Play-forbidden permissions are absent
+      - name: Assert Play-only restrictions
         run: |
           # Scoped to the release variant: an unscoped find could pick a debug
           # manifest and assert this hard gate against the wrong artifact.
@@ -137,17 +144,41 @@ jobs:
           fi
           echo "Checking $MERGED"
           FAILED=0
-          # Play forbids apps distributed on Play from updating themselves.
-          # Overlay + RECORD_AUDIO have no feature behind them and, next to
-          # PACKAGE_USAGE_STATS, read as stalkerware to Play's screening.
-          for PERM in REQUEST_INSTALL_PACKAGES SYSTEM_ALERT_WINDOW RECORD_AUDIO; do
+          # Play forbids self-updating. The broad Rabbaanie Play listing also
+          # cannot qualify as an exclusively marketed monitoring app, so Usage
+          # Stats must be absent along with the unused sensitive permissions.
+          for PERM in REQUEST_INSTALL_PACKAGES SYSTEM_ALERT_WINDOW RECORD_AUDIO PACKAGE_USAGE_STATS READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE USE_FULL_SCREEN_INTENT ACTIVITY_RECOGNITION; do
             if grep -q "android.permission.$PERM" "$MERGED"; then
               echo "FORBIDDEN: $PERM is present in the Play build" >&2
               FAILED=1
             fi
           done
+          if grep -q 'android:name="isMonitoringTool"' "$MERGED"; then
+            echo "FORBIDDEN: isMonitoringTool metadata is present in the Play build" >&2
+            FAILED=1
+          fi
+          if grep -q 'android:scheme="rabbaanie"' "$MERGED"; then
+            echo "FORBIDDEN: legacy Rabbaanie navigation scheme is present in the Play build" >&2
+            FAILED=1
+          fi
+          # Native Google sign-in is certificate-bound and uses no redirect
+          # scheme; a leftover auth scheme would mean a stale manifest.
+          if grep -q 'android:scheme="com.rabbaanie.app.auth"' "$MERGED"; then
+            echo "FORBIDDEN: retired OAuth callback scheme is present in the Play build" >&2
+            FAILED=1
+          fi
+          AAB=android/app/build/outputs/bundle/release/app-release.aab
+          DEX_DUMP="$RUNNER_TEMP/rabbaanie-play-dex.bin"
+          if ! unzip -p "$AAB" 'base/dex/*.dex' > "$DEX_DUMP"; then
+            echo "Could not inspect Play bundle bytecode — refusing to ship unverified" >&2
+            exit 1
+          fi
+          if grep -a -qE 'expo/modules/usagestats|UsageStatsModule' "$DEX_DUMP"; then
+            echo "FORBIDDEN: native usage-stats monitoring code is present in the Play AAB" >&2
+            FAILED=1
+          fi
           [ "$FAILED" -eq 0 ] || exit 1
-          echo "No forbidden permissions present."
+          echo "Play permissions, deep links, and native modules are restricted."
 
       # `jarsigner -verify -strict` is deliberately NOT used: Android release
       # keystores are self-signed, which -strict reports as chainNotValidated

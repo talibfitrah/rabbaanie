@@ -1,17 +1,32 @@
-import { View, Text, TouchableOpacity, ActivityIndicator, Image, Platform, ScrollView, KeyboardAvoidingView, TextInput } from "react-native";
+import {
+  View,
+  Text,
+  TouchableOpacity,
+  ActivityIndicator,
+  Image,
+  Platform,
+  ScrollView,
+  KeyboardAvoidingView,
+  TextInput,
+} from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useAuthContext } from "@/lib/auth-context";
 import { getApiBaseUrl } from "@/constants/oauth";
-import * as Auth from "@/lib/_core/auth";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
+import {
+  completeNativeGoogleSignIn,
+  GoogleSignInError,
+} from "@/lib/google-oauth";
+import Svg, { Path } from "react-native-svg";
 
 /**
  * Login Screen - Email/Password + Google Sign-In
- * All authentication goes directly to api.rabbaanie.com (no external redirect).
+ * Email/password is exchanged directly with the API. Google authentication
+ * uses Google's Android-native identity flow and a server-verified ID token.
  */
 export default function LoginScreen() {
   const [email, setEmail] = useState("");
@@ -19,9 +34,11 @@ export default function LoginScreen() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [twoFactorChallenge, setTwoFactorChallenge] = useState("");
+  const [twoFactorCode, setTwoFactorCode] = useState("");
   const colors = useColors();
   const router = useRouter();
-  const { setAuthState } = useAuthContext();
+  const { completeTokenSignIn } = useAuthContext();
   const { t, language } = useI18n();
   const { rehydrateFromServer } = useAppState();
 
@@ -32,12 +49,25 @@ export default function LoginScreen() {
   };
 
   const handleEmailLogin = async () => {
-    if (!email.trim() || !password.trim()) {
-      setError(tx(
-        "Vul uw e-mailadres en wachtwoord in",
-        "Please enter your email and password",
-        "أدخل بريدك الإلكتروني وكلمة المرور"
-      ));
+    const completingTwoFactor = Boolean(twoFactorChallenge);
+    if (completingTwoFactor && !twoFactorCode.trim()) {
+      setError(
+        tx(
+          "Voer uw 2FA-code of back-upcode in",
+          "Enter your 2FA or backup code",
+          "أدخل رمز التحقق أو الرمز الاحتياطي",
+        ),
+      );
+      return;
+    }
+    if (!completingTwoFactor && (!email.trim() || !password.trim())) {
+      setError(
+        tx(
+          "Vul uw e-mailadres en wachtwoord in",
+          "Please enter your email and password",
+          "أدخل بريدك الإلكتروني وكلمة المرور",
+        ),
+      );
       return;
     }
 
@@ -45,27 +75,63 @@ export default function LoginScreen() {
     setLoading(true);
     try {
       const apiBase = getApiBaseUrl();
-      const response = await fetch(`${apiBase}/auth/login`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: email.trim().toLowerCase(), password }),
-      });
+      const response = await fetch(
+        `${apiBase}${completingTwoFactor ? "/auth/2fa/verify" : "/auth/login"}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(
+            completingTwoFactor
+              ? {
+                  challengeToken: twoFactorChallenge,
+                  factorCode: twoFactorCode.trim(),
+                }
+              : { email: email.trim().toLowerCase(), password },
+          ),
+        },
+      );
 
       const data = await response.json();
 
+      if (data.requires2FA && typeof data.challengeToken === "string") {
+        setTwoFactorChallenge(data.challengeToken);
+        setPassword("");
+        setError(
+          tx(
+            "Voer uw 2FA-code of back-upcode in",
+            "Enter your 2FA or backup code",
+            "أدخل رمز التحقق أو الرمز الاحتياطي",
+          ),
+        );
+        return;
+      }
+
       if (!response.ok) {
-        if (response.status === 401) {
-          setError(tx(
-            "Onjuist e-mailadres of wachtwoord",
-            "Incorrect email or password",
-            "البريد الإلكتروني أو كلمة المرور غير صحيحة"
-          ));
+        if (completingTwoFactor) {
+          setError(
+            data.error ||
+              tx(
+                "Ongeldige of verlopen verificatiecode",
+                "Invalid or expired verification code",
+                "رمز التحقق غير صالح أو منتهي",
+              ),
+          );
+        } else if (response.status === 401) {
+          setError(
+            tx(
+              "Onjuist e-mailadres of wachtwoord",
+              "Incorrect email or password",
+              "البريد الإلكتروني أو كلمة المرور غير صحيحة",
+            ),
+          );
         } else if (response.status === 404) {
-          setError(tx(
-            "Geen account gevonden met dit e-mailadres.",
-            "No account found with this email address.",
-            "لا يوجد حساب بهذا البريد الإلكتروني."
-          ));
+          setError(
+            tx(
+              "Geen account gevonden met dit e-mailadres.",
+              "No account found with this email address.",
+              "لا يوجد حساب بهذا البريد الإلكتروني.",
+            ),
+          );
         } else {
           setError(data.error || data.message || "Login failed");
         }
@@ -73,30 +139,25 @@ export default function LoginScreen() {
       }
 
       // Success: data has { success, sessionToken, user }
-      const { sessionToken, user: userData } = data;
+      const { sessionToken } = data;
       if (!sessionToken) {
         setError("Login response missing token");
         return;
       }
-      const user: Auth.User = {
-        id: userData.id,
-        openId: userData.openId || `email_${userData.id}`,
-        name: userData.name || email.split("@")[0],
-        email: userData.email || email,
-        loginMethod: "email",
-        lastSignedIn: new Date(),
-      };
-
-      await setAuthState(user, sessionToken);
+      setTwoFactorChallenge("");
+      setTwoFactorCode("");
+      await completeTokenSignIn(sessionToken);
       await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("[Login] Email login error:", err);
-      setError(tx(
-        "Verbindingsfout. Controleer uw internetverbinding.",
-        "Connection error. Check your internet connection.",
-        "خطأ في الاتصال. تحقق من اتصالك بالإنترنت."
-      ));
+      setError(
+        tx(
+          "Verbindingsfout. Controleer uw internetverbinding.",
+          "Connection error. Check your internet connection.",
+          "خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -106,77 +167,51 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
     try {
-      const WebBrowser = await import("expo-web-browser");
-      const Linking = await import("expo-linking");
-      const apiBase = getApiBaseUrl();
-      const redirectUri = Linking.createURL("/oauth/callback");
-      const loginUrl = `${apiBase}/auth/google/redirect?redirect_uri=${encodeURIComponent(redirectUri)}`;
-
-      const result = await WebBrowser.openAuthSessionAsync(loginUrl, redirectUri);
-
-      if (result.type === "success" && result.url) {
-        const url = new URL(result.url);
-        const token = url.searchParams.get("token");
-        const userParam = url.searchParams.get("user");
-
-        // Accounts are created on the website, so a Google identity with no
-        // Rabbaanie account is denied. State the outcome and nothing more — no
-        // link and no signup wording, which Play's Payments policy treats as
-        // steering when the account behind it is a paid subscription.
-        const denied = url.searchParams.get("error");
-        if (denied === "no_account") {
-          setError(tx(
-            "Geen Rabbaanie-account gevonden voor dit Google-account.",
-            "No Rabbaanie account is linked to this Google account.",
-            "لا يوجد حساب ربّانيّ مرتبط بحساب Google هذا."
-          ));
-          return;
-        }
-        if (denied === "email_account") {
-          setError(tx(
-            "Dit e-mailadres heeft een account met een wachtwoord. Log hierboven in met je e-mailadres.",
-            "This email has a password account. Sign in with your email and password above.",
-            "هذا البريد لديه حساب بكلمة مرور. سجّل الدخول أعلاه ببريدك وكلمة المرور."
-          ));
-          return;
-        }
-
-        if (token && userParam) {
-          try {
-            const userData = JSON.parse(decodeURIComponent(userParam));
-            const user: Auth.User = {
-              id: userData.id,
-              openId: userData.openId || `google_${userData.id}`,
-              name: userData.name,
-              email: userData.email,
-              loginMethod: "google",
-              lastSignedIn: new Date(),
-            };
-            await setAuthState(user, token);
-            await rehydrateFromServer();
-            router.replace("/(tabs)");
-            return;
-          } catch (parseErr) {
-            console.error("[Login] Failed to parse Google user:", parseErr);
-          }
-        }
-        // Reached when the callback carried neither a session nor a known error
-        // code; without this the sheet just closed and the screen sat silent.
-        setError(tx(
-          "Google-inloggen mislukt. Probeer het opnieuw.",
-          "Google sign-in failed. Please try again.",
-          "فشل تسجيل الدخول بـ Google. حاول مرة أخرى."
-        ));
-      } else if (result.type === "cancel" || result.type === "dismiss") {
-        return;
-      }
+      const sessionToken = await completeNativeGoogleSignIn();
+      if (!sessionToken) return;
+      await completeTokenSignIn(sessionToken);
+      await rehydrateFromServer();
+      router.replace("/(tabs)");
     } catch (err: any) {
       console.error("[Login] Google login error:", err);
-      setError(tx(
-        "Google-inloggen mislukt. Probeer het opnieuw.",
-        "Google sign-in failed. Please try again.",
-        "فشل تسجيل الدخول بـ Google. حاول مرة أخرى."
-      ));
+      const denied = err instanceof GoogleSignInError ? err.reason : null;
+      if (denied === "no_account") {
+        setError(
+          tx(
+            "Geen Rabbaanie-account gevonden voor dit Google-account.",
+            "No Rabbaanie account is linked to this Google account.",
+            "لا يوجد حساب ربّانيّ مرتبط بحساب Google هذا.",
+          ),
+        );
+        return;
+      }
+      if (denied === "email_account") {
+        setError(
+          tx(
+            "Dit e-mailadres heeft een account met een wachtwoord. Log hierboven in met je e-mailadres.",
+            "This email has a password account. Sign in with your email and password above.",
+            "هذا البريد لديه حساب بكلمة مرور. سجّل الدخول أعلاه ببريدك وكلمة المرور.",
+          ),
+        );
+        return;
+      }
+      if (denied === "admin_2fa_required") {
+        setError(
+          tx(
+            "Gebruik e-mail en wachtwoord om de 2FA-controle voor dit beheerdersaccount te voltooien.",
+            "Use email and password to complete 2FA for this administrator account.",
+            "استخدم البريد وكلمة المرور لإكمال التحقق بخطوتين لحساب الإدارة.",
+          ),
+        );
+        return;
+      }
+      setError(
+        tx(
+          "Google-inloggen mislukt. Probeer het opnieuw.",
+          "Google sign-in failed. Please try again.",
+          "فشل تسجيل الدخول بـ Google. حاول مرة أخرى.",
+        ),
+      );
     } finally {
       setLoading(false);
     }
@@ -188,22 +223,46 @@ export default function LoginScreen() {
         style={{ flex: 1 }}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
       >
-        <ScrollView contentContainerStyle={{ flexGrow: 1 }} keyboardShouldPersistTaps="handled">
-          <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 24, paddingVertical: 40 }}>
+        <ScrollView
+          contentContainerStyle={{ flexGrow: 1 }}
+          keyboardShouldPersistTaps="handled"
+        >
+          <View
+            style={{
+              flex: 1,
+              justifyContent: "center",
+              alignItems: "center",
+              paddingHorizontal: 24,
+              paddingVertical: 40,
+            }}
+          >
             {/* Logo */}
             <View style={{ alignItems: "center", gap: 8, marginBottom: 32 }}>
               <Image
                 source={require("@/assets/images/icon.png")}
                 style={{ width: 72, height: 72, borderRadius: 16 }}
               />
-              <Text style={{ fontSize: 22, fontWeight: "bold", color: colors.foreground, textAlign: "center" }}>
+              <Text
+                style={{
+                  fontSize: 22,
+                  fontWeight: "bold",
+                  color: colors.foreground,
+                  textAlign: "center",
+                }}
+              >
                 {tx("Rabbaanie", "Rabbaanie", "ربّاني")}
               </Text>
-              <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center" }}>
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: colors.muted,
+                  textAlign: "center",
+                }}
+              >
                 {tx(
                   "Islamitisch opvoedingsprogramma",
                   "Islamic parenting program",
-                  "برنامج تربوي إسلامي"
+                  "برنامج تربوي إسلامي",
                 )}
               </Text>
             </View>
@@ -212,13 +271,23 @@ export default function LoginScreen() {
             <View style={{ width: "100%", maxWidth: 340, gap: 12 }}>
               {/* Email Input */}
               <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 13, color: colors.muted, writingDirection: isRTL ? "rtl" : "ltr" }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: colors.muted,
+                    writingDirection: isRTL ? "rtl" : "ltr",
+                  }}
+                >
                   {tx("E-mailadres", "Email address", "البريد الإلكتروني")}
                 </Text>
                 <TextInput
                   value={email}
                   onChangeText={setEmail}
-                  placeholder={tx("uw@email.nl", "your@email.com", "بريدك@مثال.com")}
+                  placeholder={tx(
+                    "uw@email.nl",
+                    "your@email.com",
+                    "بريدك@مثال.com",
+                  )}
                   placeholderTextColor={colors.muted}
                   keyboardType="email-address"
                   autoCapitalize="none"
@@ -238,9 +307,57 @@ export default function LoginScreen() {
                 />
               </View>
 
+              {twoFactorChallenge ? (
+                <View style={{ gap: 4 }}>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.muted,
+                      writingDirection: isRTL ? "rtl" : "ltr",
+                    }}
+                  >
+                    {tx(
+                      "2FA-code of back-upcode",
+                      "2FA or backup code",
+                      "رمز التحقق أو الرمز الاحتياطي",
+                    )}
+                  </Text>
+                  <TextInput
+                    value={twoFactorCode}
+                    onChangeText={setTwoFactorCode}
+                    placeholder="000000"
+                    placeholderTextColor={colors.muted}
+                    autoCapitalize="characters"
+                    autoCorrect={false}
+                    textContentType="oneTimeCode"
+                    keyboardType="default"
+                    maxLength={9}
+                    textAlign={isRTL ? "right" : "left"}
+                    returnKeyType="done"
+                    onSubmitEditing={handleEmailLogin}
+                    style={{
+                      backgroundColor: colors.surface,
+                      borderRadius: 10,
+                      paddingHorizontal: 14,
+                      paddingVertical: 12,
+                      fontSize: 15,
+                      color: colors.foreground,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                    }}
+                  />
+                </View>
+              ) : null}
+
               {/* Password Input */}
               <View style={{ gap: 4 }}>
-                <Text style={{ fontSize: 13, color: colors.muted, writingDirection: isRTL ? "rtl" : "ltr" }}>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: colors.muted,
+                    writingDirection: isRTL ? "rtl" : "ltr",
+                  }}
+                >
                   {tx("Wachtwoord", "Password", "كلمة المرور")}
                 </Text>
                 <View style={{ position: "relative" }}>
@@ -268,11 +385,36 @@ export default function LoginScreen() {
                   />
                   <TouchableOpacity
                     onPress={() => setShowPassword(!showPassword)}
-                    style={{ position: "absolute", right: 12, top: 12 }}
+                    accessibilityRole="button"
+                    accessibilityLabel={
+                      showPassword
+                        ? tx(
+                            "Wachtwoord verbergen",
+                            "Hide password",
+                            "إخفاء كلمة المرور",
+                          )
+                        : tx(
+                            "Wachtwoord tonen",
+                            "Show password",
+                            "إظهار كلمة المرور",
+                          )
+                    }
+                    hitSlop={8}
+                    style={{
+                      position: "absolute",
+                      right: 4,
+                      top: 0,
+                      minWidth: 44,
+                      minHeight: 44,
+                      alignItems: "center",
+                      justifyContent: "center",
+                    }}
                     activeOpacity={0.6}
                   >
                     <Text style={{ fontSize: 13, color: colors.primary }}>
-                      {showPassword ? tx("Verberg", "Hide", "إخفاء") : tx("Toon", "Show", "إظهار")}
+                      {showPassword
+                        ? tx("Verberg", "Hide", "إخفاء")
+                        : tx("Toon", "Show", "إظهار")}
                     </Text>
                   </TouchableOpacity>
                 </View>
@@ -282,16 +424,33 @@ export default function LoginScreen() {
               <TouchableOpacity
                 onPress={() => router.push("/forgot-password" as any)}
                 activeOpacity={0.6}
-                style={{ alignSelf: isRTL ? "flex-start" : "flex-end" }}
+                style={{
+                  alignSelf: isRTL ? "flex-start" : "flex-end",
+                  minHeight: 44,
+                  justifyContent: "center",
+                }}
               >
                 <Text style={{ fontSize: 13, color: colors.primary }}>
-                  {tx("Wachtwoord vergeten?", "Forgot password?", "نسيت كلمة المرور؟")}
+                  {tx(
+                    "Wachtwoord vergeten?",
+                    "Forgot password?",
+                    "نسيت كلمة المرور؟",
+                  )}
                 </Text>
               </TouchableOpacity>
 
               {/* Error message */}
               {error ? (
-                <Text style={{ color: colors.error, fontSize: 13, textAlign: "center", marginTop: 4 }}>
+                <Text
+                  accessibilityRole="alert"
+                  accessibilityLiveRegion="polite"
+                  style={{
+                    color: colors.error,
+                    fontSize: 13,
+                    textAlign: "center",
+                    marginTop: 4,
+                  }}
+                >
                   {error}
                 </Text>
               ) : null}
@@ -313,58 +472,121 @@ export default function LoginScreen() {
                 {loading ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={{ fontSize: 15, fontWeight: "600", color: "#ffffff" }}>
-                    {tx("Inloggen", "Sign in", "تسجيل الدخول")}
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "600",
+                      color: "#ffffff",
+                    }}
+                  >
+                    {twoFactorChallenge
+                      ? tx("Verifiëren", "Verify", "تحقق")
+                      : tx("Inloggen", "Sign in", "تسجيل الدخول")}
                   </Text>
                 )}
               </TouchableOpacity>
 
-              {/* Divider */}
-              <View style={{ flexDirection: "row", alignItems: "center", marginVertical: 12 }}>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-                <Text style={{ marginHorizontal: 12, fontSize: 12, color: colors.muted }}>
-                  {tx("of", "or", "أو")}
-                </Text>
-                <View style={{ flex: 1, height: 1, backgroundColor: colors.border }} />
-              </View>
+              {Platform.OS === "android" && (
+                <>
+                  <View
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      marginVertical: 12,
+                    }}
+                  >
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        backgroundColor: colors.border,
+                      }}
+                    />
+                    <Text
+                      style={{
+                        marginHorizontal: 12,
+                        fontSize: 12,
+                        color: colors.muted,
+                      }}
+                    >
+                      {tx("of", "or", "أو")}
+                    </Text>
+                    <View
+                      style={{
+                        flex: 1,
+                        height: 1,
+                        backgroundColor: colors.border,
+                      }}
+                    />
+                  </View>
 
-              {/* Google Login Button */}
-              <TouchableOpacity
-                onPress={handleGoogleLogin}
-                disabled={loading}
-                style={{
-                  flexDirection: "row",
-                  alignItems: "center",
-                  justifyContent: "center",
-                  gap: 10,
-                  backgroundColor: "#ffffff",
-                  borderRadius: 10,
-                  paddingVertical: 13,
-                  paddingHorizontal: 20,
-                  borderWidth: 1,
-                  borderColor: "#dadce0",
-                  shadowColor: "#000",
-                  shadowOffset: { width: 0, height: 1 },
-                  shadowOpacity: 0.08,
-                  shadowRadius: 2,
-                  elevation: 1,
-                  opacity: loading ? 0.7 : 1,
-                }}
-                activeOpacity={0.8}
-              >
-                <Image
-                  source={{ uri: "https://developers.google.com/identity/images/g-logo.png" }}
-                  style={{ width: 18, height: 18 }}
-                />
-                <Text style={{ fontSize: 14, fontWeight: "500", color: "#3c4043" }}>
-                  {tx("Inloggen met Google", "Sign in with Google", "تسجيل الدخول بـ Google")}
-                </Text>
-              </TouchableOpacity>
-
+                  <TouchableOpacity
+                    onPress={handleGoogleLogin}
+                    disabled={loading}
+                    style={{
+                      flexDirection: "row",
+                      alignItems: "center",
+                      justifyContent: "center",
+                      gap: 10,
+                      backgroundColor: "#ffffff",
+                      borderRadius: 10,
+                      paddingVertical: 13,
+                      paddingHorizontal: 20,
+                      borderWidth: 1,
+                      borderColor: "#dadce0",
+                      shadowColor: "#000",
+                      shadowOffset: { width: 0, height: 1 },
+                      shadowOpacity: 0.08,
+                      shadowRadius: 2,
+                      elevation: 1,
+                      opacity: loading ? 0.7 : 1,
+                    }}
+                    activeOpacity={0.8}
+                  >
+                    <GoogleGIcon />
+                    <Text
+                      style={{
+                        fontSize: 14,
+                        fontWeight: "500",
+                        color: "#3c4043",
+                      }}
+                    >
+                      {tx(
+                        "Inloggen met Google",
+                        "Sign in with Google",
+                        "تسجيل الدخول بـ Google",
+                      )}
+                    </Text>
+                  </TouchableOpacity>
+                </>
+              )}
             </View>
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </ScreenContainer>
+  );
+}
+
+function GoogleGIcon() {
+  return (
+    <Svg width={18} height={18} viewBox="0 0 48 48" accessibilityLabel="Google">
+      <Path
+        fill="#EA4335"
+        d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"
+      />
+      <Path
+        fill="#4285F4"
+        d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"
+      />
+      <Path
+        fill="#FBBC05"
+        d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24s.92 7.54 2.56 10.78l7.97-6.19z"
+      />
+      <Path
+        fill="#34A853"
+        d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"
+      />
+    </Svg>
   );
 }

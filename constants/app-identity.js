@@ -33,20 +33,14 @@
  */
 export const APP_PACKAGE = "com.rabbaanie.app";
 
-/**
- * Custom URL scheme the app registers for deep links: rabbaanie:///...
- *
- * The live login path is app/login.tsx, which builds its redirect with
- * Linking.createURL() — no explicit scheme — and passes it to the backend as a
- * redirect_uri query parameter. That backend (server/web-auth.ts, deployed at
- * api.rabbaanie.com) redirects to whatever URI the app supplied, so this value
- * carries that flow on its own.
- *
- * It does NOT carry the older Manus-portal flow in constants/oauth.ts, whose
- * server counterpart (server/_core/oauth.ts) hardcodes "manusapk:///oauth/callback"
- * rather than echoing the app's URI. That flow is unreachable — nothing imports
- * startOAuthLogin/getLoginUrl/getRedirectUri, and api.rabbaanie.com returns 404
- * for /api/oauth/native-callback — but if it is ever revived, the server side
- * must be changed to match this scheme or login will fail silently.
- */
+/** General app deep-link scheme for the sideload distribution only. */
 export const APP_SCHEME = "rabbaanie";
+
+/**
+ * Public OAuth client identifier used to ask Google Play services for an ID
+ * token addressed to the Rabbaanie backend. This is intentionally not a
+ * secret: Google binds Android sign-in to APP_PACKAGE and the registered app
+ * signing certificate, while the server verifies the signed token audience.
+ */
+export const GOOGLE_WEB_CLIENT_ID =
+  "546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o.apps.googleusercontent.com";

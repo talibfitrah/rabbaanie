@@ -1,7 +1,15 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
 import { Platform } from "react-native";
 import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
+import { clearGoogleOAuthExchange } from "@/lib/google-oauth";
 
 type AuthContextType = {
   user: Auth.User | null;
@@ -10,8 +18,8 @@ type AuthContextType = {
   isAuthenticated: boolean;
   refresh: () => Promise<void>;
   logout: () => Promise<void>;
-  /** Called by OAuth callback to immediately set auth state without re-fetching */
-  setAuthState: (user: Auth.User, token: string) => Promise<void>;
+  /** Verifies a native session token with the API before persisting auth state. */
+  completeTokenSignIn: (token: string) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextType | null>(null);
@@ -63,14 +71,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // Use cached user info for native
       const cachedUser = await Auth.getUserInfo();
       if (cachedUser) {
-        console.log("[AuthProvider] Using cached user:", cachedUser.name);
+        console.log("[AuthProvider] Using cached native user");
         setUser(cachedUser);
       } else {
         console.log("[AuthProvider] No cached user info");
         setUser(null);
       }
     } catch (err) {
-      const error = err instanceof Error ? err : new Error("Failed to fetch user");
+      const error =
+        err instanceof Error ? err : new Error("Failed to fetch user");
       console.error("[AuthProvider] fetchUser error:", error);
       setError(error);
       setUser(null);
@@ -80,32 +89,48 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
+    clearGoogleOAuthExchange();
+    await Auth.markLogoutPending();
     try {
       await Api.logout();
     } catch (err) {
       console.error("[AuthProvider] Logout API call failed:", err);
-    } finally {
+    }
+
+    try {
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
+      await Auth.clearLogoutPending();
       setUser(null);
       setError(null);
+    } catch (err) {
+      const cleanupError =
+        err instanceof Error ? err : new Error("Secure logout failed");
+      setError(cleanupError);
+      throw cleanupError;
     }
   }, []);
 
-  /**
-   * Called by OAuth callback to immediately update auth state.
-   * This avoids the race condition where AuthGate checks stale state.
-   */
-  const setAuthState = useCallback(async (userInfo: Auth.User, token: string) => {
-    console.log("[AuthProvider] setAuthState called for user:", userInfo.name);
-    // Store in SecureStore
-    await Auth.setSessionToken(token);
-    await Auth.setUserInfo(userInfo);
-    // Update React state immediately
-    setUser(userInfo);
-    setLoading(false);
-    setError(null);
-    console.log("[AuthProvider] Auth state updated, isAuthenticated: true");
+  const completeTokenSignIn = useCallback(async (token: string) => {
+    const userInfo = await Api.verifySessionToken(token);
+    await Auth.markLogoutPending();
+    try {
+      await Auth.setSessionToken(token);
+      await Auth.setUserInfo(userInfo);
+      await Auth.clearLogoutPending();
+      clearGoogleOAuthExchange();
+      setUser(userInfo);
+      setLoading(false);
+      setError(null);
+    } catch (error) {
+      clearGoogleOAuthExchange();
+      await Promise.allSettled([
+        Auth.removeSessionToken(),
+        Auth.clearUserInfo(),
+      ]);
+      setUser(null);
+      throw error;
+    }
   }, []);
 
   const isAuthenticated = useMemo(() => Boolean(user), [user]);
@@ -113,8 +138,31 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   // Initial auth check on mount
   useEffect(() => {
     console.log("[AuthProvider] Initial mount, checking auth...");
-    // Both web and native: check cached user first for instant startup
-    Auth.getUserInfo().then((cachedUser) => {
+    let cancelled = false;
+
+    const restoreAuth = async () => {
+      if (await Auth.isLogoutPending()) {
+        try {
+          await Auth.removeSessionToken();
+          await Auth.clearUserInfo();
+          await Auth.clearLogoutPending();
+        } catch (err) {
+          if (!cancelled) {
+            setError(
+              err instanceof Error ? err : new Error("Secure logout failed"),
+            );
+          }
+        }
+        if (!cancelled) {
+          setUser(null);
+          setLoading(false);
+        }
+        return;
+      }
+
+      // Both web and native: check cached user first for instant startup
+      const cachedUser = await Auth.getUserInfo();
+      if (cancelled) return;
       if (cachedUser) {
         if (Platform.OS === "web") {
           // Web: trust cached user info (cookie may still be valid)
@@ -125,7 +173,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           fetchUser().catch(() => {});
         } else {
           // Native: also verify we have a token
-          Auth.getSessionToken().then((token) => {
+          const token = await Auth.getSessionToken();
+          if (!cancelled) {
             if (token) {
               console.log("[AuthProvider] Native: cached user + token found");
               setUser(cachedUser);
@@ -135,13 +184,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
               setUser(null);
             }
             setLoading(false);
-          });
+          }
         }
       } else {
         // No cached user - try fetching from server
         fetchUser();
       }
-    });
+    };
+
+    void restoreAuth();
+    return () => {
+      cancelled = true;
+    };
   }, [fetchUser]);
 
   const value = useMemo(
@@ -152,9 +206,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       isAuthenticated,
       refresh: fetchUser,
       logout,
-      setAuthState,
+      completeTokenSignIn,
     }),
-    [user, loading, error, isAuthenticated, fetchUser, logout, setAuthState],
+    [
+      user,
+      loading,
+      error,
+      isAuthenticated,
+      fetchUser,
+      logout,
+      completeTokenSignIn,
+    ],
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

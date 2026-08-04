@@ -1,0 +1,48 @@
+{
+  "project_info": {
+    "project_number": "419605554467",
+    "project_id": "rabbaanie",
+    "storage_bucket": "rabbaanie.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:419605554467:android:2dade99c32ac6e64d29896",
+        "android_client_info": {
+          "package_name": "com.app.opvoedadvies.apk"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiRanV39SesfRH3OoWi1KIt19M_KM3km0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    },
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:419605554467:android:d86a56b579c497c6d29896",
+        "android_client_info": {
+          "package_name": "com.rabbaanie.app"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCiRanV39SesfRH3OoWi1KIt19M_KM3km0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

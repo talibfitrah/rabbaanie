@@ -5,7 +5,6 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
-import { useAppState } from "@/lib/app-context";
 
 /**
  * QR Scanner Screen
@@ -15,7 +14,6 @@ import { useAppState } from "@/lib/app-context";
 export default function QrScannerScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { rehydrateFromServer } = useAppState();
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -30,10 +28,8 @@ export default function QrScannerScreen() {
   });
 
   const linkPartner = trpc.links.linkPartnerByPublicId.useMutation({
-    onSuccess: async (data) => {
-      setResult(`Gekoppeld aan: ${data.partnerName || "Partner"} (${data.linkedChildren} kinderen)\nLinked to: ${data.partnerName || "Partner"} (${data.linkedChildren} children)\nتم الربط بـ: ${data.partnerName || "الشريك"} (${data.linkedChildren} طفل)`);
-      // Rehydrate to update local state with partner info
-      try { await rehydrateFromServer(); } catch {}
+    onSuccess: (data) => {
+      setResult(`Koppelverzoek verstuurd naar ${data.partnerName || "Partner"}; gegevens worden pas na bevestiging gedeeld.\nLink request sent to ${data.partnerName || "Partner"}; data is shared only after confirmation.\nتم إرسال طلب الربط إلى ${data.partnerName || "الشريك"}؛ لن تتم مشاركة البيانات إلا بعد التأكيد.`);
     },
     onError: (err) => {
       setResult(`Fout / Error: ${err.message}`);

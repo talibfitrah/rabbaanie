@@ -35,6 +35,7 @@ import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks } from "@/lib/store";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
+import { ReportAiContent } from "@/components/report-ai-content";
 
 // Types
 interface Attachment {
@@ -980,6 +981,9 @@ export default function AIChatScreen() {
             </Text>
           </Pressable>
         )}
+
+        {/* Required on AI output by Play's AI-Generated Content policy. */}
+        {!isUser && <ReportAiContent content={item.content} surface="ai-chat" />}
       </View>
     );
   };

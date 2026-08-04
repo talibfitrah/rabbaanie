@@ -1,0 +1,148 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import React, {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+} from "react";
+
+export type AgeGateStatus = "adult" | "minor";
+
+const AGE_GATE_STORAGE_KEY = "@rabbaanie_age_gate_status";
+
+type BirthDateParts = {
+  day: number;
+  month: number;
+  year: number;
+};
+
+type AgeGateContextValue = {
+  status: AgeGateStatus | null;
+  loading: boolean;
+  setStatus: (status: AgeGateStatus) => Promise<void>;
+};
+
+const AgeGateContext = createContext<AgeGateContextValue | null>(null);
+
+type GateRedirectInput = {
+  status: AgeGateStatus | null;
+  isAuthenticated: boolean;
+  segment?: string;
+  childMonitoringEnabled: boolean;
+};
+
+export function getGateRedirect({
+  status,
+  isAuthenticated,
+  segment,
+  childMonitoringEnabled,
+}: GateRedirectInput): "/age-check" | "/login" | "/(tabs)" | null {
+  const inAgeGate = segment === "age-check";
+  const inAuthGroup =
+    segment === "login" || segment === "oauth" || segment === "forgot-password";
+
+  if (status !== "adult") return inAgeGate ? null : "/age-check";
+  if (inAgeGate) return isAuthenticated ? "/(tabs)" : "/login";
+  if (!childMonitoringEnabled && segment === "child-account") {
+    return isAuthenticated ? "/(tabs)" : "/login";
+  }
+  if (!isAuthenticated && !inAuthGroup) return "/login";
+  if (isAuthenticated && inAuthGroup) return "/(tabs)";
+  return null;
+}
+
+export function canUseNotifications(
+  status: AgeGateStatus | null,
+  isAuthenticated: boolean,
+): boolean {
+  return status === "adult" && isAuthenticated;
+}
+
+export async function readStoredAgeGateStatus(): Promise<AgeGateStatus | null> {
+  const stored = await AsyncStorage.getItem(AGE_GATE_STORAGE_KEY);
+  return stored === "adult" || stored === "minor" ? stored : null;
+}
+
+export async function persistAgeGateStatus(
+  status: AgeGateStatus,
+): Promise<void> {
+  await AsyncStorage.setItem(AGE_GATE_STORAGE_KEY, status);
+}
+
+export function classifyBirthDate(
+  { day, month, year }: BirthDateParts,
+  today = new Date(),
+): AgeGateStatus | null {
+  if (
+    !Number.isInteger(day) ||
+    !Number.isInteger(month) ||
+    !Number.isInteger(year)
+  ) {
+    return null;
+  }
+  if (
+    year < 1900 ||
+    year > today.getFullYear() ||
+    month < 1 ||
+    month > 12 ||
+    day < 1
+  ) {
+    return null;
+  }
+
+  const birthDate = new Date(year, month - 1, day);
+  if (
+    birthDate.getFullYear() !== year ||
+    birthDate.getMonth() !== month - 1 ||
+    birthDate.getDate() !== day ||
+    birthDate > today
+  ) {
+    return null;
+  }
+
+  let age = today.getFullYear() - year;
+  const birthdayHasPassed =
+    today.getMonth() > month - 1 ||
+    (today.getMonth() === month - 1 && today.getDate() >= day);
+  if (!birthdayHasPassed) age -= 1;
+
+  return age >= 18 ? "adult" : "minor";
+}
+
+export function AgeGateProvider({ children }: { children: React.ReactNode }) {
+  const [status, setStatusState] = useState<AgeGateStatus | null>(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    readStoredAgeGateStatus()
+      .then(setStatusState)
+      .catch((error) => {
+        console.warn("[AgeGate] Could not restore age status:", error);
+        setStatusState(null);
+      })
+      .finally(() => setLoading(false));
+  }, []);
+
+  const setStatus = useCallback(async (nextStatus: AgeGateStatus) => {
+    await persistAgeGateStatus(nextStatus);
+    setStatusState(nextStatus);
+  }, []);
+
+  const value = useMemo(
+    () => ({ status, loading, setStatus }),
+    [status, loading, setStatus],
+  );
+
+  return (
+    <AgeGateContext.Provider value={value}>{children}</AgeGateContext.Provider>
+  );
+}
+
+export function useAgeGate(): AgeGateContextValue {
+  const context = useContext(AgeGateContext);
+  if (!context)
+    throw new Error("useAgeGate must be used within AgeGateProvider");
+  return context;
+}

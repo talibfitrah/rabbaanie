@@ -1005,10 +1005,10 @@ export default function SettingsScreen() {
     Alert.alert(
       language === "ar" ? "حذف الحساب؟" : isEn ? "Delete account?" : "Account verwijderen?",
       language === "ar"
-        ? "سيتم حذف حسابك وبياناتك. لا يمكن التراجع عن هذا، وسيتم تسجيل خروجك."
+        ? "سيتم إلغاء وصولك وتسجيل خروجك فوراً. سيتم حذف بياناتك نهائياً خلال 30 يوماً، باستثناء السجلات التي يجب الاحتفاظ بها قانونياً."
         : isEn
-          ? "Your account and its data will be deleted. This cannot be undone and you will be signed out."
-          : "Je account en gegevens worden verwijderd. Dit kan niet ongedaan worden gemaakt en je wordt uitgelogd.",
+          ? "Access ends and you are signed out immediately. Your data is permanently deleted within 30 days, except records we must retain by law."
+          : "Je toegang stopt en je wordt direct uitgelogd. Je gegevens worden binnen 30 dagen definitief verwijderd, behalve gegevens die we wettelijk moeten bewaren.",
       [
         { text: language === "ar" ? "إلغاء" : isEn ? "Cancel" : "Annuleren", style: "cancel" },
         {

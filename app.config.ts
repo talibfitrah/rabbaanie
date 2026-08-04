@@ -1,7 +1,16 @@
 // Load environment variables with proper priority (system > .env)
 import "./scripts/load-env.js";
 import type { ExpoConfig } from "expo/config";
-import { APP_PACKAGE, APP_SCHEME } from "./constants/app-identity.js";
+import {
+  AndroidConfig,
+  type ConfigPlugin,
+  withAndroidManifest,
+  withSettingsGradle,
+} from "@expo/config-plugins";
+import {
+  APP_PACKAGE,
+  APP_SCHEME,
+} from "./constants/app-identity.js";
 
 const env = {
   // App branding - update these values directly (do not use env vars)
@@ -13,7 +22,8 @@ const env = {
   appSlug: "opvoedadvies_apk",
   // S3 URL of the app logo - set this to the URL returned by generate_image when creating custom logo
   // Leave empty to use the default icon from assets/images/icon.png
-  logoUrl: "https://d2xsxph8kpxj0f.cloudfront.net/310519663343602506/hDLuUkY85hL92tUfMz5bZ4/logo_hands_circle_notext-6n223JNfdi7RAqyCbpkijv.png",
+  logoUrl:
+    "https://d2xsxph8kpxj0f.cloudfront.net/310519663343602506/hDLuUkY85hL92tUfMz5bZ4/logo_hands_circle_notext-6n223JNfdi7RAqyCbpkijv.png",
   scheme: APP_SCHEME,
   iosBundleId: APP_PACKAGE,
   androidPackage: APP_PACKAGE,
@@ -31,9 +41,73 @@ const env = {
 // on any machine that happens to define it.
 const DISTRIBUTION = process.env.APP_DISTRIBUTION ?? "play";
 if (DISTRIBUTION !== "play" && DISTRIBUTION !== "github") {
-  throw new Error(`APP_DISTRIBUTION must be "play" or "github", got "${DISTRIBUTION}"`);
+  throw new Error(
+    `APP_DISTRIBUTION must be "play" or "github", got "${DISTRIBUTION}"`,
+  );
 }
 const isGithubBuild = DISTRIBUTION === "github";
+const USAGE_STATS_MODULE = "expo-usage-stats";
+
+// The local usage-stats module declares both PACKAGE_USAGE_STATS and
+// isMonitoringTool. Google Play only accepts monitoring apps that are
+// exclusively designed and marketed for monitoring; Rabbaanie is a broader
+// parenting program. The Play variant excludes the native module at Gradle
+// autolinking time and removes stale manifest declarations. The GitHub/sideload
+// variant keeps the native capability.
+const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
+  if (isGithubBuild) return config;
+
+  const withoutNativeMonitoring = withSettingsGradle(config, (modConfig) => {
+    const useExpoModules = "expoAutolinking.useExpoModules()";
+    const exclusion = `expoAutolinking.exclude = ["${USAGE_STATS_MODULE}"]`;
+
+    if (!modConfig.modResults.contents.includes(useExpoModules)) {
+      throw new Error(
+        "Could not locate Expo autolinking in android/settings.gradle",
+      );
+    }
+    if (!modConfig.modResults.contents.includes(exclusion)) {
+      modConfig.modResults.contents = modConfig.modResults.contents.replace(
+        useExpoModules,
+        `${exclusion}\n${useExpoModules}`,
+      );
+    }
+    return modConfig;
+  });
+
+  return withAndroidManifest(withoutNativeMonitoring, (modConfig) => {
+    AndroidConfig.Manifest.ensureToolsAvailable(modConfig.modResults);
+    const application = AndroidConfig.Manifest.getMainApplicationOrThrow(
+      modConfig.modResults,
+    );
+    const metadata = application["meta-data"] ?? [];
+    application["meta-data"] = metadata.filter(
+      (item) => item.$["android:name"] !== "isMonitoringTool",
+    );
+    application["meta-data"].push({
+      $: {
+        "android:name": "isMonitoringTool",
+        "tools:node": "remove",
+      },
+    });
+
+    // Prebuild can reuse an existing native directory, and expo-router does
+    // not remove a previously generated scheme filter when `scheme` becomes
+    // undefined. Remove it explicitly so a stale prebuild cannot re-expose the
+    // legacy navigation scheme in a Play artifact. Google sign-in is the
+    // certificate-bound native flow and needs no redirect scheme at all.
+    const mainActivity = AndroidConfig.Manifest.getMainActivityOrThrow(
+      modConfig.modResults,
+    );
+    mainActivity["intent-filter"] = (
+      mainActivity["intent-filter"] ?? []
+    ).filter(
+      (filter) =>
+        !filter.data?.some((item) => item.$["android:scheme"] === env.scheme),
+    );
+    return modConfig;
+  });
+};
 
 // APP_VERSION comes from the release tag in CI (see release.yml); the fallback
 // applies to local dev builds only. The shipped lineage is ahead of what the
@@ -44,12 +118,14 @@ const isGithubBuild = DISTRIBUTION === "github";
 // than what users already run.
 // versionCode is ALWAYS derived from the version here, so name and code can
 // never diverge and a missing/empty env var can't yield an invalid 0.
-const APP_VERSION = process.env.APP_VERSION ?? "1.4.69";
+const APP_VERSION = process.env.APP_VERSION ?? "1.4.71";
 // Same shape the release workflow enforces on the tag: three parts, minor/patch
 // 0-999 (the versionCode formula collides beyond that), no leading zeros. This
 // makes a bad local APP_VERSION fail loudly instead of shipping a wrong code.
 if (!/^(0|[1-9]\d*)\.(0|[1-9]\d{0,2})\.(0|[1-9]\d{0,2})$/.test(APP_VERSION)) {
-  throw new Error(`APP_VERSION must be MAJOR.MINOR.PATCH with minor/patch 0-999, got "${APP_VERSION}"`);
+  throw new Error(
+    `APP_VERSION must be MAJOR.MINOR.PATCH with minor/patch 0-999, got "${APP_VERSION}"`,
+  );
 }
 const [vMajor, vMinor, vPatch] = APP_VERSION.split(".").map(Number);
 const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
@@ -58,7 +134,7 @@ const APP_VERSION_CODE = vMajor * 1_000_000 + vMinor * 1_000 + vPatch;
 // overflows — and Play rejects the upload rather than the build, so catch it here.
 if (APP_VERSION_CODE < 1 || APP_VERSION_CODE > 2_100_000_000) {
   throw new Error(
-    `APP_VERSION "${APP_VERSION}" yields versionCode ${APP_VERSION_CODE}, outside Play's 1..2100000000`
+    `APP_VERSION "${APP_VERSION}" yields versionCode ${APP_VERSION_CODE}, outside Play's 1..2100000000`,
   );
 }
 
@@ -68,17 +144,24 @@ const config: ExpoConfig = {
   version: APP_VERSION,
   orientation: "portrait",
   icon: "./assets/images/icon.png",
-  scheme: env.scheme,
+  // Play builds use Google Play services for certificate-bound native sign-in,
+  // so they expose no interceptable OAuth custom-scheme intent. The general
+  // Rabbaanie navigation scheme remains available only to sideload builds.
+  scheme: isGithubBuild ? env.scheme : undefined,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
-    "infoPlist": {
-        "ITSAppUsesNonExemptEncryption": false
-      }
+    infoPlist: {
+      ITSAppUsesNonExemptEncryption: false,
+    },
   },
   android: {
+    googleServicesFile: "./google-services.json",
+    // Family profiles and generated advice are sensitive. Keep them out of
+    // Android's device/cloud backup channel; server sync is the recovery path.
+    allowBackup: false,
     adaptiveIcon: {
       backgroundColor: "#0D7C5F",
       foregroundImage: "./assets/images/android-icon-foreground.png",
@@ -91,7 +174,7 @@ const config: ExpoConfig = {
     versionCode: APP_VERSION_CODE,
     permissions: [
       "POST_NOTIFICATIONS",
-      "USE_FULL_SCREEN_INTENT",
+      // Used for time-sensitive prayer and reminder notifications.
       "SCHEDULE_EXACT_ALARM",
       "VIBRATE",
       "WAKE_LOCK",
@@ -113,22 +196,23 @@ const config: ExpoConfig = {
     //     are Audio.Sound playback, so nothing records. A microphone permission
     //     on an app whose declared audience includes children is a review flag
     //     with no feature behind it.
+    //   USE_FULL_SCREEN_INTENT  Notifications never launch full-screen UI.
+    //     Blocking it is necessary because prebuild can retain a stale manifest
+    //     entry even after it is removed from the permissions allow-list.
+    //   ACTIVITY_RECOGNITION  The app uses the magnetometer for Qibla, but does
+    //     not read steps or physical-activity state.
     blockedPermissions: [
       "android.permission.SYSTEM_ALERT_WINDOW",
       "android.permission.RECORD_AUDIO",
-    ],
-    intentFilters: [
-      {
-        action: "VIEW",
-        autoVerify: true,
-        data: [
-          {
-            scheme: env.scheme,
-            host: "*",
-          },
-        ],
-        category: ["BROWSABLE", "DEFAULT"],
-      },
+      "android.permission.USE_FULL_SCREEN_INTENT",
+      "android.permission.ACTIVITY_RECOGNITION",
+      ...(!isGithubBuild
+        ? [
+            "android.permission.PACKAGE_USAGE_STATS",
+            "android.permission.READ_EXTERNAL_STORAGE",
+            "android.permission.WRITE_EXTERNAL_STORAGE",
+          ]
+        : []),
     ],
   },
   web: {
@@ -139,13 +223,27 @@ const config: ExpoConfig = {
   plugins: [
     "expo-router",
     [
+      "@react-native-google-signin/google-signin",
+      {
+        // Android is the release target. The plugin validates an iOS-shaped
+        // reverse client ID even during Android-only prebuilds.
+        iosUrlScheme:
+          "com.googleusercontent.apps.546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o",
+      },
+    ],
+    // Expo accepts inline config plugins here, while ExpoConfig's public type
+    // only lists serializable plugin references.
+    withPlayMonitoringDisabled as any,
+    [
       "react-native-android-widget/app.plugin",
       {
         widgets: [
           {
             name: "PrayerWidget",
-            label: "\u0623\u0648\u0642\u0627\u062a \u0627\u0644\u0635\u0644\u0627\u0629",
-            description: "\u0627\u0644\u0635\u0644\u0627\u0629 \u0627\u0644\u0642\u0627\u062f\u0645\u0629 \u0648\u062c\u0645\u064a\u0639 \u0627\u0644\u0623\u0648\u0642\u0627\u062a",
+            label:
+              "\u0623\u0648\u0642\u0627\u062a \u0627\u0644\u0635\u0644\u0627\u0629",
+            description:
+              "\u0627\u0644\u0635\u0644\u0627\u0629 \u0627\u0644\u0642\u0627\u062f\u0645\u0629 \u0648\u062c\u0645\u064a\u0639 \u0627\u0644\u0623\u0648\u0642\u0627\u062a",
             minWidth: "110dp",
             minHeight: "110dp",
             targetCellWidth: 2,
@@ -157,7 +255,8 @@ const config: ExpoConfig = {
           {
             name: "DhikrWidget",
             label: "\u0630\u0643\u0631 \u0627\u0644\u064a\u0648\u0645",
-            description: "\u0630\u0643\u0631 \u0645\u062a\u063a\u064a\u0631 \u0645\u0639 \u0627\u0644\u0645\u0635\u062f\u0631 \u0648\u0627\u0644\u0641\u0636\u0644",
+            description:
+              "\u0630\u0643\u0631 \u0645\u062a\u063a\u064a\u0631 \u0645\u0639 \u0627\u0644\u0645\u0635\u062f\u0631 \u0648\u0627\u0644\u0641\u0636\u0644",
             minWidth: "180dp",
             minHeight: "110dp",
             targetCellWidth: 3,
@@ -168,8 +267,10 @@ const config: ExpoConfig = {
           },
           {
             name: "GoalWidget",
-            label: "\u0647\u062f\u0641 \u0627\u0644\u064a\u0648\u0645 \u0627\u0644\u062a\u0631\u0628\u0648\u064a",
-            description: "\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u062a\u0631\u0628\u0648\u064a \u0627\u0644\u064a\u0648\u0645\u064a \u0645\u0646 \u0627\u0644\u062e\u0637\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639\u064a\u0629",
+            label:
+              "\u0647\u062f\u0641 \u0627\u0644\u064a\u0648\u0645 \u0627\u0644\u062a\u0631\u0628\u0648\u064a",
+            description:
+              "\u0627\u0644\u0647\u062f\u0641 \u0627\u0644\u062a\u0631\u0628\u0648\u064a \u0627\u0644\u064a\u0648\u0645\u064a \u0645\u0646 \u0627\u0644\u062e\u0637\u0629 \u0627\u0644\u0623\u0633\u0628\u0648\u0639\u064a\u0629",
             minWidth: "180dp",
             minHeight: "80dp",
             targetCellWidth: 3,
@@ -180,8 +281,10 @@ const config: ExpoConfig = {
           },
           {
             name: "HijriWidget",
-            label: "\u0627\u0644\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0647\u062c\u0631\u064a",
-            description: "\u0627\u0644\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0647\u062c\u0631\u064a \u0648\u0627\u0644\u0645\u0646\u0627\u0633\u0628\u0629 \u0627\u0644\u0625\u0633\u0644\u0627\u0645\u064a\u0629",
+            label:
+              "\u0627\u0644\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0647\u062c\u0631\u064a",
+            description:
+              "\u0627\u0644\u062a\u0627\u0631\u064a\u062e \u0627\u0644\u0647\u062c\u0631\u064a \u0648\u0627\u0644\u0645\u0646\u0627\u0633\u0628\u0629 \u0627\u0644\u0625\u0633\u0644\u0627\u0645\u064a\u0629",
             minWidth: "110dp",
             minHeight: "110dp",
             targetCellWidth: 2,
@@ -192,8 +295,10 @@ const config: ExpoConfig = {
           },
           {
             name: "CombinedWidget",
-            label: "\u0631\u0628\u0651\u0627\u0646\u064a \u0627\u0644\u0634\u0627\u0645\u0644",
-            description: "\u0635\u0644\u0627\u0629 + \u0630\u0643\u0631 + \u0647\u062f\u0641 + \u062a\u0627\u0631\u064a\u062e \u0647\u062c\u0631\u064a",
+            label:
+              "\u0631\u0628\u0651\u0627\u0646\u064a \u0627\u0644\u0634\u0627\u0645\u0644",
+            description:
+              "\u0635\u0644\u0627\u0629 + \u0630\u0643\u0631 + \u0647\u062f\u0641 + \u062a\u0627\u0631\u064a\u062e \u0647\u062c\u0631\u064a",
             minWidth: "250dp",
             minHeight: "180dp",
             targetCellWidth: 4,
@@ -208,7 +313,8 @@ const config: ExpoConfig = {
     [
       "expo-location",
       {
-        locationWhenInUsePermission: "Rabbaanie gebruikt uw locatie voor gebedstijden, qibla-richting en locatiegebonden adviezen.",
+        locationWhenInUsePermission:
+          "Rabbaanie gebruikt uw locatie voor gebedstijden, qibla-richting en locatiegebonden adviezen.",
       },
     ],
 
@@ -250,6 +356,9 @@ const config: ExpoConfig = {
   // in-app update, matching the permission gating above.
   extra: {
     distribution: DISTRIBUTION,
+    releaseFeatures: {
+      childMonitoring: isGithubBuild,
+    },
   },
 };
 

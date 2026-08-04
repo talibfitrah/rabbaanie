@@ -160,7 +160,7 @@ export default function IdManagementScreen() {
           </Text>
           <Text style={{ fontSize: 13, color: colors.muted, marginBottom: 12 }}>
             Voer het ID van het kind in of scan de QR-code:{"\n"}
-            Enter the child's ID or scan the QR code:{"\n"}
+            {"Enter the child's ID or scan the QR code:"}{"\n"}
             أدخل معرّف الطفل أو امسح رمز QR:
           </Text>
 

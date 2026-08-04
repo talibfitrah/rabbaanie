@@ -104,14 +104,14 @@ export function LoadingScreen() {
 
       {/* App name */}
       <Text style={[styles.appName, { color: colors.foreground }]}>
-        Opvoedadvies
+        Rabbaanie
       </Text>
       <Text style={[styles.subtitle, { color: colors.muted }]}>
         {language === "ar"
-          ? "نصائح تربوية إسلامية"
+          ? "برنامج تربوي إسلامي"
           : language === "en"
-          ? "Islamic Parenting Advice"
-          : "Islamitisch Opvoedadvies"}
+          ? "Islamic parenting program"
+          : "Islamitisch opvoedingsprogramma"}
       </Text>
 
       {/* Loading dots */}

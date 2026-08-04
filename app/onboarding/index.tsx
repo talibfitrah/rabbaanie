@@ -182,7 +182,7 @@ export default function OnboardingScreen() {
       {/* Header */}
       <View className="items-center mb-8">
         <Text className="text-3xl font-bold text-center" style={{ color: colors.primary }}>
-          {tx(lang, "Opvoedadvies", "Parenting Advice", "المستشار التربوي")}
+          {tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}
         </Text>
         <Text className="text-base text-center mt-2" style={{ color: colors.muted }}>
           {tx(lang, "Islamitisch opvoedingsprogramma", "Islamic parenting program", "برنامج التربية الإسلامية")}

@@ -8,6 +8,7 @@ import * as Haptics from "expo-haptics";
 
 // Screens where the tab bar should NOT appear
 const HIDDEN_ROUTES = [
+  "/age-check",
   "/login",
   "/language-select",
   "/onboarding",

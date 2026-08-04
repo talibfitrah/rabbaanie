@@ -229,7 +229,7 @@ export default function ArticleGeneratorScreen() {
                 <View style={{ width: 20, height: 20, borderRadius: 4, backgroundColor: includeQuraan ? colors.primary : colors.background, borderWidth: 1, borderColor: colors.border, alignItems: "center", justifyContent: "center" }}>
                   {includeQuraan && <Text style={{ color: "#fff", fontSize: 12 }}>✓</Text>}
                 </View>
-                <Text className="text-sm text-foreground">Qur'aan toevoegen</Text>
+                <Text className="text-sm text-foreground">{"Qur'aan toevoegen"}</Text>
               </TouchableOpacity>
             </View>
 

@@ -6,4 +6,20 @@
     android:name="android.permission.PACKAGE_USAGE_STATS"
     tools:ignore="ProtectedPermissions" />
 
+  <!--
+    Declares this build as a parental-monitoring app under Google Play's
+    Stalkerware policy (support.google.com/googleplay/android-developer/answer/9888380).
+    Declaring PACKAGE_USAGE_STATS without this flag is the exact signature Play's
+    stalkerware review looks for, so the two must always ship together.
+
+    The sideload-capable GitHub build keeps this flag beside the permission so
+    they cannot drift apart. app.config.ts excludes this native module entirely
+    and removes both declarations from the broader Google Play build.
+  -->
+  <application>
+    <meta-data
+      android:name="isMonitoringTool"
+      android:value="child_monitoring" />
+  </application>
+
 </manifest>

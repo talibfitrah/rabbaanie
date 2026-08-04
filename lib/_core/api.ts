@@ -7,7 +7,10 @@ type ApiResponse<T> = {
   error?: string;
 };
 
-export async function apiCall<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
+export async function apiCall<T>(
+  endpoint: string,
+  options: RequestInit = {},
+): Promise<T> {
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
@@ -29,7 +32,11 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
       console.log("[API] Authorization header added");
     }
   } else {
-    console.log("[API] apiCall:", { endpoint, platform: "web", method: options.method || "GET" });
+    console.log("[API] apiCall:", {
+      endpoint,
+      platform: "web",
+      method: options.method || "GET",
+    });
   }
 
   const baseUrl = getApiBaseUrl();
@@ -48,14 +55,6 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
     });
 
     console.log("[API] Response status:", response.status, response.statusText);
-    const responseHeaders = Object.fromEntries(response.headers.entries());
-    console.log("[API] Response headers:", responseHeaders);
-
-    // Check if Set-Cookie header is present (cookies are automatically handled in React Native)
-    const setCookie = response.headers.get("Set-Cookie");
-    if (setCookie) {
-      console.log("[API] Set-Cookie header received:", setCookie);
-    }
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -67,7 +66,9 @@ export async function apiCall<T>(endpoint: string, options: RequestInit = {}): P
       } catch {
         // Not JSON, use text as is
       }
-      throw new Error(errorMessage || `API call failed: ${response.statusText}`);
+      throw new Error(
+        errorMessage || `API call failed: ${response.statusText}`,
+      );
     }
 
     const contentType = response.headers.get("content-type");
@@ -104,10 +105,9 @@ export async function exchangeOAuthCode(
 
   // Convert app_session_id to sessionToken for compatibility
   const sessionToken = result.app_session_id;
-  console.log("[API] OAuth exchange result:", {
+  console.log("[API] OAuth exchange completed:", {
     hasSessionToken: !!sessionToken,
     hasUser: !!result.user,
-    sessionToken: sessionToken ? `${sessionToken.substring(0, 50)}...` : null,
   });
 
   return {
@@ -139,6 +139,56 @@ export async function getMe(): Promise<{
     console.error("[API] getMe failed:", error);
     return null;
   }
+}
+
+/**
+ * Validate a newly received native session token before it is persisted.
+ * The callback URL is attacker-controlled input; only the API may identify the
+ * user attached to that token.
+ */
+export async function verifySessionToken(token: string): Promise<Auth.User> {
+  if (!token.trim()) throw new Error("Session token is missing");
+
+  const input = encodeURIComponent(JSON.stringify({ json: null }));
+  const response = await fetch(
+    `${getApiBaseUrl()}/api/trpc/auth.me?input=${input}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+    },
+  );
+  if (!response.ok) throw new Error("Session verification failed");
+
+  const payload = (await response.json()) as {
+    result?: { data?: { json?: unknown } };
+  };
+  const value = payload.result?.data?.json;
+  if (!value || typeof value !== "object")
+    throw new Error("Session is invalid or expired");
+
+  const user = value as Record<string, unknown>;
+  if (
+    typeof user.id !== "number" ||
+    typeof user.openId !== "string" ||
+    !user.openId
+  ) {
+    throw new Error("Session user is invalid");
+  }
+
+  const lastSignedIn =
+    typeof user.lastSignedIn === "string" || user.lastSignedIn instanceof Date
+      ? new Date(user.lastSignedIn)
+      : new Date();
+
+  return {
+    id: user.id,
+    openId: user.openId,
+    name: typeof user.name === "string" ? user.name : null,
+    email: typeof user.email === "string" ? user.email : null,
+    loginMethod: typeof user.loginMethod === "string" ? user.loginMethod : null,
+    lastSignedIn: Number.isNaN(lastSignedIn.getTime())
+      ? new Date()
+      : lastSignedIn,
+  };
 }
 
 // Establish session cookie on the backend (3000-xxx domain)

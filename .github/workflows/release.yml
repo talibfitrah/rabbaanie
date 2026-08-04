@@ -68,7 +68,7 @@ jobs:
       - name: Verify
         run: |
           pnpm exec tsc --noEmit
-          pnpm exec vitest run lib/app-version.test.ts tests/oauth-login-flow.test.ts
+          pnpm test:release
 
       # Reads APP_VERSION / APP_VERSION_CODE and APP_DISTRIBUTION from the job env.
       - name: Generate native Android project

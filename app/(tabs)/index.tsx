@@ -15,6 +15,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -391,9 +392,11 @@ export default function AlgemeenScreen() {
               {syncing ? <ActivityIndicator size={18} color="#1B4332" /> : <MaterialIcons name="sync" size={22} color="#1B4332" />}
             </Pressable>
           )}
-          <Pressable onPress={() => router.push("/child-account/login" as any)} style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#E3F2FD" }, pressed && { opacity: 0.5 }]}>
-            <MaterialIcons name="child-care" size={22} color="#1565C0" />
-          </Pressable>
+          {CHILD_MONITORING_ENABLED && (
+            <Pressable onPress={() => router.push("/child-account/login" as any)} style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#E3F2FD" }, pressed && { opacity: 0.5 }]}>
+              <MaterialIcons name="child-care" size={22} color="#1565C0" />
+            </Pressable>
+          )}
         </View>
         <Text style={s.headerTitle}>تربية <Text style={s.headerTitleEn}>Tarbiyah</Text></Text>
       </View>

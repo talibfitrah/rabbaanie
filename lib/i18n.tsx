@@ -8,7 +8,7 @@ export type Language = "nl" | "en" | "ar";
 
 const translations: Record<string, { nl: string; en: string; ar: string }> = {
   // General
-  "app.name": { nl: "Opvoedadvies", en: "Parenting Advice", ar: "نصائح التربية" },
+  "app.name": { nl: "Rabbaanie", en: "Rabbaanie", ar: "ربّانيّ" },
   "app.subtitle": { nl: "Islamitisch opvoedingsprogramma", en: "Islamic parenting program", ar: "برنامج تربوي إسلامي" },
 
   // Tabs
@@ -342,7 +342,7 @@ const translations: Record<string, { nl: string; en: string; ar: string }> = {
   "settings.edit_btn": { nl: "Bewerken", en: "Edit", ar: "تعديل" },
   // Settings - About
   "settings.about_title": { nl: "Over deze app", en: "About this app", ar: "عن هذا التطبيق" },
-  "settings.about_desc": { nl: "Opvoedadvies is een islamitisch opvoedingsprogramma gebaseerd op:", en: "Parenting Advice is an Islamic parenting program based on:", ar: "نصائح التربية هو برنامج تربوي إسلامي مبني على:" },
+  "settings.about_desc": { nl: "Rabbaanie is een islamitisch opvoedingsprogramma gebaseerd op:", en: "Rabbaanie is an Islamic parenting program based on:", ar: "ربّانيّ هو برنامج تربوي إسلامي مبني على:" },
   // Settings - Reset
   "settings.reset_all": { nl: "Alle gegevens wissen", en: "Clear all data", ar: "مسح جميع البيانات" },
   "settings.city_not_found": { nl: "Stad niet herkend. Probeer een van de bekende steden.", en: "City not recognized. Try one of the known cities.", ar: "المدينة غير معروفة. جرب إحدى المدن المعروفة." },

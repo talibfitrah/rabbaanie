@@ -1,11 +1,10 @@
 import React, { useState, useEffect, useCallback } from "react";
-import { View, Text, ScrollView, Pressable, Platform, Linking, ActivityIndicator, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, Platform, Linking, ActivityIndicator } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useI18n } from "@/lib/i18n";
-import { useColors } from "@/hooks/use-colors";
 
 const PERMISSIONS_COMPLETED_KEY = "@permissions_setup_completed";
 
@@ -28,7 +27,6 @@ export default function PermissionsSetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { language, isRTL } = useI18n();
-  const colors = useColors();
   const lang = language as "ar" | "en" | "nl";
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
   const [checking, setChecking] = useState(true);
@@ -154,44 +152,13 @@ export default function PermissionsSetupScreen() {
       status: motionStatus,
     });
 
-    // 6. Activity Recognition (pedometer/motion)
-    let activityStatus: PermissionStatus = "undetermined";
-    if (Platform.OS !== "web") {
-      try {
-        const { Pedometer } = require("expo-sensors");
-        const available = await Pedometer.isAvailableAsync();
-        if (available) {
-          const { status } = await Pedometer.getPermissionsAsync();
-          activityStatus = status === "granted" ? "granted" : status === "denied" ? "denied" : "undetermined";
-        } else {
-          activityStatus = "unavailable";
-        }
-      } catch {
-        activityStatus = "unavailable";
-      }
-    } else {
-      activityStatus = "unavailable";
-    }
-    items.push({
-      id: "activity",
-      icon: "directions-walk",
-      iconColor: "#10B981",
-      titleAr: "التعرف على الحركة والنشاط",
-      titleEn: "Activity Recognition",
-      titleNl: "Activiteitsherkenning",
-      descAr: "لمعرفة حالتك (مشي/جلوس/قيادة) لتوقيت أفضل للتنبيهات",
-      descEn: "To detect your state (walking/sitting/driving) for better alert timing",
-      descNl: "Om je status te detecteren (lopen/zitten/rijden) voor betere meldingstiming",
-      status: activityStatus,
-    });
-
     setPermissions(items);
     setChecking(false);
   }, []);
 
   useEffect(() => {
     checkAllPermissions();
-  }, []);
+  }, [checkAllPermissions]);
 
   const requestPermission = async (id: string) => {
     if (Platform.OS === "web") return;
@@ -245,18 +212,6 @@ export default function PermissionsSetupScreen() {
           }
         } catch {
           // Sensors might not need permission on this device
-        }
-        break;
-      }
-      case "activity": {
-        try {
-          const { Pedometer } = require("expo-sensors");
-          const { status } = await Pedometer.requestPermissionsAsync();
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {
-          Linking.openSettings();
         }
         break;
       }

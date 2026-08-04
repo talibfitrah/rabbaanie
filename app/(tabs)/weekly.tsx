@@ -11,6 +11,7 @@ import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWeeklyData } from "@/hooks/use-weekly-data";
 import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -425,12 +426,14 @@ export default function WeeklyScreen() {
               >
                 <Text style={{ color: colors.success, fontSize: 10, fontWeight: "600" }}>{tx(lang, "Profiel", "Profile", "ملف")}</Text>
               </Pressable>
-              <Pressable
-                onPress={() => router.push(`/child-account/parent-monitor?childId=${child.id}&childName=${encodeURIComponent(child.name || '')}` as any)}
-                style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, backgroundColor: "#8B5CF6" + "15", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}
-              >
-                <Text style={{ color: "#8B5CF6", fontSize: 10, fontWeight: "600" }}>{tx(lang, "Monitoren", "Monitor", "متابعة")}</Text>
-              </Pressable>
+              {CHILD_MONITORING_ENABLED && (
+                <Pressable
+                  onPress={() => router.push(`/child-account/parent-monitor?childId=${child.id}&childName=${encodeURIComponent(child.name || '')}` as any)}
+                  style={({ pressed }) => [{ opacity: pressed ? 0.7 : 1, backgroundColor: "#8B5CF6" + "15", borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }]}
+                >
+                  <Text style={{ color: "#8B5CF6", fontSize: 10, fontWeight: "600" }}>{tx(lang, "Monitoren", "Monitor", "متابعة")}</Text>
+                </Pressable>
+              )}
             </View>
             <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
               {yearLabel}

@@ -33,6 +33,7 @@ import {
   generatePersonId,
 } from "@/lib/network-store";
 import { DatePicker } from "@/components/date-picker";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { SyncToast } from "@/components/sync-toast";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
@@ -176,23 +177,16 @@ export default function MessagesScreen() {
 
   // Partner link mutation
   const linkPartner = trpc.links.linkPartnerByPublicId.useMutation({
-    onSuccess: async (data) => {
+    onSuccess: (data) => {
       setLinkResult(
         lang === "ar"
-          ? `تم الربط بـ ${data.partnerName || "الشريك"} (${data.linkedChildren} طفل)`
+          ? `تم إرسال طلب الربط إلى ${data.partnerName || "الشريك"}. لن تتم مشاركة البيانات حتى يتم التأكيد.`
           : lang === "en"
-          ? `Linked to ${data.partnerName || "partner"} (${data.linkedChildren} children)`
-          : `Gekoppeld aan ${data.partnerName || "partner"} (${data.linkedChildren} kinderen)`
+            ? `Link request sent to ${data.partnerName || "partner"}. No data is shared until they confirm.`
+            : `Koppelverzoek verstuurd naar ${data.partnerName || "partner"}. Er worden pas gegevens gedeeld na bevestiging.`,
       );
       setLinkError(null);
       setPartnerIdInput("");
-      coParentsQuery.refetch();
-      // Immediately rehydrate from server to update local state with partner info
-      try {
-        await rehydrateFromServer();
-      } catch (e) {
-        console.warn("[linkPartner] rehydrate after link failed:", e);
-      }
     },
     onError: (err) => {
       setLinkError(err.message);
@@ -927,17 +921,19 @@ function ParentsSection({
                       </View>
                     </View>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => router.push(`/child-account/parent-monitor?childId=${child.id}&childName=${encodeURIComponent(child.name || '')}` as any)}
-                    style={{
-                      width: 36, height: 36, borderRadius: 18,
-                      backgroundColor: colors.primary + "15",
-                      alignItems: "center", justifyContent: "center",
-                      marginRight: isRTL ? 8 : 0, marginLeft: isRTL ? 0 : 8,
-                    }}
-                  >
-                    <MaterialIcons name="monitor" size={18} color={colors.primary} />
-                  </TouchableOpacity>
+                  {CHILD_MONITORING_ENABLED && (
+                    <TouchableOpacity
+                      onPress={() => router.push(`/child-account/parent-monitor?childId=${child.id}&childName=${encodeURIComponent(child.name || '')}` as any)}
+                      style={{
+                        width: 36, height: 36, borderRadius: 18,
+                        backgroundColor: colors.primary + "15",
+                        alignItems: "center", justifyContent: "center",
+                        marginRight: isRTL ? 8 : 0, marginLeft: isRTL ? 0 : 8,
+                      }}
+                    >
+                      <MaterialIcons name="monitor" size={18} color={colors.primary} />
+                    </TouchableOpacity>
+                  )}
                   <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />
                 </TouchableOpacity>
               );
