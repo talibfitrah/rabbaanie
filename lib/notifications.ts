@@ -43,7 +43,7 @@ export const DEFAULT_NOTIFICATION_PREFS: NotificationPrefs = {
   enabled: true,
   prayers: {
     fajr: true,
-    sunrise: false,
+    sunrise: true,
     dhuhr: true,
     asr: true,
     maghrib: true,
@@ -74,9 +74,9 @@ export const NATURE_SOUND_OPTIONS: { id: NatureSoundOption; nameAr: string; name
 
 // ============ NOTIFICATION CHANNELS (Android) ============
 
-const PRAYER_CHANNEL_ID = "prayer_times";
-const ADHKAAR_CHANNEL_ID = "adhkaar_reminders";
-const WEEKLY_CHANNEL_ID = "weekly_reminders";
+const PRAYER_CHANNEL_ID = "prayer_times_v2";
+const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
+const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -127,17 +127,128 @@ export async function requestNotificationPermissions(): Promise<boolean> {
   return finalStatus === "granted";
 }
 
+// ============ BATTERY OPTIMIZATION ============
+
+const BATTERY_OPT_PROMPTED_KEY = "@battery_opt_prompted";
+
+/**
+ * Ask Android to exempt the app from battery optimization. This is the #1 reason
+ * notifications "only work when the app is open": Doze and OEM battery managers
+ * (Samsung, Xiaomi, …) cancel the app's pending alarms once it's swiped away, so
+ * scheduled prayer/advice notifications never fire while it's closed. Shows the
+ * system's direct allow-dialog; falls back to the battery-optimization list.
+ */
+export async function requestDisableBatteryOptimization(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  try {
+    const IntentLauncher = require("expo-intent-launcher");
+    let pkg = "com.app.opvoedadvies.apk";
+    try {
+      const Application = require("expo-application");
+      if (Application?.applicationId) pkg = Application.applicationId;
+    } catch {}
+    try {
+      await IntentLauncher.startActivityAsync(
+        "android.settings.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS",
+        { data: "package:" + pkg }
+      );
+    } catch {
+      // Some OEMs block the direct request — open the battery-optimization list.
+      await IntentLauncher.startActivityAsync(
+        "android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS"
+      );
+    }
+  } catch {}
+}
+
+/**
+ * Prompt the battery-optimization exemption once (first launch after install or
+ * update). Flagged in AsyncStorage so it never nags; re-triggerable from the
+ * permissions screen and settings.
+ */
+export async function maybePromptBatteryOptimization(): Promise<void> {
+  if (Platform.OS !== "android") return;
+  try {
+    const done = await AsyncStorage.getItem(BATTERY_OPT_PROMPTED_KEY);
+    if (done) return;
+    await AsyncStorage.setItem(BATTERY_OPT_PROMPTED_KEY, "1");
+    await requestDisableBatteryOptimization();
+  } catch {}
+}
+
+// ============ TEST / DIAGNOSTICS ============
+
+/**
+ * Fire an immediate high-priority notification so the user can verify on-device,
+ * right now, that notifications pop up (heads-up) and play a sound — without
+ * waiting for a prayer time. Uses the prayer channel (MAX importance + sound)
+ * and showPopup so the in-app centre popup is demonstrated too.
+ */
+export async function sendTestNotification(language: "nl" | "en" | "ar" = "ar"): Promise<void> {
+  if (Platform.OS === "web") return;
+  const title =
+    language === "ar" ? "🔔 إشعار تجريبي" : language === "en" ? "🔔 Test notification" : "🔔 Testmelding";
+  const body =
+    language === "ar"
+      ? "إذا رأيت هذا وسمعت الصوت فالإشعارات تعمل. جرّبه أيضاً والتطبيق مغلق."
+      : language === "en"
+      ? "If you see and hear this, notifications work. Try it with the app closed too."
+      : "Als je dit ziet en hoort, werken meldingen. Probeer het ook met de app gesloten.";
+  await Notifications.scheduleNotificationAsync({
+    content: {
+      title,
+      body,
+      data: { type: "test_reminder", showPopup: true, ruling: "مستحب" },
+      ...(Platform.OS === "android"
+        ? { channelId: PRAYER_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX }
+        : {}),
+      ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+    },
+    trigger: null, // immediate
+  });
+}
+
+/**
+ * Whether a usable prayer location is saved. Without it, prayer/iqamah/adhkaar
+ * notifications schedule nothing (the schedulers return 0), so the settings
+ * screen surfaces this as the likely reason "no prayer reminders arrive".
+ */
+export async function isPrayerLocationSet(): Promise<boolean> {
+  try {
+    const raw = await AsyncStorage.getItem(PRAYER_LOCATION_KEY);
+    if (!raw) return false;
+    const loc = JSON.parse(raw);
+    return !!(loc?.lat && loc?.lng && loc?.tz);
+  } catch {
+    return false;
+  }
+}
+
 // ============ PREFERENCES PERSISTENCE ============
 
 export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
+  let prefs: NotificationPrefs = { ...DEFAULT_NOTIFICATION_PREFS };
   try {
     const raw = await AsyncStorage.getItem(NOTIFICATION_PREFS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
+      prefs = { ...DEFAULT_NOTIFICATION_PREFS, ...parsed };
     }
   } catch {}
-  return { ...DEFAULT_NOTIFICATION_PREFS };
+  // Prayer reminders are obligatory: force the master flag and the 5 daily fard
+  // prayers ON for EVERY user, regardless of stored prefs. Sunrise (Shurooq),
+  // which is not a prayer, stays user-controlled.
+  prefs.enabled = true;
+  prefs.prayers = {
+    ...DEFAULT_NOTIFICATION_PREFS.prayers,
+    ...prefs.prayers,
+    fajr: true,
+    dhuhr: true,
+    asr: true,
+    maghrib: true,
+    isha: true,
+  };
+  return prefs;
 }
 
 export async function saveNotificationPrefs(prefs: NotificationPrefs): Promise<void> {
@@ -420,10 +531,12 @@ function createTriggerDate(
   const tzDate = new Date(tzStr);
   const offsetMs = tzDate.getTime() - utcDate.getTime();
 
-  // Target time in the timezone = targetH:targetM on that day
-  const targetLocal = new Date(year, month, day, targetH, targetM, 0, 0);
-  // Convert to UTC by subtracting the offset
-  const targetUTC = new Date(targetLocal.getTime() - offsetMs);
+  // targetH:targetM is a WALL-CLOCK time in `timezone`. Build it as a UTC
+  // wall-clock (Date.UTC), then subtract the tz offset to get the real UTC
+  // instant. Using new Date(y,m,d,H,M) here would re-apply the DEVICE offset
+  // on top of offsetMs (double-counting), firing every prayer 1-2h early for
+  // any user not on UTC.
+  const targetUTC = new Date(Date.UTC(year, month, day, targetH, targetM, 0, 0) - offsetMs);
 
   return targetUTC;
 }
@@ -575,7 +688,7 @@ export async function getUnfinishedGoalCount(): Promise<number | undefined> {
 
 // ============ INACTIVITY REMINDER (Fix #10) ============
 
-const INACTIVITY_CHANNEL_ID = "inactivity_reminder";
+const INACTIVITY_CHANNEL_ID = "inactivity_reminder_v2";
 const LAST_OPENED_KEY = "@last_opened_at";
 
 /**
@@ -607,7 +720,7 @@ export async function scheduleInactivityReminder(
   if (Platform.OS === "android") {
     await Notifications.setNotificationChannelAsync(INACTIVITY_CHANNEL_ID, {
       name: "Herinneringen / Reminders",
-      importance: Notifications.AndroidImportance.DEFAULT,
+      importance: Notifications.AndroidImportance.HIGH,
       sound: "default",
     });
   }
@@ -647,7 +760,7 @@ export async function scheduleInactivityReminder(
 // ============ 3-DAY INCOMPLETE GOALS REMINDER ============
 
 const GOALS_INCOMPLETE_TYPE = "goals_incomplete_3days";
-const GOALS_INCOMPLETE_CHANNEL_ID = "goals_incomplete";
+const GOALS_INCOMPLETE_CHANNEL_ID = "goals_incomplete_v2";
 const LAST_GOAL_COMPLETED_KEY = "@last_goal_completed_at";
 
 /**

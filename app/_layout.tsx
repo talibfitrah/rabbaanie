@@ -23,9 +23,10 @@ import {
   initManusRuntime,
   subscribeSafeAreaInsets,
 } from "@/lib/_core/manus-runtime";
-import { AppProvider } from "@/lib/app-context";
+import { AppProvider, useAppState } from "@/lib/app-context";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
+import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
 import {
   setupNotificationChannels,
   scheduleAllNotifications,
@@ -33,12 +34,15 @@ import {
   recordAppOpened,
   scheduleInactivityReminder,
   getUnfinishedGoalCount,
+  requestNotificationPermissions,
   scheduleGoalsIncompleteReminder,
+  maybePromptBatteryOptimization,
 } from "@/lib/notifications";
 import {
   scheduleIqamahSilence,
   handleIqamahSilenceAction,
 } from "@/lib/iqamah-silence";
+import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
 import {
   setupDailyAdviceChannel,
   scheduleDailyAdviceNotification,
@@ -83,6 +87,7 @@ import {
   restoreQueryCache,
   setupQueryPersistence,
 } from "@/lib/query-persistence";
+import notifee from "@notifee/react-native";
 import {
   AgeGateProvider,
   canUseNotifications,
@@ -119,6 +124,11 @@ Notifications.setNotificationHandler({
   },
 });
 
+// Notifee background event handler (module scope, required by Notifee). Used
+// for the full-screen prayer notifications; tapping/full-screen just opens the
+// app, so nothing extra to do here — this registration silences the warning.
+notifee.onBackgroundEvent(async () => {});
+
 // Keep splash screen visible until auth is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});
 
@@ -132,6 +142,7 @@ export const unstable_settings = {
 function AuthGate({ children }: { children: React.ReactNode }) {
   const { isAuthenticated, loading } = useAuthContext();
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
+  const { state: appState, loading: appLoading } = useAppState();
   const router = useRouter();
   const segments = useSegments();
   const pathname = usePathname();
@@ -192,7 +203,13 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Computed during render (pure function) so gated children never mount for
   // even one frame when a redirect applies — e.g. a minor deep-linking past
   // the age gate.
-  const pendingRedirect =
+  //
+  // The age/auth gate runs first. Only once it is satisfied (no redirect) does
+  // the mandatory-profile gate apply: signed-in users with an incomplete
+  // profile are sent to onboarding (msg 476). Don't gate on the profile before
+  // local state has hydrated — treat it as done so launch never flashes
+  // onboarding for a complete user.
+  const gateRedirect =
     ageLoading || (loading && !timedOut)
       ? null
       : getGateRedirect({
@@ -201,6 +218,22 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           segment,
           childMonitoringEnabled: CHILD_MONITORING_ENABLED,
         });
+
+  const inSetup =
+    segment === "onboarding" ||
+    segment === "language-select" ||
+    segment === "permissions-setup";
+  const profileDone = appLoading ? true : !!appState?.onboardingCompleted;
+  const needsOnboarding =
+    !gateRedirect &&
+    !ageLoading &&
+    !(loading && !timedOut) &&
+    ageStatus === "adult" &&
+    isAuthenticated &&
+    !profileDone &&
+    !inSetup;
+
+  const pendingRedirect = needsOnboarding ? "/onboarding" : gateRedirect;
 
   useEffect(() => {
     if (ageLoading || (loading && !timedOut)) return;
@@ -591,6 +624,9 @@ export default function RootLayout() {
           ? langRaw
           : "nl";
 
+      // Remove stale low-importance channels from older builds so the ones
+      // recreated below take effect at their new heads-up importance.
+      await deleteLegacyNotificationChannels();
       // Setup all notification channels
       await setupNotificationChannels();
       await setupDailyAdviceChannel();
@@ -600,6 +636,12 @@ export default function RootLayout() {
 
       // Reschedule notifications on app launch (refreshes for next 7 days)
       await scheduleAllNotifications(lang);
+      // One-time prompt to exempt the app from battery optimization so the
+      // scheduled notifications above still fire while the app is closed.
+      // Deferred + fire-and-forget so it doesn't block launch or the splash.
+      setTimeout(() => {
+        maybePromptBatteryOptimization();
+      }, 3500);
       // Schedule weekly goals reminder
       await scheduleWeeklyGoalsNotification(lang);
       // Schedule weekly goal reminder with unfinished count
@@ -752,6 +794,7 @@ export default function RootLayout() {
         <QueryClientProvider client={queryClient}>
           <I18nProvider>
             <UpdateCheck />
+            <UpdateProgressOverlay />
             <AgeGateProvider>
               <AppProvider>
                 <AuthProvider>
@@ -780,6 +823,18 @@ export default function RootLayout() {
                           headerShown: false,
                           animation: "slide_from_right",
                         }}
+                      />
+                      <Stack.Screen
+                        name="child-account"
+                        options={{ headerShown: false }}
+                      />
+                      <Stack.Screen
+                        name="weather"
+                        options={{ animation: "slide_from_right" }}
+                      />
+                      <Stack.Screen
+                        name="sunnah"
+                        options={{ animation: "slide_from_right" }}
                       />
                       <Stack.Screen
                         name="age-check"

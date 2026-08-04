@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -6,6 +6,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { ScreenContainer } from "@/components/screen-container";
 import { ALL_BOOKS } from "@/lib/book-data";
+import { fetchServerBook } from "@/lib/server-books";
 
 import libraryIndex from "@/assets/data/library/index.json";
 import coverUrls from "@/assets/data/library/cover_urls.json";
@@ -23,8 +24,13 @@ export default function BookDetailScreen() {
   const lang = (language || "ar") as Lang;
   const id = parseInt(bookId || "1", 10);
 
-  const bookMeta = libraryIndex.find((b: any) => b.id === id);
-  const bookData = ALL_BOOKS[id];
+  // Bundled book, or fetch a server-managed one (cached offline).
+  const bundled = ALL_BOOKS[id];
+  const [bookData, setBookData] = useState<any>(bundled || null);
+  useEffect(() => {
+    if (!bundled) fetchServerBook(id).then(setBookData);
+  }, [id]); // eslint-disable-line react-hooks/exhaustive-deps
+  const bookMeta = libraryIndex.find((b: any) => b.id === id) || bookData;
   const coverUrl = (coverUrls as any)[`book_${id}`] || "";
 
   const title = bookMeta

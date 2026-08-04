@@ -14,6 +14,7 @@ import { calculateAgeInWeeks } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
 
 export default function TreatmentsScreen() {
   const colors = useColors();
@@ -98,11 +99,15 @@ export default function TreatmentsScreen() {
   const dateLocale =
     language === "ar" ? "ar-SA" : language === "en" ? "en-GB" : "nl-NL";
 
+  const { subscribed: _psub, loading: _pload } = usePremiumGate();
+  if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
+
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>
       <View style={{ paddingTop: insets.top }}>
         <DateTimeHeader />
       </View>
+      <PremiumNotice />
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

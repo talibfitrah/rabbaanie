@@ -26,13 +26,26 @@ interface CombinedWidgetProps {
   widgetHeight?: number;
 }
 
-function getFontSize(base: number, size: WidgetAppearanceSettings["fontSize"], fontScale?: number): number {
-  let result = base;
-  if (size === "large") result = base + 6;
-  else if (size === "medium") result = base + 4;
-  // Apply fontScale percentage (default 100%)
-  const scale = (fontScale || 100) / 100;
-  return Math.round(result * scale);
+/**
+ * Font size that scales with the widget's ACTUAL size, so enlarging the widget
+ * enlarges the text (this is what PrayerWidget already does). Base reference is
+ * a 200px 2x2 widget; the fontSize setting and fontScale% are extra multipliers.
+ */
+function getDynamicFontSize(
+  base: number,
+  sizeSetting: WidgetAppearanceSettings["fontSize"],
+  widgetWidth?: number,
+  widgetHeight?: number,
+  fontScale?: number
+): number {
+  const refDimension = 200;
+  const minDim = Math.min(widgetWidth || refDimension, widgetHeight || refDimension);
+  const scaleFactor = Math.max(0.85, Math.min(1.4, minDim / refDimension));
+  let sizeMultiplier = 1.0; // "medium" (the default) is neutral so text isn't inflated
+  if (sizeSetting === "small") sizeMultiplier = 0.9;
+  if (sizeSetting === "large") sizeMultiplier = 1.15;
+  const percentageScale = (fontScale || 100) / 100;
+  return Math.round(base * scaleFactor * sizeMultiplier * percentageScale);
 }
 
 export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
@@ -43,6 +56,8 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
   const borderW = appearance.showBorder ? 1 : 0;
   const borderC = appearance.borderColor;
   const sections = content.combinedSections;
+  // Font scales with the widget's actual dimensions (bigger widget → bigger text).
+  const fs = (base: number) => getDynamicFontSize(base, appearance.fontSize, widgetWidth, widgetHeight, appearance.fontScale);
 
   const isHorizontal = (widgetWidth && widgetHeight) ? widgetWidth > widgetHeight * 1.3 : false;
 
@@ -77,16 +92,16 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
           >
             <TextWidget
               text={nextPrayerAr}
-              style={{ fontSize: getFontSize(14, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold" }}
+              style={{ fontSize: fs(14), color: fg, fontWeight: "bold" }}
             />
             <TextWidget
               text={nextPrayerTime}
-              style={{ fontSize: getFontSize(15, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold" }}
+              style={{ fontSize: fs(15), color: fg, fontWeight: "bold" }}
             />
             {content.prayerShowCountdown && countdown ? (
               <TextWidget
                 text={countdown}
-                style={{ fontSize: getFontSize(10, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+                style={{ fontSize: fs(10), color: GOLD, fontWeight: "bold" }}
               />
             ) : null}
           </FlexWidget>
@@ -115,14 +130,14 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
             >
               <TextWidget
                 text={dhikrText}
-                style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: fg, textAlign: "center", fontWeight: "bold" }}
+                style={{ fontSize: fs(13), color: fg, textAlign: "center", fontWeight: "bold" }}
               />
             </FlexWidget>
           )}
           {sections.includes("goal") && (
             <TextWidget
               text={goalText}
-              style={{ fontSize: getFontSize(12, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "CC"), textAlign: "center" }}
+              style={{ fontSize: fs(12), color: withAlpha(fg, "CC"), textAlign: "center" }}
             />
           )}
         </FlexWidget>
@@ -143,13 +158,13 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
           {sections.includes("hijri") && (
             <TextWidget
               text={hijriDate}
-              style={{ fontSize: getFontSize(12, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold", textAlign: "center" }}
+              style={{ fontSize: fs(12), color: fg, fontWeight: "bold", textAlign: "center" }}
             />
           )}
           {content.hijriShowEvent && event ? (
             <TextWidget
               text={`✦ ${event}`}
-              style={{ fontSize: getFontSize(10, appearance.fontSize, appearance.fontScale), color: GOLD, textAlign: "center" }}
+              style={{ fontSize: fs(10), color: GOLD, textAlign: "center" }}
             />
           ) : null}
           <FlexWidget
@@ -195,7 +210,7 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
           {content.prayerShowCountdown && countdown ? (
             <TextWidget
               text={countdown}
-              style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+              style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold" }}
             />
           ) : (
             <TextWidget text="" style={{ fontSize: 9 }} />
@@ -203,11 +218,11 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
           <FlexWidget style={{ flexDirection: "row", alignItems: "center", flexGap: 6 }}>
             <TextWidget
               text={nextPrayerTime}
-              style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold" }}
+              style={{ fontSize: fs(16), color: fg, fontWeight: "bold" }}
             />
             <TextWidget
               text={nextPrayerAr}
-              style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold" }}
+              style={{ fontSize: fs(16), color: fg, fontWeight: "bold" }}
             />
           </FlexWidget>
         </FlexWidget>
@@ -227,12 +242,12 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
           {content.hijriShowEvent && event ? (
             <TextWidget
               text={`✦ ${event}`}
-              style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+              style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold" }}
             />
           ) : null}
           <TextWidget
             text={hijriDate}
-            style={{ fontSize: getFontSize(15, appearance.fontSize, appearance.fontScale), color: fg, fontWeight: "bold" }}
+            style={{ fontSize: fs(15), color: fg, fontWeight: "bold" }}
           />
         </FlexWidget>
       )}
@@ -253,7 +268,8 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
         >
           <TextWidget
             text={dhikrText}
-            style={{ fontSize: getFontSize(15, appearance.fontSize, appearance.fontScale), color: fg, textAlign: "center", fontWeight: "bold" }}
+            maxLines={10}
+            style={{ fontSize: fs(15), color: fg, textAlign: "center", fontWeight: "bold", adjustsFontSizeToFit: true }}
           />
         </FlexWidget>
       )}
@@ -271,7 +287,8 @@ export function buildCombinedWidgetTree(props: CombinedWidgetProps) {
         >
           <TextWidget
             text={goalText}
-            style={{ fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "CC"), textAlign: "center" }}
+            maxLines={4}
+            style={{ fontSize: fs(18), color: withAlpha(fg, "CC"), textAlign: "center", adjustsFontSizeToFit: true }}
           />
         </FlexWidget>
       )}

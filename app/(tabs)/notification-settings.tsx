@@ -12,6 +12,8 @@ import {
   scheduleAllNotifications,
   requestNotificationPermissions,
   getScheduledCount,
+  sendTestNotification,
+  isPrayerLocationSet,
   loadWeeklyReminderPrefs,
   saveWeeklyReminderPrefs,
   scheduleWeeklyReminder,
@@ -28,6 +30,7 @@ import {
   loadIqamahSilencePrefs,
   saveIqamahSilencePrefs,
   scheduleIqamahSilence,
+  restorePhoneSound,
   type IqamahSilencePrefs,
   DEFAULT_IQAMAH_SILENCE_PREFS,
 } from "@/lib/iqamah-silence";
@@ -81,12 +84,12 @@ function SectionCollapsible({ title, icon, iconColor, children, colors, isRTL, d
   );
 }
 
-function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor }: {
-  label: string; enabled: boolean; onToggle: () => void; colors: any; isRTL: boolean; icon?: string; iconColor?: string;
+function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor, locked }: {
+  label: string; enabled: boolean; onToggle: () => void; colors: any; isRTL: boolean; icon?: string; iconColor?: string; locked?: boolean;
 }) {
   return (
     <Pressable
-      onPress={onToggle}
+      onPress={locked ? undefined : onToggle}
       style={({ pressed }) => [{
         flexDirection: isRTL ? "row-reverse" : "row",
         alignItems: "center",
@@ -96,23 +99,28 @@ function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor }:
         borderRadius: 10,
         marginBottom: 6,
         backgroundColor: enabled ? colors.primary + "08" : "transparent",
-        opacity: pressed ? 0.8 : 1,
+        opacity: pressed && !locked ? 0.8 : 1,
       }]}
     >
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
         {icon && <MaterialIcons name={icon as any} size={18} color={iconColor || (enabled ? colors.primary : colors.muted)} />}
         <Text style={{ fontSize: 14, color: colors.foreground }}>{label}</Text>
       </View>
-      <View style={{
-        width: 44, height: 26, borderRadius: 13,
-        backgroundColor: enabled ? colors.primary : colors.muted + "40",
-        justifyContent: "center", paddingHorizontal: 2,
-      }}>
+      {locked ? (
+        // Mandatory (e.g. the 5 daily prayers) — shown always-on and locked.
+        <MaterialIcons name="lock" size={18} color={colors.muted} />
+      ) : (
         <View style={{
-          width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
-          alignSelf: enabled ? "flex-end" : "flex-start",
-        }} />
-      </View>
+          width: 44, height: 26, borderRadius: 13,
+          backgroundColor: enabled ? colors.primary : colors.muted + "40",
+          justifyContent: "center", paddingHorizontal: 2,
+        }}>
+          <View style={{
+            width: 22, height: 22, borderRadius: 11, backgroundColor: "#fff",
+            alignSelf: enabled ? "flex-end" : "flex-start",
+          }} />
+        </View>
+      )}
     </Pressable>
   );
 }
@@ -128,6 +136,7 @@ export default function NotificationSettingsScreen() {
   const [notifPrefs, setNotifPrefs] = useState<NotificationPrefs>(DEFAULT_NOTIFICATION_PREFS);
   const [notifScheduledCount, setNotifScheduledCount] = useState(0);
   const [notifPermissionDenied, setNotifPermissionDenied] = useState(false);
+  const [locationSet, setLocationSet] = useState(true);
   // Iqamah silence state
   const [iqamahPrefs, setIqamahPrefs] = useState<IqamahSilencePrefs>(DEFAULT_IQAMAH_SILENCE_PREFS);
   // Islamic reminders state
@@ -149,6 +158,7 @@ export default function NotificationSettingsScreen() {
     loadUnifiedNotifPrefs().then(setDisplayPrefs);
     if (Platform.OS !== "web") {
       getScheduledCount().then(setNotifScheduledCount);
+      isPrayerLocationSet().then(setLocationSet);
     }
   }, []);
 
@@ -166,15 +176,57 @@ export default function NotificationSettingsScreen() {
     }
   }, [language]);
 
-  // Master toggle
+  // Notifications (prayer reminders especially) are always on and cannot be
+  // switched off — this row only re-checks / requests OS permission.
   const handleMasterToggle = useCallback(async () => {
-    if (!notifPrefs.enabled && Platform.OS !== "web") {
+    if (Platform.OS !== "web") {
       const granted = await requestNotificationPermissions();
-      if (!granted) { setNotifPermissionDenied(true); return; }
-      setNotifPermissionDenied(false);
+      setNotifPermissionDenied(!granted);
+      if (granted) await rescheduleNotifications({ ...notifPrefs });
     }
-    await rescheduleNotifications({ ...notifPrefs, enabled: !notifPrefs.enabled });
   }, [notifPrefs, rescheduleNotifications]);
+
+  // Fire an immediate test notification so the user can verify pop-up + sound now
+  const handleTestNotification = useCallback(async () => {
+    if (Platform.OS === "web") return;
+    const granted = await requestNotificationPermissions();
+    if (!granted) { setNotifPermissionDenied(true); return; }
+    await sendTestNotification(language as "nl" | "en" | "ar");
+    getScheduledCount().then(setNotifScheduledCount);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  }, [language]);
+
+  // Fire a full-screen (alarm-style) test — survives Samsung sleep and shows
+  // centre-screen even over the lock screen (Notifee full-screen intent).
+  const handleFullScreenTest = useCallback(async () => {
+    if (Platform.OS !== "android") return;
+    const { fullScreenDiagReport, openFullScreenPermission } = await import("@/lib/fullscreen-notif");
+    const report = await fullScreenDiagReport(8);
+    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    Alert.alert(
+      getLabel("لإظهار الإشعار في وسط الشاشة", "Show centre-screen", "Centraal tonen"),
+      getLabel(
+        "الإشعار يظهر في الأعلى ✅، ويعمل الآن كالمنبّه بلا حاجةٍ لإذن المنبّهات. ولإظهاره في وسط الشاشة فوق القفل، فعّل «إشعارات ملء الشاشة» ثمّ اقفل الهاتف وأعد الاختبار:",
+        "It shows at the top ✅ and now works like an alarm (no Alarms permission needed). To show it centre-screen over the lock, enable 'Full-screen notifications', then lock and test again:",
+        "Bovenaan ✅ (werkt nu als alarm). Voor centraal: schakel 'Volledig scherm' in, vergrendel en test opnieuw:",
+      ) + "\n\n" + report,
+      [
+        { text: getLabel("إذن ملء الشاشة", "Full-screen", "Volledig"), onPress: () => { void openFullScreenPermission(); } },
+        { text: getLabel("إغلاق", "Close", "Sluiten"), style: "cancel" },
+      ],
+    );
+  }, []);
+
+  // Manually un-silence the phone (in case an iqamah silence didn't auto-restore)
+  const handleRestoreSound = useCallback(async () => {
+    const ok = await restorePhoneSound();
+    Alert.alert(
+      getLabel("صوت الهاتف", "Phone sound", "Telefoongeluid"),
+      ok
+        ? getLabel("تمت استعادة صوت الهاتف.", "Phone sound restored.", "Telefoongeluid hersteld.")
+        : getLabel("تعذّر — امنح إذن «عدم الإزعاج» ثم أعد المحاولة.", "Couldn't restore — grant Do Not Disturb access, then try again.", "Kon niet herstellen — geef 'Niet storen'-toegang.")
+    );
+  }, [language]);
 
   // Prayer toggle
   const handlePrayerToggle = useCallback(async (prayer: keyof NotificationPrefs["prayers"]) => {
@@ -211,7 +263,7 @@ export default function NotificationSettingsScreen() {
   const playPreviewSound = useCallback(async (soundId: string) => {
     try {
       if (audioRef.current) {
-        try { audioRef.current.pause(); audioRef.current.release(); } catch {}
+        try { await audioRef.current.stopAsync(); await audioRef.current.unloadAsync(); } catch {}
         audioRef.current = null;
       }
       if (playingSound === soundId) { setPlayingSound(null); return; }
@@ -229,7 +281,18 @@ export default function NotificationSettingsScreen() {
       if (!source) { setPlayingSound(null); return; }
       if (Platform.OS === "web") { setTimeout(() => setPlayingSound(null), 3000); return; }
       const { Audio } = require("expo-av");
-      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
+      // Route preview through the loudspeaker at media volume even if the phone
+      // is on silent — without this expo-av can play through the earpiece
+      // (inaudible) or not at all on Android.
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          staysActiveInBackground: false,
+        });
+      } catch {}
+      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1.0 });
       audioRef.current = sound;
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish || (status.positionMillis && status.positionMillis >= 5000)) {
@@ -273,7 +336,10 @@ export default function NotificationSettingsScreen() {
   // Iqamah timing change
   const handleIqamahTimingChange = useCallback(async (field: "minutesAfterAdhan" | "silenceDurationMinutes", delta: number) => {
     const current = iqamahPrefs[field];
-    const newVal = Math.max(1, Math.min(60, current + delta));
+    // minutesAfterAdhan may be 0 → silence right at adhan (prayer) time; the
+    // silence duration must stay at least 1 minute.
+    const min = field === "minutesAfterAdhan" ? 0 : 1;
+    const newVal = Math.max(min, Math.min(60, current + delta));
     const newPrefs = { ...iqamahPrefs, [field]: newVal };
     setIqamahPrefs(newPrefs);
     await saveIqamahSilencePrefs(newPrefs);
@@ -369,6 +435,36 @@ export default function NotificationSettingsScreen() {
           </View>
         </Pressable>
 
+        {/* Test & diagnostics — verify pop-up + sound right now, without waiting for a prayer */}
+        <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>
+            {getLabel("اختبار الإشعارات", "Test notifications", "Meldingen testen")}
+          </Text>
+          <Text style={{ fontSize: 12, color: locationSet ? colors.muted : colors.error, marginBottom: 10, textAlign: isRTL ? "right" : "left", lineHeight: 18 }}>
+            {locationSet
+              ? getLabel(`عدد الإشعارات المجدولة: ${notifScheduledCount}`, `Scheduled notifications: ${notifScheduledCount}`, `Geplande meldingen: ${notifScheduledCount}`)
+              : getLabel("موقعك غير محفوظ، فلا تُحسب أوقات الصلاة ولا تصل إشعاراتها. حدّد موقعك من صفحة أوقات الصلاة.", "No location saved, so prayer times aren't computed and their notifications won't arrive. Set your location on the Prayer Times page.", "Geen locatie opgeslagen; gebedstijden en hun meldingen ontbreken.")}
+          </Text>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
+            <Pressable onPress={handleTestNotification} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+              <MaterialIcons name="notifications-active" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("إشعار تجريبي", "Test", "Test")}</Text>
+            </Pressable>
+            {Platform.OS === "android" && (
+              <Pressable onPress={handleRestoreSound} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary + "50", borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+                <MaterialIcons name="volume-up" size={18} color={colors.primary} />
+                <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>{getLabel("استعادة الصوت", "Restore sound", "Geluid herstellen")}</Text>
+              </Pressable>
+            )}
+          </View>
+          {Platform.OS === "android" && (
+            <Pressable onPress={handleFullScreenTest} style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12, marginTop: 10, opacity: pressed ? 0.85 : 1 }]}>
+              <MaterialIcons name="fullscreen" size={18} color="#fff" />
+              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("اختبار إشعار ملء الشاشة", "Full-screen test", "Volledig-scherm test")}</Text>
+            </Pressable>
+          )}
+        </View>
+
         {/* === SECTION 1: Prayer Notifications === */}
         <SectionCollapsible title={getLabel("إشعارات الصلاة", "Prayer Notifications", "Gebedsnotificaties")} icon="mosque" iconColor="#059669" colors={colors} isRTL={isRTL} defaultOpen={true}>
           {/* Per-prayer toggles */}
@@ -383,6 +479,7 @@ export default function NotificationSettingsScreen() {
               onToggle={() => handlePrayerToggle(prayer)}
               colors={colors}
               isRTL={isRTL}
+              locked={prayer !== "sunrise"}
             />
           ))}
 

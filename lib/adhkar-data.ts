@@ -277,11 +277,11 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
         textEN: "Meaning: So be patient with what they say, and glorify the praise of your Lord before sunrise and before sunset [Qaaf 39] — the basis of the morning and evening adhkaar.",
         translit: "Fa-sbir 3alaa maa yaqoeloena wa sabbih bi-hamdi Rabbika qabla tuloe3i-shshamsi wa qabla-l-ghuroeb...",
         count: 1,
-        rewardNL: "Het beloont het dagelijks uitvoeren van het Koran-gebod tot gedenken bij dageraad en avond.",
-        rewardEN: "It rewards the daily fulfilment of the Qur'anic command to remember Allaah at dawn and evening.",
+        rewardNL: "Het beloont het dagelijks uitvoeren van het Qur'aan-gebod tot gedenken bij dageraad en avond.",
+        rewardEN: "It rewards the daily fulfilment of the Qur'aanic command to remember Allaah at dawn and evening.",
         howTo: "فقبل طلوع الشمس وقت أذكار الصباح، وقبل الغروب وقت أذكار المساء؛ ففيها امتثال هذا الأمر القرآني كل يوم.",
-        howToNL: "Vóór zonsopgang is de tijd van de ochtend-adhkaar en vóór zonsondergang die van de avond-adhkaar; daarin ligt de dagelijkse uitvoering van dit Koran-gebod.",
-        howToEN: "Before sunrise is the time of the morning adhkaar and before sunset that of the evening adhkaar; in them lies the daily fulfilment of this Qur'anic command.",
+        howToNL: "Vóór zonsopgang is de tijd van de ochtend-adhkaar en vóór zonsondergang die van de avond-adhkaar; daarin ligt de dagelijkse uitvoering van dit Qur'aan-gebod.",
+        howToEN: "Before sunrise is the time of the morning adhkaar and before sunset that of the evening adhkaar; in them lies the daily fulfilment of this Qur'aanic command.",
       },
       {
         id: "morning_2",
@@ -577,8 +577,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
   {
     id: "evening",
     title: "أذكار المساء",
-    titleNL: "Wat uit de Koran wordt gereciteerd in de avond",
-    titleEN: "What is Recited from the Qur'an in the Evening",
+    titleNL: "Wat uit de Qur'aan wordt gereciteerd in de avond",
+    titleEN: "What is Recited from the Qur'aan in the Evening",
     icon: "nights-stay",
     color: "#6366F1",
     adhkar: [
@@ -1567,16 +1567,16 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
   {
     id: "recitation",
     title: "تلاوة القرآن وسجودها",
-    titleNL: "De recitatie van de Koran en de knieling van de recitatie",
-    titleEN: "Recitation of the Qur'an and the Prostration of Recitation",
+    titleNL: "De recitatie van de Qur'aan en de knieling van de recitatie",
+    titleEN: "Recitation of the Qur'aan and the Prostration of Recitation",
     icon: "bookmark",
     color: "#6B7280",
     adhkar: [
       {
         id: "recitation_1",
         text: "﴿فَإِذَا قَرَأْتَ الْقُرْآنَ فَاسْتَعِذْ بِاللَّهِ مِنَ الشَّيْطَانِ الرَّجِيمِ﴾ [النحل: 98]",
-        textNL: "Vertaling van de betekenis: Wanneer je de Koran leest, zoek dan toevlucht bij Allaah tegen de vervloekte shaytaan [an-Nahl 98].",
-        textEN: "Meaning: When you recite the Qur'an, seek refuge in Allaah from the accursed devil [an-Nahl 98].",
+        textNL: "Vertaling van de betekenis: Wanneer je de Qur'aan leest, zoek dan toevlucht bij Allaah tegen de vervloekte shaytaan [an-Nahl 98].",
+        textEN: "Meaning: When you recite the Qur'aan, seek refuge in Allaah from the accursed devil [an-Nahl 98].",
         translit: "A3oedhu bi-llaahi mina-shshaytaani-rradjiem.",
         count: 1,
       },
@@ -1885,8 +1885,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
   {
     id: "sleep",
     title: "النوم والاضطجاع",
-    titleNL: "Wat uit de Koran wordt gereciteerd bij het slapen",
-    titleEN: "What is Recited from the Qur'an at Sleep",
+    titleNL: "Wat uit de Qur'aan wordt gereciteerd bij het slapen",
+    titleEN: "What is Recited from the Qur'aan at Sleep",
     icon: "bedtime",
     color: "#1E3A5F",
     adhkar: [
@@ -2654,8 +2654,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
       {
         id: "distress_5",
         text: "«اللَّهُمَّ إِنِّي عَبْدُكَ، ابْنُ عَبْدِكَ، ابْنُ أَمَتِكَ، نَاصِيَتِي بِيَدِكَ، مَاضٍ فِيَّ حُكْمُكَ، عَدْلٌ فِيَّ قَضَاؤُكَ، أَسْأَلُكَ بِكُلِّ اسْمٍ هُوَ لَكَ، سَمَّيْتَ بِهِ نَفْسَكَ، أَوْ أَنْزَلْتَهُ فِي كِتَابِكَ، أَوْ عَلَّمْتَهُ أَحَدًا مِنْ خَلْقِكَ، أَوِ اسْتَأْثَرْتَ بِهِ فِي عِلْمِ الْغَيْبِ عِنْدَكَ: أَنْ تَجْعَلَ الْقُرْآنَ رَبِيعَ قَلْبِي، وَنُورَ صَدْرِي، وَجَلَاءَ حُزْنِي، وَذَهَابَ هَمِّي»",
-        textNL: "O Allaah, ik ben Uw dienaar, zoon van Uw dienaar, zoon van Uw dienares. Mijn voorhoofdslok is in Uw Hand, Uw oordeel over mij is gaande en Uw beschikking over mij is rechtvaardig. Ik vraag U bij elke Naam die U toebehoort, waarmee U Uzelf heeft genoemd, of die U in Uw Boek heeft neergezonden, of die U aan één van Uw schepselen heeft onderwezen, of die U in de kennis van het verborgene bij U heeft gehouden: maak de Koran de lente van mijn hart, het licht van mijn borst, het verdrijven van mijn verdriet en het verdwijnen van mijn zorgen.",
-        textEN: "O Allaah, I am Your slave, son of Your slave, son of Your maidservant. My forelock is in Your Hand; Your judgement over me is ever executed and Your decree concerning me is just. I ask You by every Name that is Yours, by which You named Yourself, or revealed in Your Book, or taught to any of Your creation, or kept with Yourself in the knowledge of the unseen: make the Qur'an the spring of my heart, the light of my chest, the removal of my sadness and the departure of my anxiety.",
+        textNL: "O Allaah, ik ben Uw dienaar, zoon van Uw dienaar, zoon van Uw dienares. Mijn voorhoofdslok is in Uw Hand, Uw oordeel over mij is gaande en Uw beschikking over mij is rechtvaardig. Ik vraag U bij elke Naam die U toebehoort, waarmee U Uzelf heeft genoemd, of die U in Uw Boek heeft neergezonden, of die U aan één van Uw schepselen heeft onderwezen, of die U in de kennis van het verborgene bij U heeft gehouden: maak de Qur'aan de lente van mijn hart, het licht van mijn borst, het verdrijven van mijn verdriet en het verdwijnen van mijn zorgen.",
+        textEN: "O Allaah, I am Your slave, son of Your slave, son of Your maidservant. My forelock is in Your Hand; Your judgement over me is ever executed and Your decree concerning me is just. I ask You by every Name that is Yours, by which You named Yourself, or revealed in Your Book, or taught to any of Your creation, or kept with Yourself in the knowledge of the unseen: make the Qur'aan the spring of my heart, the light of my chest, the removal of my sadness and the departure of my anxiety.",
         translit: "Allaahumma innie 3abduk, ibnu 3abdik, ibnu amatik, naasiyatie bi-yadik, maadin fiyya hukmuk, 3adlun fiyya qadaa'uk, as'aluka bi-kulli-smin huwa lak, sammayta bihi nafsak, aw anzaltahu fie kitaabik, aw 3allamtahu ahadan min khalqik, awi-sta'tharta bihi fie 3ilmi-l-ghaybi 3indak: an tadj3ala-l-qur'aana rabie3a qalbie, wa noera sadrie, wa djalaa'a huznie, wa dhahaaba hammie.",
         count: 1,
         reward: "الأجر منصوص: يذهب الله همه وحزنه ويبدله مكانه فرحا.",
@@ -4562,8 +4562,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
         rewardNL: "Vergeving van wat voorbij is voor wie het vast en er in nachtwake bij staat uit geloof en hoop op beloning; en laylatu-l-qadr is beter dan duizend maanden.",
         rewardEN: "Forgiveness of what has passed for whoever fasts it and stands in its night out of faith and hope of reward; and laylatu-l-qadr is better than a thousand months.",
         howTo: "ومن هديه فيه مدارسة القرآن كل ليلة والجود بالخير حتى يكون كالريح المرسلة [البخاري (6)].",
-        howToNL: "En tot zijn leidraad erin behoort het dagelijks bestuderen van de Koran en de vrijgevigheid met het goede, tot hij als de gezonden wind wordt [al-Bukhaarie 6].",
-        howToEN: "And of his guidance in it is studying the Koran nightly and generosity with good, until he becomes like the sent wind [al-Bukhaaree 6].",
+        howToNL: "En tot zijn leidraad erin behoort het dagelijks bestuderen van de Qur'aan en de vrijgevigheid met het goede, tot hij als de gezonden wind wordt [al-Bukhaarie 6].",
+        howToEN: "And of his guidance in it is studying the Qur'aan nightly and generosity with good, until he becomes like the sent wind [al-Bukhaaree 6].",
       },
       {
         id: "yearly_4",
@@ -4596,8 +4596,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
   {
     id: "quran_duas",
     title: "الأدعية القرآنية الجامعة",
-    titleNL: "De vaststaande Koranische smeekbeden, geordend naar de volgorde van de mushaf",
-    titleEN: "The Established Qur'anic Supplications, Ordered by the Sequence of the Mushaf",
+    titleNL: "De vaststaande Qur'aanische smeekbeden, geordend naar de volgorde van de mushaf",
+    titleEN: "The Established Qur'aanic Supplications, Ordered by the Sequence of the Mushaf",
     icon: "menu-book",
     color: "#166534",
     adhkar: [
@@ -5271,8 +5271,8 @@ export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
         rewardNL: "De verklaring van de beloning in de hadieth zelf: het kijken in het boek en het door de vingers zien, en de redding van de ondervraging waarbij wie ondervraagd wordt, verloren is.",
         rewardEN: "The explanation of the reward in the hadeeth itself: looking into the record and overlooking, and salvation from the scrutiny by which whoever is scrutinised is ruined.",
         howTo: "يدعو به في صلاته وسجوده كما فعل صلى الله عليه وسلم، ومن دعاء القرآن ليوم الحساب: ﴿رَبَّنَا اغْفِرْ لِي وَلِوَالِدَيَّ وَلِلْمُؤْمِنِينَ يَوْمَ يَقُومُ الْحِسَابُ﴾ [إبراهيم: 41].",
-        howToNL: "Men smeekt ermee in zijn gebed en soedjoed zoals hij (vrede en zegeningen zij met hem) deed; en van de Koran-smeekbeden voor de Dag der Afrekening: 'Onze Heer, vergeef mij en mijn ouders...'.",
-        howToEN: "One supplicates with it in one's prayer and prostration as he (peace and blessings be upon him) did; and of the Qur'anic supplications for the Day of Reckoning: 'Our Lord, forgive me and my parents...'.",
+        howToNL: "Men smeekt ermee in zijn gebed en soedjoed zoals hij (vrede en zegeningen zij met hem) deed; en van de Qur'aan-smeekbeden voor de Dag der Afrekening: 'Onze Heer, vergeef mij en mijn ouders...'.",
+        howToEN: "One supplicates with it in one's prayer and prostration as he (peace and blessings be upon him) did; and of the Qur'aanic supplications for the Day of Reckoning: 'Our Lord, forgive me and my parents...'.",
       },
     ],
   },
@@ -5499,22 +5499,22 @@ export const MURAQABA_ADHKAR: Dhikr[] = [
 ];
 
 export const IKHLAS_ADHKAR: Dhikr[] = [
-  { id: "ikhlas_1", text: "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ أَنْ أُشْرِكَ بِكَ وَأَنَا أَعْلَمُ، وَأَسْتَغْفِرُكَ لِمَا لَا أَعْلَمُ", count: 3, reward: "دعاء الخوف من الشرك الخفي" },
-  { id: "ikhlas_2", text: "اللَّهُمَّ اجْعَلْ عَمَلِي كُلَّهُ صَالِحًا، وَاجْعَلْهُ لِوَجْهِكَ خَالِصًا، وَلَا تَجْعَلْ لِأَحَدٍ فِيهِ شَيْئًا", count: 1, reward: "سؤال الإخلاص في العمل" },
-  { id: "ikhlas_3", text: "رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِنْ ذُرِّيَّتِي رَبَّنَا وَتَقَبَّلْ دُعَاءِ", count: 1, reward: "دعاء إبراهيم عليه السلام" },
+  { id: "ikhlas_1", text: "اللَّهُمَّ إِنِّي أَعُوذُ بِكَ أَنْ أُشْرِكَ بِكَ وَأَنَا أَعْلَمُ، وَأَسْتَغْفِرُكَ لِمَا لَا أَعْلَمُ", textNL: "O Allah, ik zoek toevlucht bij U tegen het bewust toekennen van deelgenoten aan U, en ik vraag U om vergeving voor wat ik onbewust doe.", textEN: "O Allah, I seek refuge in You from knowingly associating anything with You, and I seek Your forgiveness for what I do unknowingly.", count: 3, reward: "دعاء الخوف من الشرك الخفي", rewardNL: "Smeekbede uit vrees voor de verborgen shirk", rewardEN: "A supplication out of fear of hidden shirk" },
+  { id: "ikhlas_2", text: "اللَّهُمَّ اجْعَلْ عَمَلِي كُلَّهُ صَالِحًا، وَاجْعَلْهُ لِوَجْهِكَ خَالِصًا، وَلَا تَجْعَلْ لِأَحَدٍ فِيهِ شَيْئًا", textNL: "O Allah, maak al mijn daden oprecht, maak ze zuiver omwille van U, en laat niemand er een aandeel in hebben.", textEN: "O Allah, make all my deeds righteous, make them purely for Your sake, and let no one have any share in them.", count: 1, reward: "سؤال الإخلاص في العمل", rewardNL: "Vragen om oprechtheid in daden", rewardEN: "Asking for sincerity in deeds" },
+  { id: "ikhlas_3", text: "رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِنْ ذُرِّيَّتِي رَبَّنَا وَتَقَبَّلْ دُعَاءِ", textNL: "Mijn Heer, maak mij en een deel van mijn nageslacht standvastig in het gebed. Onze Heer, aanvaard mijn smeekbede.", textEN: "My Lord, make me an establisher of prayer, and [also] from my descendants. Our Lord, and accept my supplication.", count: 1, reward: "دعاء إبراهيم عليه السلام", rewardNL: "De smeekbede van Ibraahiem (vrede zij met hem)", rewardEN: "The supplication of Ibraaheem (peace be upon him)" },
 ];
 
 export const KHUSHOO_ADHKAR: Dhikr[] = [
-  { id: "khushoo_1", text: "قَدْ أَفْلَحَ الْمُؤْمِنُونَ الَّذِينَ هُمْ فِي صَلَاتِهِمْ خَاشِعُونَ", count: 1, reward: "صفة المفلحين" },
-  { id: "khushoo_2", text: "وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ وَإِنَّهَا لَكَبِيرَةٌ إِلَّا عَلَى الْخَاشِعِينَ", count: 1, reward: "الصلاة عون للخاشعين" },
-  { id: "khushoo_3", text: "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", count: 1, reward: "وصية النبي لمعاذ" },
+  { id: "khushoo_1", text: "قَدْ أَفْلَحَ الْمُؤْمِنُونَ الَّذِينَ هُمْ فِي صَلَاتِهِمْ خَاشِعُونَ", textNL: "Waarlijk, de gelovigen zullen slagen — zij die nederig zijn in hun gebed.", textEN: "Successful indeed are the believers — those who are humble in their prayer.", count: 1, reward: "صفة المفلحين", rewardNL: "De eigenschap van de succesvollen", rewardEN: "The trait of the successful" },
+  { id: "khushoo_2", text: "وَاسْتَعِينُوا بِالصَّبْرِ وَالصَّلَاةِ وَإِنَّهَا لَكَبِيرَةٌ إِلَّا عَلَى الْخَاشِعِينَ", textNL: "Zoek hulp door geduld en gebed; en dat is zeker zwaar, behalve voor de nederigen.", textEN: "Seek help through patience and prayer; and indeed it is difficult except for the humble.", count: 1, reward: "الصلاة عون للخاشعين", rewardNL: "Het gebed is een steun voor de nederigen", rewardEN: "Prayer is a support for the humble" },
+  { id: "khushoo_3", text: "اللَّهُمَّ أَعِنِّي عَلَى ذِكْرِكَ وَشُكْرِكَ وَحُسْنِ عِبَادَتِكَ", textNL: "O Allah, help mij U te gedenken, U te danken en U goed te aanbidden.", textEN: "O Allah, help me to remember You, to thank You, and to worship You well.", count: 1, reward: "وصية النبي لمعاذ", rewardNL: "De aanbeveling van de Profeet ﷺ aan Mu'aadh", rewardEN: "The Prophet's ﷺ advice to Mu'aadh" },
 ];
 
 export const DUA_FOR_CHILDREN: Dhikr[] = [
-  { id: "dua_child_1", text: "رَبِّ هَبْ لِي مِنْ لَدُنْكَ ذُرِّيَّةً طَيِّبَةً إِنَّكَ سَمِيعُ الدُّعَاءِ", count: 1, reward: "دعاء زكريا عليه السلام" },
-  { id: "dua_child_2", text: "رَبَّنَا هَبْ لَنَا مِنْ أَزْوَاجِنَا وَذُرِّيَّاتِنَا قُرَّةَ أَعْيُنٍ وَاجْعَلْنَا لِلْمُتَّقِينَ إِمَامًا", count: 1, reward: "دعاء عباد الرحمن" },
-  { id: "dua_child_3", text: "رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِنْ ذُرِّيَّتِي رَبَّنَا وَتَقَبَّلْ دُعَاءِ", count: 1, reward: "دعاء إبراهيم عليه السلام" },
-  { id: "dua_child_4", text: "رَبِّ أَوْزِعْنِي أَنْ أَشْكُرَ نِعْمَتَكَ الَّتِي أَنْعَمْتَ عَلَيَّ وَعَلَى وَالِدَيَّ وَأَنْ أَعْمَلَ صَالِحًا تَرْضَاهُ وَأَصْلِحْ لِي فِي ذُرِّيَّتِي", count: 1, reward: "دعاء الشكر وصلاح الذرية" },
+  { id: "dua_child_1", text: "رَبِّ هَبْ لِي مِنْ لَدُنْكَ ذُرِّيَّةً طَيِّبَةً إِنَّكَ سَمِيعُ الدُّعَاءِ", textNL: "Mijn Heer, schenk mij van Uw kant goed nageslacht. Voorwaar, U bent de Hoorder van de smeekbede.", textEN: "My Lord, grant me from Yourself good offspring. Indeed, You are the Hearer of supplication.", count: 1, reward: "دعاء زكريا عليه السلام", rewardNL: "De smeekbede van Zakariyyaa (vrede zij met hem)", rewardEN: "The supplication of Zakariyyaa (peace be upon him)" },
+  { id: "dua_child_2", text: "رَبَّنَا هَبْ لَنَا مِنْ أَزْوَاجِنَا وَذُرِّيَّاتِنَا قُرَّةَ أَعْيُنٍ وَاجْعَلْنَا لِلْمُتَّقِينَ إِمَامًا", textNL: "Onze Heer, schenk ons in onze echtgenoten en ons nageslacht een verkoeling van de ogen, en maak ons een voorbeeld voor de godvrezenden.", textEN: "Our Lord, grant us from among our spouses and offspring comfort to our eyes, and make us a leader for the righteous.", count: 1, reward: "دعاء عباد الرحمن", rewardNL: "De smeekbede van de dienaren van de Erbarmer", rewardEN: "The supplication of the servants of the Most Merciful" },
+  { id: "dua_child_3", text: "رَبِّ اجْعَلْنِي مُقِيمَ الصَّلَاةِ وَمِنْ ذُرِّيَّتِي رَبَّنَا وَتَقَبَّلْ دُعَاءِ", textNL: "Mijn Heer, maak mij en een deel van mijn nageslacht standvastig in het gebed. Onze Heer, aanvaard mijn smeekbede.", textEN: "My Lord, make me an establisher of prayer, and [also] from my descendants. Our Lord, and accept my supplication.", count: 1, reward: "دعاء إبراهيم عليه السلام", rewardNL: "De smeekbede van Ibraahiem (vrede zij met hem)", rewardEN: "The supplication of Ibraaheem (peace be upon him)" },
+  { id: "dua_child_4", text: "رَبِّ أَوْزِعْنِي أَنْ أَشْكُرَ نِعْمَتَكَ الَّتِي أَنْعَمْتَ عَلَيَّ وَعَلَى وَالِدَيَّ وَأَنْ أَعْمَلَ صَالِحًا تَرْضَاهُ وَأَصْلِحْ لِي فِي ذُرِّيَّتِي", textNL: "Mijn Heer, stel mij in staat Uw gunst te danken die U mij en mijn ouders hebt geschonken, en goede daden te verrichten die U behagen, en maak mijn nageslacht rechtschapen voor mij.", textEN: "My Lord, enable me to be grateful for Your favour which You bestowed upon me and upon my parents, and to do righteousness that pleases You, and make my offspring righteous for me.", count: 1, reward: "دعاء الشكر وصلاح الذرية", rewardNL: "De smeekbede om dankbaarheid en rechtschapen nageslacht", rewardEN: "The supplication for gratitude and righteous offspring" },
 ];
 
 export function getNotificationForCategory(categoryId: string): Dhikr | null {

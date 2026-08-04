@@ -55,12 +55,12 @@ function getDynamicFontSize(
   // Calculate scale factor from widget dimensions
   const refDimension = 200; // reference dimension for a 2x2 widget
   const minDim = Math.min(widgetWidth || refDimension, widgetHeight || refDimension);
-  const scaleFactor = Math.max(0.8, Math.min(2.0, minDim / refDimension));
+  const scaleFactor = Math.max(0.85, Math.min(1.4, minDim / refDimension));
 
   // Apply size setting multiplier
-  let sizeMultiplier = 1.0;
-  if (sizeSetting === "medium") sizeMultiplier = 1.15;
-  if (sizeSetting === "large") sizeMultiplier = 1.3;
+  let sizeMultiplier = 1.0; // "medium" (the default) is neutral so text isn't inflated
+  if (sizeSetting === "small") sizeMultiplier = 0.9;
+  if (sizeSetting === "large") sizeMultiplier = 1.15;
 
   // Apply fontScale percentage (default 100%)
   const percentageScale = (fontScale || 100) / 100;
@@ -376,6 +376,7 @@ export function buildPrayerWidgetTree(props: PrayerWidgetProps) {
             key={`prayer-${i}`}
             style={{
               width: "match_parent",
+              flex: 1,
               flexDirection: "row",
               justifyContent: "space-between",
               alignItems: "center",
@@ -387,18 +388,22 @@ export function buildPrayerWidgetTree(props: PrayerWidgetProps) {
           >
             <TextWidget
               text={prayer.time}
+              maxLines={1}
               style={{
-                fontSize: fs(13),
+                fontSize: fs(17),
                 color: prayer.isNext ? fg : withAlpha(fg, "CC"),
                 fontWeight: prayer.isNext ? "bold" : "normal",
+                adjustsFontSizeToFit: true,
               }}
             />
             <TextWidget
               text={prayer.nameAr}
+              maxLines={1}
               style={{
-                fontSize: fs(13),
+                fontSize: fs(17),
                 color: prayer.isNext ? fg : withAlpha(fg, "CC"),
                 fontWeight: prayer.isNext ? "bold" : "normal",
+                adjustsFontSizeToFit: true,
               }}
             />
           </FlexWidget>,

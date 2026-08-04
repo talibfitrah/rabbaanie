@@ -8,6 +8,7 @@ import { Magnetometer } from "expo-sensors";
 import * as Location from "expo-location";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, type SavedPrayerLocation, getCityAR, getCountryAR } from "@/lib/prayer-data";
+import { withTimeout } from "@/lib/location-utils";
 import { Pressable, Alert, ActivityIndicator } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Svg, { Circle, Line, Path, G, Text as SvgText } from "react-native-svg";
@@ -58,24 +59,78 @@ export default function QiblaScreen() {
   const lastHeading = useRef(0);
   const subscriptionRef = useRef<ReturnType<typeof Magnetometer.addListener> | null>(null);
 
-  // GPS refresh location
+  // GPS refresh location. Every native call is bounded so the spinner can never
+  // hang: services check → last-known fast-path → bounded fresh fix → bounded
+  // reverse-geocode. The `finally` always clears gpsLoading.
   const handleGpsRefresh = async () => {
     setGpsLoading(true);
     try {
+      // Bail early if the device's location services are OFF, otherwise the
+      // native position request can wait indefinitely for a fix.
+      let servicesEnabled = true;
+      try { servicesEnabled = await Location.hasServicesEnabledAsync(); } catch (_) {}
+      if (!servicesEnabled) {
+        Alert.alert(
+          language === "ar" ? "خدمة الموقع متوقفة" : "Location is off",
+          language === "ar"
+            ? "يرجى تفعيل خدمة الموقع (GPS) من إعدادات الهاتف ثم إعادة المحاولة"
+            : "Please turn on Location (GPS) in your device settings and try again"
+        );
+        return;
+      }
+
       const { status } = await Location.requestForegroundPermissionsAsync();
       if (status !== "granted") {
         Alert.alert(
           language === "ar" ? "الإذن مطلوب" : "Permission Required",
           language === "ar" ? "يرجى السماح بالوصول للموقع" : "Please allow location access"
         );
-        setGpsLoading(false);
         return;
       }
-      const loc = await Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.High });
-      const [geo] = await Location.reverseGeocodeAsync({ latitude: loc.coords.latitude, longitude: loc.coords.longitude });
+
+      // Last-known position is instant when available; only fall back to a fresh
+      // fix if there is none, and always bound it.
+      let loc = await Location.getLastKnownPositionAsync({
+        maxAge: 30 * 60 * 1000,
+        requiredAccuracy: 10000,
+      });
+      if (!loc) {
+        try {
+          loc = await withTimeout(
+            Location.getCurrentPositionAsync({
+              accuracy: Location.Accuracy.Balanced,
+              mayShowUserSettingsDialog: true,
+            }),
+            20000
+          );
+        } catch (_) {
+          loc = await withTimeout(
+            Location.getCurrentPositionAsync({ accuracy: Location.Accuracy.Lowest }),
+            15000
+          );
+        }
+      }
+      if (!loc) throw new Error("no-location");
+
+      let geo: Location.LocationGeocodedAddress | null = null;
+      try {
+        const results = await withTimeout(
+          Location.reverseGeocodeAsync({
+            latitude: loc.coords.latitude,
+            longitude: loc.coords.longitude,
+          }),
+          8000
+        );
+        geo = results?.[0] ?? null;
+      } catch (_) {}
+
       const newLocation: SavedPrayerLocation = {
         country: geo?.country || savedLocation?.country || "",
-        city: geo?.city || geo?.subregion || savedLocation?.city || "",
+        city:
+          geo?.city ||
+          geo?.subregion ||
+          savedLocation?.city ||
+          `${loc.coords.latitude.toFixed(2)}, ${loc.coords.longitude.toFixed(2)}`,
         lat: loc.coords.latitude,
         lng: loc.coords.longitude,
         tz: Intl.DateTimeFormat().resolvedOptions().timeZone,
@@ -85,7 +140,9 @@ export default function QiblaScreen() {
     } catch (err) {
       Alert.alert(
         language === "ar" ? "خطأ" : "Error",
-        language === "ar" ? "تعذر تحديد الموقع" : "Could not get location"
+        language === "ar"
+          ? "تعذر تحديد الموقع. حاول في مكان مفتوح أو تحقق من الاتصال."
+          : "Could not get location. Try outdoors or check your connection."
       );
     } finally {
       setGpsLoading(false);

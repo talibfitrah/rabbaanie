@@ -1,5 +1,3 @@
-export type ReleaseAsset = { name: string; browser_download_url: string };
-
 const TAG_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
 
 /** "v1.2.0" -> "1.2.0"; null for anything that is not exactly vMAJOR.MINOR.PATCH. */
@@ -24,30 +22,44 @@ export function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
-/**
- * Download URL of the exact release APK our workflow publishes
- * (`rabbaanie-v<version>.apk`), or null. Requiring the exact name means a
- * lookalike or stray APK in the release is never installed.
- */
-export function pickApkAsset(assets: ReleaseAsset[], version: string): string | null {
-  const exact = assets.find((a) => a.name === `rabbaanie-v${version}.apk`);
-  return exact ? exact.browser_download_url : null;
-}
-
 export type PendingUpdate = { version: string; apkUrl: string };
 
+// The updater downloads this URL and hands the resulting APK to Android's
+// package installer, so the manifest's apkUrl must be tightly constrained —
+// never trusted as "whatever the JSON said". Require our own HTTPS host and the
+// exact versioned artifact filename, so a tampered or cache-poisoned manifest
+// can't aim the installer at an arbitrary host or file. Matched with a regex
+// (React Native's URL parser is incomplete); the host must be followed
+// immediately by "/", which rejects look-alikes like "api.rabbaanie.com.evil"
+// and userinfo tricks like "api.rabbaanie.com@evil". The filename's version
+// must equal the manifest version, so a mismatched artifact name is rejected.
+const TRUSTED_APK_URL_RE =
+  /^https:\/\/api\.rabbaanie\.com\/[A-Za-z0-9._~\-/]*rabbaanie-v(\d+\.\d+\.\d+)\.apk$/;
+
+export function isTrustedApkUrl(apkUrl: string, version: string): boolean {
+  const m = TRUSTED_APK_URL_RE.exec(apkUrl);
+  return m !== null && m[1] === version;
+}
+
 /**
- * The full update decision: given the GitHub "latest release" payload and the
- * installed version, return what to download — or null when there is nothing
- * newer, the tag is malformed, or the release carries no APK.
+ * Evaluate the update manifest served from our own server
+ * (api.rabbaanie.com/downloads/latest.json): { version, apkUrl }. Returns what
+ * to download when the manifest names a newer version with a trusted download
+ * URL; null otherwise (including when apkUrl fails the trust check).
  */
-export function evaluateRelease(
-  release: { tag_name: string; assets?: ReleaseAsset[] },
+export function evaluateLatest(
+  latest: { version?: string; apkUrl?: string } | null | undefined,
   currentVersion: string
 ): PendingUpdate | null {
-  const version = parseTag(release.tag_name);
-  if (version === null) return null;
-  const apkUrl = pickApkAsset(release.assets ?? [], version);
-  if (apkUrl === null) return null;
+  const version = latest?.version;
+  const apkUrl = latest?.apkUrl;
+  if (
+    !version ||
+    !apkUrl ||
+    parseTag(`v${version}`) === null ||
+    !isTrustedApkUrl(apkUrl, version)
+  ) {
+    return null;
+  }
   return isNewerVersion(version, currentVersion) ? { version, apkUrl } : null;
 }

@@ -4,7 +4,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ============ CONSTANTS ============
 
-const SPOUSE_ADVICE_CHANNEL_ID = "spouse_advice";
+const SPOUSE_ADVICE_CHANNEL_ID = "spouse_advice_v2";
 const SPOUSE_ADVICE_TYPE = "spouse_advice";
 const PREFS_KEY = "@spouse_advice_prefs";
 const LAST_TIP_KEY = "@last_spouse_tip";
@@ -57,7 +57,7 @@ export async function setupSpouseAdviceChannel(): Promise<void> {
 
   await Notifications.setNotificationChannelAsync(SPOUSE_ADVICE_CHANNEL_ID, {
     name: "Partner Advies / Spouse Advice / نصائح الشريك",
-    importance: Notifications.AndroidImportance.DEFAULT,
+    importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
   });
 }

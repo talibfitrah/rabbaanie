@@ -4,10 +4,10 @@ import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
-import { evaluateRelease, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
+import { evaluateLatest, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
 
-const LATEST_RELEASE_URL =
-  "https://api.github.com/repos/talibfitrah/rabbaanie/releases/latest";
+// Our own update manifest, served from the app's server (no third-party/GitHub).
+const LATEST_JSON_URL = "https://api.rabbaanie.com/downloads/latest.json";
 const CHECK_TIMEOUT_MS = 10_000;
 // Cancel only a STALLED download (no bytes for this long) — a big APK on a slow
 // connection may legitimately take many minutes, so we don't bound total time.
@@ -177,7 +177,7 @@ async function downloadAndApplyUpdate() {
   }
 }
 
-async function checkForUpdate(silent: boolean = false) {
+export async function checkForUpdate(silent: boolean = false) {
   if (__DEV__ || !UPDATER_ENABLED || Platform.OS !== "android") {
     if (!silent) {
       if (__DEV__) {
@@ -213,19 +213,25 @@ async function checkForUpdate(silent: boolean = false) {
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), CHECK_TIMEOUT_MS);
-    let release: { tag_name: string; assets?: { name: string; browser_download_url: string }[] };
+    let latest: { version?: string; apkUrl?: string };
     try {
-      const res = await fetch(LATEST_RELEASE_URL, {
+      const res = await fetch(LATEST_JSON_URL, {
         signal: controller.signal,
-        headers: { Accept: "application/vnd.github+json" },
+        headers: { Accept: "application/json" },
       });
-      if (!res.ok) throw new Error(`GitHub API responded ${res.status}`);
-      release = await res.json();
+      if (res.status === 404) {
+        // No manifest yet — nothing to update to; treat as "up to date".
+        latest = {};
+      } else if (!res.ok) {
+        throw new Error(`Update server responded ${res.status}`);
+      } else {
+        latest = await res.json();
+      }
     } finally {
       clearTimeout(timeout);
     }
 
-    pending = evaluateRelease(release, INSTALLED_VERSION);
+    pending = evaluateLatest(latest, INSTALLED_VERSION);
     set({
       isChecking: false,
       isUpdateAvailable: pending !== null,
@@ -255,23 +261,20 @@ async function checkForUpdate(silent: boolean = false) {
         tx("U heeft de nieuwste versie.", "You have the latest version.", "لديك أحدث إصدار.")
       );
     }
-  } catch (e: any) {
-    // A check was attempted, so record the time (avoids "Never checked" showing
-    // above the error banner). A silent launch check must not leave an error
-    // banner for an attempt the user never made (offline, rate limit); only
-    // user-initiated checks record the error.
-    set({
-      isChecking: false,
-      lastChecked: new Date(),
-      ...(silent ? {} : { error: e.message || "Unknown error" }),
-    });
+  } catch (e) {
+    // Never alarm the user: if the check couldn't reach the server or find a
+    // release for any reason, there is simply no new version to offer right
+    // now. Present that calmly instead of an error, and keep no error state.
+    // Still log it, so a silently-dead manifest endpoint stays diagnosable.
+    console.warn("[updates] check failed:", e);
+    set({ isChecking: false, lastChecked: new Date(), error: null });
     if (!silent) {
       Alert.alert(
-        tx("Fout", "Error", "خطأ"),
+        tx("Geen update", "No Update", "لا يوجد تحديث"),
         tx(
-          "Kan niet controleren op updates. Probeer het later opnieuw.",
-          "Unable to check for updates. Please try again later.",
-          "تعذر التحقق من التحديثات. يرجى المحاولة لاحقاً."
+          "Er is momenteel geen nieuwe versie beschikbaar.",
+          "No new version is available right now.",
+          "لا يوجد إصدار جديد متاح حالياً."
         )
       );
     }

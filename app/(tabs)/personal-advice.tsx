@@ -22,6 +22,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { adviceStillFresh, adviceDiagnosticSig } from "@/lib/advice-period";
 import {
   loadAnimationEnabled,
   loadFavorites,
@@ -35,6 +36,7 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -494,6 +496,7 @@ export default function PersonalAdviceScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
+  const { subscribed } = usePremiumGate();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{
@@ -560,9 +563,8 @@ export default function PersonalAdviceScreen() {
       const cacheKey = `quick_tips_cache_${language}`;
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
-        const { tips, date } = JSON.parse(cached);
-        const today = new Date().toISOString().slice(0, 10);
-        if (date === today && tips && tips.length > 0) {
+        const { tips, date, sig, generatedAt } = JSON.parse(cached);
+        if (adviceStillFresh({ generatedAt, date }) && sig === adviceDiagnosticSig(state) && tips && tips.length > 0) {
           setQuickTips(tips);
           setQuickTipsLoading(false);
           return;
@@ -654,11 +656,7 @@ export default function PersonalAdviceScreen() {
       const data = await response.json();
       if (data.tips && Array.isArray(data.tips) && data.tips.length > 0) {
         setQuickTips(data.tips);
-        const today = new Date().toISOString().slice(0, 10);
-        await AsyncStorage.setItem(
-          `quick_tips_cache_${language}`,
-          JSON.stringify({ tips: data.tips, date: today }),
-        );
+        await AsyncStorage.setItem(`quick_tips_cache_${language}`, JSON.stringify({ tips: data.tips, generatedAt: Date.now(), sig: adviceDiagnosticSig(state) }));
       }
     } catch (e) {
       console.error("[PersonalAdvice] fetchQuickTips error:", e);
@@ -700,10 +698,9 @@ export default function PersonalAdviceScreen() {
     try {
       const cached = await AsyncStorage.getItem(cacheKey);
       if (cached) {
-        const { advice, sections, date } = JSON.parse(cached);
-        // Use cache if from today
-        const today = new Date().toISOString().slice(0, 10);
-        if (date === today) {
+        const { advice, sections, date, sig, generatedAt } = JSON.parse(cached);
+        // Use cache only within its one-week life AND while the diagnostic file is unchanged.
+        if (adviceStillFresh({ generatedAt, date }) && sig === adviceDiagnosticSig(state)) {
           if (sections) setLlmSections(sections);
           else setLlmAdvice(advice);
           setLlmLoading(false);
@@ -717,6 +714,7 @@ export default function PersonalAdviceScreen() {
   }
 
   async function fetchAdvice() {
+    if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
       const baseUrl = getApiBaseUrl();
@@ -795,32 +793,16 @@ export default function PersonalAdviceScreen() {
       const data = await response.json();
       setLlmAdvice(data.advice || null);
       const cacheKey = `personal_advice_cache_${language}`;
-      const today = new Date().toISOString().slice(0, 10);
+      const generatedAt = Date.now();
+      const sig = adviceDiagnosticSig(state);
       if (data.sections && Array.isArray(data.sections)) {
         setLlmSections(data.sections);
-        await AsyncStorage.setItem(
-          cacheKey,
-          JSON.stringify({
-            sections: data.sections,
-            advice: null,
-            date: today,
-          }),
-        );
+        await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: data.sections, advice: null, generatedAt, sig }));
       } else {
         setLlmSections(null);
         if (data.advice) {
-          await AsyncStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              sections: null,
-              advice: data.advice,
-              date: today,
-            }),
-          );
-          const title = data.advice
-            .split("\n")[0]
-            .replace(/^[#*\-\s]+/, "")
-            .slice(0, 80);
+          await AsyncStorage.setItem(cacheKey, JSON.stringify({ sections: null, advice: data.advice, generatedAt, sig }));
+          const title = data.advice.split("\n")[0].replace(/^[#*\-\s]+/, "").slice(0, 80);
           saveLastAdviceTitle(title);
           scheduleDailyAdviceNotification(language as "nl" | "en" | "ar");
           showAdviceWidget(language as "nl" | "en" | "ar");
@@ -1043,6 +1025,7 @@ export default function PersonalAdviceScreen() {
         paddingHorizontal: 20,
       }}
     >
+      <PremiumNotice />
       <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
         <Text style={{ color: colors.primary, fontSize: 14 }}>
           {tx(lang, "\u2190 Terug", "\u2190 Back", "\u2190 رجوع")}

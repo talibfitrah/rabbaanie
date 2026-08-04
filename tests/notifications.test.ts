@@ -50,7 +50,7 @@ describe("Notifications module", () => {
       expect(DEFAULT_NOTIFICATION_PREFS.enabled).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.minutesBefore).toBe(5);
       expect(DEFAULT_NOTIFICATION_PREFS.prayers.fajr).toBe(true);
-      expect(DEFAULT_NOTIFICATION_PREFS.prayers.sunrise).toBe(false);
+      expect(DEFAULT_NOTIFICATION_PREFS.prayers.sunrise).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.prayers.dhuhr).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.adhkaar.morning).toBe(true);
       expect(DEFAULT_NOTIFICATION_PREFS.adhkaar.evening).toBe(true);
@@ -96,11 +96,11 @@ describe("Notifications module", () => {
       await setupNotificationChannels();
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(3);
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
-        "prayer_times",
+        "prayer_times_v2",
         expect.objectContaining({ name: "Gebedstijden / Prayer Times" })
       );
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
-        "adhkaar_reminders",
+        "adhkaar_reminders_v2",
         expect.objectContaining({ name: "Adhkaar Herinneringen / Adhkaar Reminders" })
       );
     });
@@ -130,7 +130,7 @@ describe("Notifications module", () => {
   });
 
   describe("scheduleAllNotifications", () => {
-    it("cancels all and returns 0 when disabled", async () => {
+    it("still schedules mandatory prayers even when the stored master flag is off", async () => {
       (AsyncStorage.getItem as any).mockImplementation((key: string) => {
         if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: false });
         if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
@@ -139,7 +139,9 @@ describe("Notifications module", () => {
       });
       const count = await scheduleAllNotifications("nl");
       expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
-      expect(count).toBe(0);
+      // Prayer reminders are obligatory: loadNotificationPrefs coerces `enabled`
+      // and the 5 fard prayers back on, so scheduling proceeds regardless.
+      expect(count).toBeGreaterThan(0);
     });
 
     it("returns 0 when no location is set", async () => {

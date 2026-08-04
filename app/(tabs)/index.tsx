@@ -1,12 +1,15 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
-import { useRouter } from "expo-router";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet, Linking, Alert } from "react-native";
+import { DONATE_URL } from "@/constants/donate";
+import { useRemoteConfig } from "@/hooks/use-remote-config";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getYearKey, getWeekInYear, type DailyCheckin } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
+import { weatherLabel } from "@/lib/weather";
 import { loadNotificationPrefs, type NotificationPrefs } from "@/lib/notifications";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
@@ -80,8 +83,10 @@ export default function AlgemeenScreen() {
   const { state, loading, saveDailyCheckin, rehydrateFromServer } = useAppState();
   const { t, language, isRTL, languageSelected } = useI18n();
   const lang = language as Lang;
+  const remoteCfg = useRemoteConfig();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
+  const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
   // Daily check-in state
@@ -200,7 +205,7 @@ export default function AlgemeenScreen() {
     }, 2000);
   };
 
-  useEffect(() => {
+  const reloadPrayerData = useCallback(() => {
     Promise.all([
       AsyncStorage.getItem(PRAYER_LOCATION_KEY),
       AsyncStorage.getItem(PRAYER_METHOD_KEY),
@@ -215,10 +220,51 @@ export default function AlgemeenScreen() {
     });
   }, []);
 
+  // Re-read on every focus (not just cold start), so a location set on the
+  // Settings or Qibla screen updates the home screen's prayer times immediately.
+  useFocusEffect(reloadPrayerData);
+
   useEffect(() => {
     const interval = setInterval(() => setCurrentTime(new Date()), 30000);
     return () => clearInterval(interval);
   }, []);
+
+  // Fetch weather for the user's location (Open-Meteo, free). Refreshes when
+  // the saved location changes.
+  useEffect(() => {
+    const lat = prayerLocation?.lat, lng = prayerLocation?.lng;
+    if (lat == null || lng == null) return;
+    let cancelled = false;
+    (async () => {
+      const { fetchWeather } = await import("@/lib/weather");
+      // Retry a few times: a single transient failure used to leave the pill
+      // blank until the location changed (which it almost never does), so the
+      // weather looked permanently "gone". Never overwrite a good value with null.
+      for (let attempt = 0; attempt < 3 && !cancelled; attempt++) {
+        const w = await fetchWeather(lat, lng);
+        if (w) { if (!cancelled) setWeather(w); return; }
+        await new Promise((r) => setTimeout(r, 1500 * (attempt + 1)));
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [prayerLocation?.lat, prayerLocation?.lng]);
+
+  // Recovery: if the weather never loaded (offline/slow at launch), retry each
+  // time Home regains focus so it fills in without needing a full app restart.
+  useFocusEffect(
+    useCallback(() => {
+      if (weather) return;
+      const lat = prayerLocation?.lat, lng = prayerLocation?.lng;
+      if (lat == null || lng == null) return;
+      let cancelled = false;
+      (async () => {
+        const { fetchWeather } = await import("@/lib/weather");
+        const w = await fetchWeather(lat, lng);
+        if (w && !cancelled) setWeather(w);
+      })();
+      return () => { cancelled = true; };
+    }, [weather, prayerLocation?.lat, prayerLocation?.lng])
+  );
 
   // Smart night detection - show qiyam reminder if app opened at night
   useEffect(() => {
@@ -397,8 +443,27 @@ export default function AlgemeenScreen() {
               <MaterialIcons name="child-care" size={22} color="#1565C0" />
             </Pressable>
           )}
+          {/* صدقة — الرئيسية، بجانب زر الطفل (msg 577) */}
+          <Pressable
+            onPress={() => {
+              const donateUrl = remoteCfg.donateUrl || DONATE_URL;
+              if (donateUrl) Linking.openURL(donateUrl);
+              else Alert.alert(
+                tx(lang, "Doneer (Sadaqah)", "Give Sadaqah", "تصدّق"),
+                tx(lang, "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.", "The donation (Sadaqah) option will be available soon, in shaa Allaah.", "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله."),
+              );
+            }}
+            style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#2E7D32" }, pressed && { opacity: 0.6 }]}
+          >
+            <MaterialIcons name="volunteer-activism" size={20} color="#fff" />
+          </Pressable>
         </View>
-        <Text style={s.headerTitle}>تربية <Text style={s.headerTitleEn}>Tarbiyah</Text></Text>
+        {/* Brand: logo on the right, name «ربّانيّ» on the left (RTL: dot is
+            the first child → renders on the right, name second → left). */}
+        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <Image source={require("@/assets/images/icon.png")} style={s.brandLogo} resizeMode="contain" />
+          <Text style={s.headerTitle}>{tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}</Text>
+        </View>
       </View>
       {syncResult && (
         <View style={{ backgroundColor: "#E8F5E9", paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, marginBottom: 8 }}>
@@ -450,6 +515,17 @@ export default function AlgemeenScreen() {
         ) : null}
       </View>
       <Text style={s.gregorianDate}>{gregorianDateStr}</Text>
+
+      {/* ═══════════ WEATHER (below the Gregorian date → dedicated page) ═══════════ */}
+      {weather ? (
+        <TouchableOpacity onPress={() => router.push("/weather" as any)} activeOpacity={0.8} style={s.weatherPill}>
+          <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
+          <Text style={s.weatherTemp}>{weather.temp}°</Text>
+          <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
+          <Text style={s.weatherRange}>{weather.todayMax}° / {weather.todayMin}°</Text>
+          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#1B4332" />
+        </TouchableOpacity>
+      ) : null}
 
       {/* ═══════════ PRAYER CARD (always visible) ═══════════ */}
       {nextPrayer && prayerCountdown && prayerTimes ? (
@@ -597,15 +673,19 @@ export default function AlgemeenScreen() {
           </Pressable>
         </View>
       ) : (
-        /* Collapsed summary after answering - merged with tip */
-        <View style={s.checkinSection}>
-          <View style={s.tipBanner}>
-            <MaterialIcons name="lightbulb" size={18} color="#C4A35A" />
-            <Text style={s.tipBannerText}>{todayMainTip}</Text>
-          </View>
-          <View style={s.checkinDismissedCard}>
-            <MaterialIcons name="check-circle" size={18} color="#1B4332" />
-            <Text style={s.checkinDismissedText}>
+        /* Collapsed summary after answering - tip banner full-width + tappable */
+        <View style={[s.checkinSection, { marginHorizontal: 16, marginBottom: 16, gap: 8 }]}>
+          <Pressable
+            onPress={() => router.push("/details/tips-today" as any)}
+            style={({ pressed }) => [s.tipBanner, { marginHorizontal: 0, marginBottom: 0 }, pressed && { opacity: 0.85 }]}
+          >
+            <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
+            <Text style={[s.tipBannerText, { flex: 1 }]} numberOfLines={3}>{todayMainTip}</Text>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#C4A35A" />
+          </Pressable>
+          <View style={[s.checkinDismissedCard, { marginHorizontal: 0, marginBottom: 0 }]}>
+            <MaterialIcons name="check-circle" size={16} color="#1B4332" />
+            <Text style={s.checkinDismissedText} numberOfLines={2}>
               {tx(lang, "Dagelijkse check-in voltooid", "Daily check-in completed", "تم إكمال المراجعة اليومية")}
             </Text>
           </View>
@@ -749,6 +829,13 @@ export default function AlgemeenScreen() {
 
       {quickActionsExpanded && (
       <View style={s.actionsGrid}>
+        <Pressable onPress={() => router.push("/sunnah" as any)} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
+          <View style={[s.actionIcon, { backgroundColor: "#E8F5EC" }]}>
+            <MaterialIcons name="auto-stories" size={24} color="#1B4332" />
+          </View>
+          <Text style={s.actionLabel}>{tx(lang, "Soennah", "Sunnah", "رفيق السنّة")}</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.push("/(tabs)/weekly")} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
           <View style={[s.actionIcon, { backgroundColor: "#E8F5E9" }]}>
             <MaterialIcons name="checklist" size={24} color="#1B4332" />
@@ -858,13 +945,27 @@ const s = StyleSheet.create({
 
   header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B4332" },
+  brandLogo: { width: 36, height: 36 },
   headerTitleEn: { fontSize: 24, fontWeight: "300", color: "#1B4332" },
   settingsBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F7F6", alignItems: "center", justifyContent: "center" },
 
   datePill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginHorizontal: 40, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#F0F7F2", borderRadius: 20, marginBottom: 2 },
   dateText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
   dateSep: { color: "#9CA3AF", marginHorizontal: 2 },
-  gregorianDate: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4, marginBottom: 12 },
+  gregorianDate: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4, marginBottom: 8 },
+  weatherPill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: "#EAF3EC", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 10 },
+  weatherTemp: { fontSize: 15, fontWeight: "800", color: "#1B4332" },
+  weatherLabel: { fontSize: 12, color: "#1B4332" },
+  weatherRange: { fontSize: 11, color: "#6B7280" },
+  weatherCard: { backgroundColor: "#fff", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 14, marginBottom: 12, marginHorizontal: 4 },
+  weatherNote: { fontSize: 13, color: "#374151", textAlign: "center", marginBottom: 8 },
+  weatherDua: { fontSize: 16, color: "#1B4332", fontWeight: "700", textAlign: "center", lineHeight: 28 },
+  weatherSrc: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4 },
+  weatherGhayb: { fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 10, fontStyle: "italic" },
+  weatherForecast: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  wfDay: { alignItems: "center", gap: 3, flex: 1 },
+  wfDate: { fontSize: 10, color: "#9CA3AF" },
+  wfTemp: { fontSize: 11, color: "#374151", fontWeight: "600" },
 
   // Prayer card
   prayerCard: { marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1.5, borderColor: "#1B433220", padding: 12, shadowColor: "#1B4332", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },

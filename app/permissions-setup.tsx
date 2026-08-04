@@ -100,16 +100,21 @@ export default function PermissionsSetupScreen() {
       status: notifStatus === "granted" ? "granted" : notifStatus, // Tied to notification permission
     });
 
-    // 4. Do Not Disturb (DND) / Phone Silence
+    // 4. Do Not Disturb (DND) / Phone Silence.
+    // Silencing the ringer at prayer time needs Android's "Do Not Disturb
+    // access" (ACCESS_NOTIFICATION_POLICY). react-native-volume-manager can
+    // actually report whether it's granted, so detect it instead of guessing.
     let dndStatus: PermissionStatus = "undetermined";
     if (Platform.OS === "android") {
-      // Android needs NOTIFICATION_POLICY_ACCESS for DND
-      // We can't check this directly from Expo, mark as undetermined
-      dndStatus = "undetermined";
-    } else if (Platform.OS === "ios") {
-      // iOS doesn't have DND permission API - it's managed by Focus modes
-      dndStatus = "unavailable";
+      try {
+        const { VolumeManager } = require("react-native-volume-manager");
+        const hasAccess = await VolumeManager.checkDndAccess();
+        dndStatus = hasAccess ? "granted" : "denied";
+      } catch {
+        dndStatus = "undetermined";
+      }
     } else {
+      // iOS DND is managed by system Focus modes, no app-grantable permission.
       dndStatus = "unavailable";
     }
     items.push({
@@ -123,6 +128,21 @@ export default function PermissionsSetupScreen() {
       descEn: "To automatically silence the phone during prayer and Iqamah time",
       descNl: "Om de telefoon automatisch te dempen tijdens gebed en Iqamah",
       status: dndStatus,
+    });
+
+    // 4b. Battery optimization exemption (Android) — so notifications keep
+    // firing while the app is closed (Doze/OEM battery managers cancel alarms).
+    items.push({
+      id: "battery",
+      icon: "battery-alert",
+      iconColor: "#F59E0B",
+      titleAr: "استثناء من توفير البطارية",
+      titleEn: "Battery Optimization Exemption",
+      titleNl: "Uitzondering batterijoptimalisatie",
+      descAr: "حتى تصل إشعارات الصلاة والنصائح والتطبيق مغلق",
+      descEn: "So prayer & advice notifications arrive while the app is closed",
+      descNl: "Zodat gebed- en adviesmeldingen aankomen terwijl de app gesloten is",
+      status: Platform.OS === "android" ? "undetermined" : "unavailable",
     });
 
     // 5. Motion sensors (for compass/Qibla)
@@ -160,59 +180,71 @@ export default function PermissionsSetupScreen() {
     checkAllPermissions();
   }, [checkAllPermissions]);
 
-  const requestPermission = async (id: string) => {
+  // Open the most relevant OS settings screen for a permission so the user can
+  // always review or change it — even after it's granted. (Daa3iyah: the buttons
+  // must always take me to the settings to modify them; battery did nothing.)
+  const openPermissionSettings = async (id: string) => {
+    if (Platform.OS !== "android") { Linking.openSettings(); return; }
+    const IntentLauncher = require("expo-intent-launcher");
+    let pkg = "com.app.opvoedadvies.apk";
+    try { const Application = require("expo-application"); if (Application?.applicationId) pkg = Application.applicationId; } catch {}
+    try {
+      if (id === "battery") {
+        await IntentLauncher.startActivityAsync("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS");
+      } else if (id === "dnd") {
+        await IntentLauncher.startActivityAsync("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS");
+      } else if (id === "notifications" || id === "audio_notifications") {
+        await IntentLauncher.startActivityAsync("android.settings.APP_NOTIFICATION_SETTINGS", {
+          extra: { "android.provider.extra.APP_PACKAGE": pkg },
+        });
+      } else {
+        await IntentLauncher.startActivityAsync(IntentLauncher.ActivityAction.APPLICATION_DETAILS_SETTINGS, {
+          data: "package:" + pkg,
+        });
+      }
+    } catch {
+      Linking.openSettings();
+    }
+  };
+
+  const requestPermission = async (id: string, status?: PermissionStatus) => {
     if (Platform.OS === "web") return;
+
+    // Battery & DND have no in-app prompt (the battery direct-request silently
+    // did nothing on some devices). Already-granted permissions also jump straight
+    // to their settings so the user can review or toggle them off.
+    if (id === "battery" || id === "dnd" || status === "granted") {
+      await openPermissionSettings(id);
+      setTimeout(() => checkAllPermissions(), 500);
+      return;
+    }
 
     switch (id) {
       case "location": {
         try {
           const Location = require("expo-location");
-          const { status } = await Location.requestForegroundPermissionsAsync();
-          if (status === "denied") {
-            // Open app settings
-            Linking.openSettings();
-          }
-        } catch {}
+          const { status: s } = await Location.requestForegroundPermissionsAsync();
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
       case "notifications":
       case "audio_notifications": {
         try {
           const Notifications = require("expo-notifications");
-          const { status } = await Notifications.requestPermissionsAsync({
+          const { status: s } = await Notifications.requestPermissionsAsync({
             ios: { allowAlert: true, allowBadge: true, allowSound: true },
           });
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {}
-        break;
-      }
-      case "dnd": {
-        if (Platform.OS === "android") {
-          // Open Android DND settings
-          try {
-            const IntentLauncher = require("expo-intent-launcher");
-            await IntentLauncher.startActivityAsync("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS");
-          } catch {
-            Linking.openSettings();
-          }
-        } else {
-          // iOS - open Focus settings
-          Linking.openURL("App-prefs:FOCUS");
-        }
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
       case "motion": {
         try {
           const { Magnetometer } = require("expo-sensors");
-          const { status } = await Magnetometer.requestPermissionsAsync();
-          if (status === "denied") {
-            Linking.openSettings();
-          }
-        } catch {
-          // Sensors might not need permission on this device
-        }
+          const { status: s } = await Magnetometer.requestPermissionsAsync();
+          if (s !== "granted") await openPermissionSettings(id);
+        } catch { await openPermissionSettings(id); }
         break;
       }
     }
@@ -274,7 +306,7 @@ export default function PermissionsSetupScreen() {
         {permissions.filter(p => p.status !== "unavailable").map((perm) => (
           <Pressable
             key={perm.id}
-            onPress={() => requestPermission(perm.id)}
+            onPress={() => requestPermission(perm.id, perm.status)}
             style={({ pressed }) => [{
               backgroundColor: perm.status === "granted" ? "#F0FDF4" : "#FFFFFF",
               borderWidth: 1.5,

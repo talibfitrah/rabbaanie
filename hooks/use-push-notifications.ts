@@ -4,6 +4,8 @@ import * as Notifications from "expo-notifications";
 import * as Device from "expo-device";
 import { trpc } from "@/lib/trpc";
 import { handleIqamahSilenceAction } from "@/lib/iqamah-silence";
+import { checkForUpdate } from "@/hooks/use-updates";
+import { syncLanguageToServer } from "@/lib/language-sync";
 
 async function registerForPushNotificationsAsync(): Promise<string | null> {
   // The backend currently has an FCM sender only. Never register an iOS APNs
@@ -50,11 +52,12 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
   // The production backend sends with firebase-admin and therefore needs the
   // native Android FCM token. An Expo token (ExponentPushToken[...]) is only
   // understood by Expo's push service and silently fails when handed to FCM.
+  // Requires Firebase configured via app.config android.googleServicesFile.
   try {
     const tokenData = await Notifications.getDevicePushTokenAsync();
     return typeof tokenData.data === "string" ? tokenData.data : null;
   } catch (e) {
-    console.warn("[Push] Error getting push token:", e);
+    console.warn("[Push] Error getting FCM device token:", e);
     return null;
   }
 }
@@ -66,6 +69,7 @@ async function registerForPushNotificationsAsync(): Promise<string | null> {
 export function usePushNotifications(isAuthenticated: boolean) {
   const { mutateAsync: registerToken } =
     trpc.specialist.registerPushToken.useMutation();
+  const updateLocationMutation = (trpc.specialist as any).updateMyLocation.useMutation();
   const registered = useRef(false);
 
   useEffect(() => {
@@ -82,10 +86,32 @@ export function usePushNotifications(isAuthenticated: boolean) {
         try {
           await registerToken({ token });
           registered.current = true;
+          // The user is authenticated here, so push the chosen app language to
+          // the server (it may have been selected before login and never synced,
+          // which is why server-sent notifications defaulted to Dutch).
+          void syncLanguageToServer();
           console.log("[Push] Token registered");
         } catch (e) {
           console.warn("[Push] Failed to register token with server:", e);
         }
+      }
+      // Report the user's prayer location so the owner can see where each user
+      // is — regardless of whether a push token was obtained (FCM may be absent).
+      try {
+        const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
+        const raw = await AsyncStorage.getItem("@prayer_location");
+        if (raw) {
+          const loc = JSON.parse(raw);
+          if (loc?.lat != null && loc?.lng != null) {
+            await updateLocationMutation.mutateAsync({
+              lat: String(loc.lat),
+              lng: String(loc.lng),
+              city: [loc.city, loc.country].filter(Boolean).join(", "),
+            });
+          }
+        }
+      } catch (e) {
+        console.warn("[Location] failed to report:", e);
       }
     };
 
@@ -129,6 +155,14 @@ export function usePushNotifications(isAuthenticated: boolean) {
         }
         if (data?.type === "iqamah_restore") {
           handleIqamahSilenceAction("restore");
+          return;
+        }
+
+        if (data?.type === "app_update") {
+          // New-version push: re-check our own manifest (which re-validates the
+          // download URL) and show the standard "update available" dialog. The
+          // push payload's version is never trusted to drive the download.
+          checkForUpdate(false);
           return;
         }
 

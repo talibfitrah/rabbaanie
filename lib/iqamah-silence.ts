@@ -21,6 +21,9 @@ import {
 // ============ STORAGE KEYS ============
 
 export const IQAMAH_SILENCE_PREFS_KEY = "@iqamah_silence_prefs";
+// Remembers the phone's ringer mode from just before we silenced it, so restore
+// returns it to exactly that (vibrate stays vibrate, etc.) instead of forcing normal.
+const IQAMAH_PRIOR_RINGER_KEY = "@iqamah_prior_ringer_mode";
 
 // ============ TYPES ============
 
@@ -72,7 +75,7 @@ export async function saveIqamahSilencePrefs(prefs: IqamahSilencePrefs): Promise
 
 // ============ ANDROID CHANNEL ============
 
-const IQAMAH_CHANNEL_ID = "iqamah_silence";
+const IQAMAH_CHANNEL_ID = "iqamah_silence_v2";
 
 async function setupIqamahChannel(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -265,17 +268,65 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
         await VolumeManager.requestDndAccess();
         return;
       }
-      // Set to silent mode
+      // Capture the ringer mode from BEFORE this silence period, exactly once,
+      // so restore returns it precisely (vibrate stays vibrate). The silence
+      // action can fire twice for one prayer — once when the notification is
+      // received, once if the user taps it — so we must NOT re-capture our own
+      // "silent" state over the real prior mode: store only when no prior is
+      // already saved AND the phone isn't already silent.
+      try {
+        const alreadyCaptured = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+        if (alreadyCaptured === null) {
+          const current = await VolumeManager.getRingerMode();
+          if (current !== undefined && current !== null && current !== RINGER_MODE.silent) {
+            await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+          }
+        }
+      } catch {}
+      // Mute the ringer for the iqamah period.
       await VolumeManager.setRingerMode(RINGER_MODE.silent);
     } else if (action === "restore") {
       const hasAccess = await VolumeManager.checkDndAccess();
-      if (hasAccess) {
-        // Restore to normal mode
-        await VolumeManager.setRingerMode(RINGER_MODE.normal);
-      }
+      if (!hasAccess) return;
+      // Restore to the exact mode from before we silenced. If nothing was
+      // captured (silence never ran, DND wasn't granted, or the phone was
+      // already silent), do NOTHING — never force "normal", which would raise a
+      // phone the user had deliberately left on vibrate/silent. Read-and-clear
+      // so a second restore (received + tapped) is a harmless no-op.
+      const stored = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+      if (stored === null) return;
+      const priorMode = Number(stored) as typeof RINGER_MODE.normal;
+      await VolumeManager.setRingerMode(priorMode);
+      await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
     }
   } catch (err) {
     console.warn("Failed to change ringer mode:", err);
+  }
+}
+
+/**
+ * Manually put the ringer back to normal. For when an iqamah silence period
+ * didn't auto-restore (e.g. the app was closed when the restore notification
+ * fired, so its handler never ran) and the phone is stuck silent. User-initiated
+ * from settings, so forcing "normal" is intended here — unlike the automatic
+ * restore, which deliberately never forces normal. Returns false if DND access
+ * isn't granted (and requests it) or the volume module is unavailable.
+ */
+export async function restorePhoneSound(): Promise<boolean> {
+  if (Platform.OS !== "android") return false;
+  try {
+    const { VolumeManager, RINGER_MODE } = await import("react-native-volume-manager");
+    const hasAccess = await VolumeManager.checkDndAccess();
+    if (!hasAccess) {
+      await VolumeManager.requestDndAccess();
+      return false;
+    }
+    await VolumeManager.setRingerMode(RINGER_MODE.normal);
+    await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+    return true;
+  } catch (err) {
+    console.warn("Failed to restore phone sound:", err);
+    return false;
   }
 }
 
@@ -309,8 +360,10 @@ function createTriggerDateForIqamah(
   const tzDate = new Date(tzStr);
   const offsetMs = tzDate.getTime() - utcDate.getTime();
 
-  const targetLocal = new Date(year, month, day, targetH, targetM, 0, 0);
-  const targetUTC = new Date(targetLocal.getTime() - offsetMs);
+  // targetH:targetM is wall-clock in `timezone`; build as UTC wall-clock then
+  // subtract the tz offset. (new Date(y,m,d,H,M) would re-apply the device
+  // offset on top of offsetMs, firing 1-2h early off UTC.)
+  const targetUTC = new Date(Date.UTC(year, month, day, targetH, targetM, 0, 0) - offsetMs);
 
   return targetUTC;
 }

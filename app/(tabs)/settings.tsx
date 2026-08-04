@@ -1,5 +1,5 @@
 import React, { useState, useCallback, useEffect, useRef } from "react";
-import { View, Text, Pressable, ScrollView, Alert, Platform, ActivityIndicator, Linking, TextInput, FlatList,
+import { View, Text, Pressable, ScrollView, Alert, Platform, ActivityIndicator, Linking, Share, TextInput, FlatList,
   KeyboardAvoidingView,
 } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -11,6 +11,10 @@ import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
+import { DONATE_URL } from "@/constants/donate";
+import { SUPPORT_WHATSAPP } from "@/constants/support";
+import { useRemoteConfig } from "@/hooks/use-remote-config";
+import { withTimeout } from "@/lib/location-utils";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import {
   PRAYER_LOCATION_KEY,
@@ -60,6 +64,9 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
+import { useSubscription } from "@/hooks/use-subscription";
+import * as Clipboard from "expo-clipboard";
+import { getSessionRole } from "@/lib/_core/auth";
 
 
 const REMINDER_OPTIONS_KEYS = [
@@ -189,11 +196,16 @@ export default function SettingsScreen() {
   const router = useRouter();
   const { t, language, setLanguage, isRTL } = useI18n();
   const isEn = language === "en";
+  const remoteCfg = useRemoteConfig();
   const { colorScheme, setColorScheme } = useThemeContext();
   const isDark = colorScheme === "dark";
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
   const { isAuthenticated, logout } = useAuth();
   const deleteAccountMutation = trpc.profile.deleteAccount.useMutation();
+  const { subscribed } = useSubscription();
+  const [adminRole, setAdminRole] = useState<string | null>(null);
+  useEffect(() => { getSessionRole().then(setAdminRole); }, []);
+  const isAdminUser = ["admin", "super_admin", "moderator"].includes(adminRole || "");
   const myIdQuery = trpc.links.getMyId.useQuery(undefined, { enabled: isAuthenticated });
   const [showFrequency, setShowFrequency] = useState(false);
   const [gpsLoading, setGpsLoading] = useState(false);
@@ -353,7 +365,7 @@ export default function SettingsScreen() {
     try {
       // Stop any currently playing sound
       if (audioRef.current) {
-        try { audioRef.current.pause(); audioRef.current.release(); } catch {}
+        try { await audioRef.current.stopAsync(); await audioRef.current.unloadAsync(); } catch {}
         audioRef.current = null;
       }
       
@@ -389,9 +401,19 @@ export default function SettingsScreen() {
       }
       
       const { Audio } = require("expo-av");
-      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true });
+      // Route through the loudspeaker at media volume even on silent — without
+      // this expo-av can play through the earpiece (inaudible) on Android.
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+          staysActiveInBackground: false,
+        });
+      } catch {}
+      const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1.0 });
       audioRef.current = sound;
-      
+
       // Auto-stop after 5 seconds (preview only)
       sound.setOnPlaybackStatusUpdate((status: any) => {
         if (status.didJustFinish || (status.positionMillis && status.positionMillis >= 5000)) {
@@ -644,10 +666,10 @@ export default function SettingsScreen() {
       let city = "";
       let country = "";
       try {
-        const geocodeResults = await Location.reverseGeocodeAsync({
+        const geocodeResults = await withTimeout<any>(Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        });
+        }), 8000);
         if (geocodeResults && geocodeResults.length > 0) {
           const geo = geocodeResults[0];
           city = geo.city || geo.subregion || geo.region || "";
@@ -751,10 +773,10 @@ export default function SettingsScreen() {
       let city = "";
       let country = "";
       try {
-        const geocodeResults = await Location.reverseGeocodeAsync({
+        const geocodeResults = await withTimeout<any>(Location.reverseGeocodeAsync({
           latitude: pos.coords.latitude,
           longitude: pos.coords.longitude,
-        });
+        }), 8000);
         if (geocodeResults && geocodeResults.length > 0) {
           const geo = geocodeResults[0];
           city = geo.city || geo.subregion || geo.region || "";
@@ -1187,6 +1209,25 @@ export default function SettingsScreen() {
         {t("settings.title")}
       </Text>
 
+      {/* Subscription — prominent dedicated entry (msg 704/724) */}
+      <Pressable
+        onPress={() => router.push("/subscribe" as any)}
+        style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, backgroundColor: colors.primary, borderRadius: 16, padding: 16, marginBottom: 16, opacity: pressed ? 0.9 : 1 }]}
+      >
+        <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: "#ffffff22", alignItems: "center", justifyContent: "center" }}>
+          <MaterialIcons name="workspace-premium" size={26} color="#fff" />
+        </View>
+        <View style={{ flex: 1 }}>
+          <Text style={{ color: "#fff", fontSize: 16, fontWeight: "800", textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "اشتراكي" : isEn ? "My subscription" : "Mijn abonnement"}</Text>
+          <Text style={{ color: "#ffffffcc", fontSize: 12, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+            {subscribed
+              ? (language === "ar" ? "أنت مشترك ✓ — اطّلع على التفاصيل" : isEn ? "Subscribed ✓ — view details" : "Geabonneerd ✓ — details")
+              : (language === "ar" ? "اطّلع على اشتراكك والخدمات" : isEn ? "View your subscription & services" : "Bekijk uw abonnement en diensten")}
+          </Text>
+        </View>
+        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color="#ffffffcc" />
+      </Pressable>
+
       {/* Quick status summary */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 16, flexWrap: "wrap" }}>
         <View style={{ flex: 1, minWidth: 100, backgroundColor: colors.primary + "12", borderRadius: 12, padding: 12, alignItems: "center" }}>
@@ -1203,19 +1244,23 @@ export default function SettingsScreen() {
         </View>
       </View>
 
-      {/* My ID card */}
+      {/* My ID card — tappable to copy (msg 743) */}
       {isAuthenticated && myIdQuery.data?.publicId && (
-        <View style={{ backgroundColor: colors.primary + "08", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+        <Pressable
+          onPress={() => { Clipboard.setStringAsync(myIdQuery.data?.publicId ?? ""); Alert.alert(language === "ar" ? "تمّ النسخ" : isEn ? "Copied" : "Gekopieerd", myIdQuery.data?.publicId ?? ""); }}
+          style={({ pressed }) => [{ backgroundColor: colors.primary + "08", borderRadius: 12, padding: 14, marginBottom: 16, borderWidth: 1, borderColor: colors.primary + "30", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, opacity: pressed ? 0.7 : 1 }]}
+        >
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
-            <Text style={{ fontSize: 18 }}>🆔</Text>
+            <MaterialIcons name="badge" size={22} color={colors.primary} />
           </View>
           <View style={{ flex: 1 }}>
-            <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "رقم هويتي" : isEn ? "My ID" : "Mijn ID"}</Text>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1 }}>
+            <Text style={{ color: colors.muted, fontSize: 10, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "رقمي المميّز (انقر للنسخ)" : isEn ? "My ID (tap to copy)" : "Mijn ID (tik om te kopiëren)"}</Text>
+            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, textAlign: isRTL ? "right" : "left" }}>
               {myIdQuery.data.publicId}
             </Text>
           </View>
-        </View>
+          <MaterialIcons name="content-copy" size={18} color={colors.primary} />
+        </Pressable>
       )}
 
       {/* Dark mode & Language */}
@@ -1437,6 +1482,54 @@ export default function SettingsScreen() {
         </View>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color={colors.muted} />
       </Pressable>
+      {/* الدعم والتواصل — تصدّق / تواصل مع الفريق التقني / اقتراح (msg 564) */}
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 8, marginTop: 4, textAlign: isRTL ? "right" : "left" }}>
+        {language === "ar" ? "الدعم والتواصل" : isEn ? "Support & contact" : "Steun & contact"}
+      </Text>
+      <View style={{ backgroundColor: colors.surface, borderRadius: 16, marginBottom: 16, overflow: "hidden" }}>
+        {[
+          { key: "share", icon: "share", color: "#1B4332", ar: "شارك ربّانيّ", nl: "Deel Rabbaanie", en: "Share Rabbaanie" },
+          { key: "donate", icon: "volunteer-activism", color: "#2E7D32", ar: "تصدّق", nl: "Doneer (Sadaqah)", en: "Give Sadaqah" },
+          { key: "contact", icon: "mail-outline", color: "#0891B2", ar: "تواصل مع الفريق التقني", nl: "Contact het technisch team", en: "Contact the technical team" },
+          { key: "whatsapp", icon: "chat", color: "#25D366", ar: "تواصل عبر واتساب", nl: "Direct via WhatsApp", en: "Chat on WhatsApp" },
+          { key: "suggestion", icon: "lightbulb-outline", color: "#7C3AED", ar: "اقترح فكرةً", nl: "Doe een suggestie", en: "Send a suggestion" },
+        ].map((row, i) => (
+          <Pressable key={row.key}
+            onPress={() => {
+              if (row.key === "share") {
+                Share.share({ message: (language === "ar" ? "ربّانيّ: رفيقُك في تربيةٍ إسلاميّةٍ عائليّة على الكتاب والسنّة وفهم الصحابة، بلا إعلانات. جرّبه:\nhttps://www.rabbaanie.com" : isEn ? "Rabbaanie: your companion for Islamic family upbringing upon the Qur'aan, the Sunnah and the understanding of the Companions, ad-free. Try it:\nhttps://www.rabbaanie.com" : "Rabbaanie: jouw metgezel voor islamitische gezinsopvoeding volgens de Qur'aan, de Soennah en het begrip van de metgezellen, advertentievrij. Probeer het:\nhttps://www.rabbaanie.com") }).catch(() => {});
+                return;
+              }
+              if (row.key === "donate") {
+                const donateUrl = remoteCfg.donateUrl || DONATE_URL;
+                if (donateUrl) Linking.openURL(donateUrl);
+                else Alert.alert(
+                  language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
+                  language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
+                );
+              } else if (row.key === "whatsapp") {
+                const wa = remoteCfg.supportWhatsapp || SUPPORT_WHATSAPP;
+                const ctx = language === "ar" ? "السلام عليكم، أحتاج مساعدةً تقنيّةً في تطبيق ربّانيّ" : isEn ? "As-salaamu 3alaykum, I need technical help with the Rabbaanie app" : "As-salaamu 3alaykum, ik heb technische hulp nodig bij de Rabbaanie-app";
+                if (wa) Linking.openURL(`https://wa.me/${wa}?text=${encodeURIComponent(ctx)}`);
+                else Alert.alert(
+                  language === "ar" ? "واتساب الفريق" : isEn ? "Team WhatsApp" : "WhatsApp van het team",
+                  language === "ar" ? "سيُفعَّل التواصل عبر واتساب قريبًا إن شاء الله." : isEn ? "WhatsApp contact will be available soon, in shaa Allaah." : "Contact via WhatsApp komt binnenkort, in shaa Allaah.",
+                );
+              } else if (row.key === "contact") router.push("/support" as any);
+              else router.push(`/feedback?kind=${row.key}` as any);
+            }}
+            style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", padding: 14, borderTopWidth: i === 0 ? 0 : 0.5, borderTopColor: colors.border, opacity: pressed ? 0.7 : 1 }]}
+          >
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+              <View style={{ width: 38, height: 38, borderRadius: 10, backgroundColor: row.color + "15", alignItems: "center", justifyContent: "center" }}>
+                <MaterialIcons name={row.icon as any} size={20} color={row.color} />
+              </View>
+              <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? row.ar : isEn ? row.en : row.nl}</Text>
+            </View>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={22} color={colors.muted} />
+          </Pressable>
+        ))}
+      </View>
       <SettingsCollapsible title={language === "ar" ? "الموقع" : isEn ? "Location" : "Locatie"} icon="location-on" colors={colors} isRTL={isRTL}>
         <Text className="text-xs mb-4 leading-4" style={{ color: colors.muted }}>
           {t("settings.gps_desc_full")}
@@ -1701,12 +1794,18 @@ export default function SettingsScreen() {
       <SettingsCollapsible title={language === "ar" ? "الملف الشخصي" : isEn ? "My Profile" : "Mijn Profiel"} icon="person" colors={colors} isRTL={isRTL} defaultOpen={false}>
         {/* ID display */}
         {isAuthenticated && myIdQuery.data?.publicId && (
-          <View style={{ backgroundColor: colors.primary + "08", borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.primary + "20" }}>
-            <Text style={{ color: colors.muted, fontSize: 11 }}>{language === "ar" ? "رقم هويتي" : isEn ? "My ID" : "Mijn ID"}</Text>
-            <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, marginTop: 2 }}>
-              {myIdQuery.data.publicId}
-            </Text>
-          </View>
+          <Pressable
+            onPress={() => { Clipboard.setStringAsync(myIdQuery.data?.publicId ?? ""); Alert.alert(language === "ar" ? "تمّ النسخ" : isEn ? "Copied" : "Gekopieerd", myIdQuery.data?.publicId ?? ""); }}
+            style={({ pressed }) => [{ backgroundColor: colors.primary + "08", borderRadius: 10, padding: 12, marginBottom: 12, borderWidth: 1, borderColor: colors.primary + "20", opacity: pressed ? 0.7 : 1 }]}
+          >
+            <Text style={{ color: colors.muted, fontSize: 11, textAlign: isRTL ? "right" : "left" }}>{language === "ar" ? "رقمي المميّز (انقر للنسخ)" : isEn ? "My ID (tap to copy)" : "Mijn ID (tik om te kopiëren)"}</Text>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginTop: 2 }}>
+              <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "800", fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", letterSpacing: 1, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+                {myIdQuery.data.publicId}
+              </Text>
+              <MaterialIcons name="content-copy" size={16} color={colors.primary} />
+            </View>
+          </Pressable>
         )}
         {/* Spouse/Mother info if married */}
         {state.parentProfile.gender === "man" && state.parentProfile.partnerName && (
@@ -1874,6 +1973,37 @@ export default function SettingsScreen() {
         <UpdateSection colors={colors} language={language} isRTL={isRTL} isEn={isEn} />
       </SettingsCollapsible>
 
+      {/* Owner / Admin panel — only for admin-role accounts */}
+      {isAdminUser && (
+        <Pressable
+          onPress={() => router.push("/admin/panel" as any)}
+          style={({ pressed }) => [{
+            backgroundColor: "#EDE7F6",
+            borderWidth: 1,
+            borderColor: "#7C3AED30",
+            borderRadius: 12,
+            paddingVertical: 16,
+            paddingHorizontal: 16,
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            gap: 12,
+            marginTop: 16,
+            opacity: pressed ? 0.7 : 1,
+          }]}
+        >
+          <MaterialIcons name="admin-panel-settings" size={22} color="#7C3AED" />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontWeight: "bold", color: "#7C3AED", fontSize: 14, textAlign: isRTL ? "right" : "left" }}>
+              {language === "ar" ? "لوحة الإدارة" : language === "en" ? "Admin Panel" : "Beheerpaneel"}
+            </Text>
+            <Text style={{ color: "#9575CD", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+              {language === "ar" ? "المستخدمون، الصلاحيات، التقارير والأرقام" : language === "en" ? "Users, permissions, reports" : "Gebruikers, rechten, rapporten"}
+            </Text>
+          </View>
+          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#7C3AED" />
+        </Pressable>
+      )}
+
       {/* Specialist Registration */}
       <Pressable
         onPress={() => router.push("/specialist/register" as any)}
@@ -1920,10 +2050,10 @@ export default function SettingsScreen() {
           opacity: pressed ? 0.7 : 1,
         }]}
       >
-        <MaterialIcons name="school" size={22} color="#2E7D32" />
+        <MaterialIcons name="menu-book" size={22} color="#2E7D32" />
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: "bold", color: "#2E7D32", fontSize: 14 }}>
-            Specialist Dashboard
+            {language === "ar" ? "لوحة المتخصص" : language === "en" ? "Specialist Dashboard" : "Specialistendashboard"}
           </Text>
           <Text style={{ color: "#4CAF50", fontSize: 11, marginTop: 2 }}>
             {language === "ar" ? "إدارة ملفك ومشاهدة العائلات المعينة" : language === "en" ? "Manage your profile and view assigned families" : "Beheer je profiel en bekijk toegewezen gezinnen"}
@@ -2537,6 +2667,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
   const [chatNotifications, setChatNotifications] = useState(true);
   const [autoAcceptLinks, setAutoAcceptLinks] = useState(false);
   const [shareDefaults, setShareDefaults] = useState<string[]>(["name", "age", "gender"]);
+  const [open, setOpen] = useState(false);
   const isRTL = language === "ar";
 
   const tx = (nl: string, en: string, ar: string) =>
@@ -2575,10 +2706,17 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
       className="rounded-2xl p-5 mb-4 border"
       style={{ backgroundColor: colors.surface, borderColor: colors.border }}
     >
-      <Text className="text-lg font-bold mb-3" style={{ color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
-        {tx("Communicatie & Delen", "Communication & Sharing", "التواصل والمشاركة")}
-      </Text>
+      <Pressable
+        onPress={() => setOpen((o) => !o)}
+        style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+      >
+        <Text className="text-lg font-bold" style={{ color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+          {tx("Communicatie & Delen", "Communication & Sharing", "التواصل والمشاركة")}
+        </Text>
+        <MaterialIcons name={open ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={24} color={colors.muted} />
+      </Pressable>
 
+      {open && (<View style={{ marginTop: 12 }}>
       {/* Chat notifications toggle */}
       <Pressable
         onPress={toggleChatNotifications}
@@ -2682,6 +2820,7 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
           <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600" }}>{shareDefaults.length}</Text>
         </View>
       </View>
+      </View>)}
     </View>
   );
 }
@@ -2814,11 +2953,15 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
 function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; language: string; isRTL: boolean }) {
   const isEn = language === "en";
   const tx = (nl: string, en: string, ar: string) => language === "ar" ? ar : isEn ? en : nl;
-  const { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS, BACKGROUND_COLORS, TEXT_COLORS, BORDER_COLORS } = require("@/lib/widget-settings");
+  const { loadWidgetSettings, saveWidgetSettings, DEFAULT_WIDGET_SETTINGS, appearanceFor, BACKGROUND_COLORS, TEXT_COLORS, BORDER_COLORS } = require("@/lib/widget-settings");
   type FullWidgetSettings = import("@/lib/widget-settings").FullWidgetSettings;
+  type WidgetType = import("@/lib/widget-settings").WidgetType;
+  type WidgetAppearanceSettings = import("@/lib/widget-settings").WidgetAppearanceSettings;
 
   const [ws, setWs] = React.useState<FullWidgetSettings>(DEFAULT_WIDGET_SETTINGS);
   const [activeTab, setActiveTab] = React.useState<"appearance" | "timing" | "content" | "behavior">("content");
+  // The appearance tab edits one widget type at a time so each can be styled independently.
+  const [activeWidgetType, setActiveWidgetType] = React.useState<WidgetType>("combined");
 
   React.useEffect(() => {
     loadWidgetSettings().then((s: FullWidgetSettings) => setWs(s));
@@ -2836,6 +2979,22 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
     }
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
+
+  // Appearance is edited per widget type. Reads resolve the type's own override (or
+  // the global default); writes are scoped to appearanceByType[activeWidgetType].
+  const activeAppearance: WidgetAppearanceSettings = appearanceFor(ws, activeWidgetType);
+  const updateAppearance = (patch: Partial<WidgetAppearanceSettings>) => {
+    const base = ws.appearanceByType?.[activeWidgetType] ?? ws.appearance;
+    updateSettings({ appearanceByType: { ...(ws.appearanceByType ?? {}), [activeWidgetType]: { ...base, ...patch } } });
+  };
+
+  const widgetTypeLabels: { key: WidgetType; label: string }[] = [
+    { key: "prayer", label: tx("Gebed", "Prayer", "الصلاة") },
+    { key: "dhikr", label: tx("Dhikr", "Dhikr", "الذكر") },
+    { key: "goal", label: tx("Doel", "Goal", "الهدف") },
+    { key: "hijri", label: tx("Hijri", "Hijri", "التاريخ") },
+    { key: "combined", label: tx("Alles", "Combined", "الشامل") },
+  ];
 
   const ToggleRow = ({ label, value, onToggle }: { label: string; value: boolean; onToggle: () => void }) => (
     <Pressable
@@ -2925,12 +3084,12 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
     { key: "behavior" as const, icon: "touch-app", label: tx("Werking", "Behavior", "الفاعلية") },
   ];
 
-  const widgets = [
-    { icon: "schedule", name: tx("Gebedswidget", "Prayer Widget", "ودجت الصلاة"), desc: tx("Volgende gebed en alle tijden", "Next prayer and all times", "الصلاة القادمة وجميع الأوقات") },
-    { icon: "auto-stories", name: tx("Dhikr-widget", "Dhikr Widget", "ودجت الذكر"), desc: tx("Wisselende dhikr met bron", "Rotating dhikr with source", "ذكر متغير مع المصدر والفضل") },
-    { icon: "flag", name: tx("Doel-widget", "Goal Widget", "ودجت الهدف"), desc: tx("Dagelijks opvoeddoel", "Daily parenting goal", "الهدف التربوي اليومي") },
-    { icon: "date-range", name: tx("Hijri-widget", "Hijri Widget", "ودجت التاريخ الهجري"), desc: tx("Hijri datum en evenement", "Hijri date and event", "التاريخ الهجري والمناسبة") },
-    { icon: "dashboard", name: tx("Gecombineerde widget", "Combined Widget", "الودجت الشامل"), desc: tx("Alles in één widget", "All in one widget", "صلاة + ذكر + هدف + تاريخ") },
+  const widgets: { type: WidgetType; icon: string; name: string; desc: string }[] = [
+    { type: "prayer", icon: "schedule", name: tx("Gebedswidget", "Prayer Widget", "ودجت الصلاة"), desc: tx("Volgende gebed en alle tijden", "Next prayer and all times", "الصلاة القادمة وجميع الأوقات") },
+    { type: "dhikr", icon: "auto-stories", name: tx("Dhikr-widget", "Dhikr Widget", "ودجت الذكر"), desc: tx("Wisselende dhikr met bron", "Rotating dhikr with source", "ذكر متغير مع المصدر والفضل") },
+    { type: "goal", icon: "flag", name: tx("Doel-widget", "Goal Widget", "ودجت الهدف"), desc: tx("Dagelijks opvoeddoel", "Daily parenting goal", "الهدف التربوي اليومي") },
+    { type: "hijri", icon: "date-range", name: tx("Hijri-widget", "Hijri Widget", "ودجت التاريخ الهجري"), desc: tx("Hijri datum en evenement", "Hijri date and event", "التاريخ الهجري والمناسبة") },
+    { type: "combined", icon: "dashboard", name: tx("Gecombineerde widget", "Combined Widget", "الودجت الشامل"), desc: tx("Alles in één widget", "All in one widget", "صلاة + ذكر + هدف + تاريخ") },
   ];
 
   return (
@@ -2946,17 +3105,25 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
 
       {/* Available widgets */}
       <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
-        {tx("Beschikbare widgets", "Available Widgets", "الودجت المتاحة")}
+        {tx("Beschikbare widgets — tik om in te stellen", "Available Widgets — tap to configure", "الودجت المتاحة — انقر لضبط كل نوع")}
       </Text>
-      {widgets.map((w, i) => (
-        <View key={i} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, backgroundColor: colors.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: colors.border }}>
+      {widgets.map((w, i) => {
+        const selected = activeWidgetType === w.type;
+        return (
+        <Pressable
+          key={i}
+          onPress={() => { setActiveWidgetType(w.type); setActiveTab("appearance"); }}
+          style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, backgroundColor: selected ? colors.primary + "18" : colors.surface, borderRadius: 10, padding: 12, marginBottom: 6, borderWidth: 1, borderColor: selected ? colors.primary : colors.border, opacity: pressed ? 0.7 : 1 }]}
+        >
           <MaterialIcons name={w.icon as any} size={22} color={colors.primary} />
           <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{w.name}</Text>
             <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{w.desc}</Text>
           </View>
-        </View>
-      ))}
+          <MaterialIcons name="tune" size={18} color={selected ? colors.primary : colors.muted} />
+        </Pressable>
+        );
+      })}
 
       {/* Tab navigation */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 16, marginBottom: 12, backgroundColor: colors.surface, borderRadius: 10, padding: 3 }}>
@@ -3073,37 +3240,53 @@ function WidgetSettingsSection({ colors, language, isRTL }: { colors: any; langu
       {/* ===== APPEARANCE TAB ===== */}
       {activeTab === "appearance" && (
         <View>
-          <OptionRow label={tx("Thema", "Theme Mode", "الوضع")} value={ws.appearance.themeMode}
+          {/* Per-widget-type selector — appearance below applies to the chosen type */}
+          <Text style={{ fontSize: 12, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+            {tx("Widgettype (elk apart)", "Widget type (each separate)", "نوع الودجت (كل نوع على حدة)")}
+          </Text>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6, marginBottom: 14 }}>
+            {widgetTypeLabels.map((wt) => (
+              <Pressable key={wt.key} onPress={() => setActiveWidgetType(wt.key)} style={({ pressed }) => [{
+                backgroundColor: activeWidgetType === wt.key ? colors.primary : colors.surface,
+                borderRadius: 8, paddingVertical: 7, paddingHorizontal: 12,
+                borderWidth: 1, borderColor: activeWidgetType === wt.key ? colors.primary : colors.border,
+                opacity: pressed ? 0.7 : 1,
+              }]}>
+                <Text style={{ fontSize: 11, fontWeight: "700", color: activeWidgetType === wt.key ? "#fff" : colors.foreground }}>{wt.label}</Text>
+              </Pressable>
+            ))}
+          </View>
+          <OptionRow label={tx("Thema", "Theme Mode", "الوضع")} value={activeAppearance.themeMode}
             options={[
               { key: "light", label: tx("Licht", "Light", "فاتح") },
               { key: "dark", label: tx("Donker", "Dark", "داكن") },
               { key: "system", label: tx("Systeem", "System", "تلقائي") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, themeMode: v as any } })}
+            onChange={(v) => updateAppearance({ themeMode: v as any })}
           />
-          <ColorPicker label={tx("Achtergrondkleur", "Background Color", "لون الخلفية")} colors={BACKGROUND_COLORS} value={ws.appearance.backgroundColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, backgroundColor: v as `#${string}` } })} />
-          <ColorPicker label={tx("Tekstkleur", "Text Color", "لون النص")} colors={TEXT_COLORS} value={ws.appearance.textColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, textColor: v as `#${string}` } })} />
-          <OptionRow label={tx("Lettergrootte", "Font Size", "حجم الخط")} value={ws.appearance.fontSize}
+          <ColorPicker label={tx("Achtergrondkleur", "Background Color", "لون الخلفية")} colors={BACKGROUND_COLORS} value={activeAppearance.backgroundColor} onChange={(v) => updateAppearance({ backgroundColor: v as `#${string}` })} />
+          <ColorPicker label={tx("Tekstkleur", "Text Color", "لون النص")} colors={TEXT_COLORS} value={activeAppearance.textColor} onChange={(v) => updateAppearance({ textColor: v as `#${string}` })} />
+          <OptionRow label={tx("Lettergrootte", "Font Size", "حجم الخط")} value={activeAppearance.fontSize}
             options={[
+              { key: "auto", label: tx("Automatisch", "Auto", "تلقائي") },
               { key: "small", label: tx("Klein", "Small", "صغير") },
-              { key: "medium", label: tx("Middel", "Medium", "متوسط") },
               { key: "large", label: tx("Groot", "Large", "كبير") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, fontSize: v as any } })}
+            onChange={(v) => updateAppearance({ fontSize: v as any })}
           />
-          <SliderRow label={tx("Schaal lettergrootte %", "Font Scale %", "نسبة تكبير الخط %")} value={(ws.appearance.fontScale || 100)} min={80} max={150} step={10} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, fontScale: v } })} />
-          <OptionRow label={tx("Hoeken", "Corners", "الزوايا")} value={ws.appearance.cornerStyle}
+          <SliderRow label={tx("Schaal lettergrootte %", "Font Scale %", "نسبة تكبير الخط %")} value={(activeAppearance.fontScale || 100)} min={80} max={150} step={10} onChange={(v) => updateAppearance({ fontScale: v })} />
+          <OptionRow label={tx("Hoeken", "Corners", "الزوايا")} value={activeAppearance.cornerStyle}
             options={[
               { key: "rounded", label: tx("Afgerond", "Rounded", "مستديرة") },
               { key: "sharp", label: tx("Scherp", "Sharp", "حادة") },
             ]}
-            onChange={(v) => updateSettings({ appearance: { ...ws.appearance, cornerStyle: v as any } })}
+            onChange={(v) => updateAppearance({ cornerStyle: v as any })}
           />
-          <ToggleRow label={tx("Toon rand", "Show border", "عرض الحدود")} value={ws.appearance.showBorder} onToggle={() => updateSettings({ appearance: { ...ws.appearance, showBorder: !ws.appearance.showBorder } })} />
-          {ws.appearance.showBorder && (
-            <ColorPicker label={tx("Randkleur", "Border Color", "لون الحد")} colors={BORDER_COLORS} value={ws.appearance.borderColor} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, borderColor: v as `#${string}` } })} />
+          <ToggleRow label={tx("Toon rand", "Show border", "عرض الحدود")} value={activeAppearance.showBorder} onToggle={() => updateAppearance({ showBorder: !activeAppearance.showBorder })} />
+          {activeAppearance.showBorder && (
+            <ColorPicker label={tx("Randkleur", "Border Color", "لون الحد")} colors={BORDER_COLORS} value={activeAppearance.borderColor} onChange={(v) => updateAppearance({ borderColor: v as `#${string}` })} />
           )}
-          <SliderRow label={tx("Transparantie", "Opacity", "الشفافية")} value={ws.appearance.opacity} min={0.5} max={1} step={0.1} onChange={(v) => updateSettings({ appearance: { ...ws.appearance, opacity: v } })} />
+          <SliderRow label={tx("Transparantie", "Opacity", "الشفافية")} value={activeAppearance.opacity} min={0.5} max={1} step={0.1} onChange={(v) => updateAppearance({ opacity: v })} />
         </View>
       )}
 

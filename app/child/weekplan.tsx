@@ -74,168 +74,30 @@ interface PlanGroup {
 // Map keywords to icons for card titles
 function getCardIcon(title: string): string {
   const lower = title.toLowerCase();
-  if (
-    lower.includes("صلا") ||
-    lower.includes("prayer") ||
-    lower.includes("gebed") ||
-    lower.includes("salaat")
-  )
-    return "🕌";
-  if (
-    lower.includes("قرآن") ||
-    lower.includes("quran") ||
-    lower.includes("koran") ||
-    lower.includes("تلاو")
-  )
-    return "📖";
-  if (
-    lower.includes("ذكر") ||
-    lower.includes("dhikr") ||
-    lower.includes("أذكار")
-  )
-    return "📿";
-  if (
-    lower.includes("عقيد") ||
-    lower.includes("aqeedah") ||
-    lower.includes("geloof") ||
-    lower.includes("إيمان")
-  )
-    return "🌟";
-  if (
-    lower.includes("سلوك") ||
-    lower.includes("behavior") ||
-    lower.includes("gedrag") ||
-    lower.includes("أخلاق") ||
-    lower.includes("خلق")
-  )
-    return "💪";
-  if (
-    lower.includes("اجتماع") ||
-    lower.includes("social") ||
-    lower.includes("sociaal") ||
-    lower.includes("معامل")
-  )
-    return "🤝";
-  if (
-    lower.includes("عبادا") ||
-    lower.includes("worship") ||
-    lower.includes("ibadah") ||
-    lower.includes("ibaadah")
-  )
-    return "🤲";
-  if (
-    lower.includes("تصفي") ||
-    lower.includes("tasfiy") ||
-    lower.includes("عقل") ||
-    lower.includes("mind")
-  )
-    return "🧠";
-  if (
-    lower.includes("تزكي") ||
-    lower.includes("tazkiy") ||
-    lower.includes("قلب") ||
-    lower.includes("heart") ||
-    lower.includes("hart")
-  )
-    return "💚";
-  if (
-    lower.includes("لسان") ||
-    lower.includes("كلام") ||
-    lower.includes("tongue") ||
-    lower.includes("speech") ||
-    lower.includes("taal")
-  )
-    return "🗣️";
-  if (
-    lower.includes("جوارح") ||
-    lower.includes("سلوك الوالد") ||
-    lower.includes("limbs") ||
-    lower.includes("actions")
-  )
-    return "💪";
-  if (
-    lower.includes("تربي") ||
-    lower.includes("tarbiy") ||
-    lower.includes("education") ||
-    lower.includes("opvoed")
-  )
-    return "📚";
-  if (
-    lower.includes("جدول") ||
-    lower.includes("schedule") ||
-    lower.includes("schema") ||
-    lower.includes("يوم")
-  )
-    return "📅";
-  if (
-    lower.includes("مبدأ") ||
-    lower.includes("مبادئ") ||
-    lower.includes("mindset") ||
-    lower.includes("principe")
-  )
-    return "💡";
-  if (
-    lower.includes("علم") ||
-    lower.includes("knowledge") ||
-    lower.includes("kennis") ||
-    lower.includes("تعلم")
-  )
-    return "🎓";
-  if (
-    lower.includes("لعب") ||
-    lower.includes("play") ||
-    lower.includes("spel") ||
-    lower.includes("نشاط") ||
-    lower.includes("activit")
-  )
-    return "🎯";
-  if (
-    lower.includes("نوم") ||
-    lower.includes("sleep") ||
-    lower.includes("slaap")
-  )
-    return "🌙";
-  if (
-    lower.includes("طعام") ||
-    lower.includes("food") ||
-    lower.includes("eten") ||
-    lower.includes("أكل") ||
-    lower.includes("غذا")
-  )
-    return "🍽️";
-  if (
-    lower.includes("شريك") ||
-    lower.includes("partner") ||
-    lower.includes("زوج")
-  )
-    return "💑";
-  if (
-    lower.includes("نصيح") ||
-    lower.includes("advie") ||
-    lower.includes("advice") ||
-    lower.includes("توصي")
-  )
-    return "📋";
-  if (lower.includes("هدف") || lower.includes("goal") || lower.includes("doel"))
-    return "🎯";
-  if (
-    lower.includes("تحدي") ||
-    lower.includes("challeng") ||
-    lower.includes("uitdag")
-  )
-    return "⚡";
-  if (
-    lower.includes("غضب") ||
-    lower.includes("anger") ||
-    lower.includes("boos")
-  )
-    return "🔥";
-  if (
-    lower.includes("صبر") ||
-    lower.includes("patience") ||
-    lower.includes("geduld")
-  )
-    return "🌿";
+  if (lower.includes("صلا") || lower.includes("prayer") || lower.includes("gebed") || lower.includes("salaat")) return "🕌";
+  if (lower.includes("قرآن") || lower.includes("qur'aan") || lower.includes("quran") || lower.includes("koran") || lower.includes("تلاو")) return "📖";
+  if (lower.includes("ذكر") || lower.includes("dhikr") || lower.includes("أذكار")) return "📿";
+  if (lower.includes("عقيد") || lower.includes("aqeedah") || lower.includes("geloof") || lower.includes("إيمان")) return "🌟";
+  if (lower.includes("سلوك") || lower.includes("behavior") || lower.includes("gedrag") || lower.includes("أخلاق") || lower.includes("خلق")) return "💪";
+  if (lower.includes("اجتماع") || lower.includes("social") || lower.includes("sociaal") || lower.includes("معامل")) return "🤝";
+  if (lower.includes("عبادا") || lower.includes("worship") || lower.includes("ibadah") || lower.includes("ibaadah")) return "🤲";
+  if (lower.includes("تصفي") || lower.includes("tasfiy") || lower.includes("عقل") || lower.includes("mind")) return "🧠";
+  if (lower.includes("تزكي") || lower.includes("tazkiy") || lower.includes("قلب") || lower.includes("heart") || lower.includes("hart")) return "💚";
+  if (lower.includes("لسان") || lower.includes("كلام") || lower.includes("tongue") || lower.includes("speech") || lower.includes("taal")) return "🗣️";
+  if (lower.includes("جوارح") || lower.includes("سلوك الوالد") || lower.includes("limbs") || lower.includes("actions")) return "💪";
+  if (lower.includes("تربي") || lower.includes("tarbiy") || lower.includes("education") || lower.includes("opvoed")) return "📚";
+  if (lower.includes("جدول") || lower.includes("schedule") || lower.includes("schema") || lower.includes("يوم")) return "📅";
+  if (lower.includes("مبدأ") || lower.includes("مبادئ") || lower.includes("mindset") || lower.includes("principe")) return "💡";
+  if (lower.includes("علم") || lower.includes("knowledge") || lower.includes("kennis") || lower.includes("تعلم")) return "🎓";
+  if (lower.includes("لعب") || lower.includes("play") || lower.includes("spel") || lower.includes("نشاط") || lower.includes("activit")) return "🎯";
+  if (lower.includes("نوم") || lower.includes("sleep") || lower.includes("slaap")) return "🌙";
+  if (lower.includes("طعام") || lower.includes("food") || lower.includes("eten") || lower.includes("أكل") || lower.includes("غذا")) return "🍽️";
+  if (lower.includes("شريك") || lower.includes("partner") || lower.includes("زوج")) return "💑";
+  if (lower.includes("نصيح") || lower.includes("advie") || lower.includes("advice") || lower.includes("توصي")) return "📋";
+  if (lower.includes("هدف") || lower.includes("goal") || lower.includes("doel")) return "🎯";
+  if (lower.includes("تحدي") || lower.includes("challeng") || lower.includes("uitdag")) return "⚡";
+  if (lower.includes("غضب") || lower.includes("anger") || lower.includes("boos")) return "🔥";
+  if (lower.includes("صبر") || lower.includes("patience") || lower.includes("geduld")) return "🌿";
   return "📌";
 }
 

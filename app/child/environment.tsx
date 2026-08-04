@@ -7,6 +7,7 @@ import { useAppState } from "@/lib/app-context";
 import { ChildEnvironment } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { FormField, TextField, SelectField, HybridField, HonestyBanner, ValidationBanner, HasanaatProgressBar } from "@/components/form-field";
+import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -102,11 +103,11 @@ function getEnvQuestions(lang: Lang): QuestionDef[] {
     { value: "weigert", label: tx(lang, "Weigert te bidden", "Refuses to pray", "يرفض الصلاة") },
     { value: "te_jong", label: tx(lang, "Te jong (onder 7)", "Too young (under 7)", "صغير جدًا (أقل من 7)") },
   ], hint },
-  { key: "quranConnection", label: tx(lang, "Hoe is de band met de Quraan?", "How is the bond with the Quran?", "كيف هي العلاقة مع القرآن؟"), type: "hybrid", section: tx(lang, "Band met Allaah", "Bond with Allaah", "العلاقة مع الله"), options: [
+  { key: "quranConnection", label: tx(lang, "Hoe is de band met de Qur'aan?", "How is the bond with the Qur'aan?", "كيف هي العلاقة مع القرآن؟"), type: "hybrid", section: tx(lang, "Band met Allaah", "Bond with Allaah", "العلاقة مع الله"), options: [
     { value: "leest_dagelijks", label: tx(lang, "Leest dagelijks", "Reads daily", "يقرأ يوميًا") },
     { value: "leert_memoriseren", label: tx(lang, "Leert en memoriseert", "Learns and memorizes", "يتعلم ويحفظ") },
     { value: "alleen_les", label: tx(lang, "Alleen tijdens les", "Only during lessons", "فقط أثناء الدروس") },
-    { value: "weinig_contact", label: tx(lang, "Weinig contact met Quraan", "Little contact with Quraan", "علاقة ضعيفة بالقرآن") },
+    { value: "weinig_contact", label: tx(lang, "Weinig contact met Qur'aan", "Little contact with Qur'aan", "علاقة ضعيفة بالقرآن") },
     { value: "te_jong", label: tx(lang, "Te jong / kan nog niet lezen", "Too young / can't read yet", "صغير / لم يتعلم القراءة بعد") },
   ], hint },
   { key: "islamicEducation", label: tx(lang, "Welke islamitische scholing volgt dit kind?", "What Islamic education does this child follow?", "ما التعليم الإسلامي الذي يتلقاه هذا الطفل؟"), type: "hybrid", section: tx(lang, "Band met Allaah", "Bond with Allaah", "العلاقة مع الله"), options: [
@@ -234,11 +235,11 @@ function getEnvQuestions(lang: Lang): QuestionDef[] {
     { value: "lezen", label: tx(lang, "Lezen", "Reading", "القراءة") },
     { value: "gamen", label: tx(lang, "Gamen", "Gaming", "الألعاب الإلكترونية") },
     { value: "tekenen", label: tx(lang, "Tekenen", "Drawing", "الرسم") },
-    { value: "quran", label: tx(lang, "Quraan leren", "Learning Quraan", "تعلم القرآن") },
+    { value: "quran", label: tx(lang, "Qur'aan leren", "Learning Qur'aan", "تعلم القرآن") },
   ], hint },
   { key: "goodHabits", label: tx(lang, "Goede gewoontes", "Good habits", "العادات الجيدة"), type: "hybrid", section: tx(lang, "Interesses & Gewoontes", "Interests & Habits", "الاهتمامات والعادات"), options: [
     { value: "bidt_mee", label: tx(lang, "Bidt mee", "Prays along", "يصلي مع العائلة") },
-    { value: "leest_quran", label: tx(lang, "Leest Quraan", "Reads Quraan", "يقرأ القرآن") },
+    { value: "leest_quran", label: tx(lang, "Leest Qur'aan", "Reads Qur'aan", "يقرأ القرآن") },
     { value: "helpt_huis", label: tx(lang, "Helpt in huis", "Helps at home", "يساعد في المنزل") },
     { value: "op_tijd_slapen", label: tx(lang, "Op tijd naar bed", "Goes to bed on time", "ينام في الوقت المحدد") },
     { value: "beleefd", label: tx(lang, "Beleefd tegen ouderen", "Polite to elders", "مؤدب مع الكبار") },
@@ -259,6 +260,7 @@ export default function EnvironmentScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, updateEnvironment, updateChild } = useAppState();
+  const { subscribed } = usePremiumGate();
   const { language } = useI18n();
   const lang: Lang = language as Lang;
   const ENV_QUESTIONS = getEnvQuestions(lang);
@@ -302,6 +304,7 @@ export default function EnvironmentScreen() {
   };
 
   const handleSubmit = async () => {
+    if (!subscribed) { router.push("/subscribe" as any); return; }
     const unanswered = validateForm();
     if (unanswered.length > 0) {
       setErrors(new Set(unanswered));
@@ -436,6 +439,7 @@ export default function EnvironmentScreen() {
           />
         </View>
       )}
+      <PremiumNotice />
       <ScrollView
         ref={scrollRef}
         className="flex-1"

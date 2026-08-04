@@ -23,7 +23,9 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
+import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 import { useColors } from "@/hooks/use-colors";
+import { useAutoTranslate } from "@/hooks/use-auto-translate";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
@@ -141,9 +143,38 @@ function formatAIResponse(content: string, textColor: string, accentColor: strin
   return elements;
 }
 
+// Advisor message body: renders the advice, auto-translating it to the viewer's
+// language when the consultation was written in another one (shared cross-language).
+function AdvisorBody({ content, colors, isRTL }: { content: string; colors: any; isRTL: boolean }) {
+  const { effectiveText, translating, translated, showOriginal, setShowOriginal, needsTranslation, language } = useAutoTranslate(content);
+  const L = language === "ar"
+    ? { translating: "جارٍ الترجمة…", auto: "مترجَمٌ آليًّا إلى لغتك", showOrig: "إظهار الأصل", showTr: "إظهار الترجمة" }
+    : language === "en"
+    ? { translating: "Translating…", auto: "Auto-translated to your language", showOrig: "Show original", showTr: "Show translation" }
+    : { translating: "Aan het vertalen…", auto: "Automatisch vertaald naar jouw taal", showOrig: "Toon origineel", showTr: "Toon vertaling" };
+  return (
+    <View>
+      {needsTranslation && (translating || translated) ? (
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8, marginBottom: 8, backgroundColor: colors.primary + "12", borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6 }}>
+          <Text style={{ fontSize: 11, color: colors.primary, flex: 1, textAlign: isRTL ? "right" : "left" }}>
+            {translating ? L.translating : L.auto}
+          </Text>
+          {translated ? (
+            <Pressable onPress={() => setShowOriginal((v) => !v)} hitSlop={8}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: colors.primary }}>{showOriginal ? L.showTr : L.showOrig}</Text>
+            </Pressable>
+          ) : null}
+        </View>
+      ) : null}
+      <View>{formatAIResponse(effectiveText, colors.foreground, colors.primary)}</View>
+    </View>
+  );
+}
+
 export default function AIChatScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { gate } = usePremiumGate();
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
@@ -960,7 +991,7 @@ export default function AIChatScreen() {
                 colors={colors as any}
               />
             ) : (
-              formatAIResponse(item.content, colors.foreground, colors.primary)
+              <AdvisorBody content={item.content} colors={colors} isRTL={language === "ar"} />
             )}
           </View>
         )}
@@ -1041,6 +1072,7 @@ export default function AIChatScreen() {
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
+      <PremiumNotice />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1400,7 +1432,7 @@ export default function AIChatScreen() {
                 ]}
               >
                 <Text style={[styles.suggestionText, { color: "#1565C0", fontWeight: "600" }]}>
-                  {language === "ar" ? "🎓 التواصل مع متخصص / أهل العلم" : language === "en" ? "🎓 Contact a specialist / scholar" : "🎓 Contact een specialist / geleerde"}
+                  {language === "ar" ? "📖 التواصل مع متخصص / أهل العلم" : language === "en" ? "📖 Contact a specialist / scholar" : "📖 Contact een specialist / geleerde"}
                 </Text>
               </Pressable>
             </View>
@@ -1541,7 +1573,7 @@ export default function AIChatScreen() {
                   {suggestions.map((suggestion, index) => (
                     <Pressable
                       key={index}
-                      onPress={() => sendMessageWithText(suggestion)}
+                      onPress={() => gate(() => sendMessageWithText(suggestion))}
                       style={({ pressed }) => [
                         styles.suggestionChip,
                         { backgroundColor: colors.surface, borderColor: colors.border },
@@ -1676,7 +1708,7 @@ export default function AIChatScreen() {
 
               {/* Send button */}
               <Pressable
-                onPress={() => sendMessage()}
+                onPress={() => gate(() => sendMessage())}
                 disabled={(!inputText.trim() && attachments.length === 0) || isLoading}
                 style={({ pressed }) => [
                   styles.sendButton,

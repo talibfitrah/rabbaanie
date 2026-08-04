@@ -27,6 +27,7 @@ export default function OnboardingScreen() {
   const { t, language } = useI18n();
   const { state, addChildren, updateParentProfile, completeOnboarding } = useAppState();
   const setGenderMutation = trpc.links.setMyGender.useMutation();
+  const generateMyIdMutation = trpc.links.generateMyId.useMutation();
 
   // If the user already has completed onboarding and has basic info,
   // skip this screen entirely (data was restored from server after login)
@@ -54,6 +55,7 @@ export default function OnboardingScreen() {
   const [country, setCountry] = useState(state.parentProfile.country || "");
   const [phoneNumber, setPhoneNumber] = useState(state.parentProfile.phoneNumber || "");
   const [gender, setGender] = useState<"man" | "vrouw" | "">((state.parentProfile.gender as "man" | "vrouw" | "") || "")
+  const [maritalStatus, setMaritalStatus] = useState(state.parentProfile.maritalStatus || "");
   const [childCount, setChildCount] = useState(state.children.length > 0 ? String(state.children.length) : "");
 
   const lang = language;
@@ -102,8 +104,19 @@ export default function OnboardingScreen() {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw geslacht", "Choose your gender", "اختر: أب أم أم"));
       return;
     }
+    if (!maritalStatus) {
+      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw burgerlijke staat", "Choose your marital status", "اختر حالتك الاجتماعية"));
+      return;
+    }
     setStep("children");
   };
+
+  const MARITAL_OPTIONS = [
+    { value: "getrouwd", label: tx(lang, "Getrouwd", "Married", "متزوّج/ة") },
+    { value: "gescheiden", label: tx(lang, "Gescheiden", "Divorced", "مطلّق/ة") },
+    { value: "weduwe_weduwnaar", label: tx(lang, "Weduwe/Weduwnaar", "Widowed", "أرمل/ة") },
+    { value: "alleenstaand", label: tx(lang, "Alleenstaand", "Single", "أعزب/عزباء") },
+  ];
 
   const handleChildrenSubmit = async () => {
     const count = parseInt(childCount);
@@ -123,6 +136,7 @@ export default function OnboardingScreen() {
       country: country.trim(),
       phoneNumber: phoneNumber.trim(),
       gender,
+      maritalStatus,
     });
 
     // Create child profiles linked to parent
@@ -147,6 +161,9 @@ export default function OnboardingScreen() {
       // Non-blocking: function assignment is best-effort
       console.log('Auto-assign function failed (non-blocking):', e);
     }
+
+    // Generate the user's distinctive publicId from their birth date (msg 471/476)
+    try { await generateMyIdMutation.mutateAsync({ birthDate }); } catch (e) { console.log('generateMyId failed (non-blocking):', e); }
 
     // Mark onboarding as completed
     await completeOnboarding();
@@ -361,6 +378,30 @@ export default function OnboardingScreen() {
                 >
                   {option.label}
                 </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <Text className="text-lg font-bold mb-2" style={{ color: colors.foreground }}>
+            {tx(lang, "Wat is uw burgerlijke staat?", "What is your marital status?", "ما هي حالتك الاجتماعية؟")}
+          </Text>
+          <View className="gap-2 mb-8">
+            {MARITAL_OPTIONS.map((option) => (
+              <Pressable
+                key={option.value}
+                onPress={() => setMaritalStatus(option.value)}
+                style={({ pressed }) => [{
+                  backgroundColor: maritalStatus === option.value ? colors.primary : colors.surface,
+                  borderWidth: 2,
+                  borderColor: maritalStatus === option.value ? colors.primary : colors.border,
+                  borderRadius: 12,
+                  paddingVertical: 13,
+                  paddingHorizontal: 20,
+                  alignItems: "center" as const,
+                  opacity: pressed ? 0.8 : 1,
+                }]}
+              >
+                <Text className="text-base font-bold" style={{ color: maritalStatus === option.value ? "#FFFFFF" : colors.foreground }}>{option.label}</Text>
               </Pressable>
             ))}
           </View>

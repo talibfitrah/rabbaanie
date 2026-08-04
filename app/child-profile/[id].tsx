@@ -93,16 +93,8 @@ function getEnvironmentSections(lang: Lang) {
           ),
         },
         { key: "prayerStatus", label: tx(lang, "Gebed", "Prayer", "الصلاة") },
-        { key: "quranConnection", label: tx(lang, "Quran", "Quran", "القرآن") },
-        {
-          key: "islamicEducation",
-          label: tx(
-            lang,
-            "Islamitisch onderwijs",
-            "Islamic education",
-            "التعليم الإسلامي",
-          ),
-        },
+        { key: "quranConnection", label: tx(lang, "Qur'aan", "Qur'aan", "القرآن") },
+        { key: "islamicEducation", label: tx(lang, "Islamitisch onderwijs", "Islamic education", "التعليم الإسلامي") },
       ],
     },
     {

@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { withTimeout } from "@/lib/location-utils";
 import {
   View,
   Text,
@@ -168,9 +169,9 @@ export default function MosquesScreen() {
         } catch {
           // Strategy 3: Try lowest accuracy
           try {
-            loc = await Location.getCurrentPositionAsync({
+            loc = await withTimeout(Location.getCurrentPositionAsync({
               accuracy: Location.Accuracy.Lowest,
-            });
+            }), 15000);
           } catch {
             // Strategy 4: Use saved prayer location as last resort
             try {

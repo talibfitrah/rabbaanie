@@ -1,6 +1,7 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { I18nManager, Platform } from "react-native";
+import { syncLanguageToServer } from "@/lib/language-sync";
 
 // ============ TRANSLATIONS ============
 
@@ -180,7 +181,7 @@ const translations: Record<string, { nl: string; en: string; ar: string }> = {
   "mindsets.title": { nl: "Mindsets", en: "Mindsets", ar: "المبادئ التربوية" },
   "mindsets.subtitle": { nl: "Islamitische opvoedprincipes", en: "Islamic parenting principles", ar: "مبادئ التربية الإسلامية" },
   "mindsets.source": { nl: "Bron", en: "Source", ar: "المصدر" },
-  "mindsets.based_on": { nl: "gebaseerd op Qur'aan en Sunnah", en: "based on Quran and Sunnah", ar: "مبني على القرآن والسنة" },
+  "mindsets.based_on": { nl: "gebaseerd op Qur'aan en Sunnah", en: "based on Qur'aan and Sunnah", ar: "مبني على القرآن والسنة" },
   "mindsets.explanation": { nl: "UITLEG", en: "EXPLANATION", ar: "الشرح" },
   "mindsets.evidence": { nl: "BEWIJS", en: "EVIDENCE", ar: "الدليل" },
   "mindsets.application": { nl: "TOEPASSING", en: "APPLICATION", ar: "التطبيق" },
@@ -248,7 +249,7 @@ const translations: Record<string, { nl: string; en: string; ar: string }> = {
   "reward.shaban": { nl: "Daden worden opgeheven naar Allaah", en: "Deeds are raised to Allaah", ar: "تُرفع الأعمال إلى الله" },
   "reason.shaban": { nl: "Maand die mensen vergeten tussen Rajab en Ramadhaan", en: "Month people forget between Rajab and Ramadan", ar: "شهر يغفل عنه الناس بين رجب ورمضان" },
   "reward.ramadan": { nl: "Vergeving van alle voorgaande zonden", en: "Forgiveness of all previous sins", ar: "غفران جميع الذنوب السابقة" },
-  "reason.ramadan": { nl: "Maand waarin de Qur'aan is neergezonden; poorten Paradijs open", en: "Month in which the Quran was revealed; gates of Paradise open", ar: "شهر أُنزل فيه القرآن؛ تُفتح أبواب الجنة" },
+  "reason.ramadan": { nl: "Maand waarin de Qur'aan is neergezonden; poorten Paradijs open", en: "Month in which the Qur'aan was revealed; gates of Paradise open", ar: "شهر أُنزل فيه القرآن؛ تُفتح أبواب الجنة" },
   "reward.last_10": { nl: "Laylat al-Qadr = beter dan 1000 maanden", en: "Laylat al-Qadr = better than 1000 months", ar: "ليلة القدر خير من ألف شهر" },
   "reason.last_10": { nl: "De Profeet \uFE0E spande zich extra in en maakte zijn gezin wakker", en: "The Prophet \uFE0E exerted extra effort and woke his family", ar: "كان النبي ﷺ يجتهد ويوقظ أهله" },
   "reward.6_shawwal": { nl: "Ramadhaan + 6 = beloning van een heel jaar vasten", en: "Ramadan + 6 = reward of a full year of fasting", ar: "رمضان + 6 = أجر صيام سنة كاملة" },
@@ -272,14 +273,14 @@ const translations: Record<string, { nl: string; en: string; ar: string }> = {
   "reward.sunnah_eid_fitr": { nl: "Vreugde voor de vastende; beloning is bij Allaah", en: "Joy for the fasting person; reward is with Allaah", ar: "فرحة للصائم؛ والأجر عند الله" },
   "reason.sunnah_eid_fitr": { nl: "Ghusl, mooiste kleding, eet dadels (oneven) voor het gebed, takbier op weg", en: "Ghusl, best clothes, eat dates (odd number) before prayer, takbeer on the way", ar: "الغسل، أحسن الثياب، أكل تمرات (وتراً) قبل الصلاة، التكبير في الطريق" },
   "reward.prep_ramadan": { nl: "Wie zich voorbereidt haalt meer uit Ramadhaan", en: "Who prepares gets more out of Ramadan", ar: "من استعد لرمضان حصّل أكثر" },
-  "reason.prep_ramadan": { nl: "Maak een plan: Qur'aan-doelen, du'aa-lijst, sadaqah-plan", en: "Make a plan: Quran goals, du'a list, sadaqah plan", ar: "ضع خطة: أهداف القرآن، قائمة الدعاء، خطة الصدقة" },
+  "reason.prep_ramadan": { nl: "Maak een plan: Qur'aan-doelen, du'aa-lijst, sadaqah-plan", en: "Make a plan: Qur'aan goals, du'a list, sadaqah plan", ar: "ضع خطة: أهداف القرآن، قائمة الدعاء، خطة الصدقة" },
   "reward.overlap": { nl: "Neem de intentie (niyyah) van de beste beloning!", en: "Take the intention (niyyah) of the best reward!", ar: "انوِ نية أفضل الأجر!" },
 
   // Preparation texts
   "prep.eid_adha": { nl: "Koop offerdier; maak takbier; geen nagels/haar knippen", en: "Buy sacrifice animal; make takbeer; don't cut nails/hair", ar: "اشترِ الأضحية؛ كبّر؛ لا تقص أظفارك وشعرك" },
   "prep.sunnah_eid_adha": { nl: "Ghusl \u2192 mooiste kleding \u2192 takbier \u2192 'Ied-gebed \u2192 offer \u2192 eet van offer", en: "Ghusl \u2192 best clothes \u2192 takbeer \u2192 Eid prayer \u2192 sacrifice \u2192 eat from sacrifice", ar: "الغسل \u2192 أحسن الثياب \u2192 التكبير \u2192 صلاة العيد \u2192 الذبح \u2192 الأكل من الأضحية" },
   "prep.sunnah_eid_fitr": { nl: "Ghusl \u2192 dadels eten \u2192 takbier \u2192 'Ied-gebed \u2192 feliciteer moslims", en: "Ghusl \u2192 eat dates \u2192 takbeer \u2192 Eid prayer \u2192 congratulate Muslims", ar: "الغسل \u2192 أكل التمر \u2192 التكبير \u2192 صلاة العيد \u2192 التهنئة" },
-  "prep.ramadan": { nl: "Qur'aan-schema; du'aa-lijst; sadaqah-plan; schulden aflossen", en: "Quran schedule; du'a list; sadaqah plan; pay off debts", ar: "جدول القرآن؛ قائمة الدعاء؛ خطة الصدقة؛ سداد الديون" },
+  "prep.ramadan": { nl: "Qur'aan-schema; du'aa-lijst; sadaqah-plan; schulden aflossen", en: "Qur'aan schedule; du'a list; sadaqah plan; pay off debts", ar: "جدول القرآن؛ قائمة الدعاء؛ خطة الصدقة؛ سداد الديون" },
 
   // Fitan warnings
   "fitan.title": { nl: "Fitan-waarschuwing", en: "Fitan warning", ar: "تحذير من الفتن" },
@@ -677,6 +678,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         }
       }
       setLanguageState(detectedLang);
+      // Persist the effective language so notification scheduling (which reads
+      // @app_language directly) matches the UI — including the system-detected
+      // default when the user hasn't explicitly chosen one.
+      if (val !== "en" && val !== "nl" && val !== "ar") {
+        AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, detectedLang).catch(() => {});
+      }
       // Apply RTL on app start
       const shouldBeRTL = detectedLang === "ar";
       if (I18nManager.isRTL !== shouldBeRTL) {
@@ -712,20 +719,8 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         await refreshAllWidgets();
       }
     } catch {}
-    // Sync language to server so system messages use the correct language
-    try {
-      const { getSessionToken } = require("@/lib/_core/auth");
-      const { getApiBaseUrl } = require("@/constants/oauth");
-      const token = await getSessionToken();
-      if (token) {
-        const baseUrl = getApiBaseUrl();
-        fetch(`${baseUrl}/api/trpc/profile.updateLanguage`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-          body: JSON.stringify({ json: { language: lang } }),
-        }).catch(() => {});
-      }
-    } catch {}
+    // Sync to the server so server-sent notifications use the chosen language.
+    void syncLanguageToServer(lang);
   }, []);
 
   const isRTL = language === "ar";

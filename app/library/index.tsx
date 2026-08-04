@@ -1,4 +1,4 @@
-import { useState, useMemo } from "react";
+import { useState, useMemo, useEffect } from "react";
 import { View, Text, SectionList, Pressable, Dimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
@@ -8,6 +8,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
 import libraryIndex from "@/assets/data/library/index.json";
 import coverUrls from "@/assets/data/library/cover_urls.json";
+import { fetchServerBookIndex } from "@/lib/server-books";
 
 type Lang = "ar" | "en" | "nl";
 
@@ -17,6 +18,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 
 // Category translations
 const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string }> = {
+  "الهدايات": { ar: "الهدايات", nl: "Leidraden (Hidayat)", en: "Guidances (Hidayat)" },
   "قيادة النفس": { ar: "قيادة النفس", nl: "Zelfleiderschap", en: "Self-Leadership" },
   "الفطرة": { ar: "الفطرة", nl: "Fitrah (Aangeboren aard)", en: "Fitrah (Innate Nature)" },
   "التوحيد": { ar: "التوحيد", nl: "Tawhied (Eenheid van Allah)", en: "Tawheed (Oneness of Allah)" },
@@ -29,7 +31,7 @@ const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string
 };
 
 // Category order
-const CATEGORY_ORDER = ["قيادة النفس", "الفطرة", "التوحيد", "النصيحة", "الطرق التربوية", "الزواج", "تربية الولد", "الدعوة", "السنن الكونية"];
+const CATEGORY_ORDER = ["الهدايات", "قيادة النفس", "الفطرة", "التوحيد", "النصيحة", "الطرق التربوية", "الزواج", "تربية الولد", "الدعوة", "السنن الكونية"];
 
 const { width: SCREEN_WIDTH } = Dimensions.get("window");
 const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
@@ -40,14 +42,18 @@ export default function LibraryScreen() {
   const router = useRouter();
   const lang = (language || "ar") as Lang;
 
+  // Server-managed books (added at runtime) merged with the bundled ones.
+  const [serverBooks, setServerBooks] = useState<any[]>([]);
+  useEffect(() => { fetchServerBookIndex().then(setServerBooks); }, []);
+
   const books = useMemo(() => {
-    return libraryIndex.map((book: any) => ({
+    return [...libraryIndex, ...serverBooks].map((book: any) => ({
       ...book,
       title: lang === "ar" ? book.title_ar : lang === "en" ? book.title_en : book.title_nl,
       series: lang === "ar" ? book.series : lang === "en" ? (book.series_en || book.series) : (book.series_nl || book.series),
       coverUrl: (coverUrls as any)[`book_${book.id}`] || "",
     }));
-  }, [lang]);
+  }, [lang, serverBooks]);
 
   // Group books by category
   const sections = useMemo(() => {
@@ -57,16 +63,17 @@ export default function LibraryScreen() {
       if (!grouped[cat]) grouped[cat] = [];
       grouped[cat].push(book);
     }
-    // Sort by predefined order
-    return CATEGORY_ORDER
-      .filter((cat) => grouped[cat] && grouped[cat].length > 0)
-      .map((cat) => ({
-        title: cat,
-        translatedTitle: CATEGORY_TRANSLATIONS[cat]
-          ? tx(lang, CATEGORY_TRANSLATIONS[cat].nl, CATEGORY_TRANSLATIONS[cat].en, CATEGORY_TRANSLATIONS[cat].ar)
-          : cat,
-        data: grouped[cat],
-      }));
+    // Known categories in their predefined order, then any other categories
+    // (e.g. from server-added books) appended so they always show.
+    const known = CATEGORY_ORDER.filter((cat) => grouped[cat] && grouped[cat].length > 0);
+    const extra = Object.keys(grouped).filter((cat) => !CATEGORY_ORDER.includes(cat) && grouped[cat].length > 0);
+    return [...known, ...extra].map((cat) => ({
+      title: cat,
+      translatedTitle: CATEGORY_TRANSLATIONS[cat]
+        ? tx(lang, CATEGORY_TRANSLATIONS[cat].nl, CATEGORY_TRANSLATIONS[cat].en, CATEGORY_TRANSLATIONS[cat].ar)
+        : cat,
+      data: grouped[cat],
+    }));
   }, [books, lang]);
 
   // Weekly rotation: show one featured book based on week number

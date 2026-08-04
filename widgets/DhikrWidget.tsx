@@ -28,16 +28,27 @@ interface DhikrWidgetProps {
   widgetHeight?: number;
 }
 
-function getFontSize(base: number, size: WidgetAppearanceSettings["fontSize"], fontScale?: number): number {
-  let result = base;
-  if (size === "large") result = base + 6;
-  else if (size === "medium") result = base + 4;
-  const scale = (fontScale || 100) / 100;
-  return Math.round(result * scale);
+/** Font size that scales with the widget's ACTUAL size (matches PrayerWidget). */
+function getDynamicFontSize(
+  base: number,
+  sizeSetting: WidgetAppearanceSettings["fontSize"],
+  widgetWidth?: number,
+  widgetHeight?: number,
+  fontScale?: number
+): number {
+  const refDimension = 200;
+  const minDim = Math.min(widgetWidth || refDimension, widgetHeight || refDimension);
+  const scaleFactor = Math.max(0.85, Math.min(1.4, minDim / refDimension));
+  let sizeMultiplier = 1.0; // "medium" (the default) is neutral so text isn't inflated
+  if (sizeSetting === "small") sizeMultiplier = 0.9;
+  if (sizeSetting === "large") sizeMultiplier = 1.15;
+  const percentageScale = (fontScale || 100) / 100;
+  return Math.round(base * scaleFactor * sizeMultiplier * percentageScale);
 }
 
 export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
   const { dhikrText, source, reward, tarbiyaTip, contextLabel, dhikrIndex, dhikrTotal, tipIndex, tipTotal, nextPrayerAr, nextPrayerTime, countdown, hijriDate, appearance, content, widgetWidth, widgetHeight } = props;
+  const fs = (base: number) => getDynamicFontSize(base, appearance.fontSize, widgetWidth, widgetHeight, appearance.fontScale);
   const bg = appearance.backgroundColor;
   const fg = appearance.textColor;
   const radius = appearance.cornerStyle === "rounded" ? 16 : 4;
@@ -80,12 +91,12 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         >
           <TextWidget
             text={contextLabel || "أذكار 📿"}
-            style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+            style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold" }}
           />
           {nextPrayerAr && nextPrayerTime ? (
             <FlexWidget style={{ flexDirection: "column", alignItems: "center", flexGap: 2 }}>
-              <TextWidget text={nextPrayerAr} style={{ fontSize: getFontSize(11, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }} />
-              <TextWidget text={nextPrayerTime} style={{ fontSize: getFontSize(12, appearance.fontSize, appearance.fontScale), color: GOLD }} />
+              <TextWidget text={nextPrayerAr} style={{ fontSize: fs(11), color: GOLD, fontWeight: "bold" }} />
+              <TextWidget text={nextPrayerTime} style={{ fontSize: fs(12), color: GOLD }} />
             </FlexWidget>
           ) : null}
           <FlexWidget
@@ -108,28 +119,30 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         >
           <TextWidget
             text={dhikrText}
+            maxLines={12}
             style={{
-              fontSize: getFontSize(15, appearance.fontSize, appearance.fontScale),
+              fontSize: fs(15),
               color: fg,
               fontWeight: "bold",
               textAlign: "center",
+              adjustsFontSizeToFit: true,
             }}
           />
           {content.dhikrShowVirtue && reward ? (
             <TextWidget
               text={reward}
-              style={{ fontSize: getFontSize(11, appearance.fontSize, appearance.fontScale), color: GOLD, textAlign: "center" }}
+              style={{ fontSize: fs(11), color: GOLD, textAlign: "center" }}
             />
           ) : !reward && tarbiyaTip ? (
             <TextWidget
               text={`✦ ${tarbiyaTip}`}
-              style={{ fontSize: getFontSize(11, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "60"), textAlign: "center" }}
+              style={{ fontSize: fs(11), color: withAlpha(fg, "60"), textAlign: "center" }}
             />
           ) : null}
           {content.dhikrShowSource ? (
             <TextWidget
               text={`[${source}]`}
-              style={{ fontSize: getFontSize(10, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70"), textAlign: "center" }}
+              style={{ fontSize: fs(10), color: withAlpha(fg, "70"), textAlign: "center" }}
             />
           ) : null}
         </FlexWidget>
@@ -169,7 +182,7 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         {hijriDate ? (
           <TextWidget
             text={hijriDate}
-            style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70") }}
+            style={{ fontSize: fs(16), color: withAlpha(fg, "70") }}
           />
         ) : (
           <TextWidget text="" style={{ fontSize: 8 }} />
@@ -178,11 +191,11 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
           <FlexWidget style={{ flexDirection: "row", alignItems: "center", flexGap: 4 }}>
             <TextWidget
               text={nextPrayerTime}
-              style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+              style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold" }}
             />
             <TextWidget
               text={countdown ? `${nextPrayerAr} (${countdown})` : nextPrayerAr}
-              style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+              style={{ fontSize: fs(13), color: GOLD, fontWeight: "bold" }}
             />
           </FlexWidget>
         ) : (
@@ -193,7 +206,7 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
       {/* Context label */}
       <TextWidget
         text={contextLabel || "أذكار 📿"}
-        style={{ fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale), color: GOLD, fontWeight: "bold" }}
+        style={{ fontSize: fs(18), color: GOLD, fontWeight: "bold" }}
       />
 
       {/* Dhikr text - main content */}
@@ -209,7 +222,7 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         <TextWidget
           text={dhikrText}
           style={{
-            fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale),
+            fontSize: fs(18),
             color: fg,
             fontWeight: "bold",
             textAlign: "center",
@@ -224,18 +237,18 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
         {content.dhikrShowVirtue && reward ? (
           <TextWidget
             text={reward}
-            style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: GOLD, textAlign: "center" }}
+            style={{ fontSize: fs(13), color: GOLD, textAlign: "center" }}
           />
         ) : !reward && tarbiyaTip ? (
           <TextWidget
             text={`✦ ${tarbiyaTip}`}
-            style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "60"), textAlign: "center" }}
+            style={{ fontSize: fs(13), color: withAlpha(fg, "60"), textAlign: "center" }}
           />
         ) : null}
         {content.dhikrShowSource ? (
           <TextWidget
             text={`[${source}]`}
-            style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70"), textAlign: "center" }}
+            style={{ fontSize: fs(16), color: withAlpha(fg, "70"), textAlign: "center" }}
           />
         ) : null}
       </FlexWidget>
@@ -257,17 +270,17 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
             style={{ backgroundColor: withAlpha(fg, "12"), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}
             clickAction="NEXT_DHIKR"
           >
-            <TextWidget text="→" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: fg }} />
+            <TextWidget text="→" style={{ fontSize: fs(16), color: fg }} />
           </FlexWidget>
           <TextWidget
             text={dhikrTotal ? `${(dhikrIndex ?? 0) + 1}/${dhikrTotal}` : "dhikr"}
-            style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "60") }}
+            style={{ fontSize: fs(13), color: withAlpha(fg, "60") }}
           />
           <FlexWidget
             style={{ backgroundColor: withAlpha(GOLD, "20"), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}
             clickAction="PREV_DHIKR"
           >
-            <TextWidget text="←" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: GOLD }} />
+            <TextWidget text="←" style={{ fontSize: fs(16), color: GOLD }} />
           </FlexWidget>
         </FlexWidget>
 
@@ -276,7 +289,7 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
           style={{ backgroundColor: withAlpha(fg, "10"), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}
           clickAction="REFRESH_DHIKR"
         >
-          <TextWidget text="↻" style={{ fontSize: getFontSize(18, appearance.fontSize, appearance.fontScale), color: fg }} />
+          <TextWidget text="↻" style={{ fontSize: fs(18), color: fg }} />
         </FlexWidget>
 
         {/* Tip nav */}
@@ -286,17 +299,17 @@ export function buildDhikrWidgetTree(props: DhikrWidgetProps) {
               style={{ backgroundColor: withAlpha(fg, "10"), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}
               clickAction="NEXT_TIP"
             >
-              <TextWidget text="→" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70") }} />
+              <TextWidget text="→" style={{ fontSize: fs(16), color: withAlpha(fg, "70") }} />
             </FlexWidget>
             <TextWidget
               text={tipTotal ? `${(tipIndex ?? 0) + 1}/${tipTotal}` : "tip"}
-              style={{ fontSize: getFontSize(13, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "50") }}
+              style={{ fontSize: fs(13), color: withAlpha(fg, "50") }}
             />
             <FlexWidget
               style={{ backgroundColor: withAlpha(fg, "10"), borderRadius: 14, paddingHorizontal: 10, paddingVertical: 6 }}
               clickAction="PREV_TIP"
             >
-              <TextWidget text="←" style={{ fontSize: getFontSize(16, appearance.fontSize, appearance.fontScale), color: withAlpha(fg, "70") }} />
+              <TextWidget text="←" style={{ fontSize: fs(16), color: withAlpha(fg, "70") }} />
             </FlexWidget>
           </FlexWidget>
         ) : null}
