@@ -7,9 +7,14 @@
  * privileged, fires in Doze, and shows in the CENTRE of the screen even over
  * the lock screen. This is exactly what Daa3iyah asked for (msg 439/445).
  *
- * Requires USE_FULL_SCREEN_INTENT (declared in app.config.ts) and the native
- * @notifee/react-native module (added via prebuild).
+ * Requires USE_FULL_SCREEN_INTENT and the native @notifee/react-native module
+ * (added via prebuild). NOTE: the Play build (APP_DISTRIBUTION="play") strips
+ * USE_FULL_SCREEN_INTENT via app.config.ts blockedPermissions — Play scrutinizes
+ * that permission on a child-audience app — so on Play, fullScreenAction is
+ * demoted to an ordinary heads-up banner. scheduleFullScreenPrayer currently has
+ * no callers; the only live surface is the diagnostic below, which reports this.
  */
+import Constants from "expo-constants";
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -101,6 +106,16 @@ function withTimeout<T>(p: Promise<T>, ms: number): Promise<T> {
  */
 export async function fullScreenDiagReport(seconds = 8): Promise<string> {
   const L: string[] = [];
+  // Report the build's full-screen-intent capability FIRST, so disp=ok/trig=ok
+  // below (which only mean "dispatched", not "shown centre-screen") aren't read
+  // as success on a build where the permission is stripped and the notification
+  // is demoted to a normal banner.
+  const isPlay = (Constants.expoConfig?.extra?.distribution ?? "play") === "play";
+  L.push(
+    isPlay
+      ? "fullscreen=DISABLED (Play build strips USE_FULL_SCREEN_INTENT; expect a banner, not a centre-screen popup)"
+      : "fullscreen=enabled (sideload build)",
+  );
   let alarm: any = null;
   try { const p: any = await withTimeout(notifee.requestPermission(), 5000); L.push(`perm=${p?.authorizationStatus}`); } catch (e: any) { L.push(`perm ERR:${e?.message || e}`); }
   try { const s: any = await withTimeout(notifee.getNotificationSettings(), 5000); alarm = s?.android?.alarm; L.push(`alarm=${alarm}`); } catch (e: any) { L.push(`settings ERR:${e?.message || e}`); }
