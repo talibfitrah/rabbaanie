@@ -34,7 +34,6 @@ import {
   recordAppOpened,
   scheduleInactivityReminder,
   getUnfinishedGoalCount,
-  requestNotificationPermissions,
   scheduleGoalsIncompleteReminder,
   maybePromptBatteryOptimization,
 } from "@/lib/notifications";
