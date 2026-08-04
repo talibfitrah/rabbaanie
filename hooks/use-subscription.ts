@@ -8,30 +8,32 @@ import { getApiBaseUrl } from "@/constants/oauth";
  * sunnah companion, library). Premium screens show their content but block the
  * interactive actions behind a subscribe prompt. Module-cached so it's fetched once.
  */
-let _subCache: boolean | null = null;
-
-/**
- * Clear the module-level subscription cache. MUST be called on logout — the
- * cache outlives React state, so without this the next account to sign in on
- * the same device inherits the previous user's subscribed flag until its own
- * status fetch resolves (a premium-UI leak across accounts).
- */
-export function clearSubscriptionCache() {
-  _subCache = null;
-}
+// Keyed by user id so a hit for a different account is ignored. The cache
+// outlives React state and is not tied to any logout path, so without the uid
+// guard the next account to sign in on this device would inherit the previous
+// user's subscribed flag until its own status fetch resolves (a premium leak
+// across accounts). Storing the uid makes that leak structurally impossible,
+// regardless of how many sign-out entry points exist now or later.
+let _subCache: { uid: number; subscribed: boolean } | null = null;
 
 export function useSubscription() {
   const { user } = useAuth();
   const uid = (user as any)?.id as number | undefined;
-  const [subscribed, setSubscribed] = useState<boolean>(_subCache ?? false);
-  const [loading, setLoading] = useState<boolean>(_subCache === null);
+  // Only trust the cache when it belongs to the current user.
+  const cacheHit = _subCache && _subCache.uid === uid ? _subCache : null;
+  const [subscribed, setSubscribed] = useState<boolean>(cacheHit?.subscribed ?? false);
+  const [loading, setLoading] = useState<boolean>(cacheHit === null);
 
   useEffect(() => {
     if (!uid) { setLoading(false); return; }
     let alive = true;
     fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`)
       .then((r) => r.json())
-      .then((d) => { _subCache = !!(d && d.subscribed); if (alive) { setSubscribed(_subCache); setLoading(false); } })
+      .then((d) => {
+        const sub = !!(d && d.subscribed);
+        _subCache = { uid, subscribed: sub };
+        if (alive) { setSubscribed(sub); setLoading(false); }
+      })
       .catch(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
   }, [uid]);
