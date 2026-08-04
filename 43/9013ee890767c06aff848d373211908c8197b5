@@ -1,0 +1,26 @@
+app/_layout.tsx
+  s_1854e141f2b33f::t_c15702b6335d07 191-204,213,215,222-223,243-244
+  s_1854e141f2b33f::t_b2cc1441f25d6c 245-246
+lib/auth-context.tsx
+  s_1854e141f2b33f::t_11e67b2f5f455d 95-100
+server/routers.ts
+  s_1854e141f2b33f::t_104eb8c8002deb 3202-3215
+lib/_core/api.ts
+  s_1854e141f2b33f::t_ef5f8104c430fe 47-48
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "439013ee890767c06aff848d373211908c8197b5",
+  "prompts": {},
+  "sessions": {
+    "s_1854e141f2b33f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3567d07-3819-4126-869d-0afd3e60c003",
+        "model": "moonshotai/kimi-k3"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
