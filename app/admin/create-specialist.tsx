@@ -44,7 +44,7 @@ export default function CreateSpecialistScreen() {
         {label("البريد الإلكتروني")}
         <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="email@example.com" placeholderTextColor={colors.muted} style={inputStyle} />
         {label("كلمة المرور")}
-        <TextInput value={password} onChangeText={setPassword} autoCapitalize="none" placeholder="٦ أحرف على الأقل" placeholderTextColor={colors.muted} style={inputStyle} />
+        <TextInput value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" placeholder="٦ أحرف على الأقل" placeholderTextColor={colors.muted} style={inputStyle} />
         <TouchableOpacity onPress={submit} disabled={create.isPending} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 24, opacity: create.isPending ? 0.6 : 1 }}>
           {create.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>إنشاء الحساب</Text>}
         </TouchableOpacity>
