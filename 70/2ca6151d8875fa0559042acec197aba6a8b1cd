@@ -1,0 +1,21 @@
+app/(tabs)/weekly.tsx
+  s_630a2be95d1962::t_52f946a9321a2f 38-41
+app/admin/create-specialist.tsx
+  s_630a2be95d1962::t_226f2362a9d8d5 47
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "702ca6151d8875fa0559042acec197aba6a8b1cd",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
