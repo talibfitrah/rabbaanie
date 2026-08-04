@@ -1,12 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 import { ScrollView, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Linking, Alert } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import { getApiBaseUrl } from "@/constants/oauth";
+import { invalidateSubscriptionCache } from "@/hooks/use-subscription";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -81,6 +82,15 @@ export default function SubscribeScreen() {
     } catch { /* ignore */ }
   }, [uid, user]);
   useEffect(() => { loadStatus(); loadInfo(); }, [loadStatus, loadInfo]);
+  // Re-check on focus so a Stripe payment completed in the external browser is
+  // reflected when the user returns, and drop the shared cache so the rest of
+  // the app unlocks too.
+  useFocusEffect(
+    useCallback(() => {
+      invalidateSubscriptionCache();
+      loadStatus();
+    }, [loadStatus])
+  );
 
   async function saveInfo() {
     if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
@@ -114,7 +124,15 @@ export default function SubscribeScreen() {
     try {
       const r = await fetch(`${getApiBaseUrl()}/api/subscription/redeem-coupon`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info }) });
       const d = await r.json();
-      if (d.ok) { setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓")); setCoupon(""); loadStatus(); }
+      if (d.ok) {
+        setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓"));
+        setCoupon("");
+        loadStatus();
+        // Entitlement just changed: drop the shared cache so the premium screens
+        // (Weekly, Treatments, Personal Advice) refetch and unlock on next
+        // navigation instead of staying paywalled until a cold restart.
+        invalidateSubscriptionCache();
+      }
       else {
         const e = d.error;
         setMsg(e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")

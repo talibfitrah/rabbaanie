@@ -36,6 +36,7 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { useSubscription } from "@/hooks/use-subscription";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -491,6 +492,7 @@ export default function PersonalAdviceScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
+  const { subscribed } = useSubscription();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{
@@ -815,7 +817,10 @@ export default function PersonalAdviceScreen() {
   // Fetch LLM-based advice
   useEffect(() => {
     if (state.parentProfileCompleted) loadCachedOrFetch();
-  }, [language]);
+    // subscribed is in the deps: it starts false while the status fetch is in
+    // flight, so without it a subscriber who lands here from the notification
+    // gets a permanently blank screen (fetchAdvice bails and never re-runs).
+  }, [language, subscribed]);
 
   async function loadCachedOrFetch() {
     const cacheKey = `personal_advice_cache_${language}`;
@@ -838,6 +843,11 @@ export default function PersonalAdviceScreen() {
   }
 
   async function fetchAdvice() {
+    // Paywall: this screen is a live entry point (daily-advice notification and
+    // widget route here), so it must gate the paid LLM call exactly like the
+    // (tabs)/personal-advice twin — otherwise a non-subscriber taps the daily
+    // notification and gets full AI advice for free.
+    if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
       const baseUrl = getApiBaseUrl();

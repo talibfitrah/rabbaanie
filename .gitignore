@@ -89,3 +89,6 @@ google-services.json
 .claude/
 .codex/
 graphify-out/
+
+# pnpm is the package manager (packageManager field); keep npm from writing a competing lockfile
+package-lock.json

@@ -16,6 +16,16 @@ import { getApiBaseUrl } from "@/constants/oauth";
 // regardless of how many sign-out entry points exist now or later.
 let _subCache: { uid: number; subscribed: boolean } | null = null;
 
+/**
+ * Drop the cached status so the next useSubscription() refetches. Call after an
+ * action that changes entitlement (coupon redeemed, Stripe checkout returned) —
+ * otherwise the premium screens keep showing the paywall until a cold restart,
+ * even though the user just paid.
+ */
+export function invalidateSubscriptionCache() {
+  _subCache = null;
+}
+
 export function useSubscription() {
   const { user } = useAuth();
   const uid = (user as any)?.id as number | undefined;

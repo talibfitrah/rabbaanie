@@ -52,6 +52,12 @@ async function syncToServer(state: AppState): Promise<void> {
   try {
     const token = await Auth.getSessionToken();
     if (!token) return; // Not authenticated, skip sync
+    // Logout in progress: the token is still valid for a few seconds while the
+    // server-side logout call races a 5s timeout, but resetState() has already
+    // armed a debounced sync of the empty default state. Without this guard that
+    // sync overwrites the account's real profile (children, issues, plans) on
+    // the server with blanks. The tombstone is set before logout starts.
+    if (await Auth.isLogoutPending()) return;
     const baseUrl = getApiBaseUrl();
     // Use a simple fetch to the profile.save tRPC mutation
     const response = await fetch(`${baseUrl}/api/trpc/profile.save`, {
@@ -558,6 +564,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
 
   const resetState = useCallback(async () => {
     await persist(defaultAppState);
+    // persist() armed a 2s debounced server sync of the empty default state.
+    // resetState is used on logout and delete-account; in both the account is
+    // being abandoned, so that sync must never reach the server (it would wipe
+    // the real profile). Cancel it here; syncToServer also fails closed on the
+    // logout tombstone as a backstop.
+    if (syncTimer) {
+      clearTimeout(syncTimer);
+      syncTimer = null;
+    }
   }, [persist]);
 
   const saveDailyCheckin = useCallback(
