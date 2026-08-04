@@ -102,17 +102,13 @@ export function PersistentTabBar() {
 }
 
 const styles = StyleSheet.create({
+  // Rendered in flow below the Stack (see app/_layout.tsx) so scrollable
+  // screens can never slide their content under the bar.
   container: {
-    position: "absolute",
-    bottom: 0,
-    left: 0,
-    right: 0,
     flexDirection: "row",
     alignItems: "center",
     paddingTop: 8,
     borderTopWidth: 0.5,
-    zIndex: 9999,
-    elevation: 10,
   },
   tab: {
     flex: 1,

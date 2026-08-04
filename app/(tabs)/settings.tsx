@@ -2081,6 +2081,29 @@ export default function SettingsScreen() {
         </Text>
       </Pressable>
 
+      {/* Log out — keeps the account, only clears this device's session */}
+      {isAuthenticated && (
+        <Pressable
+          onPress={async () => {
+            await logout();
+            router.replace("/login");
+          }}
+          style={({ pressed }) => [{
+            borderWidth: 1,
+            borderColor: colors.error,
+            borderRadius: 12,
+            paddingVertical: 16,
+            alignItems: "center" as const,
+            marginTop: 12,
+            opacity: pressed ? 0.7 : 1,
+          }]}
+        >
+          <Text style={{ fontWeight: "bold", color: colors.error }}>
+            {language === "ar" ? "تسجيل الخروج" : isEn ? "Log out" : "Uitloggen"}
+          </Text>
+        </Pressable>
+      )}
+
       {/* Account deletion — required by Google Play for apps with accounts */}
       {isAuthenticated && (
         <Pressable

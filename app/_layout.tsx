@@ -803,6 +803,7 @@ export default function RootLayout() {
                     dismissPopup={popupHook.dismissCurrent}
                   />
                   <AuthGate>
+                    <View style={{ flex: 1 }}>
                     <Stack
                       screenOptions={{
                         headerShown: false,
@@ -910,6 +911,7 @@ export default function RootLayout() {
                         }}
                       />
                     </Stack>
+                    </View>
                     <PersistentTabBar />
                   </AuthGate>
                 </AuthProvider>
