@@ -2695,6 +2695,7 @@ function PersonalAdviceSettings({ colors, language, isRTL, router }: { colors: a
 function CommunicationSettings({ colors, language }: { colors: any; language: string }) {
   const [chatNotifications, setChatNotifications] = useState(true);
   const [autoAcceptLinks, setAutoAcceptLinks] = useState(false);
+  const [shareLocation, setShareLocation] = useState(false);
   const [shareDefaults, setShareDefaults] = useState<string[]>(["name", "age", "gender"]);
   const [open, setOpen] = useState(false);
   const isRTL = language === "ar";
@@ -2708,6 +2709,9 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
     });
     AsyncStorage.getItem("@comm_auto_accept_links").then((v) => {
       if (v !== null) setAutoAcceptLinks(v === "true");
+    });
+    AsyncStorage.getItem("@share_location_with_team").then((v) => {
+      if (v !== null) setShareLocation(v === "true");
     });
     AsyncStorage.getItem("@share_default_fields").then((v) => {
       if (v) {
@@ -2727,6 +2731,13 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
     const newVal = !autoAcceptLinks;
     setAutoAcceptLinks(newVal);
     await AsyncStorage.setItem("@comm_auto_accept_links", String(newVal));
+    if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  };
+
+  const toggleShareLocation = async () => {
+    const newVal = !shareLocation;
+    setShareLocation(newVal);
+    await AsyncStorage.setItem("@share_location_with_team", String(newVal));
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
   };
 
@@ -2826,6 +2837,49 @@ function CommunicationSettings({ colors, language }: { colors: any; language: st
             borderRadius: 11,
             backgroundColor: "#ffffff",
             alignSelf: autoAcceptLinks ? "flex-end" : "flex-start",
+          }} />
+        </View>
+      </Pressable>
+
+      {/* Share location with the team — explicit opt-in, default off. Precise
+          coordinates are personal data; nothing is uploaded unless this is on. */}
+      <Pressable
+        onPress={toggleShareLocation}
+        style={({ pressed }) => [{
+          flexDirection: isRTL ? "row-reverse" : "row",
+          alignItems: "center",
+          justifyContent: "space-between",
+          paddingVertical: 12,
+          borderBottomWidth: 0.5,
+          borderBottomColor: colors.border,
+          opacity: pressed ? 0.7 : 1,
+        }]}
+      >
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, flex: 1 }}>
+          <MaterialIcons name="location-on" size={18} color={colors.primary} />
+          <View style={{ flex: 1 }}>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+              {tx("Locatie delen met het team", "Share location with the team", "مشاركة الموقع مع الفريق")}
+            </Text>
+            <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>
+              {tx("Deel je locatie zodat het team je kan ondersteunen. Standaard uit.", "Share your location so the team can support you. Off by default.", "شارك موقعك ليتمكّن الفريق من دعمك. معطّل افتراضيًا.")}
+            </Text>
+          </View>
+        </View>
+        <View style={{
+          width: 46,
+          height: 26,
+          borderRadius: 13,
+          backgroundColor: shareLocation ? colors.success : colors.muted + "40",
+          justifyContent: "center",
+          paddingHorizontal: 2,
+        }}>
+          <View style={{
+            width: 22,
+            height: 22,
+            borderRadius: 11,
+            backgroundColor: "#ffffff",
+            alignSelf: shareLocation ? "flex-end" : "flex-start",
           }} />
         </View>
       </Pressable>

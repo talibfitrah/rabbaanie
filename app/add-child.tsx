@@ -22,7 +22,7 @@ export default function AddChildScreen() {
   const { language } = useI18n();
   const lang = language as Language;
   const { addChild, state } = useAppState();
-  const { subscribed } = usePremiumGate();
+  const { subscribed, loading: subLoading } = usePremiumGate();
 
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"jongen" | "meisje" | "">("");
@@ -34,6 +34,7 @@ export default function AddChildScreen() {
   const linkChildMutation = trpc.links.linkChildByPublicId.useMutation();
 
   const handleSave = async () => {
+    if (subLoading) return; // status still loading — don't bounce a subscriber
     if (!subscribed) { router.push("/subscribe" as any); return; }
     if (!name.trim()) {
       Alert.alert(

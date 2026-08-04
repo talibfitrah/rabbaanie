@@ -96,10 +96,13 @@ export function usePushNotifications(isAuthenticated: boolean) {
         }
       }
       // Report the user's prayer location so the owner can see where each user
-      // is — regardless of whether a push token was obtained (FCM may be absent).
+      // is — ONLY if the user explicitly opted in (Settings toggle, default off).
+      // Precise coordinates are personal data; uploading them without consent on
+      // a child-focused EU app is not lawful, so this is gated and off by default.
       try {
         const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
-        const raw = await AsyncStorage.getItem("@prayer_location");
+        const shareLocation = (await AsyncStorage.getItem("@share_location_with_team")) === "true";
+        const raw = shareLocation ? await AsyncStorage.getItem("@prayer_location") : null;
         if (raw) {
           const loc = JSON.parse(raw);
           if (loc?.lat != null && loc?.lng != null) {

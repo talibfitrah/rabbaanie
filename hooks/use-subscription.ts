@@ -27,7 +27,7 @@ export function invalidateSubscriptionCache() {
 }
 
 export function useSubscription() {
-  const { user } = useAuth();
+  const { user, loading: authLoading } = useAuth();
   const uid = (user as any)?.id as number | undefined;
   // Only trust the cache when it belongs to the current user.
   const cacheHit = _subCache && _subCache.uid === uid ? _subCache : null;
@@ -35,7 +35,15 @@ export function useSubscription() {
   const [loading, setLoading] = useState<boolean>(cacheHit === null);
 
   useEffect(() => {
-    if (!uid) { setLoading(false); return; }
+    // Distinguish "auth still hydrating" from "definitely logged out". While
+    // auth is loading, uid is briefly undefined — stay in the loading state so
+    // consumers don't wrongly paywall a real subscriber. Only once auth has
+    // resolved with no user do we settle on not-subscribed (avoids a permanent
+    // spinner for a genuinely logged-out user).
+    if (!uid) {
+      if (!authLoading) setLoading(false);
+      return;
+    }
     let alive = true;
     fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`)
       .then((r) => r.json())
@@ -46,7 +54,7 @@ export function useSubscription() {
       })
       .catch(() => { if (alive) setLoading(false); });
     return () => { alive = false; };
-  }, [uid]);
+  }, [uid, authLoading]);
 
   return { subscribed, loading };
 }

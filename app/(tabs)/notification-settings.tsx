@@ -430,9 +430,10 @@ export default function NotificationSettingsScreen() {
               </Text>
             </View>
           </View>
-          <View style={{ width: 48, height: 28, borderRadius: 14, backgroundColor: notifPrefs.enabled ? colors.primary : colors.muted + "40", justifyContent: "center", paddingHorizontal: 2 }}>
-            <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: "#fff", alignSelf: notifPrefs.enabled ? "flex-end" : "flex-start" }} />
-          </View>
+          {/* Mandatory (prayer reminders are always on): show a lock, not a
+              switch. Tapping still re-checks OS permission, but the master flag
+              is force-enabled on every load, so a toggle here would be a lie. */}
+          <MaterialIcons name="lock" size={20} color={colors.muted} />
         </Pressable>
 
         {/* Test & diagnostics — verify pop-up + sound right now, without waiting for a prayer */}

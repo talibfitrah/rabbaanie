@@ -260,7 +260,7 @@ export default function EnvironmentScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, updateEnvironment, updateChild } = useAppState();
-  const { subscribed } = usePremiumGate();
+  const { subscribed, loading: subLoading } = usePremiumGate();
   const { language } = useI18n();
   const lang: Lang = language as Lang;
   const ENV_QUESTIONS = getEnvQuestions(lang);
@@ -304,6 +304,7 @@ export default function EnvironmentScreen() {
   };
 
   const handleSubmit = async () => {
+    if (subLoading) return; // status still loading — don't bounce a subscriber
     if (!subscribed) { router.push("/subscribe" as any); return; }
     const unanswered = validateForm();
     if (unanswered.length > 0) {

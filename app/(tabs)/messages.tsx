@@ -88,7 +88,7 @@ export default function MessagesScreen() {
   const userGender = state.parentProfile.gender || "man";
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { subscribed } = usePremiumGate();
+  const { subscribed, loading: subLoading } = usePremiumGate();
 
   const [activeTab, setActiveTab] = useState<Tab>("parents");
   const [selected, setSelected] = useState<SelectedConversation | null>(null);
@@ -170,13 +170,17 @@ export default function MessagesScreen() {
 
   const handleSend = useCallback(() => {
     if (!newMessage.trim() || !selected) return;
+    // Don't discard the message while subscription status is still loading — a
+    // real subscriber sending in the first moments would otherwise be bounced
+    // to the paywall. Wait; only route once we know they're not subscribed.
+    if (subLoading) return;
     if (!subscribed) { router.push("/subscribe" as any); return; }
     sendDirectMutation.mutate({
       recipientId: selected.id,
       content: newMessage.trim(),
       childId: selected.sharedChildren?.[0]?.id,
     });
-  }, [newMessage, selected, sendDirectMutation, subscribed, router]);
+  }, [newMessage, selected, sendDirectMutation, subscribed, subLoading, router]);
 
   // Partner link mutation
   const linkPartner = trpc.links.linkPartnerByPublicId.useMutation({
