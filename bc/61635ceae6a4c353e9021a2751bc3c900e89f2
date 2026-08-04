@@ -1,0 +1,20 @@
+lib/book-data.ts
+  s_168adbdaf097e9::t_767d98dc1e6ef5 62
+  s_168adbdaf097e9::t_2f2a11196741fe 50
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bc61635ceae6a4c353e9021a2751bc3c900e89f2",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

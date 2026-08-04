@@ -1,0 +1,30 @@
+lib/adhkar-data.ts
+  s_168adbdaf097e9::t_dc89c1d725f4f7 5508-5510
+  s_168adbdaf097e9::t_b4b46e7f010e9e 5502-5504
+  s_168adbdaf097e9::t_631305507fa107 5514-5517
+lib/iman-notifications.ts
+  s_168adbdaf097e9::t_1d6009736965e9 30-41
+  s_168adbdaf097e9::t_728eb9dcebb719 172-173
+  s_168adbdaf097e9::t_39599988ca0940 147
+  s_168adbdaf097e9::t_2e7bf2216a555e 197
+  s_168adbdaf097e9::t_3fbc350f340504 101-102
+  s_168adbdaf097e9::t_65b7f23d4faaf7 198
+app/(tabs)/index.tsx
+  s_168adbdaf097e9::t_c498ab82a26d2f 673-678,680-683
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "781f2b32cbb4bf8dc7c967fe790dae1e7a1c17c3",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

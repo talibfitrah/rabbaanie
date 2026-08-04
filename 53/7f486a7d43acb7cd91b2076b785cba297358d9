@@ -1,0 +1,27 @@
+app/(tabs)/index.tsx
+  s_168adbdaf097e9::t_4c76d7c5ed55cf 471,473-479
+  s_168adbdaf097e9::t_d1e3de5f3e974c 10
+  s_168adbdaf097e9::t_a9b607d6f54c85 629-632,634-636
+app/weather.tsx
+  s_168adbdaf097e9::t_bebac11af85dd7 1-107
+lib/weather.ts
+  s_168adbdaf097e9::t_9bb9063710eaad 65,67-68,78-79,85-86,92-93,99-100,106-107
+app/_layout.tsx
+  s_168adbdaf097e9::t_ed4850ca85d5a2 501
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "537f486a7d43acb7cd91b2076b785cba297358d9",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,24 @@
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_2727d02ac45847 1433-1436
+  s_168adbdaf097e9::t_99de85bfd76af3 1424
+  s_168adbdaf097e9::t_3c07a6e773e406 2
+app/subscribe.tsx
+  s_168adbdaf097e9::t_45d2513235f580 45-63
+  s_168adbdaf097e9::t_5526b04d3fad8b 158-188
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e5c9be36a28b63386ce885ff3dee40c0f3adcf2e",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

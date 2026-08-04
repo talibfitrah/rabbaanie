@@ -1,0 +1,29 @@
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_2e12b085429e4b 360
+  s_168adbdaf097e9::t_ec47331e0c24a6 396-406,408
+app/(tabs)/notification-settings.tsx
+  s_168adbdaf097e9::t_69fc118017bb4e 245
+  s_168adbdaf097e9::t_e9a6e77a368205 263-274
+app/admin/user.tsx
+  s_168adbdaf097e9::t_fc53521934f944 2
+  s_168adbdaf097e9::t_88b9427261a654 77-83
+hooks/use-push-notifications.ts
+  s_168adbdaf097e9::t_119f5eec53f6b9 81
+  s_168adbdaf097e9::t_01acb2c79130ed 103-119
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fb0408cbe5fb2c2fab77f713d1b3bf4b36513baf",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+data/sunnah-companion.json
+  s_168adbdaf097e9::t_3f70ceb3361eae 2-7,14-15,23-24,32-33,41,49,57,65-67,75-76,84,92,100-102,110-111,119,127-128,136,144,152
+app/sunnah.tsx
+  s_168adbdaf097e9::t_c6eb1120ffe2f6 10,14,32-33,36,42,52,58,63-72,76-93,107,110-112,114,117-118,123-132,149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2354f7f47abd8442eccda9a0fa6f4a45661a5e5e",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "unknown"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

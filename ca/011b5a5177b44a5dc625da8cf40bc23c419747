@@ -1,0 +1,32 @@
+data/sunnah-companion.json
+  s_168adbdaf097e9::t_c5345184bbd1f2 99
+  s_168adbdaf097e9::t_c2c9f10f7acf34 195
+  s_168adbdaf097e9::t_22e2b38ccd3d37 70
+  s_168adbdaf097e9::t_d6bf315b21ce5b 147
+  s_168adbdaf097e9::t_934c6376808dff 180
+  s_168adbdaf097e9::t_cb40f84c086571 163
+  s_168adbdaf097e9::t_aa0b6ab8264ee4 209
+  s_168adbdaf097e9::t_f2984c0988a34a 38
+  s_168adbdaf097e9::t_9518535cf56175 239
+  s_168adbdaf097e9::t_0bc32baceb4c13 6
+  s_168adbdaf097e9::t_44e5fcb4034379 85
+  s_168adbdaf097e9::t_e846e1c101c00c 132
+  s_168adbdaf097e9::t_eb1968114bdfdd 225
+  s_168adbdaf097e9::t_ab6ad5600ecbee 116
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ca011b5a5177b44a5dc625da8cf40bc23c419747",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

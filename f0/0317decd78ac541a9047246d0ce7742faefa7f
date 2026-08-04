@@ -1,0 +1,46 @@
+lib/location-utils.ts
+  s_168adbdaf097e9::t_5b58871e5f07c7 1-14
+lib/advice-period.ts
+  s_168adbdaf097e9::t_b4cd538f7e3070 23-59,62-67,70-82
+lib/app-version.test.ts
+  s_168adbdaf097e9::t_e5ed77ecdb633a 2
+  s_168adbdaf097e9::t_0d8578e83b11df 56-105
+app/(tabs)/index.tsx
+  s_168adbdaf097e9::t_8264b77a0d16b1 202,217-219
+  s_168adbdaf097e9::t_0dc0407428857b 3
+app/(tabs)/mosques.tsx
+  s_168adbdaf097e9::t_eed36f47a65c93 172,174
+  s_168adbdaf097e9::t_1b3ce11ef69077 2
+lib/app-version.ts
+  s_168adbdaf097e9::t_4c66d3f712c74c 27-43,47-48,56-63
+app/(tabs)/settings.tsx
+  s_168adbdaf097e9::t_c48f7ed610fd03 14
+  s_168adbdaf097e9::t_6c24d0bbe55575 647,754
+  s_168adbdaf097e9::t_dee4d6cbb5113f 650,757
+lib/iqamah-silence.ts
+  s_168adbdaf097e9::t_3a9ad9028fdf05 26
+  s_168adbdaf097e9::t_f186e9344b803e 271-276,278-283,291-295,297-298
+app/qibla.tsx
+  s_168adbdaf097e9::t_29a906418b5cc6 62-64,68-81,90-126,129-133,143-145
+  s_168adbdaf097e9::t_ba68e5adf30e10 11
+hooks/use-updates.ts
+  s_168adbdaf097e9::t_b126f0be7c3596 255,259-260
+lib/advice-period.test.ts
+  s_168adbdaf097e9::t_57af03bed5ffb8 1-72
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f00317decd78ac541a9047246d0ce7742faefa7f",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

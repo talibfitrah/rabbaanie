@@ -1,0 +1,30 @@
+lib/server-books.ts
+  s_168adbdaf097e9::t_eabb5892a92a95 1-45
+app/library/[bookId].tsx
+  s_168adbdaf097e9::t_5260f59c74a502 1,9
+  s_168adbdaf097e9::t_184b6f4d1bd912 27-33
+app/library/read.tsx
+  s_168adbdaf097e9::t_ddda6a409e990e 15
+  s_168adbdaf097e9::t_8ffd4c6ad748fe 34-39
+app/library/index.tsx
+  s_168adbdaf097e9::t_e4e7d8fc219b1b 66-76
+  s_168adbdaf097e9::t_ae15f2821e7c28 11
+  s_168adbdaf097e9::t_c35cd365f7929a 1
+  s_168adbdaf097e9::t_7632fe7ec6b408 45-48,50,56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "94e43c9461b0f2a4368b49bbe3fecb0c8513a195",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
