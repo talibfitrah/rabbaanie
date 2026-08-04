@@ -3199,7 +3199,20 @@ const translateRouter = router({
 export const appRouter = router({
   system: systemRouter,
   auth: router({
-    me: publicProcedure.query((opts) => opts.ctx.user),
+    me: publicProcedure.query((opts) => {
+      // Never hand the raw users row to clients: it carries passwordHash and
+      // other credential columns. Match the production response shape.
+      const user = opts.ctx.user;
+      if (!user) return null;
+      return {
+        id: user.id,
+        openId: user.openId,
+        name: user.name ?? null,
+        email: user.email ?? null,
+        loginMethod: user.loginMethod ?? null,
+        lastSignedIn: user.lastSignedIn ?? null,
+      };
+    }),
     logout: publicProcedure.mutation(({ ctx }) => {
       const cookieOptions = getSessionCookieOptions(ctx.req);
       ctx.res.clearCookie(COOKIE_NAME, { ...cookieOptions, maxAge: -1 });

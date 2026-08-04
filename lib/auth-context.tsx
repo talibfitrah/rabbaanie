@@ -92,7 +92,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     clearGoogleOAuthExchange();
     await Auth.markLogoutPending();
     try {
-      await Api.logout();
+      // Bound the server call: a hung connection must not delay the local
+      // credential wipe. The pending marker above covers the crash path.
+      await Promise.race([
+        Api.logout(),
+        new Promise((resolve) => setTimeout(resolve, 5_000)),
+      ]);
     } catch (err) {
       console.error("[AuthProvider] Logout API call failed:", err);
     }

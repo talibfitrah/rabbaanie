@@ -188,31 +188,39 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     return () => clearTimeout(timer);
   }, [loading]);
 
+  const segment = segments[0] as string | undefined;
+  // Computed during render (pure function) so gated children never mount for
+  // even one frame when a redirect applies — e.g. a minor deep-linking past
+  // the age gate.
+  const pendingRedirect =
+    ageLoading || (loading && !timedOut)
+      ? null
+      : getGateRedirect({
+          status: ageStatus,
+          isAuthenticated,
+          segment,
+          childMonitoringEnabled: CHILD_MONITORING_ENABLED,
+        });
+
   useEffect(() => {
     if (ageLoading || (loading && !timedOut)) return;
-    const segment = segments[0] as string | undefined;
-    const redirect = getGateRedirect({
-      status: ageStatus,
-      isAuthenticated,
-      segment,
-      childMonitoringEnabled: CHILD_MONITORING_ENABLED,
-    });
     console.log("[AuthGate] Check:", {
       ageStatus,
       isAuthenticated,
       loading,
       timedOut,
       segment,
-      redirect,
+      redirect: pendingRedirect,
     });
-    if (redirect) router.replace(redirect as any);
+    if (pendingRedirect) router.replace(pendingRedirect as any);
   }, [
     ageStatus,
     ageLoading,
     isAuthenticated,
     loading,
     timedOut,
-    segments,
+    segment,
+    pendingRedirect,
     router,
   ]);
 
@@ -230,6 +238,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Show animated splash on first load
   if (showAnimatedSplash) {
     return <AnimatedSplash onFinish={() => setShowAnimatedSplash(false)} />;
+  }
+
+  if (pendingRedirect) {
+    return <LoadingScreen />;
   }
 
   return <View style={{ flex: 1 }}>{children}</View>;
