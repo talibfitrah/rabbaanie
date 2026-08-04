@@ -10,6 +10,16 @@ import { getApiBaseUrl } from "@/constants/oauth";
  */
 let _subCache: boolean | null = null;
 
+/**
+ * Clear the module-level subscription cache. MUST be called on logout — the
+ * cache outlives React state, so without this the next account to sign in on
+ * the same device inherits the previous user's subscribed flag until its own
+ * status fetch resolves (a premium-UI leak across accounts).
+ */
+export function clearSubscriptionCache() {
+  _subCache = null;
+}
+
 export function useSubscription() {
   const { user } = useAuth();
   const uid = (user as any)?.id as number | undefined;

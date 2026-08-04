@@ -64,7 +64,7 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
-import { useSubscription } from "@/hooks/use-subscription";
+import { useSubscription, clearSubscriptionCache } from "@/hooks/use-subscription";
 import * as Clipboard from "expo-clipboard";
 import { getSessionRole } from "@/lib/_core/auth";
 
@@ -1053,6 +1053,7 @@ export default function SettingsScreen() {
             // Only clear the device once the server confirmed, otherwise the
             // user is signed out of an account that still exists.
             await resetState();
+            clearSubscriptionCache();
             await logout();
             router.replace("/login");
           },
@@ -2091,6 +2092,7 @@ export default function SettingsScreen() {
             // debounced persist writes the old family onto the new server row).
             // Mirrors the delete-account path above.
             await resetState();
+            clearSubscriptionCache();
             await logout();
             router.replace("/login");
           }}
