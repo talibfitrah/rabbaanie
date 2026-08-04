@@ -173,7 +173,9 @@ export default function LoginScreen() {
       await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {
-      console.error("[Login] Google login error:", err);
+      // Log the cause too: SDK rejections carry the readable name only there
+      // (the `reason` is a bare numeric code like "10" for DEVELOPER_ERROR).
+      console.error("[Login] Google login error:", err, err?.cause);
       const denied = err instanceof GoogleSignInError ? err.reason : null;
       if (denied === "no_account") {
         setError(
