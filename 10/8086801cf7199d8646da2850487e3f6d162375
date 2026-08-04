@@ -1,0 +1,37 @@
+lib/google-oauth.ts
+  s_6a788d26c42f8c::t_e5dc150e20f40f 4
+  s_6a788d26c42f8c::t_170428f1246323 39-40,49-50,60
+  s_6a788d26c42f8c::t_88987392f4eb87 41-43
+  s_6a788d26c42f8c::t_641a939cf075f5 51-59
+  s_6a788d26c42f8c::t_3c5ac3923826d9 44-48
+  s_6a788d26c42f8c::t_91a4d68b0bf788 13-14
+  s_6a788d26c42f8c::t_be403817095a0f 38
+tests/google-pkce-signin.test.ts
+  s_6a788d26c42f8c::t_d0e84425c1476a 29
+  s_6a788d26c42f8c::t_4effa651bb060c 71-97
+  s_6a788d26c42f8c::t_ed3e360052963f 52-70
+  s_6a788d26c42f8c::t_4ba38be040603a 7
+  s_6a788d26c42f8c::t_76428cc50d37f3 33-38,41
+app/login.tsx
+  s_6a788d26c42f8c::t_a84e8839a657eb 176-178
+app.config.ts
+  s_6a788d26c42f8c::t_84364edd25dda3 131
+package.json
+  s_6a788d26c42f8c::t_84364edd25dda3 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "108086801cf7199d8646da2850487e3f6d162375",
+  "prompts": {},
+  "sessions": {
+    "s_6a788d26c42f8c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2cde4f20-842a-4dda-9b08-cf54ff54e848",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
