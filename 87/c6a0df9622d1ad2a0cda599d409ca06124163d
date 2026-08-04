@@ -1,0 +1,19 @@
+.gitignore
+  s_6a788d26c42f8c::t_44223726ddf382 92
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "87c6a0df9622d1ad2a0cda599d409ca06124163d",
+  "prompts": {},
+  "sessions": {
+    "s_6a788d26c42f8c": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2cde4f20-842a-4dda-9b08-cf54ff54e848",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
