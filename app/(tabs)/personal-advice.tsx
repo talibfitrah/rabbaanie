@@ -688,10 +688,13 @@ export default function PersonalAdviceScreen() {
     }));
   }, [state.children, lang]);
 
-  // Fetch LLM-based advice
+  // Fetch LLM-based advice. `subscribed` is in the deps because it starts
+  // false while the status fetch is in flight; without it a paying subscriber
+  // gets a permanently blank screen on cold start (fetchAdvice bails on
+  // !subscribed and never re-runs when the real status arrives).
   useEffect(() => {
     if (state.parentProfileCompleted) loadCachedOrFetch();
-  }, [language]);
+  }, [language, subscribed]);
 
   async function loadCachedOrFetch() {
     const cacheKey = `personal_advice_cache_${language}`;
