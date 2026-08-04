@@ -41,9 +41,18 @@ export function useSubscription() {
     // resolved with no user do we settle on not-subscribed (avoids a permanent
     // spinner for a genuinely logged-out user).
     if (!uid) {
+      // No user (logged out / hydrating): never report a stale subscribed=true.
+      setSubscribed(false);
       if (!authLoading) setLoading(false);
       return;
     }
+    // uid changed (account switch without this component unmounting): the
+    // useState initializers only ran on mount, so reset to this user's cached
+    // value — or to loading if we have nothing for them — before refetching.
+    // Otherwise the previous account's subscribed flag lingers until the fetch.
+    const hit = _subCache && _subCache.uid === uid ? _subCache : null;
+    setSubscribed(hit?.subscribed ?? false);
+    setLoading(hit === null);
     let alive = true;
     fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`)
       .then((r) => r.json())

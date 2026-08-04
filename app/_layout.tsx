@@ -35,7 +35,6 @@ import {
   scheduleInactivityReminder,
   getUnfinishedGoalCount,
   scheduleGoalsIncompleteReminder,
-  maybePromptBatteryOptimization,
 } from "@/lib/notifications";
 import {
   scheduleIqamahSilence,
@@ -635,12 +634,11 @@ export default function RootLayout() {
 
       // Reschedule notifications on app launch (refreshes for next 7 days)
       await scheduleAllNotifications(lang);
-      // One-time prompt to exempt the app from battery optimization so the
-      // scheduled notifications above still fire while the app is closed.
-      // Deferred + fire-and-forget so it doesn't block launch or the splash.
-      setTimeout(() => {
-        maybePromptBatteryOptimization();
-      }, 3500);
+      // NOTE: the battery-optimization exemption is intentionally NOT auto-fired
+      // on launch. It dumped the user into a system settings screen 3.5s into
+      // first launch (mid-onboarding) with no explanation, and the Play build
+      // strips REQUEST_IGNORE_BATTERY_OPTIMIZATIONS anyway. It stays reachable,
+      // user-initiated, from the permissions and settings screens.
       // Schedule weekly goals reminder
       await scheduleWeeklyGoalsNotification(lang);
       // Schedule weekly goal reminder with unfinished count
