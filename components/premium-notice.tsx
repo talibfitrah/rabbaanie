@@ -1,4 +1,4 @@
-import { Text, TouchableOpacity, View } from "react-native";
+import { ActivityIndicator, Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
@@ -38,7 +38,15 @@ export function PremiumGate({ children }: { children: React.ReactNode }) {
   const { language, isRTL } = useI18n();
   const { subscribed, loading } = useSubscription();
   const tx = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
-  if (loading) return null;
+  // While status loads, show a spinner — not a blank screen (looks broken) and
+  // not the children (would flash paid content to a non-subscriber).
+  if (loading) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: colors.background }}>
+        <ActivityIndicator color={colors.primary} />
+      </View>
+    );
+  }
   if (subscribed) return <>{children}</>;
   return (
     <View style={{ flex: 1, alignItems: "center", justifyContent: "center", padding: 28, backgroundColor: colors.background }}>

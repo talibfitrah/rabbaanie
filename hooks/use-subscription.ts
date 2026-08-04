@@ -52,7 +52,14 @@ export function useSubscription() {
         _subCache = { uid, subscribed: sub };
         if (alive) { setSubscribed(sub); setLoading(false); }
       })
-      .catch(() => { if (alive) setLoading(false); });
+      .catch(() => {
+        // Network failure must NOT downgrade a paying subscriber to the paywall.
+        // Keep the last known-good value for this user if we have one; only fall
+        // through to not-subscribed when we've never had a successful check.
+        if (!alive) return;
+        if (_subCache && _subCache.uid === uid) setSubscribed(_subCache.subscribed);
+        setLoading(false);
+      });
     return () => { alive = false; };
   }, [uid, authLoading]);
 
