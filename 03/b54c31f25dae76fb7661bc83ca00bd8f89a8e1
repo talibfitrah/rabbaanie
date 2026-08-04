@@ -1,0 +1,25 @@
+components/premium-notice.tsx
+  s_630a2be95d1962::t_6ede67a3b59b50 68-71
+app/(tabs)/weekly.tsx
+  s_630a2be95d1962::t_01b0cbcea3f131 380-383
+  s_630a2be95d1962::t_bea8333ceee911 155
+app/(tabs)/treatments.tsx
+  s_630a2be95d1962::t_24a7a8f22abd09 105-107
+  s_630a2be95d1962::t_6c531d5e01d7db 27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "03b54c31f25dae76fb7661bc83ca00bd8f89a8e1",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
