@@ -24,7 +24,7 @@ export default function TreatmentsScreen() {
   const { t, language } = useI18n();
   // Hooks must run unconditionally: this sits above the early returns below so
   // the hook count stays constant when `loading`/onboarding flags flip.
-  const { subscribed: _psub, loading: _pload } = usePremiumGate();
+  const { subscribed: _psub } = usePremiumGate();
 
   if (loading) {
     return (
@@ -102,7 +102,9 @@ export default function TreatmentsScreen() {
   const dateLocale =
     language === "ar" ? "ar-SA" : language === "en" ? "en-GB" : "nl-NL";
 
-  if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
+  // Gate while loading too (see weekly.tsx): don't flash the full plan to a
+  // non-subscriber during the status fetch. PremiumGate renders null while loading.
+  if (!_psub) return <PremiumGate>{null as any}</PremiumGate>;
 
   return (
     <View className="flex-1" style={{ backgroundColor: colors.background }}>

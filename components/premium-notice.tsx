@@ -65,7 +65,10 @@ export function usePremiumGate() {
   const { subscribed, loading } = useSubscription();
   const gate = (action: () => void) => {
     if (subscribed) action();
-    else router.push("/subscribe" as any);
+    // Don't bounce to the paywall while status is still loading — on cold start
+    // subscribed is false until the fetch resolves, so a real subscriber tapping
+    // a gated action in the first moments would be wrongly sent to /subscribe.
+    else if (!loading) router.push("/subscribe" as any);
   };
   return { subscribed, loading, gate };
 }

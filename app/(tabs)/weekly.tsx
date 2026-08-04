@@ -152,7 +152,7 @@ export default function WeeklyScreen() {
   const { state, loading } = useAppState();
   // Hooks must run unconditionally: hoisted above the early returns below so
   // the hook count stays constant when `loading` flips.
-  const { subscribed: _psub, loading: _pload } = usePremiumGate();
+  const { subscribed: _psub } = usePremiumGate();
   const { t, language } = useI18n();
   const lang: Lang = language as Lang;
   const isRTL = lang === "ar";
@@ -377,7 +377,10 @@ export default function WeeklyScreen() {
     return lang === "nl" ? `Jaar ${y} (${y} jaar)` : `Year ${y} (${y} years old)`;
   })();
 
-  if (!_pload && !_psub) return <PremiumGate>{null as any}</PremiumGate>;
+  // Gate while loading too: otherwise a non-subscriber sees the full plan for
+  // the duration of the status fetch before the paywall replaces it. PremiumGate
+  // renders null while loading, so this shows nothing until status resolves.
+  if (!_psub) return <PremiumGate>{null as any}</PremiumGate>;
 
   return (
 
