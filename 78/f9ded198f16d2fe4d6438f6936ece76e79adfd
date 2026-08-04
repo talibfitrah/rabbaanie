@@ -1,0 +1,19 @@
+app/(tabs)/personal-advice.tsx
+  s_630a2be95d1962::t_1f3323ae751e6f 691-694,697
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "78f9ded198f16d2fe4d6438f6936ece76e79adfd",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
