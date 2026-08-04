@@ -51,7 +51,10 @@ const USAGE_STATS_MODULE = "expo-usage-stats";
 // Custom schemes the Play artifact must never expose: the sideload navigation
 // scheme and the retired OAuth callback scheme. Both are stripped from stale
 // prebuild output because expo prebuild reuses an existing android/ directory.
-const RETIRED_APP_SCHEMES = [env.scheme, `${env.androidPackage}.auth`];
+const RETIRED_APP_SCHEMES: Array<string | undefined> = [
+  env.scheme,
+  `${env.androidPackage}.auth`,
+];
 
 // The local usage-stats module declares both PACKAGE_USAGE_STATS and
 // isMonitoringTool. Google Play only accepts monitoring apps that are

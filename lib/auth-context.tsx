@@ -9,7 +9,6 @@ import React, {
 import { Platform } from "react-native";
 import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
-import { clearGoogleOAuthExchange } from "@/lib/google-oauth";
 
 type AuthContextType = {
   user: Auth.User | null;
@@ -89,7 +88,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   }, []);
 
   const logout = useCallback(async () => {
-    clearGoogleOAuthExchange();
     await Auth.markLogoutPending();
     try {
       // Bound the server call: a hung connection must not delay the local
@@ -123,12 +121,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await Auth.setSessionToken(token);
       await Auth.setUserInfo(userInfo);
       await Auth.clearLogoutPending();
-      clearGoogleOAuthExchange();
       setUser(userInfo);
       setLoading(false);
       setError(null);
     } catch (error) {
-      clearGoogleOAuthExchange();
       await Promise.allSettled([
         Auth.removeSessionToken(),
         Auth.clearUserInfo(),

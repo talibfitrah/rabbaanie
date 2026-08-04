@@ -129,7 +129,6 @@ describe("OAuth session establishment", () => {
     const context = fs.readFileSync("lib/auth-context.tsx", "utf8");
     expect(auth).toContain("@rabbaanie_logout_pending");
     expect(context).toContain("if (await Auth.isLogoutPending())");
-    expect(context).toContain("clearGoogleOAuthExchange()");
   });
 
   it("revokes the presented bearer on server logout", () => {

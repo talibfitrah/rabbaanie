@@ -67,6 +67,3 @@ export async function completeNativeGoogleSignIn(): Promise<string | null> {
     clearTimeout(timeout);
   }
 }
-
-/** Retained for logout-state cleanup call sites; no bearer is cached here. */
-export function clearGoogleOAuthExchange(): void {}
