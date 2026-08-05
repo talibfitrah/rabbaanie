@@ -44,6 +44,11 @@ export default function LoginScreen() {
   const [showPassword, setShowPassword] = useState(false);
   const [twoFactorChallenge, setTwoFactorChallenge] = useState("");
   const [twoFactorCode, setTwoFactorCode] = useState("");
+  // Where the code came from, so the prompt matches reality. The server says
+  // which; this initial value is only ever replaced before the field renders.
+  const [twoFactorMethod, setTwoFactorMethod] = useState<"app" | "email">(
+    "email",
+  );
   const colors = useColors();
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
@@ -55,6 +60,21 @@ export default function LoginScreen() {
   const tx = (nl: string, en: string, ar: string) => {
     return language === "ar" ? ar : language === "en" ? en : nl;
   };
+
+  // Takes the method rather than reading state: both callers set it in the same
+  // tick, where the state value is still the previous one.
+  const twoFactorPrompt = (method: "app" | "email") =>
+    method === "email"
+      ? tx(
+          "We hebben een verificatiecode naar uw e-mailadres gestuurd.",
+          "We sent a verification code to your email address.",
+          "أرسلنا رمز تحقّق إلى بريدك الإلكتروني.",
+        )
+      : tx(
+          "Voer uw 2FA-code of back-upcode in",
+          "Enter your 2FA or backup code",
+          "أدخل رمز التحقق أو الرمز الاحتياطي",
+        );
 
   const handleEmailLogin = async () => {
     const completingTwoFactor = Boolean(twoFactorChallenge);
@@ -101,27 +121,32 @@ export default function LoginScreen() {
 
       const data = await response.json();
 
-      if (data.requires2FA && typeof data.challengeToken === "string") {
+      if (data.requires2FA && typeof data.challengeToken === "string" && data.challengeToken) {
+        // See lib/google-oauth.ts: an omitted `factor` means an older server,
+        // which only challenges admins that have an authenticator.
+        const method = data.factor === "email" ? "email" : "app";
         setTwoFactorChallenge(data.challengeToken);
+        setTwoFactorMethod(method);
+        setTwoFactorCode("");
         setPassword("");
-        setError(
-          tx(
-            "Voer uw 2FA-code of back-upcode in",
-            "Enter your 2FA or backup code",
-            "أدخل رمز التحقق أو الرمز الاحتياطي",
-          ),
-        );
+        setError(twoFactorPrompt(method));
         return;
       }
 
       if (!response.ok) {
         if (completingTwoFactor) {
+          // Deliberately keep the challenge: the server allows 5 attempts, and
+          // a 401 covers both "wrong digit" and "expired" without telling them
+          // apart. Clearing here would spend a live challenge on one typo — and
+          // on a Google-initiated one, force the whole account picker again.
+          // The "start over" control below is the way out instead.
+          setTwoFactorCode("");
           setError(
             data.error ||
               tx(
                 "Ongeldige of verlopen verificatiecode",
                 "Invalid or expired verification code",
-                "رمز التحقق غير صالح أو منتهي",
+                "رمز التحقق غير صالح أو منتهٍ",
               ),
           );
         } else if (response.status === 401) {
@@ -173,11 +198,24 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     setError("");
+    // Starting a fresh Google sign-in abandons any challenge already on screen;
+    // leaving it would show a stale code field over the new flow.
+    setTwoFactorChallenge("");
+    setTwoFactorCode("");
     setLoading(true);
     try {
-      const sessionToken = await completeNativeGoogleSignIn();
-      if (!sessionToken) return;
-      await completeTokenSignIn(sessionToken);
+      const result = await completeNativeGoogleSignIn();
+      if (!result) return;
+      if (result.kind === "twoFactor") {
+        // Hand off to the same code field the email flow uses; submitting it
+        // posts to /auth/2fa/verify, which is what mints an admin session.
+        setTwoFactorChallenge(result.challengeToken);
+        setTwoFactorMethod(result.factor);
+        setTwoFactorCode("");
+        setError(twoFactorPrompt(result.factor));
+        return;
+      }
+      await completeTokenSignIn(result.sessionToken);
       await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {
@@ -326,11 +364,17 @@ export default function LoginScreen() {
                       writingDirection: isRTL ? "rtl" : "ltr",
                     }}
                   >
-                    {tx(
-                      "2FA-code of back-upcode",
-                      "2FA or backup code",
-                      "رمز التحقق أو الرمز الاحتياطي",
-                    )}
+                    {twoFactorMethod === "email"
+                      ? tx(
+                          "Code uit uw e-mail",
+                          "Code from your email",
+                          "الرمز من بريدك الإلكتروني",
+                        )
+                      : tx(
+                          "2FA-code of back-upcode",
+                          "2FA or backup code",
+                          "رمز التحقق أو الرمز الاحتياطي",
+                        )}
                   </Text>
                   <TextInput
                     value={twoFactorCode}
@@ -356,6 +400,32 @@ export default function LoginScreen() {
                       borderColor: colors.border,
                     }}
                   />
+                  {/* The only way out of the challenge. Without it an expired
+                      code is a dead end: every submit routes to /auth/2fa/verify
+                      against a challenge the server has already dropped. */}
+                  <TouchableOpacity
+                    onPress={() => {
+                      setTwoFactorChallenge("");
+                      setTwoFactorCode("");
+                      setError("");
+                    }}
+                    hitSlop={8}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: colors.primary,
+                        textAlign: isRTL ? "right" : "left",
+                        marginTop: 2,
+                      }}
+                    >
+                      {tx(
+                        "Opnieuw beginnen",
+                        "Start over",
+                        "البدء من جديد",
+                      )}
+                    </Text>
+                  </TouchableOpacity>
                 </View>
               ) : null}
 

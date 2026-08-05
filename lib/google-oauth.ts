@@ -28,12 +28,26 @@ function configureGoogleSignIn(): void {
 }
 
 /**
+ * Either a finished session, or an admin who still owes a second factor. Google
+ * proving the identity is not enough for a privileged account: the API refuses
+ * the session (403) and returns a challenge in the same body, and the session
+ * that challenge eventually buys is the only one stamped with the 2FA time the
+ * admin surfaces check. `factor` says where the code came from — an emailed
+ * code for admins with no authenticator, which is most of them.
+ */
+export type NativeGoogleSignInResult =
+  | { kind: "session"; sessionToken: string }
+  | { kind: "twoFactor"; challengeToken: string; factor: "app" | "email" };
+
+/**
  * Authenticate with the Android-native Google SDK and exchange the signed ID
  * token over HTTPS. Google accepts the request only from an Android OAuth
  * client registered for Rabbaanie's package and signing certificate; the API
  * independently verifies the token signature, issuer, expiry, and audience.
+ *
+ * Returns null when the user backed out of the Google picker.
  */
-export async function completeNativeGoogleSignIn(): Promise<string | null> {
+export async function completeNativeGoogleSignIn(): Promise<NativeGoogleSignInResult | null> {
   configureGoogleSignIn();
   let result: SignInResponse;
   try {
@@ -76,6 +90,25 @@ export async function completeNativeGoogleSignIn(): Promise<string | null> {
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
+    // An admin is refused a session (403) but handed a 2FA challenge
+    // in the same body. This has to be read before the !response.ok throw, or
+    // the challenge is discarded and an owner signing in with Google has no
+    // route into the app at all. A server that has not shipped the challenge
+    // yet sends the same 403 without these fields and still throws below.
+    // Length-checked, not just typed: an empty string would set the challenge
+    // to a falsy value, so the code field never renders and the admin is left
+    // with a "we sent you a code" message and nothing to type it into.
+    if (data.requires2FA && typeof data.challengeToken === "string" && data.challengeToken) {
+      return {
+        kind: "twoFactor",
+        challengeToken: data.challengeToken,
+        // Default to "app", not "email": a server that omits `factor` predates
+        // the email factor, and those only ever challenge admins who DO have an
+        // authenticator enrolled. Defaulting to email would sit that admin
+        // waiting for a mail that is never sent.
+        factor: data.factor === "email" ? "email" : "app",
+      };
+    }
     if (!response.ok) {
       throw new GoogleSignInError(
         typeof data.error === "string" ? data.error : "google_exchange_failed",
@@ -84,7 +117,7 @@ export async function completeNativeGoogleSignIn(): Promise<string | null> {
     if (typeof data.sessionToken !== "string" || !data.sessionToken) {
       throw new GoogleSignInError("missing_session_token");
     }
-    return data.sessionToken;
+    return { kind: "session", sessionToken: data.sessionToken };
   } finally {
     clearTimeout(timeout);
   }

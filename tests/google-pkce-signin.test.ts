@@ -106,9 +106,10 @@ describe("certificate-bound Android Google sign-in", () => {
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(completeNativeGoogleSignIn()).resolves.toBe(
-      "verified-session",
-    );
+    await expect(completeNativeGoogleSignIn()).resolves.toEqual({
+      kind: "session",
+      sessionToken: "verified-session",
+    });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.rabbaanie.com/auth/google/native",
       expect.objectContaining({
@@ -116,6 +117,83 @@ describe("certificate-bound Android Google sign-in", () => {
         body: JSON.stringify({ idToken: "signed-google-id-token" }),
       }),
     );
+  });
+
+  // An admin is refused a session but handed a challenge, in a 403.
+  // If the !response.ok throw is ever moved above the requires2FA check the
+  // challenge is dropped and the owner has no route into the app with Google —
+  // which is exactly how this bug presented.
+  it("surfaces the 2FA challenge an admin gets instead of a session", async () => {
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: vi.fn().mockResolvedValue({
+          error: "admin_2fa_required",
+          requires2FA: true,
+          challengeToken: "chal-1",
+          factor: "email",
+        }),
+      }),
+    );
+
+    await expect(completeNativeGoogleSignIn()).resolves.toEqual({
+      kind: "twoFactor",
+      challengeToken: "chal-1",
+      factor: "email",
+    });
+  });
+
+  // A server that sends a challenge but no `factor` predates the email factor,
+  // and those only ever challenge admins who DO have an authenticator. So the
+  // safe default is "app" — defaulting to email would sit that admin waiting
+  // for a mail no server was ever going to send.
+  it("defaults an unlabelled challenge to the authenticator factor", async () => {
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: vi
+          .fn()
+          .mockResolvedValue({ requires2FA: true, challengeToken: "chal-2" }),
+      }),
+    );
+
+    await expect(completeNativeGoogleSignIn()).resolves.toMatchObject({
+      factor: "app",
+    });
+  });
+
+  // A server that predates the challenge sends the same 403 with only `error`.
+  // The app must keep showing the "use email and password" route, not a
+  // generic failure, for the whole window before the API is deployed.
+  it("keeps the email fallback message when the API sends no challenge", async () => {
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        status: 403,
+        json: vi.fn().mockResolvedValue({ error: "admin_2fa_required" }),
+      }),
+    );
+
+    await expect(completeNativeGoogleSignIn()).rejects.toMatchObject({
+      reason: "admin_2fa_required",
+    });
   });
 
   it("does not call the API after cancellation", async () => {

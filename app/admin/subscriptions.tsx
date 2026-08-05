@@ -29,7 +29,13 @@ export default function AdminSubscriptionsScreen() {
   const infoQ = admin.subscribersOverview.useQuery();
   const refetchAll = () => { subs.refetch(); stats.refetch(); couponsQ.refetch(); infoQ.refetch(); };
 
-  const grant = admin.grantSubscription.useMutation({ onSuccess: refetchAll });
+  // Without onError a rejected grant is a silent no-op — and the دائم buttons
+  // send 36500 days, which an API still on the old 3650-day cap rejects. The
+  // app and the API ship separately, so that window is real.
+  const grant = admin.grantSubscription.useMutation({
+    onSuccess: refetchAll,
+    onError: (e: any) => Alert.alert("تعذّر المنح", e?.message || ""),
+  });
   const revoke = admin.revokeSubscription.useMutation({ onSuccess: refetchAll });
   const createCoupon = admin.createCoupon.useMutation({ onSuccess: refetchAll });
   const toggleCoupon = admin.setCouponActive.useMutation({ onSuccess: refetchAll });
@@ -44,16 +50,46 @@ export default function AdminSubscriptionsScreen() {
   const [cMax, setCMax] = useState("1");
   const [cCount, setCCount] = useState("10");
 
-  const fmt = (d: any) => { try { return new Date(d).toLocaleDateString(); } catch { return ""; } };
+  // A perpetual grant is stored as a date ~100 years out, so every server-side
+  // entitlement check (all of the form `status = active AND expiresAt >= now`)
+  // keeps working with no nullable column. Anything past half that length was a
+  // perpetual grant, so label it دائم rather than showing a year-2126 date. The
+  // threshold is derived from PERPETUAL_DAYS so shortening one moves the other.
+  const PERPETUAL_DAYS = 36500;
+  const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
+  const fmt = (d: any) => {
+    try {
+      const t = new Date(d).getTime();
+      if (t - Date.now() > PERPETUAL_LABEL_CUTOFF_MS) return "دائم";
+      return new Date(d).toLocaleDateString();
+    } catch { return ""; }
+  };
   const inp = { backgroundColor: colors.background, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, borderWidth: 1, borderColor: colors.border, textAlign: align as "right" | "left" };
   const subsData = (subs.data as any[]) || [];
   const couponsData = (couponsQ.data as any[]) || [];
   const infoData = (infoQ.data as any[]) || [];
 
-  function doGrant() {
-    const uid = Number(gUser); const days = Number(gDays);
-    if (!uid || !days) { Alert.alert("خطأ", "أدخل رقمَ المستخدم وعددَ الأيام."); return; }
-    grant.mutate({ userId: uid, days }); setGUser("");
+  function doGrant(days?: number) {
+    const uid = Number(gUser); const d = days ?? Number(gDays);
+    // The دائم button supplies its own days, so only the user number is missing.
+    if (!uid) { Alert.alert("خطأ", "أدخل رقمَ المستخدم."); return; }
+    if (!d) { Alert.alert("خطأ", "أدخل عددَ الأيام."); return; }
+    // Clear only on success, and only here — the per-user buttons in the list
+    // never read this field, so a shared onSuccess would wipe it under them.
+    grant.mutate({ userId: uid, days: d }, { onSuccess: () => setGUser("") });
+  }
+  // A perpetual grant gives away a paid product for a century, and the button
+  // sits in a wrapping row beside the one-year one, so its position shifts.
+  // Cheap confirm beats noticing the mistap later in the subscriber list.
+  function confirmPerpetual(userId: number, label: string) {
+    Alert.alert(
+      "اشتراكٌ دائم",
+      `منح اشتراكٍ دائم لـ ${label}؟ لن ينتهيَ تلقائيًّا.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        { text: "منح", onPress: () => grant.mutate({ userId, days: PERPETUAL_DAYS }) },
+      ],
+    );
   }
   function doCreateCoupon() {
     const code = cCode.trim(); if (!code) { Alert.alert("خطأ", "أدخل رمزَ الكوبون."); return; }
@@ -103,7 +139,8 @@ export default function AdminSubscriptionsScreen() {
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
                 <TextInput value={gUser} onChangeText={setGUser} keyboardType="number-pad" placeholder="رقم المستخدم" placeholderTextColor={colors.muted} style={{ ...inp, flex: 1.4 }} />
                 <TextInput value={gDays} onChangeText={setGDays} keyboardType="number-pad" placeholder="أيام" placeholderTextColor={colors.muted} style={{ ...inp, flex: 1 }} />
-                <TouchableOpacity onPress={doGrant} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontWeight: "700" }}>منح</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => doGrant()} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontWeight: "700" }}>منح</Text></TouchableOpacity>
+                <TouchableOpacity onPress={() => doGrant(PERPETUAL_DAYS)} disabled={grant.isPending} style={{ backgroundColor: "#7C3AED", borderRadius: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center" }}><Text style={{ color: "#fff", fontWeight: "700" }}>دائم</Text></TouchableOpacity>
               </View>
             </View>
             {subs.isLoading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : subsData.length === 0 ? (
@@ -192,15 +229,20 @@ export default function AdminSubscriptionsScreen() {
                         </TouchableOpacity>
                         {u.email ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.email}</Text> : null}
                         {u.phone ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.phone}</Text> : null}
-                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10 }}>
+                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
                           {isSpecial ? (
                             <TouchableOpacity onPress={() => u.subscriptionId && revoke.mutate({ id: u.subscriptionId })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
                               <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
                             </TouchableOpacity>
                           ) : (
-                            <TouchableOpacity onPress={() => grant.mutate({ userId: u.id, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
-                              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
-                            </TouchableOpacity>
+                            <>
+                              <TouchableOpacity onPress={() => grant.mutate({ userId: u.id, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
+                              </TouchableOpacity>
+                              <TouchableOpacity onPress={() => confirmPerpetual(u.id, displayName)} disabled={grant.isPending} style={{ backgroundColor: "#7C3AED", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>اشتراكٌ دائم</Text>
+                              </TouchableOpacity>
+                            </>
                           )}
                         </View>
                       </View>

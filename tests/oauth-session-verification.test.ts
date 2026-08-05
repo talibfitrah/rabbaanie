@@ -108,7 +108,11 @@ describe("OAuth session establishment", () => {
 
   it("verifies both email and Google tokens before persisting them", () => {
     const login = fs.readFileSync("app/login.tsx", "utf8");
+    // Assert each branch separately. Asserting only the email literal let the
+    // Google branch drift to completeTokenSignIn(result.sessionToken) while
+    // this test kept passing on the email match alone.
     expect(login).toContain("completeTokenSignIn(sessionToken)");
+    expect(login).toContain("completeTokenSignIn(result.sessionToken)");
     expect(login).toContain("completeNativeGoogleSignIn()");
   });
 
