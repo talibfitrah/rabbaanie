@@ -1,6 +1,35 @@
 import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { getApiBaseUrl } from "@/constants/oauth";
+import * as Auth from "@/lib/_core/auth";
+import Constants from "expo-constants";
+
+/**
+ * Which store this build came from. app.config.ts defaults APP_DISTRIBUTION to
+ * "play", so anything unrecognised fails closed to the stricter channel — the
+ * server uses this to refuse *sold* coupons on Play, where a purchase made
+ * outside Play billing is a policy violation. Free grants stay allowed.
+ */
+export const DISTRIBUTION_CHANNEL: "play" | "github" =
+  Constants.expoConfig?.extra?.distribution === "github" ? "github" : "play";
+
+/**
+ * Every /api/subscription/* route is session-authenticated — without the bearer
+ * token the server answers 401 {"error":"authentication_required"}, which the
+ * callers silently read as "not subscribed" / "could not save". Attaching it in
+ * one place is what keeps a new call site from reintroducing that bug.
+ */
+export async function subscriptionFetch(path: string, init?: RequestInit) {
+  const token = await Auth.getSessionToken();
+  return fetch(`${getApiBaseUrl()}/api/subscription/${path}`, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.headers as Record<string, string> | undefined),
+      ...(token ? { Authorization: `Bearer ${token}` } : {}),
+    },
+  });
+}
 
 /**
  * Subscription gate (msg 706/707): the whole app is visible, but non-subscribers
@@ -54,7 +83,7 @@ export function useSubscription() {
     setSubscribed(hit?.subscribed ?? false);
     setLoading(hit === null);
     let alive = true;
-    fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`)
+    subscriptionFetch(`status?userId=${uid}`)
       .then((r) => r.json())
       .then((d) => {
         const sub = !!(d && d.subscribed);

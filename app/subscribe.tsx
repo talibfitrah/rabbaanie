@@ -6,8 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { getApiBaseUrl } from "@/constants/oauth";
-import { invalidateSubscriptionCache } from "@/hooks/use-subscription";
+import { invalidateSubscriptionCache, subscriptionFetch, DISTRIBUTION_CHANNEL } from "@/hooks/use-subscription";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -66,14 +65,14 @@ export default function SubscribeScreen() {
   const loadStatus = useCallback(async () => {
     if (!uid) { setLoading(false); return; }
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`);
+      const r = await subscriptionFetch(`status?userId=${uid}`);
       setStatus(await r.json());
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [uid]);
   const loadInfo = useCallback(async () => {
     if (!uid) return;
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info?userId=${uid}`);
+      const r = await subscriptionFetch(`info?userId=${uid}`);
       const d = await r.json();
       if (d) {
         setFirstName(d.firstName || ""); setLastName(d.lastName || ""); setMaritalStatus(d.maritalStatus || "");
@@ -97,7 +96,7 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
+      const r = await subscriptionFetch("info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
       const d = await r.json();
       setMsg(d.ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save."));
     } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
@@ -108,7 +107,7 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
+      const r = await subscriptionFetch("checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
       const d = await r.json();
       if (d.url) Linking.openURL(d.url);
       else setMsg(L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later."));
@@ -122,7 +121,7 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/redeem-coupon`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info }) });
+      const r = await subscriptionFetch("redeem-coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info, channel: DISTRIBUTION_CHANNEL }) });
       const d = await r.json();
       if (d.ok) {
         setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓"));
@@ -135,7 +134,11 @@ export default function SubscribeScreen() {
       }
       else {
         const e = d.error;
-        setMsg(e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
+        // "not_available": a sold coupon on the Play build. Deliberately says
+        // nothing about where it can be used — naming the website would be
+        // exactly the steering Play's payments policy forbids.
+        setMsg(e === "not_available" ? L3("لا يمكن تفعيل هذا الرمز هنا. تواصل مع الدعم.", "Deze code kan hier niet worden geactiveerd. Neem contact op met support.", "This code cannot be activated here. Please contact support.")
+          : e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
           : e === "used_up" ? L3("استُنفد هذا الكوبون.", "Deze coupon is opgebruikt.", "This coupon is used up.")
           : e === "expired" || e === "inactive" ? L3("هذا الكوبون غيرُ صالح.", "Deze coupon is niet geldig.", "This coupon is not valid.")
           : L3("كوبونٌ غيرُ صحيح.", "Ongeldige coupon.", "Invalid coupon."));
