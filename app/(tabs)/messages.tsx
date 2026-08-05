@@ -35,7 +35,7 @@ import {
 import { DatePicker } from "@/components/date-picker";
 import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { SyncToast } from "@/components/sync-toast";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -80,7 +80,7 @@ function getChildIdString(birthDate: string, idx: number): string {
   return `${datePart}_${dayLetter}_${seqPart}`;
 }
 
-export default function MessagesScreen() {
+function MessagesScreenInner() {
   const colors = useColors();
   const { t, language, isRTL } = useI18n();
   const lang = language as string;
@@ -1603,5 +1603,19 @@ function SyncReportsSection({ colors, lang, isRTL }: { colors: any; lang: string
         );
       })}
     </View>
+  );
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function MessagesScreen() {
+  return (
+    <PremiumGate>
+      <MessagesScreenInner />
+    </PremiumGate>
   );
 }

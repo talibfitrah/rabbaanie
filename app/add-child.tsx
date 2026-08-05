@@ -9,13 +9,13 @@ import { ChildProfile } from "@/lib/store";
 import { DatePicker } from "@/components/date-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 function tx(lang: Language, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-export default function AddChildScreen() {
+function AddChildScreenInner() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
@@ -169,5 +169,19 @@ export default function AddChildScreen() {
       </ScrollView>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function AddChildScreen() {
+  return (
+    <PremiumGate>
+      <AddChildScreenInner />
+    </PremiumGate>
   );
 }

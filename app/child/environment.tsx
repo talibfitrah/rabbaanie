@@ -7,7 +7,7 @@ import { useAppState } from "@/lib/app-context";
 import { ChildEnvironment } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { FormField, TextField, SelectField, HybridField, HonestyBanner, ValidationBanner, HasanaatProgressBar } from "@/components/form-field";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -254,7 +254,7 @@ function getEnvQuestions(lang: Lang): QuestionDef[] {
 ];
 }
 
-export default function EnvironmentScreen() {
+function EnvironmentScreenInner() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -548,5 +548,19 @@ export default function EnvironmentScreen() {
         </Pressable>
       </ScrollView>
     </View>
+  );
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function EnvironmentScreen() {
+  return (
+    <PremiumGate>
+      <EnvironmentScreenInner />
+    </PremiumGate>
   );
 }

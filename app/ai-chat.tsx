@@ -23,7 +23,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 import { useColors } from "@/hooks/use-colors";
 import { useAutoTranslate } from "@/hooks/use-auto-translate";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -171,7 +171,7 @@ function AdvisorBody({ content, colors, isRTL }: { content: string; colors: any;
   );
 }
 
-export default function AIChatScreen() {
+function AIChatScreenInner() {
   const colors = useColors();
   const router = useRouter();
   const { gate } = usePremiumGate();
@@ -1978,3 +1978,17 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
 });
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function AIChatScreen() {
+  return (
+    <PremiumGate>
+      <AIChatScreenInner />
+    </PremiumGate>
+  );
+}

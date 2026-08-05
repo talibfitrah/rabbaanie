@@ -36,7 +36,7 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -489,7 +489,7 @@ function AdviceSection({
   );
 }
 
-export default function PersonalAdviceScreen() {
+function PersonalAdviceScreenInner() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useColors();
@@ -1505,3 +1505,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
 });
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function PersonalAdviceScreen() {
+  return (
+    <PremiumGate>
+      <PersonalAdviceScreenInner />
+    </PremiumGate>
+  );
+}
