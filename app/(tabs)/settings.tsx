@@ -64,7 +64,7 @@ import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
-import { useSubscription } from "@/hooks/use-subscription";
+import { formatSubscriptionRemaining, useSubscription } from "@/hooks/use-subscription";
 import * as Clipboard from "expo-clipboard";
 import { getSessionRole } from "@/lib/_core/auth";
 
@@ -202,7 +202,7 @@ export default function SettingsScreen() {
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
   const { isAuthenticated, logout } = useAuth();
   const deleteAccountMutation = trpc.profile.deleteAccount.useMutation();
-  const { subscribed } = useSubscription();
+  const { subscribed, expiresAt } = useSubscription();
   const [adminRole, setAdminRole] = useState<string | null>(null);
   useEffect(() => { getSessionRole().then(setAdminRole); }, []);
   const isAdminUser = ["admin", "super_admin", "moderator"].includes(adminRole || "");
@@ -1224,6 +1224,11 @@ export default function SettingsScreen() {
               ? (language === "ar" ? "أنت مشترك ✓ — اطّلع على التفاصيل" : isEn ? "Subscribed ✓ — view details" : "Geabonneerd ✓ — details")
               : (language === "ar" ? "اطّلع على اشتراكك والخدمات" : isEn ? "View your subscription & services" : "Bekijk uw abonnement en diensten")}
           </Text>
+          {subscribed && expiresAt ? (
+            <Text style={{ color: "#ffffffcc", fontSize: 11, marginTop: 2, textAlign: isRTL ? "right" : "left", fontWeight: "700" }}>
+              {formatSubscriptionRemaining(expiresAt, language)}
+            </Text>
+          ) : null}
         </View>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={24} color="#ffffffcc" />
       </Pressable>
