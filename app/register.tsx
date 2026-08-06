@@ -30,6 +30,7 @@ export default function RegisterScreen() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const colors = useColors();
@@ -81,6 +82,16 @@ export default function RegisterScreen() {
       );
       return;
     }
+    if (password !== confirmPassword) {
+      setError(
+        tx(
+          "De wachtwoorden komen niet overeen",
+          "The passwords do not match",
+          "كلمتا المرور غير متطابقتين",
+        ),
+      );
+      return;
+    }
 
     setError("");
     setLoading(true);
@@ -121,9 +132,13 @@ export default function RegisterScreen() {
 
       await completeTokenSignIn(data.sessionToken);
       await rehydrateFromServer();
-      // Land on the subscription screen rather than the tabs: the whole point
-      // of reaching this screen was to become a subscriber.
-      router.replace("/subscribe" as any);
+      // Hand off to the router's own gate rather than picking a destination:
+      // a brand-new account has onboardingCompleted false, so AuthGate's
+      // mandatory-profile check (app/_layout.tsx) redirects to /onboarding on
+      // the very next render and onboarding always exits to /(tabs). Naming
+      // /subscribe here looked purposeful but was overwritten every time.
+      // They reach /subscribe from the paywall on any gated screen instead.
+      router.replace("/(tabs)" as any);
     } catch {
       setError(
         tx(
@@ -223,6 +238,31 @@ export default function RegisterScreen() {
                   "Minstens 6 tekens",
                   "At least 6 characters",
                   "٦ أحرف على الأقل",
+                )}
+                placeholderTextColor={colors.muted}
+                secureTextEntry
+                autoCapitalize="none"
+                autoCorrect={false}
+                textAlign={isRTL ? "right" : "left"}
+                returnKeyType="next"
+                style={inputStyle}
+              />
+            </View>
+
+            {/* Confirmation field: the password is masked and this account is
+                about to be paid for, so a typo here means a locked-out
+                subscriber and a refund request. Catching it costs one field. */}
+            <View style={{ gap: 4 }}>
+              <Text style={labelStyle}>
+                {tx("Wachtwoord herhalen", "Repeat password", "تأكيد كلمة المرور")}
+              </Text>
+              <TextInput
+                value={confirmPassword}
+                onChangeText={setConfirmPassword}
+                placeholder={tx(
+                  "Herhaal uw wachtwoord",
+                  "Repeat your password",
+                  "أعد إدخال كلمة المرور",
                 )}
                 placeholderTextColor={colors.muted}
                 secureTextEntry

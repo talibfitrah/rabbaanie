@@ -23,7 +23,7 @@ import {
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
-import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 import { useColors } from "@/hooks/use-colors";
 import { useAutoTranslate } from "@/hooks/use-auto-translate";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -174,7 +174,6 @@ function AdvisorBody({ content, colors, isRTL }: { content: string; colors: any;
 function AIChatScreenInner() {
   const colors = useColors();
   const router = useRouter();
-  const { gate } = usePremiumGate();
   const flatListRef = useRef<FlatList>(null);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
@@ -1072,7 +1071,6 @@ function AIChatScreenInner() {
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
-      <PremiumNotice />
       <KeyboardAvoidingView
         style={styles.container}
         behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -1573,7 +1571,7 @@ function AIChatScreenInner() {
                   {suggestions.map((suggestion, index) => (
                     <Pressable
                       key={index}
-                      onPress={() => gate(() => sendMessageWithText(suggestion))}
+                      onPress={() => sendMessageWithText(suggestion)}
                       style={({ pressed }) => [
                         styles.suggestionChip,
                         { backgroundColor: colors.surface, borderColor: colors.border },
@@ -1708,7 +1706,7 @@ function AIChatScreenInner() {
 
               {/* Send button */}
               <Pressable
-                onPress={() => gate(() => sendMessage())}
+                onPress={() => sendMessage()}
                 disabled={(!inputText.trim() && attachments.length === 0) || isLoading}
                 style={({ pressed }) => [
                   styles.sendButton,

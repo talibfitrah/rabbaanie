@@ -36,7 +36,7 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
-import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -496,7 +496,6 @@ function PersonalAdviceScreenInner() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
-  const { subscribed } = usePremiumGate();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{
@@ -688,13 +687,13 @@ function PersonalAdviceScreenInner() {
     }));
   }, [state.children, lang]);
 
-  // Fetch LLM-based advice. `subscribed` is in the deps because it starts
-  // false while the status fetch is in flight; without it a paying subscriber
-  // gets a permanently blank screen on cold start (fetchAdvice bails on
-  // !subscribed and never re-runs when the real status arrives).
+  // Fetch LLM-based advice. The cold-start race this used to guard against is
+  // gone: PremiumGate holds a spinner until the status fetch resolves and only
+  // then mounts this screen, so by the time the effect runs the viewer is
+  // already a confirmed subscriber.
   useEffect(() => {
     if (state.parentProfileCompleted) loadCachedOrFetch();
-  }, [language, subscribed]);
+  }, [language]);
 
   async function loadCachedOrFetch() {
     const cacheKey = `personal_advice_cache_${language}`;
@@ -717,7 +716,6 @@ function PersonalAdviceScreenInner() {
   }
 
   async function fetchAdvice() {
-    if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
       const baseUrl = getApiBaseUrl();
@@ -1028,7 +1026,6 @@ function PersonalAdviceScreenInner() {
         paddingHorizontal: 20,
       }}
     >
-      <PremiumNotice />
       <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
         <Text style={{ color: colors.primary, fontSize: 14 }}>
           {tx(lang, "\u2190 Terug", "\u2190 Back", "\u2190 رجوع")}

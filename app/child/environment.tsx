@@ -7,7 +7,7 @@ import { useAppState } from "@/lib/app-context";
 import { ChildEnvironment } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import { FormField, TextField, SelectField, HybridField, HonestyBanner, ValidationBanner, HasanaatProgressBar } from "@/components/form-field";
-import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -260,7 +260,6 @@ function EnvironmentScreenInner() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, updateEnvironment, updateChild } = useAppState();
-  const { subscribed, loading: subLoading } = usePremiumGate();
   const { language } = useI18n();
   const lang: Lang = language as Lang;
   const ENV_QUESTIONS = getEnvQuestions(lang);
@@ -304,8 +303,6 @@ function EnvironmentScreenInner() {
   };
 
   const handleSubmit = async () => {
-    if (subLoading) return; // status still loading — don't bounce a subscriber
-    if (!subscribed) { router.push("/subscribe" as any); return; }
     const unanswered = validateForm();
     if (unanswered.length > 0) {
       setErrors(new Set(unanswered));
@@ -440,7 +437,6 @@ function EnvironmentScreenInner() {
           />
         </View>
       )}
-      <PremiumNotice />
       <ScrollView
         ref={scrollRef}
         className="flex-1"

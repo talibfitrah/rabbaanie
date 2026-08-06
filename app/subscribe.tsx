@@ -6,7 +6,8 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { invalidateSubscriptionCache, subscriptionFetch, DISTRIBUTION_CHANNEL } from "@/hooks/use-subscription";
+import { invalidateSubscriptionCache, subscriptionFetch } from "@/hooks/use-subscription";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -103,6 +104,13 @@ export default function SubscribeScreen() {
   }
 
   async function subscribe() {
+    // Stripe is the sideload channel's payment path only. Opening its checkout
+    // from a Play build is an in-app link to a payment method outside Play
+    // billing — the thing the payments policy actually forbids, and grounds for
+    // removal. The guard lives here as well as on the button so a future call
+    // site cannot reintroduce it by rendering its own "subscribe" control.
+    // Play billing (expo-iap) replaces this branch when the client half ships.
+    if (DISTRIBUTION_CHANNEL === "play") return;
     if (!isAuthenticated || !uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا لتشترك.", "Log eerst in om te abonneren.", "Please log in first to subscribe.")); return; }
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
@@ -235,9 +243,19 @@ export default function SubscribeScreen() {
                 <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
                   <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
                   <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
-                  <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
-                    {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
-                  </TouchableOpacity>
+                  {/* Naming the price is fine on both channels — it describes our
+                      own product. Only the *button* is channel-specific: on Play
+                      it would open Stripe, an outside payment method, so it is
+                      replaced by a plain note until Play billing ships. */}
+                  {DISTRIBUTION_CHANNEL === "github" ? (
+                    <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
+                      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: colors.muted, marginTop: 14, textAlign: align, lineHeight: 20 }}>
+                      {L3("الاشتراك داخل التطبيق قادمٌ قريبًا. إن كان لديك رمز، فعّله أدناه.", "Abonneren in de app komt binnenkort. Heeft u een code? Activeer die hieronder.", "In-app subscribing is coming soon. If you have a code, redeem it below.")}
+                    </Text>
+                  )}
                 </View>
                 <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟", "Heeft u een coupon?", "Have a coupon?")}</Text>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>

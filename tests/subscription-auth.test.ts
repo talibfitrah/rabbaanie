@@ -1,4 +1,6 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Regression guard for the bug report of 2026-08-05: every /api/subscription/*
@@ -79,7 +81,7 @@ describe("DISTRIBUTION_CHANNEL", () => {
     vi.doMock("expo-constants", () => ({
       default: { expoConfig: { extra: { distribution } } },
     }));
-    return (await import("@/hooks/use-subscription")).DISTRIBUTION_CHANNEL;
+    return (await import("@/lib/distribution")).DISTRIBUTION_CHANNEL;
   };
 
   it("reports the sideload channel only for an explicit 'github'", async () => {
@@ -90,5 +92,40 @@ describe("DISTRIBUTION_CHANNEL", () => {
     expect(await channelFor("play")).toBe("play");
     expect(await channelFor(undefined)).toBe("play");
     expect(await channelFor("something-new")).toBe("play");
+  });
+});
+
+/**
+ * Google Play's payments policy forbids an in-app link that leads to a payment
+ * method outside Play billing. Stripe checkout is exactly that, and the
+ * subscribe screen is reachable from the paywall on all nine paid screens, so
+ * an ungated button here is grounds for removal from the store.
+ *
+ * Source-level, like tests/premium-gating.test.ts: mounting the screen would
+ * drag in expo-linking and the rest of the native surface. Both halves are
+ * asserted — the guard inside subscribe() and the conditional on the button —
+ * because either one alone leaves the violation reachable.
+ */
+describe("Stripe checkout is never offered on the Play channel", () => {
+  const src = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
+
+  it("bails out of subscribe() before opening the checkout URL", () => {
+    const body = src.slice(src.indexOf("async function subscribe()"));
+    const guard = body.indexOf('DISTRIBUTION_CHANNEL === "play"');
+    const open = body.indexOf("Linking.openURL");
+    expect(guard).toBeGreaterThan(-1);
+    // The guard must come first, otherwise it never runs on the Play build.
+    expect(guard).toBeLessThan(open);
+  });
+
+  it("renders the subscribe button only on the sideload channel", () => {
+    expect(src).toMatch(
+      /DISTRIBUTION_CHANNEL === "github" \?[\s\S]{0,400}onPress=\{subscribe\}/,
+    );
+  });
+
+  it("reads the channel from the shared module, not a local copy", () => {
+    expect(src).toContain('from "@/lib/distribution"');
+    expect(src).not.toMatch(/expoConfig\?\.extra\?\.distribution/);
   });
 });

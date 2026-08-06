@@ -35,7 +35,7 @@ import {
 import { DatePicker } from "@/components/date-picker";
 import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { SyncToast } from "@/components/sync-toast";
-import { PremiumGate, PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -88,7 +88,6 @@ function MessagesScreenInner() {
   const userGender = state.parentProfile.gender || "man";
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
-  const { subscribed, loading: subLoading } = usePremiumGate();
 
   const [activeTab, setActiveTab] = useState<Tab>("parents");
   const [selected, setSelected] = useState<SelectedConversation | null>(null);
@@ -170,17 +169,12 @@ function MessagesScreenInner() {
 
   const handleSend = useCallback(() => {
     if (!newMessage.trim() || !selected) return;
-    // Don't discard the message while subscription status is still loading — a
-    // real subscriber sending in the first moments would otherwise be bounced
-    // to the paywall. Wait; only route once we know they're not subscribed.
-    if (subLoading) return;
-    if (!subscribed) { router.push("/subscribe" as any); return; }
     sendDirectMutation.mutate({
       recipientId: selected.id,
       content: newMessage.trim(),
       childId: selected.sharedChildren?.[0]?.id,
     });
-  }, [newMessage, selected, sendDirectMutation, subscribed, subLoading, router]);
+  }, [newMessage, selected, sendDirectMutation]);
 
   // Partner link mutation
   const linkPartner = trpc.links.linkPartnerByPublicId.useMutation({
