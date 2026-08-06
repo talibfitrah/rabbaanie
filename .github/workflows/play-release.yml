@@ -128,57 +128,24 @@ jobs:
           cd android
           ./gradlew bundleRelease --no-daemon
 
-      # Hard gate. These are stripped by config (blockedPermissions emits
-      # tools:node="remove"), but that only takes effect during the manifest
-      # merge — and a future dependency can reintroduce any of them. So assert
-      # against the MERGED manifest, which is what actually ships.
+      # Hard gate. The forbidden permissions are stripped by config
+      # (blockedPermissions emits tools:node="remove"), but that only takes
+      # effect during the manifest merge, and a future dependency can
+      # reintroduce any of them — so they are asserted against the artifact
+      # rather than trusted from the config.
+      #
+      # The checks read the SHIPPED bundle, not the build intermediates, so the
+      # gate does not depend on how the artifact was produced. That is what
+      # makes the same script usable on a build run by hand, which is the case
+      # CI cannot cover — see the header of scripts/assert-play-artifact.sh.
+      #
+      # It also asserts the artifact's embedded `extra.distribution` is "play".
+      # Nothing checked the release channel of the finished bundle before: a
+      # bundle accidentally built on the github channel carries
+      # REQUEST_INSTALL_PACKAGES *and* the Stripe subscribe button, and only
+      # the permission was ever asserted.
       - name: Assert Play-only restrictions
-        run: |
-          # Scoped to the release variant: an unscoped find could pick a debug
-          # manifest and assert this hard gate against the wrong artifact.
-          MERGED=$(find android/app/build/intermediates/merged_manifests/release \
-                     -name AndroidManifest.xml | head -n1)
-          if [ -z "$MERGED" ]; then
-            echo "Could not locate the merged release manifest — refusing to ship unverified" >&2
-            exit 1
-          fi
-          echo "Checking $MERGED"
-          FAILED=0
-          # Play forbids self-updating. The broad Rabbaanie Play listing also
-          # cannot qualify as an exclusively marketed monitoring app, so Usage
-          # Stats must be absent along with the unused sensitive permissions.
-          for PERM in REQUEST_INSTALL_PACKAGES SYSTEM_ALERT_WINDOW RECORD_AUDIO PACKAGE_USAGE_STATS READ_EXTERNAL_STORAGE WRITE_EXTERNAL_STORAGE USE_FULL_SCREEN_INTENT ACTIVITY_RECOGNITION; do
-            if grep -q "android.permission.$PERM" "$MERGED"; then
-              echo "FORBIDDEN: $PERM is present in the Play build" >&2
-              FAILED=1
-            fi
-          done
-          if grep -q 'android:name="isMonitoringTool"' "$MERGED"; then
-            echo "FORBIDDEN: isMonitoringTool metadata is present in the Play build" >&2
-            FAILED=1
-          fi
-          if grep -q 'android:scheme="rabbaanie"' "$MERGED"; then
-            echo "FORBIDDEN: legacy Rabbaanie navigation scheme is present in the Play build" >&2
-            FAILED=1
-          fi
-          # Native Google sign-in is certificate-bound and uses no redirect
-          # scheme; a leftover auth scheme would mean a stale manifest.
-          if grep -q 'android:scheme="com.rabbaanie.app.auth"' "$MERGED"; then
-            echo "FORBIDDEN: retired OAuth callback scheme is present in the Play build" >&2
-            FAILED=1
-          fi
-          AAB=android/app/build/outputs/bundle/release/app-release.aab
-          DEX_DUMP="$RUNNER_TEMP/rabbaanie-play-dex.bin"
-          if ! unzip -p "$AAB" 'base/dex/*.dex' > "$DEX_DUMP"; then
-            echo "Could not inspect Play bundle bytecode — refusing to ship unverified" >&2
-            exit 1
-          fi
-          if grep -a -qE 'expo/modules/usagestats|UsageStatsModule' "$DEX_DUMP"; then
-            echo "FORBIDDEN: native usage-stats monitoring code is present in the Play AAB" >&2
-            FAILED=1
-          fi
-          [ "$FAILED" -eq 0 ] || exit 1
-          echo "Play permissions, deep links, and native modules are restricted."
+        run: ./scripts/assert-play-artifact.sh android/app/build/outputs/bundle/release/app-release.aab
 
       # `jarsigner -verify -strict` is deliberately NOT used: Android release
       # keystores are self-signed, which -strict reports as chainNotValidated
