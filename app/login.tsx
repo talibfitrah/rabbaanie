@@ -142,7 +142,7 @@ export default function LoginScreen() {
           // a 401 covers both "wrong digit" and "expired" without telling them
           // apart. Clearing here would spend a live challenge on one typo — and
           // on a Google-initiated one, force the whole account picker again.
-          // The "start over" control below is the way out instead.
+          // The "Cancel" control below is the way out instead.
           setTwoFactorCode("");
           setError(
             data.error ||
