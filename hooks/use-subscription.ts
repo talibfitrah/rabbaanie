@@ -104,14 +104,23 @@ export function useSubscription() {
 // with no nullable column. Anything past half that length was a perpetual
 // grant, not a subscriber who happens to be far from expiry.
 export const PERPETUAL_DAYS = 36500;
-const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
+export const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
+
+/** Arabic numeral-noun agreement: 1/2 have dedicated forms, 3-10 take the
+ *  plural noun, 11+ takes the singular accusative (tamyiz) form. */
+function arabicDayCount(days: number): string {
+  if (days === 1) return "يوم واحد";
+  if (days === 2) return "يومان";
+  if (days >= 3 && days <= 10) return `${days} أيام`;
+  return `${days} يومًا`;
+}
 
 /** "N days left" / "Lifetime" in the app's three languages, from an expiry date. */
 export function formatSubscriptionRemaining(expiresAt: string | Date, language: Language): string {
   const ms = new Date(expiresAt).getTime() - Date.now();
   if (ms > PERPETUAL_LABEL_CUTOFF_MS) {
-    return language === "ar" ? "مدى الحياة" : language === "en" ? "Lifetime" : "Levenslang";
+    return language === "ar" ? "مدى الحياة" : language === "en" ? "Lifetime" : "Levenslang toegang";
   }
   const days = Math.max(0, Math.ceil(ms / 86400000));
-  return language === "ar" ? `${days} يومًا متبقيًا` : language === "en" ? `${days} days left` : `${days} dagen resterend`;
+  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} days left` : `${days} dagen resterend`;
 }

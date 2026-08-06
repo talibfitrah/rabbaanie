@@ -7,7 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import * as Clipboard from "expo-clipboard";
-import { formatSubscriptionRemaining, PERPETUAL_DAYS } from "@/hooks/use-subscription";
+import { formatSubscriptionRemaining, PERPETUAL_DAYS, PERPETUAL_LABEL_CUTOFF_MS } from "@/hooks/use-subscription";
 
 /**
  * Admin management of subscriptions & coupons (msg 560/608). Grant/revoke
@@ -55,12 +55,6 @@ export default function AdminSubscriptionsScreen() {
   const [cMax, setCMax] = useState("1");
   const [cCount, setCCount] = useState("10");
 
-  // A perpetual grant is stored as a date ~100 years out, so every server-side
-  // entitlement check (all of the form `status = active AND expiresAt >= now`)
-  // keeps working with no nullable column. Anything past half that length was a
-  // perpetual grant, so label it دائم rather than showing a year-2126 date. The
-  // threshold is derived from PERPETUAL_DAYS so shortening one moves the other.
-  const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
   const fmt = (d: any) => {
     try {
       const t = new Date(d).getTime();
