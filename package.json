@@ -14,7 +14,7 @@
     "lint": "expo lint",
     "format": "prettier --write .",
     "test": "vitest run",
-    "test:release": "vitest run lib/app-version.test.ts tests/oauth-login-flow.test.ts tests/oauth-signin-only.test.ts tests/oauth-native-callback.test.ts tests/oauth-session-verification.test.ts tests/google-pkce-signin.test.ts tests/age-gate.test.ts tests/ai-reporting-surfaces.test.ts tests/monitoring-notice.test.ts tests/release-channel-config.test.ts tests/child-monitoring-authorization.test.ts tests/router-access-control.test.ts tests/admin-security.test.ts tests/admin-2fa-enforcement.test.ts tests/totp-security.test.ts tests/notifications.test.ts",
+    "test:release": "vitest run lib/app-version.test.ts tests/oauth-login-flow.test.ts tests/oauth-signin-only.test.ts tests/oauth-native-callback.test.ts tests/oauth-session-verification.test.ts tests/google-pkce-signin.test.ts tests/age-gate.test.ts tests/ai-reporting-surfaces.test.ts tests/monitoring-notice.test.ts tests/release-channel-config.test.ts tests/child-monitoring-authorization.test.ts tests/router-access-control.test.ts tests/admin-security.test.ts tests/admin-2fa-enforcement.test.ts tests/totp-security.test.ts tests/notifications.test.ts tests/subscription-auth.test.ts tests/premium-gating.test.ts",
     "db:push": "drizzle-kit generate && drizzle-kit migrate",
     "android": "expo run:android",
     "ios": "expo run:ios",

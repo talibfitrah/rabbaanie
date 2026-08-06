@@ -6,8 +6,8 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { getApiBaseUrl } from "@/constants/oauth";
-import { invalidateSubscriptionCache } from "@/hooks/use-subscription";
+import { invalidateSubscriptionCache, subscriptionFetch } from "@/hooks/use-subscription";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -66,14 +66,14 @@ export default function SubscribeScreen() {
   const loadStatus = useCallback(async () => {
     if (!uid) { setLoading(false); return; }
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/status?userId=${uid}`);
+      const r = await subscriptionFetch(`status?userId=${uid}`);
       setStatus(await r.json());
     } catch { /* ignore */ } finally { setLoading(false); }
   }, [uid]);
   const loadInfo = useCallback(async () => {
     if (!uid) return;
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info?userId=${uid}`);
+      const r = await subscriptionFetch(`info?userId=${uid}`);
       const d = await r.json();
       if (d) {
         setFirstName(d.firstName || ""); setLastName(d.lastName || ""); setMaritalStatus(d.maritalStatus || "");
@@ -97,18 +97,25 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/info`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
+      const r = await subscriptionFetch("info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
       const d = await r.json();
       setMsg(d.ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save."));
     } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
   }
 
   async function subscribe() {
+    // Stripe is the sideload channel's payment path only. Opening its checkout
+    // from a Play build is an in-app link to a payment method outside Play
+    // billing — the thing the payments policy actually forbids, and grounds for
+    // removal. The guard lives here as well as on the button so a future call
+    // site cannot reintroduce it by rendering its own "subscribe" control.
+    // Play billing (expo-iap) replaces this branch when the client half ships.
+    if (DISTRIBUTION_CHANNEL === "play") return;
     if (!isAuthenticated || !uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا لتشترك.", "Log eerst in om te abonneren.", "Please log in first to subscribe.")); return; }
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/checkout`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
+      const r = await subscriptionFetch("checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
       const d = await r.json();
       if (d.url) Linking.openURL(d.url);
       else setMsg(L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later."));
@@ -122,7 +129,7 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await fetch(`${getApiBaseUrl()}/api/subscription/redeem-coupon`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info }) });
+      const r = await subscriptionFetch("redeem-coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info, channel: DISTRIBUTION_CHANNEL }) });
       const d = await r.json();
       if (d.ok) {
         setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓"));
@@ -135,7 +142,11 @@ export default function SubscribeScreen() {
       }
       else {
         const e = d.error;
-        setMsg(e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
+        // "not_available": a sold coupon on the Play build. Deliberately says
+        // nothing about where it can be used — naming the website would be
+        // exactly the steering Play's payments policy forbids.
+        setMsg(e === "not_available" ? L3("لا يمكن تفعيل هذا الرمز هنا. تواصل مع الدعم.", "Deze code kan hier niet worden geactiveerd. Neem contact op met support.", "This code cannot be activated here. Please contact support.")
+          : e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
           : e === "used_up" ? L3("استُنفد هذا الكوبون.", "Deze coupon is opgebruikt.", "This coupon is used up.")
           : e === "expired" || e === "inactive" ? L3("هذا الكوبون غيرُ صالح.", "Deze coupon is niet geldig.", "This coupon is not valid.")
           : L3("كوبونٌ غيرُ صحيح.", "Ongeldige coupon.", "Invalid coupon."));
@@ -232,9 +243,19 @@ export default function SubscribeScreen() {
                 <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
                   <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
                   <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
-                  <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
-                    {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
-                  </TouchableOpacity>
+                  {/* Naming the price is fine on both channels — it describes our
+                      own product. Only the *button* is channel-specific: on Play
+                      it would open Stripe, an outside payment method, so it is
+                      replaced by a plain note until Play billing ships. */}
+                  {DISTRIBUTION_CHANNEL === "github" ? (
+                    <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
+                      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+                    </TouchableOpacity>
+                  ) : (
+                    <Text style={{ fontSize: 13, color: colors.muted, marginTop: 14, textAlign: align, lineHeight: 20 }}>
+                      {L3("الاشتراك داخل التطبيق قادمٌ قريبًا. إن كان لديك رمز، فعّله أدناه.", "Abonneren in de app komt binnenkort. Heeft u een code? Activeer die hieronder.", "In-app subscribing is coming soon. If you have a code, redeem it below.")}
+                    </Text>
+                  )}
                 </View>
                 <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟", "Heeft u een coupon?", "Have a coupon?")}</Text>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>

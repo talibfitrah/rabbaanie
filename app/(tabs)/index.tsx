@@ -807,9 +807,13 @@ export default function AlgemeenScreen() {
             </Pressable>
           </Pressable>
         ))}
-        {/* Add child button - last item */}
+        {/* Add child button - last item. Routes to the gated /add-child, the
+            same target the family tab uses. The /onboarding copy is ungated on
+            purpose so a brand-new user can add their first child before
+            subscribing; pointing this button at it made that exception a
+            standing paywall bypass for everyone, from the home screen. */}
         <Pressable
-          onPress={() => router.push("/onboarding/add-child" as any)}
+          onPress={() => router.push("/add-child" as any)}
           style={({ pressed }) => [s.childCard, { borderStyle: "dashed" as any, borderWidth: 1.5, borderColor: "#1B433250", alignItems: "center", justifyContent: "center", minHeight: 100 }, pressed && { opacity: 0.7 }]}
         >
           <MaterialIcons name="add-circle-outline" size={32} color="#1B4332" />

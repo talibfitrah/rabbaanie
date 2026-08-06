@@ -31,6 +31,7 @@ import {
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { DatePicker } from "@/components/date-picker";
 import QRCode from "react-native-qrcode-svg";
+import { PremiumGate } from "@/components/premium-notice";
 
 type Tab = "id" | "parents" | "teachers" | "scholars" | "doctors";
 
@@ -42,7 +43,7 @@ const CATEGORY_ICONS: Record<Tab, string> = {
   doctors: "nightlight-round",
 };
 
-export default function FamilyHubScreen() {
+function FamilyHubScreenInner() {
   const colors = useColors();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
@@ -571,5 +572,19 @@ function ContactsSection({
         </View>
       ) : null}
     </View>
+  );
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function FamilyHubScreen() {
+  return (
+    <PremiumGate>
+      <FamilyHubScreenInner />
+    </PremiumGate>
   );
 }

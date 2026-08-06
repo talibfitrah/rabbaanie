@@ -23,12 +23,7 @@ import {
   GoogleSignInError,
 } from "@/lib/google-oauth";
 import Svg, { Path } from "react-native-svg";
-import Constants from "expo-constants";
 
-// Set from APP_DISTRIBUTION in app.config.ts ("play" | "github"); "play" is the
-// default there, so an absent/unknown value fails closed to the Play wording.
-const IS_SIDELOAD_BUILD =
-  Constants.expoConfig?.extra?.distribution === "github";
 const SUPPORT_EMAIL = "support@albunyaan.tv";
 
 /**
@@ -645,14 +640,13 @@ export default function LoginScreen() {
                   because rabbaanie.com sells the subscription outside Play
                   billing (anti-steering). Play users get a support contact —
                   allowed app furniture — so a stranded user still has a path. */}
+              {/* Both channels now create the account in-app. That is the only
+                  route the Play build may offer, and it is also better for the
+                  sideload build: a purchase started on rabbaanie.com provisions
+                  nothing for a brand-new customer, so pointing them there took
+                  money and left them without an account. */}
               <TouchableOpacity
-                onPress={() =>
-                  Linking.openURL(
-                    IS_SIDELOAD_BUILD
-                      ? "https://rabbaanie.com"
-                      : `mailto:${SUPPORT_EMAIL}`,
-                  ).catch(() => {})
-                }
+                onPress={() => router.push("/register" as any)}
                 accessibilityRole="link"
                 activeOpacity={0.6}
                 style={{
@@ -669,24 +663,48 @@ export default function LoginScreen() {
                     textAlign: "center",
                   }}
                 >
-                  {IS_SIDELOAD_BUILD
-                    ? tx(
-                        "Nog geen account? Ga naar ",
-                        "No account yet? Go to ",
-                        "ليس لديك حساب؟ انتقل إلى ",
-                      )
-                    : tx(
-                        "Hulp nodig bij het inloggen? Mail ",
-                        "Need help signing in? Contact ",
-                        "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
-                      )}
+                  {tx(
+                    "Nog geen account? ",
+                    "No account yet? ",
+                    "ليس لديك حساب؟ ",
+                  )}
                   <Text
                     style={{
                       color: colors.primary,
                       textDecorationLine: "underline",
                     }}
                   >
-                    {IS_SIDELOAD_BUILD ? "rabbaanie.com" : SUPPORT_EMAIL}
+                    {tx("Account aanmaken", "Create account", "إنشاء حساب")}
+                  </Text>
+                </Text>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                onPress={() =>
+                  Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})
+                }
+                accessibilityRole="link"
+                activeOpacity={0.6}
+                style={{
+                  minHeight: 44,
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <Text
+                  style={{
+                    fontSize: 12,
+                    color: colors.muted,
+                    textAlign: "center",
+                  }}
+                >
+                  {tx(
+                    "Hulp nodig bij het inloggen? Mail ",
+                    "Need help signing in? Contact ",
+                    "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
+                  )}
+                  <Text style={{ textDecorationLine: "underline" }}>
+                    {SUPPORT_EMAIL}
                   </Text>
                 </Text>
               </TouchableOpacity>

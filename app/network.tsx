@@ -21,8 +21,9 @@ import { DatePicker } from "@/components/date-picker";
 import QRCode from "react-native-qrcode-svg";
 import { loadSyncSettings, saveSyncSettings, type SyncSettings, DEFAULT_SYNC_SETTINGS } from "@/lib/notification-settings";
 import { useEffect } from "react";
+import { PremiumGate } from "@/components/premium-notice";
 
-export default function NetworkSettingsScreen() {
+function NetworkSettingsScreenInner() {
   const colors = useColors();
   const { t, language, isRTL } = useI18n();
   const router = useRouter();
@@ -347,4 +348,18 @@ function getChildIdString(birthDate: string, idx: number): string {
   const dayLetter = DAY_LETTERS[new Date(birthDate).getDay()];
   const seqPart = String(idx + 1).padStart(3, "0");
   return `${datePart}_${dayLetter}_${seqPart}`;
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function NetworkSettingsScreen() {
+  return (
+    <PremiumGate>
+      <NetworkSettingsScreenInner />
+    </PremiumGate>
+  );
 }

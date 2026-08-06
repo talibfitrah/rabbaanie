@@ -36,7 +36,7 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -489,14 +489,13 @@ function AdviceSection({
   );
 }
 
-export default function PersonalAdviceScreen() {
+function PersonalAdviceScreenInner() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
-  const { subscribed } = usePremiumGate();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{
@@ -688,13 +687,13 @@ export default function PersonalAdviceScreen() {
     }));
   }, [state.children, lang]);
 
-  // Fetch LLM-based advice. `subscribed` is in the deps because it starts
-  // false while the status fetch is in flight; without it a paying subscriber
-  // gets a permanently blank screen on cold start (fetchAdvice bails on
-  // !subscribed and never re-runs when the real status arrives).
+  // Fetch LLM-based advice. The cold-start race this used to guard against is
+  // gone: PremiumGate holds a spinner until the status fetch resolves and only
+  // then mounts this screen, so by the time the effect runs the viewer is
+  // already a confirmed subscriber.
   useEffect(() => {
     if (state.parentProfileCompleted) loadCachedOrFetch();
-  }, [language, subscribed]);
+  }, [language]);
 
   async function loadCachedOrFetch() {
     const cacheKey = `personal_advice_cache_${language}`;
@@ -717,7 +716,6 @@ export default function PersonalAdviceScreen() {
   }
 
   async function fetchAdvice() {
-    if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
       const baseUrl = getApiBaseUrl();
@@ -1028,7 +1026,6 @@ export default function PersonalAdviceScreen() {
         paddingHorizontal: 20,
       }}
     >
-      <PremiumNotice />
       <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
         <Text style={{ color: colors.primary, fontSize: 14 }}>
           {tx(lang, "\u2190 Terug", "\u2190 Back", "\u2190 رجوع")}
@@ -1505,3 +1502,17 @@ const styles = StyleSheet.create({
     paddingHorizontal: 5,
   },
 });
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function PersonalAdviceScreen() {
+  return (
+    <PremiumGate>
+      <PersonalAdviceScreenInner />
+    </PremiumGate>
+  );
+}

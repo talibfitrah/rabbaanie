@@ -40,8 +40,15 @@ export function getGateRedirect({
   childMonitoringEnabled,
 }: GateRedirectInput): "/age-check" | "/login" | "/(tabs)" | null {
   const inAgeGate = segment === "age-check";
+  // "register" belongs here for the same reason as "login": these are the
+  // screens a signed-out visitor is *supposed* to reach. Leaving it out sends
+  // anyone opening sign-up straight back to /login, making the screen
+  // unreachable. The age check above still runs first, so a minor never gets here.
   const inAuthGroup =
-    segment === "login" || segment === "oauth" || segment === "forgot-password";
+    segment === "login" ||
+    segment === "register" ||
+    segment === "oauth" ||
+    segment === "forgot-password";
 
   if (status !== "adult") return inAgeGate ? null : "/age-check";
   if (inAgeGate) return isAuthenticated ? "/(tabs)" : "/login";

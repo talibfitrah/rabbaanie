@@ -131,6 +131,36 @@ describe("neutral age gate", () => {
     ).toBeNull();
   });
 
+  it("lets a signed-out adult reach sign-up, but still age-checks them first", () => {
+    // Without "register" in the auth group this returns "/login", which makes
+    // the sign-up screen unreachable — the only way into the app for a new user.
+    expect(
+      getGateRedirect({
+        status: "adult",
+        isAuthenticated: false,
+        segment: "register",
+        childMonitoringEnabled: false,
+      }),
+    ).toBeNull();
+    // A minor (or an unclassified visitor) is still sent to the age check.
+    expect(
+      getGateRedirect({
+        status: "minor",
+        isAuthenticated: false,
+        segment: "register",
+        childMonitoringEnabled: false,
+      }),
+    ).toBe("/age-check");
+    expect(
+      getGateRedirect({
+        status: null,
+        isAuthenticated: false,
+        segment: "register",
+        childMonitoringEnabled: false,
+      }),
+    ).toBe("/age-check");
+  });
+
   it("enables notifications only after both the adult gate and authentication", () => {
     expect(canUseNotifications(null, true)).toBe(false);
     expect(canUseNotifications("minor", true)).toBe(false);

@@ -9,20 +9,19 @@ import { ChildProfile } from "@/lib/store";
 import { DatePicker } from "@/components/date-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
-import { PremiumNotice, usePremiumGate } from "@/components/premium-notice";
+import { PremiumGate } from "@/components/premium-notice";
 
 function tx(lang: Language, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-export default function AddChildScreen() {
+function AddChildScreenInner() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { language } = useI18n();
   const lang = language as Language;
   const { addChild, state } = useAppState();
-  const { subscribed, loading: subLoading } = usePremiumGate();
 
   const [name, setName] = useState("");
   const [gender, setGender] = useState<"jongen" | "meisje" | "">("");
@@ -34,8 +33,6 @@ export default function AddChildScreen() {
   const linkChildMutation = trpc.links.linkChildByPublicId.useMutation();
 
   const handleSave = async () => {
-    if (subLoading) return; // status still loading — don't bounce a subscriber
-    if (!subscribed) { router.push("/subscribe" as any); return; }
     if (!name.trim()) {
       Alert.alert(
         tx(lang, "Naam vereist", "Name required", "الاسم مطلوب"),
@@ -85,8 +82,6 @@ export default function AddChildScreen() {
         </Text>
         <View style={{ width: 40 }} />
       </View>
-
-      <PremiumNotice />
 
       <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"} keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}>
       <ScrollView style={{ flex: 1 }} contentContainerStyle={{ padding: 20, paddingBottom: insets.bottom + 80 }} keyboardShouldPersistTaps="handled">
@@ -169,5 +164,19 @@ export default function AddChildScreen() {
       </ScrollView>
       </KeyboardAvoidingView>
     </View>
+  );
+}
+
+/**
+ * Paid feature: advertised on the subscribe screen, so it is closed to
+ * non-subscribers rather than shown with a banner over it. Wrapping rather
+ * than an early return means every return path inside is covered, and the
+ * inner component's hooks never run for a non-subscriber.
+ */
+export default function AddChildScreen() {
+  return (
+    <PremiumGate>
+      <AddChildScreenInner />
+    </PremiumGate>
   );
 }
