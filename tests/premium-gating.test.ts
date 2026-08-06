@@ -48,6 +48,23 @@ describe("paid screens are closed to non-subscribers", () => {
     expect(src).not.toMatch(/<PremiumGate>/);
   });
 
+  /**
+   * ...but that exception is only safe while nothing outside onboarding routes
+   * to it. The home tab's "Add child" button pointed at /onboarding/add-child,
+   * which handed every non-subscriber the add-child feature the gate on
+   * app/add-child.tsx exists to close. The family tab already used the gated
+   * route; the home tab was the odd one out.
+   */
+  it("no screen outside onboarding routes to the ungated add-child copy", () => {
+    const offenders = [
+      "app/(tabs)/index.tsx",
+      "app/(tabs)/family.tsx",
+      "app/(tabs)/family-hub.tsx",
+      "app/network.tsx",
+    ].filter((p) => read(p).includes("/onboarding/add-child"));
+    expect(offenders).toEqual([]);
+  });
+
   it("the gate denies access while the status is still loading", () => {
     // If it rendered children during the fetch, a non-subscriber would see the
     // paid content flash before the paywall replaced it.
