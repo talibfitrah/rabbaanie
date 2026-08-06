@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "@/hooks/use-auth";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import type { Language } from "@/lib/i18n";
 
 /**
  * Every /api/subscription/* route is session-authenticated — without the bearer
@@ -33,7 +34,7 @@ export async function subscriptionFetch(path: string, init?: RequestInit) {
 // user's subscribed flag until its own status fetch resolves (a premium leak
 // across accounts). Storing the uid makes that leak structurally impossible,
 // regardless of how many sign-out entry points exist now or later.
-let _subCache: { uid: number; subscribed: boolean } | null = null;
+let _subCache: { uid: number; subscribed: boolean; expiresAt: string | null } | null = null;
 
 /**
  * Drop the cached status so the next useSubscription() refetches. Call after an
@@ -51,6 +52,7 @@ export function useSubscription() {
   // Only trust the cache when it belongs to the current user.
   const cacheHit = _subCache && _subCache.uid === uid ? _subCache : null;
   const [subscribed, setSubscribed] = useState<boolean>(cacheHit?.subscribed ?? false);
+  const [expiresAt, setExpiresAt] = useState<string | null>(cacheHit?.expiresAt ?? null);
   const [loading, setLoading] = useState<boolean>(cacheHit === null);
 
   useEffect(() => {
@@ -62,6 +64,7 @@ export function useSubscription() {
     if (!uid) {
       // No user (logged out / hydrating): never report a stale subscribed=true.
       setSubscribed(false);
+      setExpiresAt(null);
       if (!authLoading) setLoading(false);
       return;
     }
@@ -71,25 +74,53 @@ export function useSubscription() {
     // Otherwise the previous account's subscribed flag lingers until the fetch.
     const hit = _subCache && _subCache.uid === uid ? _subCache : null;
     setSubscribed(hit?.subscribed ?? false);
+    setExpiresAt(hit?.expiresAt ?? null);
     setLoading(hit === null);
     let alive = true;
     subscriptionFetch(`status?userId=${uid}`)
       .then((r) => r.json())
       .then((d) => {
         const sub = !!(d && d.subscribed);
-        _subCache = { uid, subscribed: sub };
-        if (alive) { setSubscribed(sub); setLoading(false); }
+        const exp = (d && d.expiresAt) || null;
+        _subCache = { uid, subscribed: sub, expiresAt: exp };
+        if (alive) { setSubscribed(sub); setExpiresAt(exp); setLoading(false); }
       })
       .catch(() => {
         // Network failure must NOT downgrade a paying subscriber to the paywall.
         // Keep the last known-good value for this user if we have one; only fall
         // through to not-subscribed when we've never had a successful check.
         if (!alive) return;
-        if (_subCache && _subCache.uid === uid) setSubscribed(_subCache.subscribed);
+        if (_subCache && _subCache.uid === uid) { setSubscribed(_subCache.subscribed); setExpiresAt(_subCache.expiresAt); }
         setLoading(false);
       });
     return () => { alive = false; };
   }, [uid, authLoading]);
 
-  return { subscribed, loading };
+  return { subscribed, expiresAt, loading };
+}
+
+// A perpetual grant is stored as a date ~100 years out so every server-side
+// entitlement check (`status = active AND expiresAt >= now`) keeps working
+// with no nullable column. Anything past half that length was a perpetual
+// grant, not a subscriber who happens to be far from expiry.
+export const PERPETUAL_DAYS = 36500;
+export const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
+
+/** Arabic numeral-noun agreement: 1/2 have dedicated forms, 3-10 take the
+ *  plural noun, 11+ takes the singular accusative (tamyiz) form. */
+function arabicDayCount(days: number): string {
+  if (days === 1) return "يوم واحد";
+  if (days === 2) return "يومان";
+  if (days >= 3 && days <= 10) return `${days} أيام`;
+  return `${days} يومًا`;
+}
+
+/** "N days left" / "Lifetime" in the app's three languages, from an expiry date. */
+export function formatSubscriptionRemaining(expiresAt: string | Date, language: Language): string {
+  const ms = new Date(expiresAt).getTime() - Date.now();
+  if (ms > PERPETUAL_LABEL_CUTOFF_MS) {
+    return language === "ar" ? "مدى الحياة" : language === "en" ? "Lifetime" : "Levenslang toegang";
+  }
+  const days = Math.max(0, Math.ceil(ms / 86400000));
+  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} days left` : `${days} dagen resterend`;
 }
