@@ -1,0 +1,32 @@
+components/two-factor-verify-screen.tsx
+  s_a47ab13558c857::t_6f49a354d8aef1 18-21,23,26-27
+  s_a47ab13558c857::t_30092037d7a345 220-227
+  s_a47ab13558c857::t_5dc0b3aadcc2ce 194-199
+  s_a47ab13558c857::t_1eeab4c171bbcc 70
+  s_a47ab13558c857::t_5d5c7defb155bb 283-289
+  s_a47ab13558c857::t_2dcad2d49085d8 233-267
+app/login.tsx
+  s_a47ab13558c857::t_44885b126f8f0d 193-194
+  s_a47ab13558c857::t_f576900edf89f8 284
+  s_a47ab13558c857::t_fa12bf58a8ea02 138-140
+  s_a47ab13558c857::t_606da9868f8e8d 178-180
+  s_a47ab13558c857::t_a159d381e36c39 120
+  s_a47ab13558c857::t_8659179fa04040 14
+  s_a47ab13558c857::t_a7c1a8b6acd4fe 68-75,77
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "36092b2ee73763f77f776f6a7c42f7cd2f354c80",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
