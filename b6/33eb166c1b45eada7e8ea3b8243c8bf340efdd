@@ -1,0 +1,37 @@
+package.json
+  s_ba3b157721f889::t_df7d0910171aac 17
+hooks/use-remote-config.ts
+  s_ba3b157721f889::t_a840bbac0b6d15 40
+  s_ba3b157721f889::t_90c4cd530afe59 26-33
+  s_ba3b157721f889::t_f83480cb89b75e 12-21,23-25,34-39,41-43,51
+  s_ba3b157721f889::t_b0467ee953c132 22
+tests/remote-config-safety.test.ts
+  s_ba3b157721f889::t_19ebdfc742dee9 1,4-11
+  s_ba3b157721f889::t_f5f1faa80f1f7c 2-3,12-28,30-31,46-47,66-75,79-90
+  s_ba3b157721f889::t_d89932a6880a7f 48-65
+  s_ba3b157721f889::t_bd635964ef2a91 29,32-45
+  s_ba3b157721f889::t_8fd3cbf1ffa93a 76-78
+.github/workflows/play-release.yml
+  s_ba3b157721f889::t_b77343c4f7024a 131-135,137-141,143-146
+  s_ba3b157721f889::t_bf8a486312c428 136,142,148
+scripts/assert-play-artifact.sh
+  s_ba3b157721f889::t_4b3b1d7b744fd9 1-56,64-70,80-90,92-94,96-98,108-130
+  s_ba3b157721f889::t_773fa1ce91b4d3 57-63,71-79
+  s_ba3b157721f889::t_0389ca4e7594b3 91,95,99-107
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b633eb166c1b45eada7e8ea3b8243c8bf340efdd",
+  "prompts": {},
+  "sessions": {
+    "s_ba3b157721f889": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "73ccc38c-0ac5-4ba2-9d36-3f003f51c197",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
