@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import * as Clipboard from "expo-clipboard";
+import { formatSubscriptionRemaining, PERPETUAL_DAYS } from "@/hooks/use-subscription";
 
 /**
  * Admin management of subscriptions & coupons (msg 560/608). Grant/revoke
@@ -37,6 +38,10 @@ export default function AdminSubscriptionsScreen() {
     onError: (e: any) => Alert.alert("تعذّر المنح", e?.message || ""),
   });
   const revoke = admin.revokeSubscription.useMutation({ onSuccess: refetchAll });
+  const setSub = admin.setSubscription.useMutation({
+    onSuccess: refetchAll,
+    onError: (e: any) => Alert.alert("تعذّر التعديل", e?.message || ""),
+  });
   const createCoupon = admin.createCoupon.useMutation({ onSuccess: refetchAll });
   const toggleCoupon = admin.setCouponActive.useMutation({ onSuccess: refetchAll });
   const bulkCoupons = admin.createCouponsBulk.useMutation({ onSuccess: (r: any) => { refetchAll(); Alert.alert("تمّ", `أُنشئ ${r?.created ?? 0} كوبونًا.`); } });
@@ -55,7 +60,6 @@ export default function AdminSubscriptionsScreen() {
   // keeps working with no nullable column. Anything past half that length was a
   // perpetual grant, so label it دائم rather than showing a year-2126 date. The
   // threshold is derived from PERPETUAL_DAYS so shortening one moves the other.
-  const PERPETUAL_DAYS = 36500;
   const PERPETUAL_LABEL_CUTOFF_MS = (PERPETUAL_DAYS / 2) * 86400000;
   const fmt = (d: any) => {
     try {
@@ -88,6 +92,16 @@ export default function AdminSubscriptionsScreen() {
       [
         { text: "إلغاء", style: "cancel" },
         { text: "منح", onPress: () => grant.mutate({ userId, days: PERPETUAL_DAYS }) },
+      ],
+    );
+  }
+  function confirmSetLifetime(userId: number, label: string) {
+    Alert.alert(
+      "ضبط اشتراكٍ دائم",
+      `ضبط اشتراك ${label} إلى دائم؟ سيحلّ محلّ الاشتراك الحاليّ ولن ينتهيَ تلقائيًّا.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        { text: "ضبط", onPress: () => setSub.mutate({ userId, days: PERPETUAL_DAYS }) },
       ],
     );
   }
@@ -213,6 +227,7 @@ export default function AdminSubscriptionsScreen() {
                   <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginBottom: 8 }}>{list.length} مستخدمًا</Text>
                   {list.map((u: any) => {
                     const isSpecial = !!u.special;
+                    const isLifetime = isSpecial && !!u.expiresAt && (new Date(u.expiresAt).getTime() - Date.now() > PERPETUAL_LABEL_CUTOFF_MS);
                     const displayName = (u.firstName || u.lastName) ? `${u.firstName || ""} ${u.lastName || ""}`.trim() : (u.name || "—");
                     const idText = u.publicId || `#${u.id}`;
                     return (
@@ -229,18 +244,34 @@ export default function AdminSubscriptionsScreen() {
                         </TouchableOpacity>
                         {u.email ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.email}</Text> : null}
                         {u.phone ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.phone}</Text> : null}
+                        {isSpecial && u.expiresAt ? <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700", textAlign: align, marginTop: 4 }}>{formatSubscriptionRemaining(u.expiresAt, "ar")}</Text> : null}
                         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
-                          {isSpecial ? (
-                            <TouchableOpacity onPress={() => u.subscriptionId && revoke.mutate({ id: u.subscriptionId })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
-                              <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
-                            </TouchableOpacity>
-                          ) : (
+                          {!isSpecial ? (
                             <>
                               <TouchableOpacity onPress={() => grant.mutate({ userId: u.id, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
                                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ترقية إلى اشتراكٍ خاصّ (سنة)</Text>
                               </TouchableOpacity>
                               <TouchableOpacity onPress={() => confirmPerpetual(u.id, displayName)} disabled={grant.isPending} style={{ backgroundColor: "#7C3AED", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
                                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>اشتراكٌ دائم</Text>
+                              </TouchableOpacity>
+                            </>
+                          ) : (
+                            <>
+                              <TouchableOpacity onPress={() => setSub.mutate({ userId: u.id, days: 365 })} disabled={setSub.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ضبط: سنة واحدة</Text>
+                              </TouchableOpacity>
+                              {!isLifetime ? (
+                                <>
+                                  <TouchableOpacity onPress={() => confirmSetLifetime(u.id, displayName)} disabled={setSub.isPending} style={{ backgroundColor: "#7C3AED", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                    <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ضبط: دائم</Text>
+                                  </TouchableOpacity>
+                                  <TouchableOpacity onPress={() => grant.mutate({ userId: u.id, days: 365 })} disabled={grant.isPending} style={{ backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                    <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 12 }}>تمديد سنة</Text>
+                                  </TouchableOpacity>
+                                </>
+                              ) : null}
+                              <TouchableOpacity onPress={() => u.subscriptionId && revoke.mutate({ id: u.subscriptionId })} disabled={revoke.isPending} style={{ backgroundColor: "#c0392b", borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                                <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>إلغاء الاشتراك الخاصّ</Text>
                               </TouchableOpacity>
                             </>
                           )}
