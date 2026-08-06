@@ -11,7 +11,7 @@ import {
   Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useAuthContext } from "@/lib/auth-context";
@@ -65,7 +65,16 @@ export default function LoginScreen() {
     return language === "ar" ? ar : language === "en" ? en : nl;
   };
 
+  // Mirrors twoFactorChallenge for handleEmailLogin's in-flight requests:
+  // onCancel's setState is only visible on the next render, but a fetch
+  // already in flight needs the *current* value when its response lands.
+  const twoFactorChallengeRef = useRef(twoFactorChallenge);
+  useEffect(() => {
+    twoFactorChallengeRef.current = twoFactorChallenge;
+  }, [twoFactorChallenge]);
+
   const handleEmailLogin = async () => {
+    if (loading) return;
     const completingTwoFactor = Boolean(twoFactorChallenge);
     if (completingTwoFactor && !twoFactorCode.trim()) {
       setError(
@@ -108,7 +117,7 @@ export default function LoginScreen() {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (data.requires2FA && typeof data.challengeToken === "string" && data.challengeToken) {
         // See lib/google-oauth.ts: an omitted `factor` means an older server,
@@ -126,6 +135,9 @@ export default function LoginScreen() {
 
       if (!response.ok) {
         if (completingTwoFactor) {
+          // Same guard as the success path below: if Cancel already fired,
+          // don't resurrect a 2FA error on the now-plain sign-in form.
+          if (completingTwoFactor && !twoFactorChallengeRef.current) return;
           // Deliberately keep the challenge: the server allows 5 attempts, and
           // a 401 covers both "wrong digit" and "expired" without telling them
           // apart. Clearing here would spend a live challenge on one typo — and
@@ -163,6 +175,9 @@ export default function LoginScreen() {
       }
 
       // Success: data has { success, sessionToken, user }
+      // Same race handleResend guards against: if Cancel fired while this
+      // request was in flight, don't sign the user in behind their back.
+      if (completingTwoFactor && !twoFactorChallengeRef.current) return;
       const { sessionToken } = data;
       if (!sessionToken) {
         setError("Login response missing token");
@@ -175,6 +190,8 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("[Login] Email login error:", err);
+      // Same guard: don't show a connection error after Cancel fired.
+      if (completingTwoFactor && !twoFactorChallengeRef.current) return;
       setError(
         tx(
           "Verbindingsfout. Controleer uw internetverbinding.",
@@ -264,7 +281,7 @@ export default function LoginScreen() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ challengeToken: twoFactorChallenge }),
       });
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
       if (!response.ok || typeof data.challengeToken !== "string" || !data.challengeToken) {
         // Guarded the same way as the success path below: if the user tapped
         // Cancel while this request was in flight, twoFactorChallenge is
@@ -373,7 +390,6 @@ export default function LoginScreen() {
                 onCancel={() => {
                   setTwoFactorChallenge("");
                   setTwoFactorCode("");
-                  setTwoFactorIssuedAt(0);
                   setError("");
                 }}
                 resending={resending}

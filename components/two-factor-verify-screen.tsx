@@ -15,11 +15,16 @@ const RESEND_COOLDOWN_MS = 60_000;
 
 function useCountdown(issuedAt: number): number {
   const [now, setNow] = useState(() => Date.now());
+  const remainingMs = Math.min(
+    RESEND_COOLDOWN_MS,
+    Math.max(0, RESEND_COOLDOWN_MS - (now - issuedAt)),
+  );
   useEffect(() => {
+    if (remainingMs <= 0) return;
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
-  }, []);
-  return Math.min(RESEND_COOLDOWN_MS, Math.max(0, RESEND_COOLDOWN_MS - (now - issuedAt)));
+  }, [issuedAt, remainingMs <= 0]);
+  return remainingMs;
 }
 
 type TwoFactorVerifyScreenProps = {
@@ -62,7 +67,7 @@ export function TwoFactorVerifyScreen({
 
   const remainingMs = useCountdown(issuedAt);
   const remainingSec = Math.ceil(remainingMs / 1000);
-  const canResend = remainingMs <= 0 && !resending;
+  const canResend = remainingMs <= 0 && !resending && !verifying;
 
   const inputStyle = {
     backgroundColor: colors.surface,
@@ -186,7 +191,12 @@ export function TwoFactorVerifyScreen({
         <Text
           accessibilityRole="alert"
           accessibilityLiveRegion="polite"
-          style={{ color: colors.error, fontSize: 13, textAlign: "center" }}
+          style={{
+            color: colors.error,
+            fontSize: 13,
+            textAlign: "center",
+            writingDirection: isRTL ? "rtl" : "ltr",
+          }}
         >
           {error}
         </Text>
@@ -207,39 +217,54 @@ export function TwoFactorVerifyScreen({
         {verifying ? (
           <ActivityIndicator size="small" color="#ffffff" />
         ) : (
-          <Text style={{ fontSize: 15, fontWeight: "600", color: "#ffffff" }}>
+          <Text
+            style={{
+              fontSize: 15,
+              fontWeight: "600",
+              color: "#ffffff",
+              writingDirection: isRTL ? "rtl" : "ltr",
+            }}
+          >
             {tx("Verifiëren", "Verify", "تحقق")}
           </Text>
         )}
       </TouchableOpacity>
 
-      <TouchableOpacity
-        onPress={onResend}
-        disabled={!canResend}
-        activeOpacity={0.7}
-        style={{
-          minHeight: 44,
-          alignItems: "center",
-          justifyContent: "center",
-          borderRadius: 10,
-          borderWidth: 1,
-          borderColor: colors.border,
-          backgroundColor: colors.surface,
-          paddingVertical: 10,
-        }}
-      >
-        <Text style={{ fontSize: 13, color: canResend ? colors.primary : colors.muted }}>
-          {remainingMs > 0
-            ? tx(
-                `Opnieuw versturen (${remainingSec}s)`,
-                `Resend code (${remainingSec}s)`,
-                `إعادة الإرسال (${remainingSec}ث)`,
-              )
-            : resending
-              ? tx("Bezig...", "Sending...", "جارٍ الإرسال...")
-              : tx("Code opnieuw versturen", "Resend code", "إعادة إرسال الرمز")}
-        </Text>
-      </TouchableOpacity>
+      {method === "email" ? (
+        <TouchableOpacity
+          onPress={onResend}
+          disabled={!canResend}
+          activeOpacity={0.7}
+          style={{
+            minHeight: 44,
+            alignItems: "center",
+            justifyContent: "center",
+            borderRadius: 10,
+            borderWidth: 1,
+            borderColor: colors.border,
+            backgroundColor: colors.surface,
+            paddingVertical: 10,
+          }}
+        >
+          <Text
+            style={{
+              fontSize: 13,
+              color: canResend ? colors.primary : colors.muted,
+              writingDirection: isRTL ? "rtl" : "ltr",
+            }}
+          >
+            {remainingMs > 0
+              ? tx(
+                  `Opnieuw versturen (${remainingSec}s)`,
+                  `Resend code (${remainingSec}s)`,
+                  `إعادة الإرسال (${remainingSec}ث)`,
+                )
+              : resending
+                ? tx("Bezig...", "Sending...", "جارٍ الإرسال...")
+                : tx("Code opnieuw versturen", "Resend code", "إعادة إرسال الرمز")}
+          </Text>
+        </TouchableOpacity>
+      ) : null}
 
       <TouchableOpacity
         onPress={onCancel}
@@ -255,7 +280,13 @@ export function TwoFactorVerifyScreen({
           paddingVertical: 10,
         }}
       >
-        <Text style={{ fontSize: 13, color: colors.muted }}>
+        <Text
+          style={{
+            fontSize: 13,
+            color: colors.muted,
+            writingDirection: isRTL ? "rtl" : "ltr",
+          }}
+        >
           {tx("Annuleren", "Cancel", "إلغاء")}
         </Text>
       </TouchableOpacity>
