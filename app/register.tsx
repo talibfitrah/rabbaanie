@@ -37,7 +37,7 @@ export default function RegisterScreen() {
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
   const { language } = useI18n();
-  const { rehydrateFromServer } = useAppState();
+  const { resetState } = useAppState();
 
   const isRTL = language === "ar";
   const tx = (nl: string, en: string, ar: string) =>
@@ -131,7 +131,16 @@ export default function RegisterScreen() {
       }
 
       await completeTokenSignIn(data.sessionToken);
-      await rehydrateFromServer();
+      // Start this account from an empty slate, never from whatever is on the
+      // device. A brand-new account has nothing on the server, so
+      // rehydrateFromServer() would fall through to its "try local state"
+      // branch and adopt the *previous* user's children, birth dates and
+      // profile — and skip onboarding, because their onboardingCompleted is
+      // true. The sign-out and delete-account buttons already call resetState()
+      // for exactly this reason (app/(tabs)/settings.tsx), but a session that
+      // ended by token expiry or a crash never passes through them, so the
+      // local state can outlive the account that created it.
+      await resetState();
       // Hand off to the router's own gate rather than picking a destination:
       // a brand-new account has onboardingCompleted false, so AuthGate's
       // mandatory-profile check (app/_layout.tsx) redirects to /onboarding on

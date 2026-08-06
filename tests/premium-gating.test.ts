@@ -30,14 +30,36 @@ const PAID_SCREENS = [
   ["add child", "app/add-child.tsx"],
 ] as const;
 
+/**
+ * Two gate shapes exist in the codebase and `/<PremiumGate>/` matches both, so
+ * asserting only that would pass a screen that is gated the fragile way:
+ *
+ *   wrapper (preferred): export default () => <PremiumGate><Inner /></PremiumGate>
+ *   inline early return:  if (!_psub) return <PremiumGate>{null as any}</PremiumGate>
+ *
+ * The wrapper covers every return path and runs none of the screen's hooks for a
+ * non-subscriber. The inline form runs every hook above it first and only
+ * guards the one return it sits on. weekly and treatments still use the inline
+ * form, from before the 2026-08-05 migration — they ARE gated, so this is not a
+ * hole, but the distinction is recorded rather than papered over by a regex that
+ * accepts either.
+ */
+const INLINE_EARLY_RETURN = ["app/(tabs)/weekly.tsx", "app/(tabs)/treatments.tsx"];
+
 describe("paid screens are closed to non-subscribers", () => {
   for (const [label, path] of PAID_SCREENS) {
     it(`${label} (${path}) is behind PremiumGate`, () => {
       const src = read(path);
-      expect(src).toContain("PremiumGate");
       // A bare PremiumNotice is the soft banner — it leaves the content visible,
       // which is exactly the bug. Require the real gate element.
       expect(src).toMatch(/<PremiumGate>/);
+
+      if (INLINE_EARLY_RETURN.includes(path)) {
+        expect(src).toMatch(/if \(!_psub\) return <PremiumGate>/);
+      } else {
+        // The wrapper must hand PremiumGate a child component, not content.
+        expect(src).toMatch(/<PremiumGate>\s*<[A-Z]\w*(Inner|Screen)\w*\s*\/>/);
+      }
     });
   }
 
