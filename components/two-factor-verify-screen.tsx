@@ -19,7 +19,7 @@ function useCountdown(issuedAt: number): number {
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
-  return Math.max(0, RESEND_COOLDOWN_MS - (now - issuedAt));
+  return Math.min(RESEND_COOLDOWN_MS, Math.max(0, RESEND_COOLDOWN_MS - (now - issuedAt)));
 }
 
 type TwoFactorVerifyScreenProps = {
@@ -120,8 +120,18 @@ export function TwoFactorVerifyScreen({
               writingDirection: isRTL ? "rtl" : "ltr",
             }}
           >
-            {tx("We hebben een code gestuurd naar", "We sent a code to", "أرسلنا رمزًا إلى")}{" "}
-            <Text style={{ fontWeight: "700" }}>{email}</Text>
+            {email ? (
+              <>
+                {tx("We hebben een code gestuurd naar", "We sent a code to", "أرسلنا رمزًا إلى")}{" "}
+                <Text style={{ fontWeight: "700" }}>{email}</Text>
+              </>
+            ) : (
+              tx(
+                "We hebben een verificatiecode naar uw e-mailadres gestuurd.",
+                "We sent a verification code to your email address.",
+                "أرسلنا رمز تحقّق إلى بريدك الإلكتروني.",
+              )
+            )}
           </Text>
           <Text
             style={{
@@ -184,14 +194,14 @@ export function TwoFactorVerifyScreen({
 
       <TouchableOpacity
         onPress={onVerify}
-        disabled={verifying}
+        disabled={verifying || resending}
         activeOpacity={0.8}
         style={{
           backgroundColor: colors.primary,
           borderRadius: 10,
           paddingVertical: 14,
           alignItems: "center",
-          opacity: verifying ? 0.7 : 1,
+          opacity: verifying || resending ? 0.7 : 1,
         }}
       >
         {verifying ? (
@@ -207,7 +217,16 @@ export function TwoFactorVerifyScreen({
         onPress={onResend}
         disabled={!canResend}
         activeOpacity={0.7}
-        style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
+        style={{
+          minHeight: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          paddingVertical: 10,
+        }}
       >
         <Text style={{ fontSize: 13, color: canResend ? colors.primary : colors.muted }}>
           {remainingMs > 0
@@ -225,7 +244,16 @@ export function TwoFactorVerifyScreen({
       <TouchableOpacity
         onPress={onCancel}
         activeOpacity={0.7}
-        style={{ minHeight: 44, alignItems: "center", justifyContent: "center" }}
+        style={{
+          minHeight: 44,
+          alignItems: "center",
+          justifyContent: "center",
+          borderRadius: 10,
+          borderWidth: 1,
+          borderColor: colors.border,
+          backgroundColor: colors.surface,
+          paddingVertical: 10,
+        }}
       >
         <Text style={{ fontSize: 13, color: colors.muted }}>
           {tx("Annuleren", "Cancel", "إلغاء")}

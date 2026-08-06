@@ -48,6 +48,10 @@ export default function LoginScreen() {
   // When the current challenge was (re)issued — drives the resend cooldown
   // countdown in TwoFactorVerifyScreen.
   const [twoFactorIssuedAt, setTwoFactorIssuedAt] = useState(0);
+  // The email the code was actually sent to. Not the same as the `email`
+  // field state: the Google sign-in path never touches that field, so it
+  // can be empty or hold whatever the admin typed but never submitted.
+  const [twoFactorEmail, setTwoFactorEmail] = useState("");
   const [resending, setResending] = useState(false);
   const colors = useColors();
   const router = useRouter();
@@ -115,6 +119,7 @@ export default function LoginScreen() {
         setTwoFactorCode("");
         setPassword("");
         setTwoFactorIssuedAt(Date.now());
+        setTwoFactorEmail(email.trim().toLowerCase());
         setError("");
         return;
       }
@@ -184,10 +189,6 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     setError("");
-    // Starting a fresh Google sign-in abandons any challenge already on screen;
-    // leaving it would show a stale code field over the new flow.
-    setTwoFactorChallenge("");
-    setTwoFactorCode("");
     setLoading(true);
     try {
       const result = await completeNativeGoogleSignIn();
@@ -199,6 +200,7 @@ export default function LoginScreen() {
         setTwoFactorMethod(result.factor);
         setTwoFactorCode("");
         setTwoFactorIssuedAt(Date.now());
+        setTwoFactorEmail("");
         setError("");
         return;
       }
@@ -264,13 +266,21 @@ export default function LoginScreen() {
       });
       const data = await response.json();
       if (!response.ok || typeof data.challengeToken !== "string" || !data.challengeToken) {
-        setError(
-          tx(
-            "Opnieuw versturen mislukt. Probeer het later nog eens.",
-            "Could not resend the code. Please try again shortly.",
-            "تعذّر إعادة إرسال الرمز. حاول مرة أخرى لاحقًا.",
-          ),
-        );
+        // Guarded the same way as the success path below: if the user tapped
+        // Cancel while this request was in flight, twoFactorChallenge is
+        // already "" and this error must not land on the plain sign-in form.
+        setTwoFactorChallenge((current) => {
+          if (current) {
+            setError(
+              tx(
+                "Opnieuw versturen mislukt. Probeer het later nog eens.",
+                "Could not resend the code. Please try again shortly.",
+                "تعذّر إعادة إرسال الرمز. حاول مرة أخرى لاحقًا.",
+              ),
+            );
+          }
+          return current;
+        });
         return;
       }
       // Functional update: if the user tapped Cancel while this request was in
@@ -281,13 +291,20 @@ export default function LoginScreen() {
       setTwoFactorCode("");
       setTwoFactorIssuedAt(Date.now());
     } catch {
-      setError(
-        tx(
-          "Verbindingsfout. Controleer uw internetverbinding.",
-          "Connection error. Check your internet connection.",
-          "خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
-        ),
-      );
+      // Same guard as above: don't leak a connection error onto the plain
+      // sign-in form if the user already cancelled out of the challenge.
+      setTwoFactorChallenge((current) => {
+        if (current) {
+          setError(
+            tx(
+              "Verbindingsfout. Controleer uw internetverbinding.",
+              "Connection error. Check your internet connection.",
+              "خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
+            ),
+          );
+        }
+        return current;
+      });
     } finally {
       setResending(false);
     }
@@ -345,7 +362,7 @@ export default function LoginScreen() {
 
             {twoFactorChallenge ? (
               <TwoFactorVerifyScreen
-                email={email}
+                email={twoFactorEmail}
                 code={twoFactorCode}
                 onChangeCode={setTwoFactorCode}
                 method={twoFactorMethod}
