@@ -796,10 +796,12 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
   );
 }
 
-function InvitePartnerForm({ colors, lang, isRTL }: { colors: any; lang: string; isRTL: boolean }) {
+function InvitePartnerForm({ colors, lang, isRTL, userGender }: { colors: any; lang: string; isRTL: boolean; userGender: string }) {
   const [email, setEmail] = useState("");
   const [name, setName] = useState("");
-  const [relationship, setRelationship] = useState<"biological_father" | "biological_mother">("biological_mother");
+  const [relationship, setRelationship] = useState<"biological_father" | "biological_mother">(
+    userGender === "man" ? "biological_mother" : "biological_father"
+  );
   // Vendored router type predates this procedure (see CoParentPermissions above).
   const invite = (trpc.family as any).invitePartner.useMutation();
 
@@ -1005,7 +1007,7 @@ function ParentsSection({
                     : tx(lang, "Partner heeft nog geen account?", "Partner doesn't have an account yet?", "الشريك ليس لديه حساب بعد؟")}
                 </Text>
               </TouchableOpacity>
-              {showInvite && <InvitePartnerForm colors={colors} lang={lang} isRTL={isRTL} />}
+              {showInvite && <InvitePartnerForm colors={colors} lang={lang} isRTL={isRTL} userGender={userGender} />}
             </View>
             {linkResult && (
               <View style={{ backgroundColor: colors.success + "15", borderRadius: 8, padding: 8, marginTop: 8 }}>
