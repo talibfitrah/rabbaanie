@@ -122,5 +122,5 @@ export function formatSubscriptionRemaining(expiresAt: string | Date, language: 
     return language === "ar" ? "مدى الحياة" : language === "en" ? "Lifetime" : "Levenslang toegang";
   }
   const days = Math.max(0, Math.ceil(ms / 86400000));
-  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} days left` : `${days} dagen resterend`;
+  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} day${days === 1 ? "" : "s"} left` : `${days} dag${days === 1 ? "" : "en"} resterend`;
 }

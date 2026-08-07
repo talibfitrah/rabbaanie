@@ -99,6 +99,16 @@ export default function AdminSubscriptionsScreen() {
       ],
     );
   }
+  function confirmSetOneYear(userId: number, label: string) {
+    Alert.alert(
+      "ضبط سنةٍ واحدة",
+      `ضبط اشتراك ${label} إلى سنةٍ واحدة؟ سيحلّ محلّ الاشتراك الحاليّ.`,
+      [
+        { text: "إلغاء", style: "cancel" },
+        { text: "ضبط", onPress: () => setSub.mutate({ userId, days: 365 }) },
+      ],
+    );
+  }
   function doCreateCoupon() {
     const code = cCode.trim(); if (!code) { Alert.alert("خطأ", "أدخل رمزَ الكوبون."); return; }
     createCoupon.mutate({ code, durationDays: Number(cDays) || 365, priceCents: Math.round((Number(cPrice) || 0) * 100), maxUses: Number(cMax) || 1 });
@@ -251,7 +261,7 @@ export default function AdminSubscriptionsScreen() {
                             </>
                           ) : (
                             <>
-                              <TouchableOpacity onPress={() => setSub.mutate({ userId: u.id, days: 365 })} disabled={setSub.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                              <TouchableOpacity onPress={() => confirmSetOneYear(u.id, displayName)} disabled={setSub.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
                                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ضبط: سنة واحدة</Text>
                               </TouchableOpacity>
                               {!isLifetime ? (
