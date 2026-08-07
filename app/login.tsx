@@ -11,7 +11,7 @@ import {
   Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useAuthContext } from "@/lib/auth-context";
@@ -22,6 +22,7 @@ import {
   completeNativeGoogleSignIn,
   GoogleSignInError,
 } from "@/lib/google-oauth";
+import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
 
 const SUPPORT_EMAIL = "support@albunyaan.tv";
@@ -44,6 +45,14 @@ export default function LoginScreen() {
   const [twoFactorMethod, setTwoFactorMethod] = useState<"app" | "email">(
     "email",
   );
+  // When the current challenge was (re)issued — drives the resend cooldown
+  // countdown in TwoFactorVerifyScreen.
+  const [twoFactorIssuedAt, setTwoFactorIssuedAt] = useState(0);
+  // The email the code was actually sent to. Not the same as the `email`
+  // field state: the Google sign-in path never touches that field, so it
+  // can be empty or hold whatever the admin typed but never submitted.
+  const [twoFactorEmail, setTwoFactorEmail] = useState("");
+  const [resending, setResending] = useState(false);
   const colors = useColors();
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
@@ -56,22 +65,16 @@ export default function LoginScreen() {
     return language === "ar" ? ar : language === "en" ? en : nl;
   };
 
-  // Takes the method rather than reading state: both callers set it in the same
-  // tick, where the state value is still the previous one.
-  const twoFactorPrompt = (method: "app" | "email") =>
-    method === "email"
-      ? tx(
-          "We hebben een verificatiecode naar uw e-mailadres gestuurd.",
-          "We sent a verification code to your email address.",
-          "أرسلنا رمز تحقّق إلى بريدك الإلكتروني.",
-        )
-      : tx(
-          "Voer uw 2FA-code of back-upcode in",
-          "Enter your 2FA or backup code",
-          "أدخل رمز التحقق أو الرمز الاحتياطي",
-        );
+  // Mirrors twoFactorChallenge for handleEmailLogin's in-flight requests:
+  // onCancel's setState is only visible on the next render, but a fetch
+  // already in flight needs the *current* value when its response lands.
+  const twoFactorChallengeRef = useRef(twoFactorChallenge);
+  useEffect(() => {
+    twoFactorChallengeRef.current = twoFactorChallenge;
+  }, [twoFactorChallenge]);
 
   const handleEmailLogin = async () => {
+    if (loading) return;
     const completingTwoFactor = Boolean(twoFactorChallenge);
     if (completingTwoFactor && !twoFactorCode.trim()) {
       setError(
@@ -114,7 +117,7 @@ export default function LoginScreen() {
         },
       );
 
-      const data = await response.json();
+      const data = await response.json().catch(() => ({}));
 
       if (data.requires2FA && typeof data.challengeToken === "string" && data.challengeToken) {
         // See lib/google-oauth.ts: an omitted `factor` means an older server,
@@ -124,17 +127,22 @@ export default function LoginScreen() {
         setTwoFactorMethod(method);
         setTwoFactorCode("");
         setPassword("");
-        setError(twoFactorPrompt(method));
+        setTwoFactorIssuedAt(Date.now());
+        setTwoFactorEmail(email.trim().toLowerCase());
+        setError("");
         return;
       }
 
       if (!response.ok) {
         if (completingTwoFactor) {
+          // Same guard as the success path below: if Cancel already fired,
+          // don't resurrect a 2FA error on the now-plain sign-in form.
+          if (completingTwoFactor && !twoFactorChallengeRef.current) return;
           // Deliberately keep the challenge: the server allows 5 attempts, and
           // a 401 covers both "wrong digit" and "expired" without telling them
           // apart. Clearing here would spend a live challenge on one typo — and
           // on a Google-initiated one, force the whole account picker again.
-          // The "start over" control below is the way out instead.
+          // The "Cancel" control below is the way out instead.
           setTwoFactorCode("");
           setError(
             data.error ||
@@ -167,6 +175,9 @@ export default function LoginScreen() {
       }
 
       // Success: data has { success, sessionToken, user }
+      // Same race handleResend guards against: if Cancel fired while this
+      // request was in flight, don't sign the user in behind their back.
+      if (completingTwoFactor && !twoFactorChallengeRef.current) return;
       const { sessionToken } = data;
       if (!sessionToken) {
         setError("Login response missing token");
@@ -179,6 +190,8 @@ export default function LoginScreen() {
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("[Login] Email login error:", err);
+      // Same guard: don't show a connection error after Cancel fired.
+      if (completingTwoFactor && !twoFactorChallengeRef.current) return;
       setError(
         tx(
           "Verbindingsfout. Controleer uw internetverbinding.",
@@ -193,10 +206,6 @@ export default function LoginScreen() {
 
   const handleGoogleLogin = async () => {
     setError("");
-    // Starting a fresh Google sign-in abandons any challenge already on screen;
-    // leaving it would show a stale code field over the new flow.
-    setTwoFactorChallenge("");
-    setTwoFactorCode("");
     setLoading(true);
     try {
       const result = await completeNativeGoogleSignIn();
@@ -207,7 +216,9 @@ export default function LoginScreen() {
         setTwoFactorChallenge(result.challengeToken);
         setTwoFactorMethod(result.factor);
         setTwoFactorCode("");
-        setError(twoFactorPrompt(result.factor));
+        setTwoFactorIssuedAt(Date.now());
+        setTwoFactorEmail("");
+        setError("");
         return;
       }
       await completeTokenSignIn(result.sessionToken);
@@ -257,6 +268,62 @@ export default function LoginScreen() {
       );
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleResend = async () => {
+    setResending(true);
+    setError("");
+    try {
+      const apiBase = getApiBaseUrl();
+      const response = await fetch(`${apiBase}/auth/2fa/resend`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ challengeToken: twoFactorChallenge }),
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok || typeof data.challengeToken !== "string" || !data.challengeToken) {
+        // Guarded the same way as the success path below: if the user tapped
+        // Cancel while this request was in flight, twoFactorChallenge is
+        // already "" and this error must not land on the plain sign-in form.
+        setTwoFactorChallenge((current) => {
+          if (current) {
+            setError(
+              tx(
+                "Opnieuw versturen mislukt. Probeer het later nog eens.",
+                "Could not resend the code. Please try again shortly.",
+                "تعذّر إعادة إرسال الرمز. حاول مرة أخرى لاحقًا.",
+              ),
+            );
+          }
+          return current;
+        });
+        return;
+      }
+      // Functional update: if the user tapped Cancel while this request was in
+      // flight, twoFactorChallenge is already "" and must stay that way rather
+      // than being silently reopened by a stale response.
+      setTwoFactorChallenge((current) => (current ? data.challengeToken : current));
+      setTwoFactorMethod(data.factor === "email" ? "email" : "app");
+      setTwoFactorCode("");
+      setTwoFactorIssuedAt(Date.now());
+    } catch {
+      // Same guard as above: don't leak a connection error onto the plain
+      // sign-in form if the user already cancelled out of the challenge.
+      setTwoFactorChallenge((current) => {
+        if (current) {
+          setError(
+            tx(
+              "Verbindingsfout. Controleer uw internetverbinding.",
+              "Connection error. Check your internet connection.",
+              "خطأ في الاتصال. تحقق من اتصالك بالإنترنت.",
+            ),
+          );
+        }
+        return current;
+      });
+    } finally {
+      setResending(false);
     }
   };
 
@@ -310,47 +377,27 @@ export default function LoginScreen() {
               </Text>
             </View>
 
-            {/* Email/Password Form */}
-            <View style={{ width: "100%", maxWidth: 340, gap: 12 }}>
-              {/* Email Input */}
-              <View style={{ gap: 4 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: colors.muted,
-                    writingDirection: isRTL ? "rtl" : "ltr",
-                  }}
-                >
-                  {tx("E-mailadres", "Email address", "البريد الإلكتروني")}
-                </Text>
-                <TextInput
-                  value={email}
-                  onChangeText={setEmail}
-                  placeholder={tx(
-                    "uw@email.nl",
-                    "your@email.com",
-                    "بريدك@مثال.com",
-                  )}
-                  placeholderTextColor={colors.muted}
-                  keyboardType="email-address"
-                  autoCapitalize="none"
-                  autoCorrect={false}
-                  textAlign={isRTL ? "right" : "left"}
-                  returnKeyType="next"
-                  style={{
-                    backgroundColor: colors.surface,
-                    borderRadius: 10,
-                    paddingHorizontal: 14,
-                    paddingVertical: 12,
-                    fontSize: 15,
-                    color: colors.foreground,
-                    borderWidth: 1,
-                    borderColor: colors.border,
-                  }}
-                />
-              </View>
-
-              {twoFactorChallenge ? (
+            {twoFactorChallenge ? (
+              <TwoFactorVerifyScreen
+                email={twoFactorEmail}
+                code={twoFactorCode}
+                onChangeCode={setTwoFactorCode}
+                method={twoFactorMethod}
+                issuedAt={twoFactorIssuedAt}
+                error={error}
+                verifying={loading}
+                onVerify={handleEmailLogin}
+                onCancel={() => {
+                  setTwoFactorChallenge("");
+                  setTwoFactorCode("");
+                  setError("");
+                }}
+                resending={resending}
+                onResend={handleResend}
+              />
+            ) : (
+              <View style={{ width: "100%", maxWidth: 340, gap: 12 }}>
+                {/* Email Input */}
                 <View style={{ gap: 4 }}>
                   <Text
                     style={{
@@ -359,356 +406,319 @@ export default function LoginScreen() {
                       writingDirection: isRTL ? "rtl" : "ltr",
                     }}
                   >
-                    {twoFactorMethod === "email"
-                      ? tx(
-                          "Code uit uw e-mail",
-                          "Code from your email",
-                          "الرمز من بريدك الإلكتروني",
-                        )
-                      : tx(
-                          "2FA-code of back-upcode",
-                          "2FA or backup code",
-                          "رمز التحقق أو الرمز الاحتياطي",
-                        )}
+                    {tx("E-mailadres", "Email address", "البريد الإلكتروني")}
                   </Text>
                   <TextInput
-                    value={twoFactorCode}
-                    onChangeText={setTwoFactorCode}
-                    placeholder="000000"
+                    value={email}
+                    onChangeText={setEmail}
+                    placeholder={tx(
+                      "uw@email.nl",
+                      "your@email.com",
+                      "بريدك@مثال.com",
+                    )}
                     placeholderTextColor={colors.muted}
-                    autoCapitalize="characters"
-                    autoCorrect={false}
-                    textContentType="oneTimeCode"
-                    keyboardType="default"
-                    maxLength={9}
-                    textAlign={isRTL ? "right" : "left"}
-                    returnKeyType="done"
-                    onSubmitEditing={handleEmailLogin}
-                    style={{
-                      backgroundColor: colors.surface,
-                      borderRadius: 10,
-                      paddingHorizontal: 14,
-                      paddingVertical: 12,
-                      fontSize: 15,
-                      color: colors.foreground,
-                      borderWidth: 1,
-                      borderColor: colors.border,
-                    }}
-                  />
-                  {/* The only way out of the challenge. Without it an expired
-                      code is a dead end: every submit routes to /auth/2fa/verify
-                      against a challenge the server has already dropped. */}
-                  <TouchableOpacity
-                    onPress={() => {
-                      setTwoFactorChallenge("");
-                      setTwoFactorCode("");
-                      setError("");
-                    }}
-                    hitSlop={8}
-                  >
-                    <Text
-                      style={{
-                        fontSize: 13,
-                        color: colors.primary,
-                        textAlign: isRTL ? "right" : "left",
-                        marginTop: 2,
-                      }}
-                    >
-                      {tx(
-                        "Opnieuw beginnen",
-                        "Start over",
-                        "البدء من جديد",
-                      )}
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-              ) : null}
-
-              {/* Password Input */}
-              <View style={{ gap: 4 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    color: colors.muted,
-                    writingDirection: isRTL ? "rtl" : "ltr",
-                  }}
-                >
-                  {tx("Wachtwoord", "Password", "كلمة المرور")}
-                </Text>
-                <View style={{ position: "relative" }}>
-                  <TextInput
-                    value={password}
-                    onChangeText={setPassword}
-                    placeholder="••••••••"
-                    placeholderTextColor={colors.muted}
-                    secureTextEntry={!showPassword}
+                    keyboardType="email-address"
                     autoCapitalize="none"
+                    autoCorrect={false}
                     textAlign={isRTL ? "right" : "left"}
-                    returnKeyType="done"
-                    onSubmitEditing={handleEmailLogin}
+                    returnKeyType="next"
                     style={{
                       backgroundColor: colors.surface,
                       borderRadius: 10,
                       paddingHorizontal: 14,
                       paddingVertical: 12,
-                      paddingRight: 48,
                       fontSize: 15,
                       color: colors.foreground,
                       borderWidth: 1,
                       borderColor: colors.border,
                     }}
                   />
-                  <TouchableOpacity
-                    onPress={() => setShowPassword(!showPassword)}
-                    accessibilityRole="button"
-                    accessibilityLabel={
-                      showPassword
-                        ? tx(
-                            "Wachtwoord verbergen",
-                            "Hide password",
-                            "إخفاء كلمة المرور",
-                          )
-                        : tx(
-                            "Wachtwoord tonen",
-                            "Show password",
-                            "إظهار كلمة المرور",
-                          )
-                    }
-                    hitSlop={8}
-                    style={{
-                      position: "absolute",
-                      right: 4,
-                      top: 0,
-                      minWidth: 44,
-                      minHeight: 44,
-                      alignItems: "center",
-                      justifyContent: "center",
-                    }}
-                    activeOpacity={0.6}
-                  >
-                    <Text style={{ fontSize: 13, color: colors.primary }}>
-                      {showPassword
-                        ? tx("Verberg", "Hide", "إخفاء")
-                        : tx("Toon", "Show", "إظهار")}
-                    </Text>
-                  </TouchableOpacity>
                 </View>
-              </View>
 
-              {/* Forgot password link */}
-              <TouchableOpacity
-                onPress={() => router.push("/forgot-password" as any)}
-                activeOpacity={0.6}
-                style={{
-                  alignSelf: isRTL ? "flex-start" : "flex-end",
-                  minHeight: 44,
-                  justifyContent: "center",
-                }}
-              >
-                <Text style={{ fontSize: 13, color: colors.primary }}>
-                  {tx(
-                    "Wachtwoord vergeten?",
-                    "Forgot password?",
-                    "نسيت كلمة المرور؟",
-                  )}
-                </Text>
-              </TouchableOpacity>
-
-              {/* Error message */}
-              {error ? (
-                <Text
-                  accessibilityRole="alert"
-                  accessibilityLiveRegion="polite"
-                  style={{
-                    color: colors.error,
-                    fontSize: 13,
-                    textAlign: "center",
-                    marginTop: 4,
-                  }}
-                >
-                  {error}
-                </Text>
-              ) : null}
-
-              {/* Login Button */}
-              <TouchableOpacity
-                onPress={handleEmailLogin}
-                disabled={loading}
-                activeOpacity={0.8}
-                style={{
-                  backgroundColor: colors.primary,
-                  borderRadius: 10,
-                  paddingVertical: 14,
-                  alignItems: "center",
-                  marginTop: 8,
-                  opacity: loading ? 0.7 : 1,
-                }}
-              >
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
+                {/* Password Input */}
+                <View style={{ gap: 4 }}>
                   <Text
                     style={{
-                      fontSize: 15,
-                      fontWeight: "600",
-                      color: "#ffffff",
+                      fontSize: 13,
+                      color: colors.muted,
+                      writingDirection: isRTL ? "rtl" : "ltr",
                     }}
                   >
-                    {twoFactorChallenge
-                      ? tx("Verifiëren", "Verify", "تحقق")
-                      : tx("Inloggen", "Sign in", "تسجيل الدخول")}
+                    {tx("Wachtwoord", "Password", "كلمة المرور")}
                   </Text>
-                )}
-              </TouchableOpacity>
-
-              {Platform.OS === "android" && (
-                <>
-                  <View
-                    style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      marginVertical: 12,
-                    }}
-                  >
-                    <View
+                  <View style={{ position: "relative" }}>
+                    <TextInput
+                      value={password}
+                      onChangeText={setPassword}
+                      placeholder="••••••••"
+                      placeholderTextColor={colors.muted}
+                      secureTextEntry={!showPassword}
+                      autoCapitalize="none"
+                      textAlign={isRTL ? "right" : "left"}
+                      returnKeyType="done"
+                      onSubmitEditing={handleEmailLogin}
                       style={{
-                        flex: 1,
-                        height: 1,
-                        backgroundColor: colors.border,
+                        backgroundColor: colors.surface,
+                        borderRadius: 10,
+                        paddingHorizontal: 14,
+                        paddingVertical: 12,
+                        paddingRight: 48,
+                        fontSize: 15,
+                        color: colors.foreground,
+                        borderWidth: 1,
+                        borderColor: colors.border,
                       }}
                     />
-                    <Text
+                    <TouchableOpacity
+                      onPress={() => setShowPassword(!showPassword)}
+                      accessibilityRole="button"
+                      accessibilityLabel={
+                        showPassword
+                          ? tx(
+                              "Wachtwoord verbergen",
+                              "Hide password",
+                              "إخفاء كلمة المرور",
+                            )
+                          : tx(
+                              "Wachtwoord tonen",
+                              "Show password",
+                              "إظهار كلمة المرور",
+                            )
+                      }
+                      hitSlop={8}
                       style={{
-                        marginHorizontal: 12,
-                        fontSize: 12,
-                        color: colors.muted,
+                        position: "absolute",
+                        right: 4,
+                        top: 0,
+                        minWidth: 44,
+                        minHeight: 44,
+                        alignItems: "center",
+                        justifyContent: "center",
                       }}
+                      activeOpacity={0.6}
                     >
-                      {tx("of", "or", "أو")}
-                    </Text>
-                    <View
-                      style={{
-                        flex: 1,
-                        height: 1,
-                        backgroundColor: colors.border,
-                      }}
-                    />
+                      <Text style={{ fontSize: 13, color: colors.primary }}>
+                        {showPassword
+                          ? tx("Verberg", "Hide", "إخفاء")
+                          : tx("Toon", "Show", "إظهار")}
+                      </Text>
+                    </TouchableOpacity>
                   </View>
+                </View>
 
-                  <TouchableOpacity
-                    onPress={handleGoogleLogin}
-                    disabled={loading}
+                {/* Forgot password link */}
+                <TouchableOpacity
+                  onPress={() => router.push("/forgot-password" as any)}
+                  activeOpacity={0.6}
+                  style={{
+                    alignSelf: isRTL ? "flex-start" : "flex-end",
+                    minHeight: 44,
+                    justifyContent: "center",
+                  }}
+                >
+                  <Text style={{ fontSize: 13, color: colors.primary }}>
+                    {tx(
+                      "Wachtwoord vergeten?",
+                      "Forgot password?",
+                      "نسيت كلمة المرور؟",
+                    )}
+                  </Text>
+                </TouchableOpacity>
+
+                {/* Error message */}
+                {error ? (
+                  <Text
+                    accessibilityRole="alert"
+                    accessibilityLiveRegion="polite"
                     style={{
-                      flexDirection: "row",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      gap: 10,
-                      backgroundColor: "#ffffff",
-                      borderRadius: 10,
-                      paddingVertical: 13,
-                      paddingHorizontal: 20,
-                      borderWidth: 1,
-                      borderColor: "#dadce0",
-                      shadowColor: "#000",
-                      shadowOffset: { width: 0, height: 1 },
-                      shadowOpacity: 0.08,
-                      shadowRadius: 2,
-                      elevation: 1,
-                      opacity: loading ? 0.7 : 1,
+                      color: colors.error,
+                      fontSize: 13,
+                      textAlign: "center",
+                      marginTop: 4,
                     }}
-                    activeOpacity={0.8}
                   >
-                    <GoogleGIcon />
+                    {error}
+                  </Text>
+                ) : null}
+
+                {/* Login Button */}
+                <TouchableOpacity
+                  onPress={handleEmailLogin}
+                  disabled={loading}
+                  activeOpacity={0.8}
+                  style={{
+                    backgroundColor: colors.primary,
+                    borderRadius: 10,
+                    paddingVertical: 14,
+                    alignItems: "center",
+                    marginTop: 8,
+                    opacity: loading ? 0.7 : 1,
+                  }}
+                >
+                  {loading ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
                     <Text
                       style={{
-                        fontSize: 14,
-                        fontWeight: "500",
-                        color: "#3c4043",
+                        fontSize: 15,
+                        fontWeight: "600",
+                        color: "#ffffff",
                       }}
                     >
-                      {tx(
-                        "Inloggen met Google",
-                        "Sign in with Google",
-                        "تسجيل الدخول بـ Google",
-                      )}
+                      {tx("Inloggen", "Sign in", "تسجيل الدخول")}
                     </Text>
-                  </TouchableOpacity>
-                </>
-              )}
+                  )}
+                </TouchableOpacity>
 
-              {/* Sideload build points at the website; the Play build must not,
-                  because rabbaanie.com sells the subscription outside Play
-                  billing (anti-steering). Play users get a support contact —
-                  allowed app furniture — so a stranded user still has a path. */}
-              {/* Both channels now create the account in-app. That is the only
-                  route the Play build may offer, and it is also better for the
-                  sideload build: a purchase started on rabbaanie.com provisions
-                  nothing for a brand-new customer, so pointing them there took
-                  money and left them without an account. */}
-              <TouchableOpacity
-                onPress={() => router.push("/register" as any)}
-                accessibilityRole="link"
-                activeOpacity={0.6}
-                style={{
-                  minHeight: 44,
-                  marginTop: 8,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
+                {Platform.OS === "android" && (
+                  <>
+                    <View
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        marginVertical: 12,
+                      }}
+                    >
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 1,
+                          backgroundColor: colors.border,
+                        }}
+                      />
+                      <Text
+                        style={{
+                          marginHorizontal: 12,
+                          fontSize: 12,
+                          color: colors.muted,
+                        }}
+                      >
+                        {tx("of", "or", "أو")}
+                      </Text>
+                      <View
+                        style={{
+                          flex: 1,
+                          height: 1,
+                          backgroundColor: colors.border,
+                        }}
+                      />
+                    </View>
+
+                    <TouchableOpacity
+                      onPress={handleGoogleLogin}
+                      disabled={loading}
+                      style={{
+                        flexDirection: "row",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        gap: 10,
+                        backgroundColor: "#ffffff",
+                        borderRadius: 10,
+                        paddingVertical: 13,
+                        paddingHorizontal: 20,
+                        borderWidth: 1,
+                        borderColor: "#dadce0",
+                        shadowColor: "#000",
+                        shadowOffset: { width: 0, height: 1 },
+                        shadowOpacity: 0.08,
+                        shadowRadius: 2,
+                        elevation: 1,
+                        opacity: loading ? 0.7 : 1,
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <GoogleGIcon />
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          fontWeight: "500",
+                          color: "#3c4043",
+                        }}
+                      >
+                        {tx(
+                          "Inloggen met Google",
+                          "Sign in with Google",
+                          "تسجيل الدخول بـ Google",
+                        )}
+                      </Text>
+                    </TouchableOpacity>
+                  </>
+                )}
+
+                {/* Sideload build points at the website; the Play build must not,
+                    because rabbaanie.com sells the subscription outside Play
+                    billing (anti-steering). Play users get a support contact —
+                    allowed app furniture — so a stranded user still has a path. */}
+                {/* Both channels now create the account in-app. That is the only
+                    route the Play build may offer, and it is also better for the
+                    sideload build: a purchase started on rabbaanie.com provisions
+                    nothing for a brand-new customer, so pointing them there took
+                    money and left them without an account. */}
+                <TouchableOpacity
+                  onPress={() => router.push("/register" as any)}
+                  accessibilityRole="link"
+                  activeOpacity={0.6}
                   style={{
-                    fontSize: 13,
-                    color: colors.muted,
-                    textAlign: "center",
+                    minHeight: 44,
+                    marginTop: 8,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {tx(
-                    "Nog geen account? ",
-                    "No account yet? ",
-                    "ليس لديك حساب؟ ",
-                  )}
                   <Text
                     style={{
-                      color: colors.primary,
-                      textDecorationLine: "underline",
+                      fontSize: 13,
+                      color: colors.muted,
+                      textAlign: "center",
                     }}
                   >
-                    {tx("Account aanmaken", "Create account", "إنشاء حساب")}
+                    {tx(
+                      "Nog geen account? ",
+                      "No account yet? ",
+                      "ليس لديك حساب؟ ",
+                    )}
+                    <Text
+                      style={{
+                        color: colors.primary,
+                        textDecorationLine: "underline",
+                      }}
+                    >
+                      {tx("Account aanmaken", "Create account", "إنشاء حساب")}
+                    </Text>
                   </Text>
-                </Text>
-              </TouchableOpacity>
+                </TouchableOpacity>
 
-              <TouchableOpacity
-                onPress={() =>
-                  Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})
-                }
-                accessibilityRole="link"
-                activeOpacity={0.6}
-                style={{
-                  minHeight: 44,
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <Text
+                <TouchableOpacity
+                  onPress={() =>
+                    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})
+                  }
+                  accessibilityRole="link"
+                  activeOpacity={0.6}
                   style={{
-                    fontSize: 12,
-                    color: colors.muted,
-                    textAlign: "center",
+                    minHeight: 44,
+                    alignItems: "center",
+                    justifyContent: "center",
                   }}
                 >
-                  {tx(
-                    "Hulp nodig bij het inloggen? Mail ",
-                    "Need help signing in? Contact ",
-                    "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
-                  )}
-                  <Text style={{ textDecorationLine: "underline" }}>
-                    {SUPPORT_EMAIL}
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: colors.muted,
+                      textAlign: "center",
+                    }}
+                  >
+                    {tx(
+                      "Hulp nodig bij het inloggen? Mail ",
+                      "Need help signing in? Contact ",
+                      "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
+                    )}
+                    <Text style={{ textDecorationLine: "underline" }}>
+                      {SUPPORT_EMAIL}
+                    </Text>
                   </Text>
-                </Text>
-              </TouchableOpacity>
-            </View>
+                </TouchableOpacity>
+              </View>
+            )}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
