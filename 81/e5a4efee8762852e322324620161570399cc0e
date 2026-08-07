@@ -1,0 +1,21 @@
+docs/superpowers/plans/2026-08-06-subscription-management.md
+  s_a47ab13558c857::t_f4b9bf9d3ccc31 1-677
+docs/superpowers/specs/2026-08-06-subscription-management-design.md
+  s_a47ab13558c857::t_0afdc32ab5d5fc 1-97
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "81e5a4efee8762852e322324620161570399cc0e",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+docs/superpowers/plans/2026-08-07-profile-completion-gate.md
+  s_a47ab13558c857::t_9e67df53d41973 311
+  s_a47ab13558c857::t_5f2f8093031642 164,174,222,252,290
+  s_a47ab13558c857::t_f6c88ea779391c 302
+  s_a47ab13558c857::t_bef1a7d94d69e5 396
+  s_a47ab13558c857::t_7db5723303cb62 407
+  s_a47ab13558c857::t_f4f49f2e221281 1002
+  s_a47ab13558c857::t_31454633eea560 1-163,165-173,175-221,223-251,253-289,291-301,303-310,312-362,364-395,397-406,408-1001,1003-1063
+  s_a47ab13558c857::t_e3d766c559cc68 363
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "90030a3ec14b3a5c03da0c5048396cef11035693",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

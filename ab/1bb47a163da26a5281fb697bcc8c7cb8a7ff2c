@@ -1,0 +1,44 @@
+lib/app-context.tsx
+  s_a47ab13558c857::t_59f15375bc6986 207
+app/(tabs)/index.tsx
+  s_a47ab13558c857::t_a15d4788bf3765 405-406
+app/(tabs)/treatments.tsx
+  s_a47ab13558c857::t_75746c736fc18d 40
+  s_a47ab13558c857::t_5a2067ea235abc 13
+lib/store.ts
+  s_a47ab13558c857::t_9d7929d0c4da0d 331,335-340
+  s_a47ab13558c857::t_18d2e0c9e142ee 412
+app/admin/users.tsx
+  s_a47ab13558c857::t_fecbfc6eb79187 35
+  s_a47ab13558c857::t_60e3a907b708be 89
+app/(tabs)/weekly.tsx
+  s_a47ab13558c857::t_ccff8b5841acd8 183
+  s_a47ab13558c857::t_19a8d0c67476f1 8
+  s_a47ab13558c857::t_a3f5e29b32bd4a 327
+tests/app-state-storage-scoping.test.ts
+  s_a47ab13558c857::t_04cb50111fb26c 52
+  s_a47ab13558c857::t_30f3228d9d84cf 64-72
+  s_a47ab13558c857::t_feb175318e5062 44
+app/admin/user.tsx
+  s_a47ab13558c857::t_5df427493373d2 96
+  s_a47ab13558c857::t_912fdabf9ab12b 95
+app/(tabs)/family.tsx
+  s_a47ab13558c857::t_f6ead44d7d7399 20
+  s_a47ab13558c857::t_a85ea697930f1f 1880
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "ab1bb47a163da26a5281fb697bcc8c7cb8a7ff2c",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
