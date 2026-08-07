@@ -733,6 +733,8 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
   const other = members.find((m) => m.userId !== myUserId);
   if (!other) return null;
   const otherPerms = other.permissions || {};
+  const myMember = members.find((m) => m.userId === myUserId);
+  const myPerms = myMember?.permissions || {};
 
   const PERMS: Array<{ key: "canEditChildren" | "canManageGoals"; label: string }> = [
     { key: "canEditChildren", label: tx(lang, "Kinderen bewerken", "Edit children", "تعديل بيانات الأبناء") },
@@ -758,8 +760,8 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
         {PERMS.map((p) => (
           <View key={p.key} style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
             <Text style={{ fontSize: 12, color: colors.foreground }}>{p.label}</Text>
-            <Text style={{ fontSize: 12, fontWeight: "700", color: otherPerms[p.key] !== false ? colors.success : colors.error }}>
-              {otherPerms[p.key] !== false ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
+            <Text style={{ fontSize: 12, fontWeight: "700", color: myPerms[p.key] !== false ? colors.success : colors.error }}>
+              {myPerms[p.key] !== false ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
             </Text>
           </View>
         ))}
