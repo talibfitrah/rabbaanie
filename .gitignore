@@ -93,6 +93,7 @@ google-services.json
 .serena/
 .claude/
 .codex/
+.superpowers/
 graphify-out/
 .playwright-mcp/
 
