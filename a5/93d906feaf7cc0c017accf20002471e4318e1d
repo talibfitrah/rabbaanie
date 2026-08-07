@@ -1,0 +1,20 @@
+app/(tabs)/messages.tsx
+  s_a47ab13558c857::t_4b91fab17835f0 799,802-804
+  s_a47ab13558c857::t_e9065696991f27 1010
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a593d906feaf7cc0c017accf20002471e4318e1d",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
