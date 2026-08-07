@@ -148,6 +148,12 @@ export default function OnboardingScreen() {
     }));
     await addChildren(profiles);
 
+    // Mark onboarding as completed — before the network calls below, so a
+    // crash during either of them can no longer leave "profile complete,
+    // flag false" (see the profile-completion-gate fix history: that window
+    // used to be reachable and, before the gate fix, could lock a user out).
+    await completeOnboarding();
+
     // Auto-assign vader/moeder function on server
     try {
       if (gender === 'man' || gender === 'vrouw') {
@@ -160,9 +166,6 @@ export default function OnboardingScreen() {
 
     // Generate the user's distinctive publicId from their birth date (msg 471/476)
     try { await generateMyIdMutation.mutateAsync({ birthDate }); } catch (e) { console.log('generateMyId failed (non-blocking):', e); }
-
-    // Mark onboarding as completed
-    await completeOnboarding();
 
     // Go to main app
     router.replace("/(tabs)");

@@ -12,6 +12,7 @@ import {
   defaultAppState,
   loadAppState,
   saveAppState,
+  isProfileComplete,
 } from "./store";
 import * as Auth from "@/lib/_core/auth";
 import { getApiBaseUrl } from "@/constants/oauth";
@@ -204,8 +205,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const user = await Auth.getUserInfo();
         userIdRef.current = user?.id ?? null;
         // 1. Load local state first (fast)
-        const localState = await loadAppState(userIdRef.current, { migrateLegacy: true });
-        
+        let localState = await loadAppState(userIdRef.current, { migrateLegacy: true });
+
+        // Self-heal a stale onboardingCompleted flag: the profile data can be
+        // complete while the flag is still false (app death between children
+        // being saved and completeOnboarding() resolving). Without this, an
+        // affected account stays permanently local-only — syncFromServer and
+        // the partner-merge logic below both gate on this same flag.
+        if (!localState.onboardingCompleted && isProfileComplete({ parentProfile: localState.parentProfile, children: localState.children })) {
+          localState = { ...localState, onboardingCompleted: true };
+          await saveAppState(localState, userIdRef.current);
+          syncToServer(localState);
+        }
+
         // 2. If local state has data, use it immediately
         if (localState.onboardingCompleted) {
           setState(localState);
