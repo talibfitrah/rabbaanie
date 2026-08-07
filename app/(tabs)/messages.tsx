@@ -713,6 +713,87 @@ function MessagesScreenInner() {
   );
 }
 
+function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: string; isRTL: boolean }) {
+  const familyListQuery = trpc.family.list.useQuery();
+  const myFamily = (familyListQuery.data as any[])?.[0];
+  const membersQuery = trpc.family.members.useQuery(
+    { familyId: myFamily?.id! },
+    { enabled: !!myFamily?.id },
+  );
+  // Vendored router type predates this procedure (see app/admin/subscriptions.tsx precedent).
+  const updatePerm = (trpc.family as any).updatePermissions.useMutation({
+    onSuccess: () => membersQuery.refetch(),
+  });
+
+  if (!myFamily || !membersQuery.data) return null;
+  const members = membersQuery.data as any[];
+  const myUserId = myFamily.membership?.userId;
+  const isFather = myFamily.membership?.role === "vader";
+  const activeFather = members.find((m) => m.role === "vader" && !m.stubAccount);
+  const other = members.find((m) => m.userId !== myUserId);
+  if (!other) return null;
+  const otherPerms = other.permissions || {};
+
+  const PERMS: Array<{ key: "canEditChildren" | "canManageGoals"; label: string }> = [
+    { key: "canEditChildren", label: tx(lang, "Kinderen bewerken", "Edit children", "تعديل بيانات الأبناء") },
+    { key: "canManageGoals", label: tx(lang, "Doelen beheren", "Manage goals", "إدارة الأهداف") },
+  ];
+
+  if (!activeFather) {
+    return (
+      <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 }}>
+        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>
+          {tx(lang, "U heeft volledige toegang tot de gezinsgegevens.", "You have full access to the family data.", "لديك صلاحية كاملة للوصول إلى بيانات الأسرة.")}
+        </Text>
+      </View>
+    );
+  }
+
+  if (!isFather) {
+    return (
+      <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 }}>
+        <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
+          {tx(lang, "Mijn rechten", "My permissions", "صلاحياتي")}
+        </Text>
+        {PERMS.map((p) => (
+          <View key={p.key} style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6 }}>
+            <Text style={{ fontSize: 12, color: colors.foreground }}>{p.label}</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: otherPerms[p.key] !== false ? colors.success : colors.error }}>
+              {otherPerms[p.key] !== false ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
+            </Text>
+          </View>
+        ))}
+      </View>
+    );
+  }
+
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 }}>
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
+        {tx(lang, "Rechten van partner", "Partner's permissions", "صلاحيات الشريكة")}
+      </Text>
+      {PERMS.map((p) => {
+        const allowed = otherPerms[p.key] !== false;
+        return (
+          <TouchableOpacity
+            key={p.key}
+            onPress={() => updatePerm.mutate({ memberId: other.id, [p.key]: !allowed } as any)}
+            disabled={updatePerm.isPending}
+            style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
+          >
+            <Text style={{ fontSize: 12, color: colors.foreground }}>{p.label}</Text>
+            <View style={{ backgroundColor: allowed ? colors.success + "20" : colors.error + "20", borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: allowed ? colors.success : colors.error }}>
+                {allowed ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        );
+      })}
+    </View>
+  );
+}
+
 // ============ FAMILY SECTION (أسرتي) ============
 function ParentsSection({
   colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender,
@@ -868,6 +949,10 @@ function ParentsSection({
           </View>
         )}
       </View>
+
+      {coParents.length > 0 && (
+        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} />
+      )}
 
       {/* === CHILDREN SECTION === */}
       <View style={{ gap: 4 }}>
