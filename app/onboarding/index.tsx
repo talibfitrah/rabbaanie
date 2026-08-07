@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n, Language } from "@/lib/i18n";
-import { ChildProfile } from "@/lib/store";
+import { ChildProfile, isProfileComplete, getFirstIncompleteOnboardingStep } from "@/lib/store";
 import { trpc } from "@/lib/trpc";
 import { DatePicker } from "@/components/date-picker";
 
@@ -29,24 +29,21 @@ export default function OnboardingScreen() {
   const setGenderMutation = trpc.links.setMyGender.useMutation();
   const generateMyIdMutation = trpc.links.generateMyId.useMutation();
 
-  // If the user already has completed onboarding and has basic info,
-  // skip this screen entirely (data was restored from server after login)
+  // If the profile is already complete, skip this screen entirely (data was
+  // restored from server after login). Deliberately does not gate on
+  // state.onboardingCompleted first — that flag can be stale on a device
+  // that never locally called completeOnboarding() even though the profile
+  // itself is fully filled in (e.g. restored from another device).
   useEffect(() => {
-    if (
-      state.onboardingCompleted &&
-      state.parentProfile.firstName &&
-      state.parentProfile.lastName &&
-      state.parentProfile.birthDate &&
-      (state.parentProfile.streetHouseNumber || state.parentProfile.address) &&
-      state.parentProfile.gender &&
-      state.parentProfile.phoneNumber
-    ) {
+    if (isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
       console.log("[Onboarding] Data already exists, skipping to main app");
       router.replace("/(tabs)");
     }
-  }, [state.onboardingCompleted, state.parentProfile]);
+  }, [state.parentProfile, state.children]);
 
-  const [step, setStep] = useState<"basic" | "gender" | "children">("basic");
+  const [step, setStep] = useState<"basic" | "gender" | "children">(
+    () => getFirstIncompleteOnboardingStep({ parentProfile: state.parentProfile, children: state.children }) || "basic"
+  );
   const [firstName, setFirstName] = useState(state.parentProfile.firstName || "");
   const [lastName, setLastName] = useState(state.parentProfile.lastName || "");
   const [birthDate, setBirthDate] = useState(state.parentProfile.birthDate || "");
@@ -61,7 +58,7 @@ export default function OnboardingScreen() {
   const lang = language;
   const isRTL = lang === "ar";
 
-  const handleBasicSubmit = () => {
+  const handleBasicSubmit = async () => {
     if (!firstName.trim()) {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw voornaam in", "Enter your first name", "أدخل اسمك الأول"));
       return;
@@ -96,10 +93,21 @@ export default function OnboardingScreen() {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw telefoonnummer in", "Enter your phone number", "أدخل رقم هاتفك"));
       return;
     }
+    // Save partial progress
+    await updateParentProfile({
+      firstName: firstName.trim(),
+      lastName: lastName.trim(),
+      birthDate,
+      address: `${streetHouseNumber.trim()}, ${postalCodeCity.trim()}, ${country.trim()}`,
+      streetHouseNumber: streetHouseNumber.trim(),
+      postalCodeCity: postalCodeCity.trim(),
+      country: country.trim(),
+      phoneNumber: phoneNumber.trim(),
+    });
     setStep("gender");
   };
 
-  const handleGenderSubmit = () => {
+  const handleGenderSubmit = async () => {
     if (!gender) {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw geslacht", "Choose your gender", "اختر: أب أم أم"));
       return;
@@ -108,6 +116,8 @@ export default function OnboardingScreen() {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw burgerlijke staat", "Choose your marital status", "اختر حالتك الاجتماعية"));
       return;
     }
+    // Save partial progress
+    await updateParentProfile({ gender, maritalStatus });
     setStep("children");
   };
 
@@ -124,20 +134,6 @@ export default function OnboardingScreen() {
       Alert.alert(tx(lang, "Fout", "Error", "خطأ"), tx(lang, "Voer een geldig aantal kinderen in (1-20)", "Enter a valid number of children (1-20)", "أدخل عددًا صحيحًا (1-20)"));
       return;
     }
-
-    // Save all basic info to parent profile
-    await updateParentProfile({
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      birthDate,
-      address: `${streetHouseNumber.trim()}, ${postalCodeCity.trim()}, ${country.trim()}`,
-      streetHouseNumber: streetHouseNumber.trim(),
-      postalCodeCity: postalCodeCity.trim(),
-      country: country.trim(),
-      phoneNumber: phoneNumber.trim(),
-      gender,
-      maritalStatus,
-    });
 
     // Create child profiles linked to parent
     const parentName = firstName.trim() || "parent";
