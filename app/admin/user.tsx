@@ -16,6 +16,17 @@ const ROLES = [
 ];
 const roleAr = (r: string) => ROLES.find((x) => x.key === r)?.ar || r;
 
+const MISSING_FIELD_LABELS: Record<string, string> = {
+  firstName: "الاسم الأول",
+  lastName: "اسم العائلة",
+  birthDate: "تاريخ الميلاد",
+  address: "العنوان",
+  phoneNumber: "رقم الهاتف",
+  gender: "الجنس",
+  maritalStatus: "الحالة الاجتماعية",
+  children: "عدد الأبناء",
+};
+
 export default function AdminUserDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
   const userId = Number(id);
@@ -81,6 +92,12 @@ export default function AdminUserDetailScreen() {
                   <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>فتح موقع المستخدم في الخرائط</Text>
                 </TouchableOpacity>
               ) : null}
+              <Row label="اكتمال الملف الشخصي" value={u.profileComplete ? "مكتمل" : "غير مكتمل"} />
+              {!u.profileComplete && Array.isArray(u.missingProfileFields) && u.missingProfileFields.length > 0 && (
+                <Text style={{ fontSize: 12, color: colors.error, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
+                  {"الحقول الناقصة: " + u.missingProfileFields.map((k: string) => MISSING_FIELD_LABELS[k] || k).join("، ")}
+                </Text>
+              )}
             </View>
 
             <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, marginTop: 20, marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>الصلاحيات</Text>

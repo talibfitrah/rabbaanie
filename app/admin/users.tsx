@@ -26,11 +26,13 @@ export default function AdminUsersScreen() {
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState("");
+  const [incompleteOnly, setIncompleteOnly] = useState(false);
 
   const usersQuery = trpc.admin.users.useQuery();
   const users = ((usersQuery.data as any[]) || []).filter((u) => {
     const rs = Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
     if (roleFilter && !rs.includes(roleFilter)) return false;
+    if (incompleteOnly && u.profileComplete) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
@@ -55,6 +57,11 @@ export default function AdminUsersScreen() {
             </TouchableOpacity>
           ))}
         </ScrollView>
+        <TouchableOpacity onPress={() => setIncompleteOnly(!incompleteOnly)}
+          style={{ alignSelf: isRTL ? "flex-end" : "flex-start", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: incompleteOnly ? colors.error : colors.surface, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1, borderColor: incompleteOnly ? colors.error : colors.border, marginBottom: 4 }}>
+          <MaterialIcons name={incompleteOnly ? "check-box" : "check-box-outline-blank"} size={15} color={incompleteOnly ? "#fff" : colors.muted} />
+          <Text style={{ fontSize: 12, fontWeight: "700", color: incompleteOnly ? "#fff" : colors.foreground }}>الملفات غير المكتملة فقط</Text>
+        </TouchableOpacity>
       </View>
 
       {usersQuery.isLoading ? (
@@ -79,6 +86,11 @@ export default function AdminUsersScreen() {
               <View style={{ backgroundColor: roleColor(u.role) + "20", borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: roleColor(u.role) }}>{roleAr(u.role)}</Text>
               </View>
+              {!u.profileComplete && (
+                <View style={{ backgroundColor: colors.error + "20", borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 }}>
+                  <Text style={{ fontSize: 11, fontWeight: "700", color: colors.error }}>غير مكتمل</Text>
+                </View>
+              )}
               <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />
             </TouchableOpacity>
           ))}
