@@ -380,6 +380,28 @@ export async function clearAppState(): Promise<void> {
   }
 }
 
+// ============ PROFILE COMPLETENESS ============
+
+export function getFirstIncompleteOnboardingStep(
+  state: { parentProfile?: ParentProfile; children?: ChildProfile[] }
+): "basic" | "gender" | "children" | null {
+  const p = state.parentProfile;
+  if (!(p?.firstName && p?.lastName && p?.birthDate && (p?.streetHouseNumber || p?.address) && p?.phoneNumber)) {
+    return "basic";
+  }
+  if (!(p?.gender && p?.maritalStatus)) {
+    return "gender";
+  }
+  if (!(state.children && state.children.length > 0)) {
+    return "children";
+  }
+  return null;
+}
+
+export function isProfileComplete(state: { parentProfile?: ParentProfile; children?: ChildProfile[] }): boolean {
+  return getFirstIncompleteOnboardingStep(state) === null;
+}
+
 // ============ HELPER FUNCTIONS ============
 
 export function calculateAgeInWeeks(birthDate: string): { years: number; months: number; weeks: number; totalWeeks: number } {
