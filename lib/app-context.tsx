@@ -196,12 +196,15 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const [loading, setLoading] = useState(true);
   const stateRef = useRef(state);
   stateRef.current = state;
+  const userIdRef = useRef<number | null>(null);
 
   useEffect(() => {
     async function hydrate() {
       try {
+        const user = await Auth.getUserInfo();
+        userIdRef.current = user?.id ?? null;
         // 1. Load local state first (fast)
-        const localState = await loadAppState();
+        const localState = await loadAppState(userIdRef.current);
         
         // 2. If local state has data, use it immediately
         if (localState.onboardingCompleted) {
@@ -312,7 +315,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
             if (changed) {
               setState(updatedState);
               stateRef.current = updatedState;
-              saveAppState(updatedState);
+              saveAppState(updatedState, userIdRef.current);
             }
           }).catch(() => {});
 
@@ -324,7 +327,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 if (freshState && freshState.onboardingCompleted) {
                   setState(freshState);
                   stateRef.current = freshState;
-                  saveAppState(freshState);
+                  saveAppState(freshState, userIdRef.current);
                   console.log("[AutoSync] State refreshed after partner sync");
                 }
               }).catch(() => {});
@@ -338,7 +341,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (serverState && serverState.onboardingCompleted) {
           // Server has data! Restore it locally
           setState(serverState);
-          await saveAppState(serverState);
+          await saveAppState(serverState, userIdRef.current);
           console.log("[CloudSync] Restored state from server");
         } else {
           // No data anywhere, use default
@@ -358,7 +361,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     setState(newState);
     stateRef.current = newState;
     // Save locally (immediate)
-    await saveAppState(newState);
+    await saveAppState(newState, userIdRef.current);
     // Sync to server (debounced, non-blocking)
     if (syncTimer) clearTimeout(syncTimer);
     syncTimer = setTimeout(() => {
@@ -563,6 +566,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   }, [persist]);
 
   const resetState = useCallback(async () => {
+    const user = await Auth.getUserInfo();
+    userIdRef.current = user?.id ?? null;
     await persist(defaultAppState);
     // persist() armed a 2s debounced server sync of the empty default state.
     // resetState is used on logout and delete-account; in both the account is
@@ -678,17 +683,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
    */
   const rehydrateFromServer = useCallback(async () => {
     console.log("[AppContext] rehydrateFromServer called");
+    const user = await Auth.getUserInfo();
+    userIdRef.current = user?.id ?? null;
     try {
       const serverState = await syncFromServer();
       if (serverState && serverState.onboardingCompleted) {
         console.log("[AppContext] Server has data, restoring...");
         setState(serverState);
         stateRef.current = serverState;
-        await saveAppState(serverState);
+        await saveAppState(serverState, userIdRef.current);
         console.log("[AppContext] State restored from server after login");
       } else {
         // Also try local state (maybe user had data locally before logout)
-        const localState = await loadAppState();
+        const localState = await loadAppState(userIdRef.current);
         if (localState.onboardingCompleted) {
           console.log("[AppContext] Local state has data, using it");
           setState(localState);
@@ -705,7 +712,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (mergedState && mergedState.onboardingCompleted) {
           setState(mergedState);
           stateRef.current = mergedState;
-          await saveAppState(mergedState);
+          await saveAppState(mergedState, userIdRef.current);
         }
       }
     } catch (e) {

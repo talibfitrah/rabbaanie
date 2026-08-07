@@ -324,16 +324,32 @@ export const defaultAppState: AppState = {
 
 const STORAGE_KEY = "opvoedadvies_app_state";
 
-export async function loadAppState(): Promise<AppState> {
+function scopedStorageKey(userId: number | null): string {
+  return userId != null ? `${STORAGE_KEY}_${userId}` : STORAGE_KEY;
+}
+
+export async function loadAppState(userId: number | null): Promise<AppState> {
   try {
-    const data = await AsyncStorage.getItem(STORAGE_KEY);
+    const key = scopedStorageKey(userId);
+    let data = await AsyncStorage.getItem(key);
+    if (!data && userId != null) {
+      // One-time migration: this account has no scoped data yet on this
+      // device. Adopt whatever the old shared key holds (if anything), then
+      // retire it, so no later account can ever read it.
+      const legacy = await AsyncStorage.getItem(STORAGE_KEY);
+      if (legacy) {
+        await AsyncStorage.setItem(key, legacy);
+        await AsyncStorage.removeItem(STORAGE_KEY);
+        data = legacy;
+      }
+    }
     if (data) {
       let parsed: any;
       try {
         parsed = JSON.parse(data);
       } catch (parseError) {
         console.error("Corrupt state data, resetting:", parseError);
-        await AsyncStorage.removeItem(STORAGE_KEY);
+        await AsyncStorage.removeItem(key);
         return defaultAppState;
       }
       // Merge with defaults to handle schema migrations (new fields)
@@ -356,17 +372,16 @@ export async function loadAppState(): Promise<AppState> {
     }
   } catch (e) {
     console.error("Failed to load app state:", e);
-    // Try to clear corrupt storage
     try {
-      await AsyncStorage.removeItem(STORAGE_KEY);
+      await AsyncStorage.removeItem(scopedStorageKey(userId));
     } catch (_) {}
   }
   return defaultAppState;
 }
 
-export async function saveAppState(state: AppState): Promise<void> {
+export async function saveAppState(state: AppState, userId: number | null): Promise<void> {
   try {
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    await AsyncStorage.setItem(scopedStorageKey(userId), JSON.stringify(state));
   } catch (e) {
     console.error("Failed to save app state:", e);
   }
