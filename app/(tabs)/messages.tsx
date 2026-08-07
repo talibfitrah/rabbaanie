@@ -794,12 +794,73 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
   );
 }
 
+function InvitePartnerForm({ colors, lang, isRTL }: { colors: any; lang: string; isRTL: boolean }) {
+  const [email, setEmail] = useState("");
+  const [name, setName] = useState("");
+  const [relationship, setRelationship] = useState<"biological_father" | "biological_mother">("biological_mother");
+  // Vendored router type predates this procedure (see CoParentPermissions above).
+  const invite = (trpc.family as any).invitePartner.useMutation();
+
+  const RELATIONSHIPS: Array<{ value: "biological_father" | "biological_mother"; label: string }> = [
+    { value: "biological_father", label: tx(lang, "Vader", "Father", "أب") },
+    { value: "biological_mother", label: tx(lang, "Moeder", "Mother", "أم") },
+  ];
+
+  return (
+    <View style={{ marginTop: 12, gap: 8 }}>
+      <TextInput
+        value={name}
+        onChangeText={setName}
+        placeholder={tx(lang, "Naam van partner", "Partner's name", "اسم الشريك")}
+        placeholderTextColor={colors.muted}
+        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, textAlign: isRTL ? "right" : "left" }}
+      />
+      <TextInput
+        value={email}
+        onChangeText={setEmail}
+        placeholder={tx(lang, "E-mailadres van partner", "Partner's email", "البريد الإلكتروني للشريك")}
+        placeholderTextColor={colors.muted}
+        keyboardType="email-address"
+        autoCapitalize="none"
+        style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, textAlign: isRTL ? "right" : "left" }}
+      />
+      <View style={{ flexDirection: "row", gap: 8 }}>
+        {RELATIONSHIPS.map((r) => (
+          <TouchableOpacity
+            key={r.value}
+            onPress={() => setRelationship(r.value)}
+            style={{ flex: 1, paddingVertical: 8, borderRadius: 8, borderWidth: 1.5, alignItems: "center", borderColor: relationship === r.value ? colors.primary : colors.border, backgroundColor: relationship === r.value ? colors.primary + "15" : "transparent" }}
+          >
+            <Text style={{ fontSize: 12, color: relationship === r.value ? colors.primary : colors.muted, fontWeight: relationship === r.value ? "700" : "400" }}>{r.label}</Text>
+          </TouchableOpacity>
+        ))}
+      </View>
+      <TouchableOpacity
+        onPress={() => invite.mutate({ email: email.trim(), name: name.trim(), relationship })}
+        disabled={invite.isPending || !email.trim() || !name.trim()}
+        style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 12, alignItems: "center", opacity: invite.isPending || !email.trim() || !name.trim() ? 0.6 : 1 }}
+      >
+        {invite.isPending ? <ActivityIndicator color="#fff" size="small" /> : (
+          <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{tx(lang, "Uitnodiging sturen", "Send invite", "إرسال دعوة")}</Text>
+        )}
+      </TouchableOpacity>
+      {invite.isSuccess && (
+        <Text style={{ color: colors.success, fontSize: 12, textAlign: "center" }}>{tx(lang, "Uitnodiging verstuurd!", "Invite sent!", "تم إرسال الدعوة!")}</Text>
+      )}
+      {invite.isError && (
+        <Text style={{ color: colors.error, fontSize: 12, textAlign: "center" }}>{(invite.error as any)?.message || tx(lang, "Mislukt", "Failed", "فشل")}</Text>
+      )}
+    </View>
+  );
+}
+
 // ============ FAMILY SECTION (أسرتي) ============
 function ParentsSection({
   colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender,
   localChildren, setSelected, partnerIdInput, setPartnerIdInput, handleLinkPartner, linkPartner,
   linkResult, linkError, router, t,
 }: any) {
+  const [showInvite, setShowInvite] = useState(false);
   // Sort children by birth date (oldest first)
   const sortedChildren = [...(localChildren || [])].sort((a: any, b: any) => {
     if (!a.birthDate) return 1;
@@ -935,6 +996,14 @@ function ParentsSection({
                   <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>QR</Text>
                 </TouchableOpacity>
               </View>
+              <TouchableOpacity onPress={() => setShowInvite((v: boolean) => !v)} style={{ marginTop: 10, alignItems: "center" }}>
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600", textDecorationLine: "underline" }}>
+                  {showInvite
+                    ? tx(lang, "Ik heb toch een ID", "I have an ID after all", "لديّ معرّف في الواقع")
+                    : tx(lang, "Partner heeft nog geen account?", "Partner doesn't have an account yet?", "الشريك ليس لديه حساب بعد؟")}
+                </Text>
+              </TouchableOpacity>
+              {showInvite && <InvitePartnerForm colors={colors} lang={lang} isRTL={isRTL} />}
             </View>
             {linkResult && (
               <View style={{ backgroundColor: colors.success + "15", borderRadius: 8, padding: 8, marginTop: 8 }}>
