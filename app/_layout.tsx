@@ -24,6 +24,7 @@ import {
   subscribeSafeAreaInsets,
 } from "@/lib/_core/manus-runtime";
 import { AppProvider, useAppState } from "@/lib/app-context";
+import { isProfileComplete } from "@/lib/store";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
@@ -221,7 +222,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     segment === "onboarding" ||
     segment === "language-select" ||
     segment === "permissions-setup";
-  const profileDone = appLoading ? true : !!appState?.onboardingCompleted;
+  const profileDone = appLoading
+    ? true
+    : isProfileComplete({ parentProfile: appState?.parentProfile, children: appState?.children });
   const needsOnboarding =
     !gateRedirect &&
     !ageLoading &&

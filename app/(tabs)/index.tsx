@@ -5,7 +5,7 @@ import { useRemoteConfig } from "@/hooks/use-remote-config";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getYearKey, getWeekInYear, type DailyCheckin } from "@/lib/store";
+import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete, type DailyCheckin } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
@@ -412,10 +412,8 @@ export default function AlgemeenScreen() {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
 
-  // Gate: mandatory basic info must be filled
-  const hasAddress = !!(state.parentProfile.streetHouseNumber || state.parentProfile.address);
-  const basicInfoComplete = !!(state.parentProfile.firstName && state.parentProfile.lastName && state.parentProfile.birthDate && hasAddress && state.parentProfile.gender && state.parentProfile.phoneNumber);
-  if (!basicInfoComplete) {
+  // Gate: mandatory profile fields must be complete
+  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
     setTimeout(() => router.replace("/onboarding"), 0);
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
