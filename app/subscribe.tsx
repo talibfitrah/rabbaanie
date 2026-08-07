@@ -6,7 +6,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { formatSubscriptionRemaining, invalidateSubscriptionCache, subscriptionFetch } from "@/hooks/use-subscription";
+import { formatSubscriptionRemaining, invalidateSubscriptionCache, isPerpetualExpiry, subscriptionFetch } from "@/hooks/use-subscription";
 import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 
 /**
@@ -172,7 +172,7 @@ export default function SubscribeScreen() {
               <View style={{ backgroundColor: colors.primary + "12", borderColor: colors.primary, borderWidth: 1.5, borderRadius: 16, padding: 18, alignItems: "center", marginBottom: 14 }}>
                 <MaterialIcons name="verified" size={40} color={colors.primary} />
                 <Text style={{ fontSize: 17, fontWeight: "800", color: colors.foreground, marginTop: 8, textAlign: "center" }}>{L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}</Text>
-                <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text>
+                {status.expiresAt && !isPerpetualExpiry(status.expiresAt) ? <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text> : null}
                 {status.expiresAt ? <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{formatSubscriptionRemaining(status.expiresAt, language)}</Text> : null}
               </View>
             ) : (

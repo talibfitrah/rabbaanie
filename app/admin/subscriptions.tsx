@@ -7,7 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import * as Clipboard from "expo-clipboard";
-import { formatSubscriptionRemaining, PERPETUAL_DAYS, PERPETUAL_LABEL_CUTOFF_MS } from "@/hooks/use-subscription";
+import { formatSubscriptionRemaining, isPerpetualExpiry, PERPETUAL_DAYS } from "@/hooks/use-subscription";
 
 /**
  * Admin management of subscriptions & coupons (msg 560/608). Grant/revoke
@@ -57,8 +57,7 @@ export default function AdminSubscriptionsScreen() {
 
   const fmt = (d: any) => {
     try {
-      const t = new Date(d).getTime();
-      if (t - Date.now() > PERPETUAL_LABEL_CUTOFF_MS) return "دائم";
+      if (isPerpetualExpiry(d)) return "دائم";
       return new Date(d).toLocaleDateString();
     } catch { return ""; }
   };
@@ -99,10 +98,12 @@ export default function AdminSubscriptionsScreen() {
       ],
     );
   }
-  function confirmSetOneYear(userId: number, label: string) {
+  function confirmSetOneYear(userId: number, label: string, wasLifetime: boolean) {
     Alert.alert(
       "ضبط سنةٍ واحدة",
-      `ضبط اشتراك ${label} إلى سنةٍ واحدة؟ سيحلّ محلّ الاشتراك الحاليّ.`,
+      wasLifetime
+        ? `${label} لديه اشتراكٌ دائم. ضبطه إلى سنةٍ واحدة سينهي الدوامَ نهائيًّا. لا يمكن التراجع إلّا بمنح دائمٍ جديد.`
+        : `ضبط اشتراك ${label} إلى سنةٍ واحدة؟ سيحلّ محلّ الاشتراك الحاليّ.`,
       [
         { text: "إلغاء", style: "cancel" },
         { text: "ضبط", onPress: () => setSub.mutate({ userId, days: 365 }) },
@@ -231,7 +232,7 @@ export default function AdminSubscriptionsScreen() {
                   <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginBottom: 8 }}>{list.length} مستخدمًا</Text>
                   {list.map((u: any) => {
                     const isSpecial = !!u.special;
-                    const isLifetime = isSpecial && !!u.expiresAt && (new Date(u.expiresAt).getTime() - Date.now() > PERPETUAL_LABEL_CUTOFF_MS);
+                    const isLifetime = isSpecial && !!u.expiresAt && isPerpetualExpiry(u.expiresAt);
                     const displayName = (u.firstName || u.lastName) ? `${u.firstName || ""} ${u.lastName || ""}`.trim() : (u.name || "—");
                     const idText = u.publicId || `#${u.id}`;
                     return (
@@ -261,7 +262,7 @@ export default function AdminSubscriptionsScreen() {
                             </>
                           ) : (
                             <>
-                              <TouchableOpacity onPress={() => confirmSetOneYear(u.id, displayName)} disabled={setSub.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
+                              <TouchableOpacity onPress={() => confirmSetOneYear(u.id, displayName, isLifetime)} disabled={setSub.isPending} style={{ backgroundColor: colors.primary, borderRadius: 9, paddingVertical: 9, paddingHorizontal: 16 }}>
                                 <Text style={{ color: "#fff", fontWeight: "700", fontSize: 12 }}>ضبط: سنة واحدة</Text>
                               </TouchableOpacity>
                               {!isLifetime ? (
