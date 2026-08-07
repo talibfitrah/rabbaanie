@@ -328,14 +328,16 @@ function scopedStorageKey(userId: number | null): string {
   return userId != null ? `${STORAGE_KEY}_${userId}` : STORAGE_KEY;
 }
 
-export async function loadAppState(userId: number | null): Promise<AppState> {
+export async function loadAppState(userId: number | null, options: { migrateLegacy?: boolean } = {}): Promise<AppState> {
   try {
     const key = scopedStorageKey(userId);
     let data = await AsyncStorage.getItem(key);
-    if (!data && userId != null) {
-      // One-time migration: this account has no scoped data yet on this
-      // device. Adopt whatever the old shared key holds (if anything), then
-      // retire it, so no later account can ever read it.
+    if (!data && userId != null && options.migrateLegacy) {
+      // One-time migration, run only from the cold-start hydrate() path —
+      // never from a login-time fallback read, which could otherwise adopt
+      // a DIFFERENT account's stale legacy data as this account's own.
+      // Adopt whatever the old shared key holds (if anything), then retire
+      // it, so no later account can ever read it.
       const legacy = await AsyncStorage.getItem(STORAGE_KEY);
       if (legacy) {
         await AsyncStorage.setItem(key, legacy);
@@ -407,7 +409,7 @@ export function getFirstIncompleteOnboardingStep(
   if (!(p?.gender && p?.maritalStatus)) {
     return "gender";
   }
-  if (!(state.children && state.children.length > 0)) {
+  if (!(Array.isArray(state.children) && state.children.length > 0)) {
     return "children";
   }
   return null;

@@ -41,7 +41,7 @@ describe("per-account app state storage", () => {
   it("migrates legacy unscoped data to the first account that hydrates after the upgrade, then deletes it", async () => {
     mockStorage["opvoedadvies_app_state"] = JSON.stringify({ ...defaultAppState, onboardingCompleted: true });
 
-    const loaded = await loadAppState(7);
+    const loaded = await loadAppState(7, { migrateLegacy: true });
     expect(loaded.onboardingCompleted).toBe(true);
     expect(mockStorage["opvoedadvies_app_state_7"]).toBeDefined();
     expect(mockStorage["opvoedadvies_app_state"]).toBeUndefined();
@@ -49,7 +49,7 @@ describe("per-account app state storage", () => {
 
   it("does not migrate legacy data to a second account once the legacy key is already gone", async () => {
     mockStorage["opvoedadvies_app_state"] = JSON.stringify({ ...defaultAppState, onboardingCompleted: true });
-    await loadAppState(7); // first account adopts and clears the legacy key
+    await loadAppState(7, { migrateLegacy: true }); // first account adopts and clears the legacy key
 
     const loadedForSecondUser = await loadAppState(8);
     expect(loadedForSecondUser.onboardingCompleted).toBe(false);
@@ -60,5 +60,14 @@ describe("per-account app state storage", () => {
     expect(mockStorage["opvoedadvies_app_state"]).toBeDefined();
     const loaded = await loadAppState(null);
     expect(loaded.onboardingCompleted).toBe(true);
+  });
+
+  it("a login-time read (no migrateLegacy option) never adopts legacy data, even if present", async () => {
+    mockStorage["opvoedadvies_app_state"] = JSON.stringify({ ...defaultAppState, onboardingCompleted: true });
+
+    const loaded = await loadAppState(9);
+    expect(loaded.onboardingCompleted).toBe(false);
+    expect(mockStorage["opvoedadvies_app_state_9"]).toBeUndefined();
+    expect(mockStorage["opvoedadvies_app_state"]).toBeDefined();
   });
 });

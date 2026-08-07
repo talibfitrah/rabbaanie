@@ -402,19 +402,14 @@ export default function AlgemeenScreen() {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
 
-  if (!state.onboardingCompleted) {
+  const profileComplete = isProfileComplete({ parentProfile: state.parentProfile, children: state.children });
+  if (!profileComplete) {
     // If language not yet selected, go to language selection first
     if (!languageSelected) {
       setTimeout(() => router.replace("/language-select"), 0);
     } else {
       setTimeout(() => router.replace("/onboarding"), 0);
     }
-    return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
-  }
-
-  // Gate: mandatory profile fields must be complete
-  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
-    setTimeout(() => router.replace("/onboarding"), 0);
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
 

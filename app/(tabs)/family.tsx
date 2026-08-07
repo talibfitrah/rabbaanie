@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getWeekInYear, getYearKey } from "@/lib/store";
+import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { getApiBaseUrl } from "@/constants/oauth";
@@ -1877,7 +1877,7 @@ export default function FamilyScreen() {
       </View>
     );
   }
-  if (!state.onboardingCompleted) {
+  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
     setTimeout(() => router.replace("/onboarding"), 0);
     return (
       <View

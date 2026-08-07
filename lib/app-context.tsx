@@ -204,7 +204,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         const user = await Auth.getUserInfo();
         userIdRef.current = user?.id ?? null;
         // 1. Load local state first (fast)
-        const localState = await loadAppState(userIdRef.current);
+        const localState = await loadAppState(userIdRef.current, { migrateLegacy: true });
         
         // 2. If local state has data, use it immediately
         if (localState.onboardingCompleted) {

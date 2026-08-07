@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks } from "@/lib/store";
+import { calculateAgeInWeeks, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
@@ -37,7 +37,7 @@ export default function TreatmentsScreen() {
     );
   }
 
-  if (!state.onboardingCompleted) {
+  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
     setTimeout(() => router.replace("/onboarding"), 0);
     return (
       <View

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getYearKey, getWeekInYear } from "@/lib/store";
+import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -180,7 +180,7 @@ export default function WeeklyScreen() {
   }, [state.children]);
 
   // Derive active child and age info (before hooks that depend on them)
-  const activeChild = (!loading && state.onboardingCompleted && sortedChildren.length > 0)
+  const activeChild = (!loading && isProfileComplete({ parentProfile: state.parentProfile, children: state.children }) && sortedChildren.length > 0)
     ? (sortedChildren[selectedChildIdx] || sortedChildren[0])
     : null;
 
@@ -324,7 +324,7 @@ export default function WeeklyScreen() {
     );
   }
 
-  if (!state.onboardingCompleted) {
+  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
     setTimeout(() => router.replace("/onboarding"), 0);
     return (
       <View style={[s.center, { backgroundColor: colors.background }]}>

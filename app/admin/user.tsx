@@ -92,8 +92,8 @@ export default function AdminUserDetailScreen() {
                   <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>فتح موقع المستخدم في الخرائط</Text>
                 </TouchableOpacity>
               ) : null}
-              <Row label="اكتمال الملف الشخصي" value={u.profileComplete ? "مكتمل" : "غير مكتمل"} />
-              {!u.profileComplete && Array.isArray(u.missingProfileFields) && u.missingProfileFields.length > 0 && (
+              <Row label="اكتمال الملف الشخصي" value={u.profileComplete === false ? "غير مكتمل" : u.profileComplete === true ? "مكتمل" : "—"} />
+              {u.profileComplete === false && Array.isArray(u.missingProfileFields) && u.missingProfileFields.length > 0 && (
                 <Text style={{ fontSize: 12, color: colors.error, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
                   {"الحقول الناقصة: " + u.missingProfileFields.map((k: string) => MISSING_FIELD_LABELS[k] || k).join("، ")}
                 </Text>

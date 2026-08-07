@@ -32,7 +32,7 @@ export default function AdminUsersScreen() {
   const users = ((usersQuery.data as any[]) || []).filter((u) => {
     const rs = Array.isArray(u.roles) && u.roles.length ? u.roles : [u.role];
     if (roleFilter && !rs.includes(roleFilter)) return false;
-    if (incompleteOnly && u.profileComplete) return false;
+    if (incompleteOnly && u.profileComplete !== false) return false;
     const q = search.trim().toLowerCase();
     if (!q) return true;
     return (u.name || "").toLowerCase().includes(q) || (u.email || "").toLowerCase().includes(q);
@@ -86,7 +86,7 @@ export default function AdminUsersScreen() {
               <View style={{ backgroundColor: roleColor(u.role) + "20", borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 }}>
                 <Text style={{ fontSize: 11, fontWeight: "700", color: roleColor(u.role) }}>{roleAr(u.role)}</Text>
               </View>
-              {!u.profileComplete && (
+              {u.profileComplete === false && (
                 <View style={{ backgroundColor: colors.error + "20", borderRadius: 10, paddingVertical: 3, paddingHorizontal: 8 }}>
                   <Text style={{ fontSize: 11, fontWeight: "700", color: colors.error }}>غير مكتمل</Text>
                 </View>
