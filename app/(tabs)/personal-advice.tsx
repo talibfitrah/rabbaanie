@@ -14,7 +14,7 @@ import { useAppState } from "@/lib/app-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Constants from "expo-constants";
-import { getApiBaseUrl as getSharedApiBaseUrl } from "@/constants/oauth";
+import { authedFetch } from "@/lib/authed-fetch";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -44,10 +44,6 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
   if (lang === "ar") return ar;
   return nl;
-}
-
-function getApiBaseUrl(): string {
-  return getSharedApiBaseUrl();
 }
 
 function gregorianToHijri(gDate: Date): {
@@ -574,7 +570,6 @@ function PersonalAdviceScreenInner() {
     }
 
     try {
-      const baseUrl = getApiBaseUrl();
       const now = new Date();
       const hijri = gregorianToHijri(now);
       const month = now.getMonth();
@@ -609,7 +604,7 @@ function PersonalAdviceScreenInner() {
         .map((i: any) => i.description)
         .slice(0, 5);
 
-      const response = await fetch(`${baseUrl}/api/advice/quicktips`, {
+      const response = await authedFetch(`/api/advice/quicktips`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -718,7 +713,6 @@ function PersonalAdviceScreenInner() {
   async function fetchAdvice() {
     setLlmLoading(true);
     try {
-      const baseUrl = getApiBaseUrl();
       const now = new Date();
       const hijri = gregorianToHijri(now);
       const month = now.getMonth();
@@ -747,7 +741,7 @@ function PersonalAdviceScreenInner() {
                 : month >= 8 && month <= 10
                   ? "Herfst"
                   : "Winter";
-      const response = await fetch(`${baseUrl}/api/advice/general`, {
+      const response = await authedFetch(`/api/advice/general`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
