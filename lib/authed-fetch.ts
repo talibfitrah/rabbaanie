@@ -34,3 +34,27 @@ export async function authedFetch(path: string, init?: RequestInit): Promise<Res
     },
   });
 }
+
+/**
+ * Plain wording for the two rejections the paid routes now return, in the
+ * app's three languages. Returns null for anything else so callers keep their
+ * existing "network problem" handling.
+ *
+ * Without this a refused caller gets silence: the screens check for their
+ * expected payload shape (`if (data.tips)`, `if (result.plan)`), and an error
+ * body matches nothing, so no branch runs and no catch fires — the feature
+ * simply appears to do nothing at all.
+ */
+export function accessDeniedMessage(status: number, lang: string): string | null {
+  if (status === 401) {
+    if (lang === "ar") return "انتهت جلستك. يرجى تسجيل الدخول مرة أخرى للمتابعة.";
+    if (lang === "en") return "Your session has ended. Please sign in again to continue.";
+    return "Je sessie is verlopen. Log opnieuw in om verder te gaan.";
+  }
+  if (status === 403) {
+    if (lang === "ar") return "هذه الخدمة متاحة للمشتركين. يرجى تجديد اشتراكك للمتابعة.";
+    if (lang === "en") return "This service is for members. Please renew your membership to continue.";
+    return "Deze dienst is voor leden. Vernieuw je lidmaatschap om verder te gaan.";
+  }
+  return null;
+}

@@ -18,9 +18,9 @@ import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
 import { calculateAgeInWeeks, getYearKey, getWeekInYear } from "@/lib/store";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { ReportAiContent } from "@/components/report-ai-content";
 
+import { authedFetch } from "@/lib/authed-fetch";
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -496,8 +496,7 @@ export default function WeekplanScreen() {
   async function fetchWeekPlan() {
     if (!child || !age) return;
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await fetch(`${apiUrl}/api/advice/weekplan`, {
+      const response = await authedFetch(`/api/advice/weekplan`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

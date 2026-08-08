@@ -20,7 +20,6 @@ import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
-import { getApiBaseUrl } from "@/constants/oauth";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useMultipleYearData } from "@/hooks/use-weekly-data";
 import { trpc } from "@/lib/trpc";
@@ -30,6 +29,7 @@ import { SyncToast } from "@/components/sync-toast";
 import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { ReportAiContent } from "@/components/report-ai-content";
 
+import { authedFetch } from "@/lib/authed-fetch";
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -1660,7 +1660,6 @@ export default function FamilyScreen() {
   async function fetchParentAdvice() {
     setLlmLoading(true);
     try {
-      const baseUrl = getApiBaseUrl();
       const now = new Date();
       const hijri = gregorianToHijri(now);
       const month = now.getMonth();
@@ -1690,7 +1689,7 @@ export default function FamilyScreen() {
                   : "Winter";
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 120000);
-      const response = await fetch(`${baseUrl}/api/advice/general`, {
+      const response = await authedFetch(`/api/advice/general`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
@@ -1787,10 +1786,9 @@ export default function FamilyScreen() {
     if (!isAuthenticated) return;
     setSpouseAdviceLoading(true);
     try {
-      const baseUrl = getApiBaseUrl();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 90000);
-      const response = await fetch(`${baseUrl}/api/advice/getSpouseAdvice`, {
+      const response = await authedFetch(`/api/advice/getSpouseAdvice`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,

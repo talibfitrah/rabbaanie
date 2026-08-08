@@ -29,7 +29,7 @@ import { useAutoTranslate } from "@/hooks/use-auto-translate";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
-import { authedFetch } from "@/lib/authed-fetch";
+import { authedFetch, accessDeniedMessage } from "@/lib/authed-fetch";
 import * as ImagePicker from "expo-image-picker";
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -654,7 +654,7 @@ function AIChatScreenInner() {
 
       const aiContent =
         response?.response ||
-        getAccessDeniedResponse(gateStatus, language) ||
+        accessDeniedMessage(gateStatus, language) ||
         getOfflineResponse(text, language);
       const hasActionPlan = detectActionPlan(aiContent);
 
@@ -1724,27 +1724,6 @@ function AIChatScreenInner() {
 }
 
 // Offline fallback responses
-/**
- * The API now enforces the membership itself (401 = no session, 403 = no active
- * subscription) instead of trusting the app's PremiumGate. Falling through to
- * getOfflineResponse() on those would show canned advice as if the advisor had
- * answered — the user would never learn why, and a lapsed subscriber would read
- * it as a working feature. Returns null for any other status so genuine network
- * failures keep the existing offline behaviour.
- */
-function getAccessDeniedResponse(status: number, lang: string): string | null {
-  if (status === 401) {
-    if (lang === "ar") return "انتهت جلستك. يرجى تسجيل الدخول مرة أخرى لمتابعة الاستشارة.";
-    if (lang === "en") return "Your session has ended. Please sign in again to continue the consultation.";
-    return "Je sessie is verlopen. Log opnieuw in om verder te gaan met het consult.";
-  }
-  if (status === 403) {
-    if (lang === "ar") return "هذه الخدمة متاحة للمشتركين. يرجى تجديد اشتراكك للمتابعة.";
-    if (lang === "en") return "This service is for members. Please renew your membership to continue.";
-    return "Deze dienst is voor leden. Vernieuw je lidmaatschap om verder te gaan.";
-  }
-  return null;
-}
 
 function getOfflineResponse(question: string, lang: string): string {
   if (lang === "ar") {

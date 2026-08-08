@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { useI18n } from "@/lib/i18n";
 
+import { authedFetch } from "@/lib/authed-fetch";
 function isArabicText(t?: string | null): boolean {
   return !!t && /[؀-ۿ]/.test(t);
 }
@@ -38,7 +38,7 @@ export function useAutoTranslate(text: string) {
         const cached = await AsyncStorage.getItem(key);
         if (cached) { if (alive) setTranslated(cached); return; }
         if (alive) setTranslating(true);
-        const res = await fetch(`${getApiBaseUrl()}/api/advice/translate`, {
+        const res = await authedFetch(`/api/advice/translate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text, targetLang: language }),

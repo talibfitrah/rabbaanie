@@ -25,7 +25,6 @@ import {
   getWeekInYear,
   Issue,
 } from "@/lib/store";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 
@@ -133,8 +132,7 @@ export default function ChildDetailScreen() {
     }
     setGeneratingPlan(true);
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await fetch(`${apiUrl}/api/advice/treatment`, {
+      const response = await authedFetch(`/api/advice/treatment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -206,8 +204,7 @@ export default function ChildDetailScreen() {
   const handleSubmitWithAnswers = async (answers: string[]) => {
     setGeneratingPlan(true);
     try {
-      const apiUrl = getApiBaseUrl();
-      const response = await fetch(`${apiUrl}/api/advice/treatment`, {
+      const response = await authedFetch(`/api/advice/treatment`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -1628,10 +1625,8 @@ export default function ChildDetailScreen() {
                             return;
                           setCheckingRootCause(true);
                           try {
-                            const apiUrl = getApiBaseUrl();
                             // Check if root cause has been identified
-                            const checkResponse = await fetch(
-                              `${apiUrl}/api/advice/treatment`,
+                            const checkResponse = await authedFetch(`/api/advice/treatment`,
                               {
                                 method: "POST",
                                 headers: { "Content-Type": "application/json" },
@@ -1945,6 +1940,7 @@ export default function ChildDetailScreen() {
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { authedFetch } from "@/lib/authed-fetch";
 function AdvisorPlansForChild({
   childId,
   childName,

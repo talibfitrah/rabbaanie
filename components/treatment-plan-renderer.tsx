@@ -3,8 +3,8 @@ import { View, Text, Pressable, StyleSheet } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
-import { getApiBaseUrl } from "@/constants/oauth";
 
+import { authedFetch } from "@/lib/authed-fetch";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
 // stored plan's original language. The surrounding UI follows the user's choice.
@@ -237,7 +237,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
         const cached = await AsyncStorage.getItem(key);
         if (cached) { if (alive) setTranslated(cached); return; }
         if (alive) setTranslating(true);
-        const res = await fetch(`${getApiBaseUrl()}/api/advice/translate`, {
+        const res = await authedFetch(`/api/advice/translate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ text: planText, targetLang: language }),

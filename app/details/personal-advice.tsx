@@ -14,7 +14,6 @@ import { useAppState } from "@/lib/app-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Constants from "expo-constants";
-import { getApiBaseUrl as getSharedApiBaseUrl } from "@/constants/oauth";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -38,16 +37,13 @@ import {
 import { ReportAiContent } from "@/components/report-ai-content";
 import { useSubscription } from "@/hooks/use-subscription";
 
+import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
   if (lang === "ar") return ar;
   return nl;
-}
-
-function getApiBaseUrl(): string {
-  return getSharedApiBaseUrl();
 }
 
 function gregorianToHijri(gDate: Date): {
@@ -850,7 +846,6 @@ export default function PersonalAdviceScreen() {
     if (!subscribed) { setLlmLoading(false); return; }
     setLlmLoading(true);
     try {
-      const baseUrl = getApiBaseUrl();
       const now = new Date();
       const hijri = gregorianToHijri(now);
       const month = now.getMonth();
@@ -879,7 +874,7 @@ export default function PersonalAdviceScreen() {
                 : month >= 8 && month <= 10
                   ? "Herfst"
                   : "Winter";
-      const response = await fetch(`${baseUrl}/api/advice/general`, {
+      const response = await authedFetch(`/api/advice/general`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

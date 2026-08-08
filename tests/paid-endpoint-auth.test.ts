@@ -1,5 +1,5 @@
 import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
-import { readFileSync } from "node:fs";
+import { readFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -84,29 +84,58 @@ describe("authedFetch", () => {
 });
 
 /**
- * Source-level, like tests/premium-gating.test.ts: mounting these screens would
- * drag in the native surface. What matters is that no API call in them goes out
- * as a bare fetch() — that is the exact shape of the bug.
+ * Repo-wide, NOT a hand-listed set of screens. An earlier version of this file
+ * checked only the two screens the finding doc happened to name; nine other
+ * call sites to the same gated endpoints were invisible to it, shipped
+ * uncredentialed, and took the paid features down for real subscribers the
+ * moment the server started enforcing. The list is the bug — scan instead.
  */
-describe("the paid screens never call an API endpoint unauthenticated", () => {
-  const SCREENS = ["app/ai-chat.tsx", "app/(tabs)/personal-advice.tsx"];
+describe("no screen calls a paid API endpoint unauthenticated", () => {
+  const ROOT = join(__dirname, "..");
+  const DIRS = ["app", "components", "hooks", "lib"];
 
-  for (const screen of SCREENS) {
-    const src = readFileSync(join(__dirname, "..", screen), "utf8");
+  /** Endpoints the server gates. A bare fetch() to any of them returns 401. */
+  const GATED = [
+    "/api/advice/general",
+    "/api/advice/quicktips",
+    "/api/advice/weekplan",
+    "/api/advice/treatment",
+    "/api/advice/getSpouseAdvice",
+    "/api/advice/translate",
+    "/api/trpc/aiChat.",
+    "/api/trpc/advice.",
+  ];
 
-    it(`${screen} routes every API call through authedFetch`, () => {
-      expect(src).toContain("authed-fetch");
-      // A bare fetch() against the API base is what left these routes anonymous.
-      expect(src).not.toMatch(/[^a-zA-Z]fetch\(\s*`\$\{baseUrl\}/);
-      expect(src).not.toMatch(/[^a-zA-Z]fetch\(\s*`\$\{getApiBaseUrl\(\)\}/);
-      expect(src).not.toMatch(/[^a-zA-Z]fetch\(\s*`\$\{getBaseUrl\(\)\}/);
+  const walk = (dir: string): string[] =>
+    readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
+      const full = join(dir, e.name);
+      if (e.isDirectory()) return e.name === "node_modules" ? [] : walk(full);
+      return /\.(ts|tsx)$/.test(e.name) ? [full] : [];
     });
-  }
 
-  it("ai-chat no longer claims the caller is anonymous", () => {
-    const src = readFileSync(join(__dirname, "..", "app/ai-chat.tsx"), "utf8");
-    // The server derives identity from the session; a client-asserted user id
-    // is exactly what made these routes impossible to gate.
-    expect(src).not.toContain('userId: "anonymous"');
+  const sources = DIRS.flatMap((d) => walk(join(ROOT, d)));
+
+  it("scans a non-trivial number of files (guards against a broken walk)", () => {
+    expect(sources.length).toBeGreaterThan(50);
+  });
+
+  it("finds no bare fetch() to a gated endpoint anywhere in the app", () => {
+    const offenders: string[] = [];
+
+    for (const file of sources) {
+      const src = readFileSync(file, "utf8");
+      const lines = src.split("\n");
+      lines.forEach((line, i) => {
+        if (!GATED.some((g) => line.includes(g))) return;
+        // Walk back to the call that owns this URL: the path may sit on its own
+        // line inside a multi-line fetch(...).
+        const window = lines.slice(Math.max(0, i - 3), i + 1).join("\n");
+        if (/[^a-zA-Z.]fetch\s*\(/.test(window) && !window.includes("authedFetch")) {
+          offenders.push(`${file.replace(ROOT + "/", "")}:${i + 1}`);
+        }
+      });
+    }
+
+    expect(offenders).toEqual([]);
   });
 });
