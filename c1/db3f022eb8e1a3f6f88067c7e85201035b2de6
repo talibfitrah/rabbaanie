@@ -1,0 +1,80 @@
+app/support.tsx
+  s_a743ddb7f9cb07::t_f2054fb1e55478 57-64
+  s_a743ddb7f9cb07::t_15a22199f87682 51-54
+  s_a743ddb7f9cb07::t_06e5d31a8c57e4 17-19
+lib/notifications.ts
+  s_a743ddb7f9cb07::t_00866d2260c1b8 365-373
+  s_a743ddb7f9cb07::t_742f6ed67e5171 386-392,396
+  s_a743ddb7f9cb07::t_990a096effe121 364,399-406,411,424-428
+  s_a743ddb7f9cb07::t_021a1258822975 487
+  s_a743ddb7f9cb07::t_ae7ee87cb1f201 517
+  s_a743ddb7f9cb07::t_b670637a08c207 407-410,412-417
+  s_a743ddb7f9cb07::t_046358811578d0 376-377,418-423
+  s_a743ddb7f9cb07::t_07cae2082dcd9f 378-382,384-385,393,397-398
+  s_a743ddb7f9cb07::t_3f2734d4e8dd40 429-431
+  s_a743ddb7f9cb07::t_2e3e0fbccd5702 546
+  s_a743ddb7f9cb07::t_b8ea3dcf8ddabd 564-566
+app/(tabs)/notification-settings.tsx
+  s_a743ddb7f9cb07::t_689170b4411efe 176-177
+  s_a743ddb7f9cb07::t_a4c865a1f4e41f 178
+  s_a743ddb7f9cb07::t_a73ca8f8d6fa2f 30
+lib/activity-tracker.ts
+  s_a743ddb7f9cb07::t_772c7c728a1d31 166-168,175
+  s_a743ddb7f9cb07::t_dc2a02bafc24bd 169-174
+  s_a743ddb7f9cb07::t_6f85a0f17227c6 7
+lib/weekly-data.ts
+  s_a743ddb7f9cb07::t_4b9bafbbb75392 6
+  s_a743ddb7f9cb07::t_68954376f96c72 18-24
+  s_a743ddb7f9cb07::t_fa7f7c14f786fc 40-43
+tests/api-transport-invariant.test.ts
+  s_a743ddb7f9cb07::t_36559029a048f7 69-73
+  s_a743ddb7f9cb07::t_8958409173691b 63-68,75,82
+  s_a743ddb7f9cb07::t_ef990d38bc6a24 83-87
+  s_a743ddb7f9cb07::t_54646f125d720b 76-81
+tests/weekly-data-lazy.test.ts
+  s_a743ddb7f9cb07::t_208e1c9e7e94ef 8-24
+app/(tabs)/settings.tsx
+  s_a743ddb7f9cb07::t_46e234dfce3c8f 301-304
+  s_a743ddb7f9cb07::t_36fe4683fa8f90 47
+  s_a743ddb7f9cb07::t_26d33d7f3db988 305-308
+hooks/use-remote-config.ts
+  s_a743ddb7f9cb07::t_f05a7ce223fc78 2
+  s_a743ddb7f9cb07::t_110594b61e9430 49
+tests/google-pkce-signin.test.ts
+  s_a743ddb7f9cb07::t_f7c7c2a44103f4 18-34
+lib/google-oauth.ts
+  s_a743ddb7f9cb07::t_7c7f9638070d07 86
+  s_a743ddb7f9cb07::t_d9790d962be83b 8
+tests/notifications.test.ts
+  s_a743ddb7f9cb07::t_8f675505b9a3d5 287-321
+  s_a743ddb7f9cb07::t_9f441871cd0f57 175
+  s_a743ddb7f9cb07::t_d0252bd3034ed5 267-286
+  s_a743ddb7f9cb07::t_73ffb251240c38 231-264
+  s_a743ddb7f9cb07::t_e9b5d425bdceab 39
+  s_a743ddb7f9cb07::t_5e0e2a87e19695 10
+  s_a743ddb7f9cb07::t_c9dc8e153427aa 203-230
+  s_a743ddb7f9cb07::t_ee85228b7227ae 265-266
+tests/remote-config-safety.test.ts
+  s_a743ddb7f9cb07::t_dbb1465d5c418a 10-25
+app/specialist/register.tsx
+  s_a743ddb7f9cb07::t_15ac51909b7be5 55-61
+  s_a743ddb7f9cb07::t_a44a25fb02f1e5 69-71
+  s_a743ddb7f9cb07::t_1dcce3945c831b 43
+  s_a743ddb7f9cb07::t_7ff703ae633944 52-54,62-65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "c1db3f022eb8e1a3f6f88067c7e85201035b2de6",
+  "prompts": {},
+  "sessions": {
+    "s_a743ddb7f9cb07": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "555846a1-cae8-4a6d-b248-0c2111251aed",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
