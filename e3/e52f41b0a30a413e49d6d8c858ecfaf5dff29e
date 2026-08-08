@@ -1,0 +1,23 @@
+app/login.tsx
+  s_a47ab13558c857::t_4cb0544db7fdd5 14,25,48-55,68-74,77,120,130-132,138-140,145,178-180,193-194,219-221,274-329,380-400,409,412-418,420-421,424,438-440,442-444,447-506,509-512,514-516,519-526,528-529,531-532,534-537,540,542,544-560,563-565,568,570-574,577-579,581-605,607-609,611-626,628,630-646,648-660,662-665,670-672,675-687,689,691-696,698-700,703-717,719-721
+components/two-factor-verify-screen.tsx
+  s_a47ab13558c857::t_10aec1d2843612 1-295
+docs/superpowers/plans/2026-08-06-admin-2fa-verification-screen.md
+  s_a47ab13558c857::t_ae495b228e4826 1-1215
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "e3e52f41b0a30a413e49d6d8c858ecfaf5dff29e",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

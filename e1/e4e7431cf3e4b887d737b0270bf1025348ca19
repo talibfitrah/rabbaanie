@@ -1,0 +1,22 @@
+lib/app-context.tsx
+  s_a47ab13558c857::t_28f88677d33e1f 15
+  s_a47ab13558c857::t_8a83be380473b1 208-220
+app/onboarding/index.tsx
+  s_a47ab13558c857::t_684ae25416f95a 151-156
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "e1e4e7431cf3e4b887d737b0270bf1025348ca19",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
