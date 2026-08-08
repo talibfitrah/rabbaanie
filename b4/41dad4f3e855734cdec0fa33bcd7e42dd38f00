@@ -1,0 +1,19 @@
+docs/superpowers/specs/2026-08-08-usage-tracking-design.md
+  s_e34c26294b0bd6::t_43c83932fdb283 1-95
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b441dad4f3e855734cdec0fa33bcd7e42dd38f00",
+  "prompts": {},
+  "sessions": {
+    "s_e34c26294b0bd6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0efec8bf-df2f-47cc-9988-5e51b3864326",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
