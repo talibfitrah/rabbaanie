@@ -19,9 +19,9 @@ import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { ReportAiContent } from "@/components/report-ai-content";
 
+import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
 const TOTAL_PAGES = 604;
 const STORAGE_KEY = "quran_last_page";
@@ -1421,10 +1421,9 @@ export default function QuranScreen() {
     setScienceTab("hidayat");
     try {
       const verseKey = `${ayah.surahNumber}:${ayah.numberInSurah}`;
-      const baseUrl = getApiBaseUrl();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000); // 60s timeout
-      const res = await fetch(`${baseUrl}/api/quran/hidayat`, {
+      const res = await authedFetch(`/api/quran/hidayat`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ verseKey, text: ayah.text, language: lang }),
@@ -1467,10 +1466,9 @@ export default function QuranScreen() {
     setScienceContent("");
     setScienceTab("surah");
     try {
-      const baseUrl = getApiBaseUrl();
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), 60000);
-      const res = await fetch(`${baseUrl}/api/quran/surah-info`, {
+      const res = await authedFetch(`/api/quran/surah-info`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ surahNumber: surahNum, language: lang }),

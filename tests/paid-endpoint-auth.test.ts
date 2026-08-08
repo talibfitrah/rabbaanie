@@ -104,7 +104,15 @@ describe("no screen calls a paid API endpoint unauthenticated", () => {
     "/api/advice/translate",
     "/api/trpc/aiChat.",
     "/api/trpc/advice.",
+    "/api/quran/iraab",
+    "/api/quran/hidayat",
+    "/api/quran/surah-info",
   ];
+
+  // NOTE: this list is hand-maintained and has now been the weak link twice --
+  // first it listed screens, then it listed only the advice paths and missed
+  // /api/quran/*. When you gate a route in rabbaanie-api, add it HERE in the
+  // same change, or the next uncredentialed call site ships unnoticed.
 
   const walk = (dir: string): string[] =>
     readdirSync(dir, { withFileTypes: true }).flatMap((e) => {
