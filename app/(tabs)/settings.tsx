@@ -44,6 +44,7 @@ import {
   NATURE_SOUND_OPTIONS,
   type AdhanSoundOption,
   type NatureSoundOption,
+  cancelScheduleAllNotifications,
 } from "@/lib/notifications";
 import {
   loadIqamahSilencePrefs,
@@ -297,10 +298,14 @@ export default function SettingsScreen() {
       const count = await scheduleAllNotifications(language);
       setNotifScheduledCount(count);
     } else if (!newPrefs.enabled) {
-      // If disabled, cancel all
-      const Notifications = require("expo-notifications");
-      await Notifications.cancelAllScheduledNotificationsAsync();
-      setNotifScheduledCount(0);
+      // Only the prayer/adhkaar alarms this screen controls. cancelAll…() also
+      // wiped iqaamah silence, iman, islamic reminders, weekly goals and spouse
+      // advice — five features switched off by turning off one.
+      await cancelScheduleAllNotifications();
+      // Re-read rather than assuming zero: the counter shows EVERY scheduled
+      // notification, and the other modules' alarms are still there now that
+      // this only cancels its own.
+      setNotifScheduledCount(await getScheduledCount());
     }
   }, [language]);
 

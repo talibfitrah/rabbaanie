@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getApiBaseUrl } from "@/constants/oauth";
+import { publicFetch } from "@/lib/authed-fetch";
 
 /**
  * Runtime app config fetched from the server (msg 588) so the donation link and
@@ -46,7 +46,7 @@ export function useRemoteConfig(): RemoteConfig {
   useEffect(() => {
     if (_cache) { setCfg(_cache); return; }
     let alive = true;
-    fetch(`${getApiBaseUrl()}/api/public/config`)
+    publicFetch("/api/public/config")
       .then((r) => r.json())
       .then((c) => { _cache = { donateUrl: safeHttpsUrl(c?.donateUrl), supportWhatsapp: safePhone(c?.supportWhatsapp) }; if (alive) setCfg(_cache); })
       .catch(() => {});

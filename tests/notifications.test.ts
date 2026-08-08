@@ -7,6 +7,7 @@ vi.mock("expo-notifications", () => ({
   requestPermissionsAsync: vi.fn().mockResolvedValue({ status: "granted" }),
   scheduleNotificationAsync: vi.fn().mockResolvedValue("notif-id-123"),
   cancelAllScheduledNotificationsAsync: vi.fn().mockResolvedValue(undefined),
+  cancelScheduledNotificationAsync: vi.fn().mockResolvedValue(undefined),
   getAllScheduledNotificationsAsync: vi.fn().mockResolvedValue([]),
   AndroidImportance: { HIGH: 4, DEFAULT: 3, MAX: 5, LOW: 2, MIN: 1, NONE: 0 },
   AndroidNotificationPriority: { MAX: "max", HIGH: "high", DEFAULT: "default", LOW: "low", MIN: "min" },
@@ -35,6 +36,7 @@ import {
   setupNotificationChannels,
   requestNotificationPermissions,
   scheduleAllNotifications,
+  cancelScheduleAllNotifications,
   getScheduledCount,
   sendTestNotification,
   type NotificationPrefs,
@@ -170,7 +172,7 @@ describe("Notifications module", () => {
         return null;
       });
       const count = await scheduleAllNotifications("nl");
-      expect(Notifications.cancelAllScheduledNotificationsAsync).toHaveBeenCalled();
+      expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
       // Prayer reminders are obligatory: loadNotificationPrefs coerces `enabled`
       // and the 5 fard prayers back on, so scheduling proceeds regardless.
       expect(count).toBeGreaterThan(0);
@@ -197,6 +199,125 @@ describe("Notifications module", () => {
       // Should schedule multiple notifications (prayers + adhkaar for 7 days)
       expect(count).toBeGreaterThan(0);
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
+    });
+
+    /**
+     * It used to call cancelAllScheduledNotificationsAsync(), which deleted the
+     * schedules of every other module too — iqaamah silence, iman, islamic
+     * reminders, weekly goals, spouse advice. Whichever scheduler ran last was
+     * the only one whose alarms survived.
+     */
+    it("cancels its own prayer and adhkaar notifications and no one else's", async () => {
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return null; // stop before scheduling; only the cancel pass matters here
+        return null;
+      });
+      (Notifications.getAllScheduledNotificationsAsync as any).mockResolvedValue([
+        { identifier: "prayer-1", content: { data: { type: "prayer" } } },
+        { identifier: "iqamah-1", content: { data: { type: "iqamah_silence" } } },
+        { identifier: "adhkaar-1", content: { data: { type: "adhkaar" } } },
+        { identifier: "iman-1", content: { data: { type: "iman_daily" } } },
+        { identifier: "advice-1", content: { data: { type: "daily_advice" } } },
+        { identifier: "no-data-1", content: {} },
+      ]);
+
+      await scheduleAllNotifications("nl");
+
+      expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+      const cancelled = (Notifications.cancelScheduledNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(cancelled).toEqual(["prayer-1", "adhkaar-1"]);
+    });
+
+    /**
+     * Read-cancel-schedule is not atomic. Before the queue, a settings toggle
+     * racing the boot-path call interleaved two runs into double-scheduled
+     * alarms. The second run must not start its read until the first finishes.
+     */
+    it("serializes concurrent runs", async () => {
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return null; // stop after the cancel pass
+        return null;
+      });
+
+      const starts: string[] = [];
+      let releaseFirst!: () => void;
+      (Notifications.getAllScheduledNotificationsAsync as any)
+        .mockImplementationOnce(() => {
+          starts.push("first");
+          return new Promise((res) => { releaseFirst = () => res([]); });
+        })
+        .mockImplementationOnce(() => {
+          starts.push("second");
+          return Promise.resolve([]);
+        });
+
+      const a = scheduleAllNotifications("nl");
+      await Promise.resolve(); // let the first run reach its read
+      const b = scheduleAllNotifications("nl");
+      await Promise.resolve();
+      expect(starts).toEqual(["first"]); // second run still queued
+      releaseFirst();
+      await Promise.all([a, b]);
+      expect(starts).toEqual(["first", "second"]);
+    });
+  });
+
+  /**
+   * The settings screens' master toggle used cancelAllScheduledNotificationsAsync(),
+   * so switching prayer reminders off also silently switched off iqaamah silence,
+   * iman, islamic reminders, weekly goals and spouse advice.
+   */
+  describe("cancelScheduleAllNotifications", () => {
+    it("cancels only prayer and adhkaar, never everything", async () => {
+      (Notifications.getAllScheduledNotificationsAsync as any).mockResolvedValue([
+        { identifier: "prayer-1", content: { data: { type: "prayer" } } },
+        { identifier: "iqamah-1", content: { data: { type: "iqamah_silence" } } },
+        { identifier: "adhkaar-1", content: { data: { type: "adhkaar" } } },
+        { identifier: "iman-1", content: { data: { type: "iman_daily" } } },
+      ]);
+
+      await cancelScheduleAllNotifications();
+
+      expect(Notifications.cancelAllScheduledNotificationsAsync).not.toHaveBeenCalled();
+      const cancelled = (Notifications.cancelScheduledNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(cancelled).toEqual(["prayer-1", "adhkaar-1"]);
+    });
+
+    /**
+     * Shares scheduleAllNotifications' queue. A master-off toggle running while
+     * a scheduling pass is in flight would otherwise cancel the alarms already
+     * written and leave the ones still being written — "off" that is partly on.
+     * It must also not deadlock: the schedule path runs inside that same queue.
+     */
+    it("waits for an in-flight scheduling run instead of interleaving with it", async () => {
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return null;
+        return null;
+      });
+
+      const starts: string[] = [];
+      let releaseFirst!: () => void;
+      (Notifications.getAllScheduledNotificationsAsync as any)
+        .mockImplementationOnce(() => {
+          starts.push("schedule");
+          return new Promise((res) => { releaseFirst = () => res([]); });
+        })
+        .mockImplementationOnce(() => {
+          starts.push("cancel");
+          return Promise.resolve([]);
+        });
+
+      const scheduling = scheduleAllNotifications("nl");
+      await Promise.resolve();
+      const cancelling = cancelScheduleAllNotifications();
+      await Promise.resolve();
+      expect(starts).toEqual(["schedule"]); // cancel still queued behind it
+      releaseFirst();
+      await Promise.all([scheduling, cancelling]);
+      expect(starts).toEqual(["schedule", "cancel"]);
     });
   });
 

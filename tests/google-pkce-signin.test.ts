@@ -15,6 +15,23 @@ vi.mock("@react-native-google-signin/google-signin", () => ({
 vi.mock("../constants/oauth", () => ({
   getApiBaseUrl: () => "https://api.rabbaanie.com",
 }));
+// publicFetch's module graph reaches lib/_core/auth, which imports react-native
+// and native storage — Flow-typed source vitest cannot parse. Stubbing them is
+// what let this file route through the transport layer instead of being written
+// down as an exception to the transport invariant.
+vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: vi.fn().mockResolvedValue(null),
+  setItemAsync: vi.fn().mockResolvedValue(undefined),
+  deleteItemAsync: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: {
+    getItem: vi.fn().mockResolvedValue(null),
+    setItem: vi.fn().mockResolvedValue(undefined),
+    removeItem: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 import {
   completeNativeGoogleSignIn,

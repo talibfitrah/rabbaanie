@@ -7,6 +7,22 @@ import { join } from "node:path";
 vi.mock("@/constants/oauth", () => ({
   getApiBaseUrl: () => "https://api.example.com",
 }));
+// publicFetch's module graph reaches lib/_core/auth, which imports react-native
+// and native storage. Stubbing them is what let this hook route through the
+// transport layer instead of being written down as an exception to it.
+vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: vi.fn().mockResolvedValue(null),
+  setItemAsync: vi.fn().mockResolvedValue(undefined),
+  deleteItemAsync: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: {
+    getItem: vi.fn().mockResolvedValue(null),
+    setItem: vi.fn().mockResolvedValue(undefined),
+    removeItem: vi.fn().mockResolvedValue(undefined),
+  },
+}));
 
 const { safeHttpsUrl, safePhone } = await import("@/hooks/use-remote-config");
 

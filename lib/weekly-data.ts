@@ -3,7 +3,7 @@
  * Supports years -1 (pregnancy) through 18.
  * Data is fetched from the server and cached locally for offline use.
  */
-import { getApiBaseUrl } from "@/constants/oauth";
+import { publicFetch } from "@/lib/authed-fetch";
 import { fetchWithCache } from "@/lib/offline-cache";
 
 // In-memory cache for the current session
@@ -13,19 +13,15 @@ const memoryCache: Record<string, any> = {};
  * Fetch year data from the server API.
  */
 async function fetchFromServer(yearNum: number, lang: string): Promise<any> {
-  const baseUrl = getApiBaseUrl();
-  if (!baseUrl) {
-    console.warn("[weekly-data] No API base URL configured");
-    return null;
-  }
-
   const input = JSON.stringify({ json: { year: yearNum, lang } });
-  const url = `${baseUrl}/api/trpc/weeklyData.getYear?input=${encodeURIComponent(input)}`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
+  // weeklyData.* is public by design — the app reads it before sign-in — so
+  // publicFetch, not authedFetch. It still has to go through the transport
+  // layer: that is what keeps the base URL in one place.
+  const response = await publicFetch(
+    `/api/trpc/weeklyData.getYear?input=${encodeURIComponent(input)}`,
+    { method: "GET", headers: { "Content-Type": "application/json" } },
+  );
 
   if (!response.ok) {
     throw new Error(`Server returned ${response.status}`);
@@ -39,16 +35,12 @@ async function fetchFromServer(yearNum: number, lang: string): Promise<any> {
  * Fetch a specific week with translation support.
  */
 async function fetchWeekFromServer(yearNum: number, weekNum: number, lang: string): Promise<any> {
-  const baseUrl = getApiBaseUrl();
-  if (!baseUrl) return null;
-
   const input = JSON.stringify({ json: { year: yearNum, week: weekNum, lang } });
-  const url = `${baseUrl}/api/trpc/weeklyData.getWeek?input=${encodeURIComponent(input)}`;
 
-  const response = await fetch(url, {
-    method: "GET",
-    headers: { "Content-Type": "application/json" },
-  });
+  const response = await publicFetch(
+    `/api/trpc/weeklyData.getWeek?input=${encodeURIComponent(input)}`,
+    { method: "GET", headers: { "Content-Type": "application/json" } },
+  );
 
   if (!response.ok) return null;
   const json = await response.json();

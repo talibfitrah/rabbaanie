@@ -5,7 +5,7 @@ import {
 } from "@react-native-google-signin/google-signin";
 
 import { GOOGLE_WEB_CLIENT_ID } from "../constants/app-identity";
-import { getApiBaseUrl } from "../constants/oauth";
+import { publicFetch } from "@/lib/authed-fetch";
 
 const GOOGLE_SIGN_IN_TIMEOUT_MS = 20_000;
 
@@ -83,7 +83,7 @@ export async function completeNativeGoogleSignIn(): Promise<NativeGoogleSignInRe
     GOOGLE_SIGN_IN_TIMEOUT_MS,
   );
   try {
-    const response = await fetch(`${getApiBaseUrl()}/auth/google/native`, {
+    const response = await publicFetch("/auth/google/native", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ idToken }),

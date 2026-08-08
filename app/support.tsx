@@ -5,7 +5,6 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { SUPPORT_WHATSAPP } from "@/constants/support";
 import { useRemoteConfig } from "@/hooks/use-remote-config";
 
@@ -15,7 +14,9 @@ import { publicFetch } from "@/lib/authed-fetch";
  * AI that only helps with using the app / technical issues; if it can't resolve
  * (or the user asks), they escalate to the human team directly on WhatsApp.
  */
-type Msg = { role: "user" | "assistant"; content: string };
+// `signature` is the server's HMAC over its own reply. Echoing it back is what
+// lets the model see its previous turns without letting a caller forge them.
+type Msg = { role: "user" | "assistant"; content: string; signature?: string };
 
 export default function SupportScreen() {
   const colors = useColors();
@@ -47,11 +48,20 @@ export default function SupportScreen() {
     try {
       const res = await publicFetch(`/api/support/chat`, {
         method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ language, messages: next.filter((m) => m.role !== "assistant" || m !== intro) }),
+        // Drop the local greeting by POSITION. `intro` is rebuilt every render,
+        // so the old identity check (m !== intro) never matched the object
+        // actually held in state and the greeting was always sent.
+        body: JSON.stringify({ language, messages: next.filter((m, i) => !(i === 0 && m.role === "assistant")) }),
       });
       const data = await res.json();
-      const reply = (data && data.reply) || L3("تعذّر الردّ الآن. يمكنك التواصل مع الفريق عبر واتساب.", "Geen antwoord nu. Bereik het team via WhatsApp.", "No reply right now. You can reach the team on WhatsApp.");
-      setMessages([...next, { role: "assistant", content: reply }]);
+      // Keep the signature ONLY with the server's own text. When `reply` is
+      // empty we substitute local text, and a signature over that is a
+      // signature over something the server never wrote — the server would
+      // read it as tampering and drop the history from there on. Absent is the
+      // correct value: the server skips unsigned turns without breaking.
+      const serverReply = data && data.reply;
+      const reply = serverReply || L3("تعذّر الردّ الآن. يمكنك التواصل مع الفريق عبر واتساب.", "Geen antwoord nu. Bereik het team via WhatsApp.", "No reply right now. You can reach the team on WhatsApp.");
+      setMessages([...next, { role: "assistant", content: reply, ...(serverReply ? { signature: data?.signature } : {}) }]);
       if (data && data.escalate) setEscalate(true);
     } catch {
       setMessages([...next, { role: "assistant", content: L3("تعذّر الاتصال. تحقّق من الإنترنت أو تواصل عبر واتساب.", "Verbinding mislukt. Controleer internet of gebruik WhatsApp.", "Connection failed. Check the internet or use WhatsApp.") }]);

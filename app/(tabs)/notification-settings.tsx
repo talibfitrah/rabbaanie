@@ -27,6 +27,7 @@ import {
   type NatureSoundOption,
   MIN_MINUTES_BEFORE,
   MAX_MINUTES_BEFORE,
+  cancelScheduleAllNotifications,
 } from "@/lib/notifications";
 import {
   loadIqamahSilencePrefs,
@@ -172,9 +173,9 @@ export default function NotificationSettingsScreen() {
       const count = await scheduleAllNotifications(language);
       setNotifScheduledCount(count);
     } else if (!newPrefs.enabled) {
-      const Notifications = require("expo-notifications");
-      await Notifications.cancelAllScheduledNotificationsAsync();
-      setNotifScheduledCount(0);
+      // Scoped: see the same fix in app/(tabs)/settings.tsx.
+      await cancelScheduleAllNotifications();
+      setNotifScheduledCount(await getScheduledCount());
     }
   }, [language]);
 

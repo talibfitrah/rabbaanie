@@ -362,14 +362,73 @@ function getAdhkaarContent(
 // ============ SCHEDULING ============
 
 /**
- * Schedule notifications for the next 7 days based on prayer times.
- * Cancels all existing scheduled notifications first.
+ * The notification types scheduleAllNotifications owns. Declared once and used
+ * by both its schedule calls and its cancel pass, so the two cannot drift apart
+ * — a cancel that does not match what is scheduled is what made this function
+ * delete other modules' notifications.
  */
-export async function scheduleAllNotifications(
+const PRAYER_TYPE = "prayer";
+const ADHKAAR_TYPE = "adhkaar";
+const SCHEDULE_ALL_OWN_TYPES: readonly string[] = [PRAYER_TYPE, ADHKAAR_TYPE];
+
+/**
+ * Schedule notifications for the next 7 days based on prayer times.
+ * Cancels this module's own prayer and adhkaar notifications first, and only
+ * those.
+ *
+ * Serialized through a module-level queue: read-cancel-schedule is not atomic,
+ * and a settings toggle racing the boot-path call used to interleave two runs
+ * into double-scheduled alarms. The queue makes the later call wait and then
+ * re-run from scratch, so the end state is the LAST call's output.
+ */
+let scheduleAllQueue: Promise<unknown> = Promise.resolve();
+
+/** Runs `job` after everything already queued, and keeps the queue unbroken. */
+function enqueue<T>(job: () => Promise<T>): Promise<T> {
+  const run = scheduleAllQueue.then(job);
+  scheduleAllQueue = run.catch(() => {});
+  return run;
+}
+
+export function scheduleAllNotifications(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<number> {
-  // Cancel all existing
-  await Notifications.cancelAllScheduledNotificationsAsync();
+  return enqueue(() => scheduleAllNotificationsInner(language));
+}
+
+/**
+ * Cancels exactly what scheduleAllNotifications schedules, and nothing else.
+ *
+ * Exported because the settings screens need it too: turning the prayer master
+ * toggle off called cancelAllScheduledNotificationsAsync(), which also deleted
+ * every other module's work — iqaamah silence, iman, islamic reminders, weekly
+ * goals, spouse advice, the monitoring notice. Switching off one feature must
+ * not silently switch off five others.
+ *
+ * Shares scheduleAllNotifications' queue: a master-off toggle running while a
+ * scheduling pass is mid-flight would otherwise cancel the alarms already
+ * written and leave the ones still being written, i.e. "off" that is partly on.
+ */
+export function cancelScheduleAllNotifications(): Promise<void> {
+  return enqueue(cancelOwnScheduled);
+}
+
+/** The cancel pass itself. Callers must hold the queue — see above. */
+async function cancelOwnScheduled(): Promise<void> {
+  const scheduled = await Notifications.getAllScheduledNotificationsAsync();
+  for (const notif of scheduled) {
+    if (SCHEDULE_ALL_OWN_TYPES.includes(notif.content.data?.type as string)) {
+      await Notifications.cancelScheduledNotificationAsync(notif.identifier);
+    }
+  }
+}
+
+async function scheduleAllNotificationsInner(
+  language: "nl" | "en" | "ar"
+): Promise<number> {
+  // The raw pass, not the queued wrapper: this already runs inside the queue,
+  // and re-entering it would wait on a job that cannot finish until we return.
+  await cancelOwnScheduled();
 
   // Load preferences
   const prefs = await loadNotificationPrefs();
@@ -425,7 +484,7 @@ export async function scheduleAllNotifications(
           content: {
             title: content.title,
             body: content.body,
-            data: { type: "prayer", prayer, showPopup: true, ruling: "واجب" },
+            data: { type: PRAYER_TYPE, prayer, showPopup: true, ruling: "واجب" },
             ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
             ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
           },
@@ -455,7 +514,7 @@ export async function scheduleAllNotifications(
             content: {
               title: content.title,
               body: content.body,
-              data: { type: "adhkaar", adhkaarType: "morning", showPopup: true, ruling: "سنة مؤكدة" },
+              data: { type: ADHKAAR_TYPE, adhkaarType: "morning", showPopup: true, ruling: "سنة مؤكدة" },
               ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
               ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
             },
@@ -484,7 +543,7 @@ export async function scheduleAllNotifications(
             content: {
               title: content.title,
               body: content.body,
-              data: { type: "adhkaar", adhkaarType: "evening", showPopup: true, ruling: "سنة مؤكدة" },
+              data: { type: ADHKAAR_TYPE, adhkaarType: "evening", showPopup: true, ruling: "سنة مؤكدة" },
               ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
               ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
             },
@@ -502,7 +561,9 @@ export async function scheduleAllNotifications(
     }
   }
 
-  // Re-schedule daily advice notification (it was cancelled by cancelAllScheduledNotificationsAsync)
+  // Keeps the daily advice notification in step with the active language. It no
+  // longer needs *restoring* (the cancel above leaves it alone), but several
+  // callers change language and re-run only this function.
   try {
     const { scheduleDailyAdviceNotification } = await import("./daily-advice-notification");
     await scheduleDailyAdviceNotification(language);

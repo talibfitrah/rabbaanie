@@ -30,16 +30,6 @@ const TRANSPORT = [
   "lib/authed-fetch.ts", // authedFetch / publicFetch
   "lib/trpc.ts", // the typed tRPC client
   "lib/_core/api.ts", // apiCall(): parsed JSON, throws on !ok
-
-  // KNOWN EXCEPTIONS, not transport. Both are pre-session routes, so routing
-  // them changes nothing about auth -- but importing authed-fetch pulls in
-  // lib/_core/auth, and tests/google-pkce-signin.test.ts and
-  // tests/remote-config-safety.test.ts fail to parse that import chain
-  // (rollup: "Expected 'from', got 'typeOf'"). Convert these two once those
-  // tests mock @/lib/authed-fetch; until then the exception is written down
-  // rather than silently passing.
-  "lib/google-oauth.ts", // POST /auth/google/native -- pre-session
-  "hooks/use-remote-config.ts", // GET /api/public/config -- public by design
 ];
 
 const walk = (dir: string): string[] =>
@@ -70,11 +60,31 @@ describe("only the transport layer talks to the API directly", () => {
         // OUR base only: it arrives as getApiBaseUrl() or a variable holding it.
         // Third-party bases (concepts.tsx talks to a Qur'an API via API_BASE) are
         // deliberately out of scope — this invariant is about our own auth.
-        const window = lines.slice(Math.max(0, i - 3), i + 1).join("\n");
+        // Both halves are matched over the SAME window. Testing the URL on the
+        // current line only meant a file that built `const url = ...` on one
+        // line and called `fetch(url)` two lines later tripped neither half —
+        // that is how lib/weekly-data.ts kept two bare fetches through the
+        // original invariant. A bare "/api/..." path counts as ours too:
+        // lib/activity-tracker.ts fetched a relative URL with no base at all.
+        // Symmetric: three lines either side. Looking only BACKWARDS caught
+        // `const url = …` above a fetch but not the far more ordinary
+        // `fetch(\n  `${getApiBaseUrl()}/api/…`,\n)` — the URL sits on the line
+        // AFTER the fetch, and neither half of the test saw it.
+        const window = lines.slice(Math.max(0, i - 3), i + 4).join("\n");
         const buildsApiUrl =
-          /getApiBaseUrl\(\)|getSharedApiBaseUrl\(\)|\$\{(?:baseUrl|apiUrl)\}/.test(line);
-        const isFetch = /[^a-zA-Z.]fetch\s*\(/.test(window);
-        const routed = /authedFetch|publicFetch|apiCall|trpc\./.test(window);
+          /getApiBaseUrl\(\)|getSharedApiBaseUrl\(\)|\$\{(?:baseUrl|apiUrl)\}/.test(window) ||
+          /["'`]\/api\//.test(window) ||
+          // The base spelled out instead of resolved. getApiBaseUrl() returns
+          // exactly this host in native builds, so a hardcoded copy is the same
+          // uncredentialed call with the indirection removed — and it matched
+          // none of the patterns above.
+          /api\.rabbaanie\.com/.test(window);
+        const isFetch = /[^a-zA-Z.]fetch\s*\(/.test(line);
+        // Judged on the fetch's OWN line. Over the window, one legitimate
+        // publicFetch call would vouch for every raw fetch within three lines
+        // of it — the wider window that fixed buildsApiUrl weakened this in the
+        // same stroke. A routed call names its wrapper on the calling line.
+        const routed = /authedFetch|publicFetch|apiCall|trpc\./.test(line);
         if (buildsApiUrl && isFetch && !routed) offenders.push(`${rel}:${i + 1}`);
       });
     }
