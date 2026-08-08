@@ -8,6 +8,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { ADHKAR_CATEGORIES } from "@/lib/adhkar-data";
 
+import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
@@ -102,7 +103,7 @@ export default function DhikriScreen() {
     setLoading(true);
     try {
       const baseUrl = getApiBaseUrl();
-      const response = await fetch(`${baseUrl}/api/adhkar?context=${context}`);
+      const response = await authedFetch(`/api/adhkar?context=${context}`);
       if (response.ok) {
         const data = await response.json();
         setAdhkarList(data);

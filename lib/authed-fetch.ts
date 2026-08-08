@@ -58,3 +58,23 @@ export function accessDeniedMessage(status: number, lang: string): string | null
   }
   return null;
 }
+
+/**
+ * fetch() against our API for the routes a caller reaches BEFORE they have a
+ * session: sign-in, registration, password reset, the OAuth handshake, public
+ * config. Identical URL handling to authedFetch, deliberately no credential.
+ *
+ * It exists so that "this call is unauthenticated" is a decision someone wrote
+ * down, not the default you get by reaching for bare fetch(). Three separate
+ * rounds of the paywall fix each missed a different set of call sites, because
+ * 16 files independently decided how to talk to the API and auth was a
+ * per-call-site accident. Every API call now goes through one of these two, and
+ * tests/api-transport-invariant.test.ts enforces it.
+ */
+export async function publicFetch(path: string, init?: RequestInit): Promise<Response> {
+  const base = getApiBaseUrl();
+  const url = /^https?:\/\//.test(path)
+    ? path
+    : `${base}${path.startsWith("/") ? path : `/${path}`}`;
+  return fetch(url, { ...init, credentials: "include" });
+}

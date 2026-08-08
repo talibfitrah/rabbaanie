@@ -6,6 +6,7 @@ import { useRouter } from "expo-router";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { useI18n } from "@/lib/i18n";
 
+import { publicFetch } from "@/lib/authed-fetch";
 /**
  * Forgot Password Screen - 2 steps:
  * 1. Enter email → sends reset code via Brevo
@@ -40,7 +41,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${getApiBaseUrl()}/auth/forgot-password`, {
+      const res = await publicFetch(`/auth/forgot-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: email.trim().toLowerCase() }),
@@ -82,7 +83,7 @@ export default function ForgotPasswordScreen() {
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(`${getApiBaseUrl()}/auth/reset-password`, {
+      const res = await publicFetch(`/auth/reset-password`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

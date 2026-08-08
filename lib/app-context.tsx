@@ -17,6 +17,7 @@ import {
 import * as Auth from "@/lib/_core/auth";
 import { getApiBaseUrl } from "@/constants/oauth";
 
+import { authedFetch } from "@/lib/authed-fetch";
 interface AppContextType {
   state: AppState;
   loading: boolean;
@@ -62,7 +63,7 @@ async function syncToServer(state: AppState): Promise<void> {
     if (await Auth.isLogoutPending()) return;
     const baseUrl = getApiBaseUrl();
     // Use a simple fetch to the profile.save tRPC mutation
-    const response = await fetch(`${baseUrl}/api/trpc/profile.save`, {
+    const response = await authedFetch(`/api/trpc/profile.save`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -100,7 +101,7 @@ async function syncFromServer(): Promise<AppState | null> {
     const token = await Auth.getSessionToken();
     if (!token) return null;
     const baseUrl = getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/trpc/profile.get`, {
+    const response = await authedFetch(`/api/trpc/profile.get`, {
       method: "GET",
       headers: {
         "Content-Type": "application/json",
@@ -154,7 +155,7 @@ async function autoSyncWithPartner(): Promise<{ changed: boolean; details?: any 
     const token = await Auth.getSessionToken();
     if (!token) return null;
     const baseUrl = getApiBaseUrl();
-    const response = await fetch(`${baseUrl}/api/trpc/links.syncWithPartner`, {
+    const response = await authedFetch(`/api/trpc/links.syncWithPartner`, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
@@ -475,7 +476,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           const token = await Auth.getSessionToken();
           if (token) {
             const baseUrl = getApiBaseUrl();
-            await fetch(`${baseUrl}/api/trpc/children.deleteByNameBirth`, {
+            await authedFetch(`/api/trpc/children.deleteByNameBirth`, {
               method: "POST",
               headers: {
                 "Content-Type": "application/json",

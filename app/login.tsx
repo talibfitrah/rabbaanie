@@ -15,7 +15,6 @@ import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { useRouter } from "expo-router";
 import { useAuthContext } from "@/lib/auth-context";
-import { getApiBaseUrl } from "@/constants/oauth";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import {
@@ -25,6 +24,7 @@ import {
 import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
 
+import { publicFetch } from "@/lib/authed-fetch";
 const SUPPORT_EMAIL = "support@albunyaan.tv";
 
 /**
@@ -100,9 +100,8 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
     try {
-      const apiBase = getApiBaseUrl();
-      const response = await fetch(
-        `${apiBase}${completingTwoFactor ? "/auth/2fa/verify" : "/auth/login"}`,
+      const response = await publicFetch(
+        completingTwoFactor ? "/auth/2fa/verify" : "/auth/login",
         {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -275,8 +274,7 @@ export default function LoginScreen() {
     setResending(true);
     setError("");
     try {
-      const apiBase = getApiBaseUrl();
-      const response = await fetch(`${apiBase}/auth/2fa/resend`, {
+      const response = await publicFetch(`/auth/2fa/resend`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ challengeToken: twoFactorChallenge }),

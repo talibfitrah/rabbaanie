@@ -17,6 +17,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 
+import { publicFetch } from "@/lib/authed-fetch";
 /**
  * Sign-up screen. The app was sign-in only, which left anyone without an
  * account at a dead end — the Play build could not even point them at the
@@ -96,7 +97,7 @@ export default function RegisterScreen() {
     setError("");
     setLoading(true);
     try {
-      const response = await fetch(`${getApiBaseUrl()}/auth/register`, {
+      const response = await publicFetch(`/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

@@ -8,6 +8,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
 import { getApiBaseUrl } from "@/constants/oauth";
 
+import { authedFetch } from "@/lib/authed-fetch";
 /**
  * Contact-the-team / suggestion form (msg 564). Posts to the public
  * /api/feedback endpoint; the admin reads submissions in the admin panel.
@@ -43,7 +44,7 @@ export default function FeedbackScreen() {
     if (!msg) { setError(L3("اكتب رسالتك أولًا.", "Schrijf eerst een bericht.", "Please write a message first.")); return; }
     setSending(true); setError("");
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/feedback`, {
+      const res = await authedFetch(`/api/feedback`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ kind, source: "app", language, message: msg, name: name.trim(), email: email.trim(), userId: (user as any)?.id }),

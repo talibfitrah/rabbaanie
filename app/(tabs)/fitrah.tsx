@@ -12,6 +12,7 @@ import namesData from "@/data/names_of_allah.json";
 import conceptsData from "@/assets/data/concepts.json";
 import { getApiBaseUrl } from "@/constants/oauth";
 
+import { authedFetch } from "@/lib/authed-fetch";
 const FAVORITES_KEY = "fitrah_favorites";
 
 type Lang = "nl" | "en" | "ar";
@@ -1111,7 +1112,7 @@ export default function FitrahScreen() {
     if (misconceptions.length === 0 && !misconceptionsLoading) {
       setMisconceptionsLoading(true);
       const baseUrl = getApiBaseUrl();
-      fetch(`${baseUrl}/api/misconceptions`)
+      authedFetch(`/api/misconceptions`)
         .then(r => r.json())
         .then(data => { if (Array.isArray(data)) setMisconceptions(data); setMisconceptionsLoading(false); })
         .catch(() => setMisconceptionsLoading(false));

@@ -9,6 +9,7 @@ import { getApiBaseUrl } from "@/constants/oauth";
 import { SUPPORT_WHATSAPP } from "@/constants/support";
 import { useRemoteConfig } from "@/hooks/use-remote-config";
 
+import { publicFetch } from "@/lib/authed-fetch";
 /**
  * Technical-support assistant (msg 583/584): the user first chats with a bounded
  * AI that only helps with using the app / technical issues; if it can't resolve
@@ -44,7 +45,7 @@ export default function SupportScreen() {
     setMessages(next); setInput(""); setLoading(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 50);
     try {
-      const res = await fetch(`${getApiBaseUrl()}/api/support/chat`, {
+      const res = await publicFetch(`/api/support/chat`, {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ language, messages: next.filter((m) => m.role !== "assistant" || m !== intro) }),
       });

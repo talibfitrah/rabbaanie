@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { authedFetch } from "@/lib/authed-fetch";
 const LANGUAGE_STORAGE_KEY = "@app_language";
 
 /**
@@ -22,7 +23,7 @@ export async function syncLanguageToServer(lang?: string): Promise<void> {
       language = stored === "ar" || stored === "en" || stored === "nl" ? stored : undefined;
     }
     if (!language) return;
-    await fetch(`${getApiBaseUrl()}/api/trpc/profile.updateLanguage`, {
+    await authedFetch(`/api/trpc/profile.updateLanguage`, {
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify({ json: { language } }),
