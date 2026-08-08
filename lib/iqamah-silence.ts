@@ -10,6 +10,7 @@
 import { Platform } from "react-native";
 import * as Notifications from "expo-notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { timezoneOffsetMs } from "@/lib/tz-offset";
 import {
   calculatePrayerTimes,
   PRAYER_LOCATION_KEY,
@@ -192,10 +193,11 @@ export async function scheduleIqamahSilence(
               showPopup: true,
               ruling: "واجب",
             },
-            ...(Platform.OS === "android" ? { channelId: IQAMAH_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
+            ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
             ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
           },
           trigger: {
+            channelId: IQAMAH_CHANNEL_ID,
             type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: iqamahDate,
           },
@@ -232,10 +234,11 @@ export async function scheduleIqamahSilence(
               showPopup: true,
               ruling: "مستحب",
             },
-            ...(Platform.OS === "android" ? { channelId: IQAMAH_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+            ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
             ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
           },
           trigger: {
+            channelId: IQAMAH_CHANNEL_ID,
             type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: restoreDate,
           },
@@ -354,11 +357,7 @@ function createTriggerDateForIqamah(
   const day = baseDate.getDate() + dayOffset;
 
   const tempDate = new Date(year, month, day, 12, 0, 0);
-  const utcStr = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
-  const tzStr = tempDate.toLocaleString("en-US", { timeZone: timezone });
-  const utcDate = new Date(utcStr);
-  const tzDate = new Date(tzStr);
-  const offsetMs = tzDate.getTime() - utcDate.getTime();
+  const offsetMs = timezoneOffsetMs(tempDate, timezone);
 
   // targetH:targetM is wall-clock in `timezone`; build as UTC wall-clock then
   // subtract the tz offset. (new Date(y,m,d,H,M) would re-apply the device

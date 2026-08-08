@@ -215,7 +215,10 @@ describe("Notifications module", () => {
       await sendTestNotification("en", "takbeer_2");
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.objectContaining({ channelId: prayerChannelId("takbeer_2") }),
+          // On the TRIGGER, not the content: expo ignores channelId on content,
+          // so the old assertion passed while every notification actually played
+          // the default system sound instead of the adhan (found on device).
+          trigger: expect.objectContaining({ channelId: prayerChannelId("takbeer_2") }),
         }),
       );
     });
@@ -224,7 +227,7 @@ describe("Notifications module", () => {
       await sendTestNotification("en");
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
         expect.objectContaining({
-          content: expect.objectContaining({ channelId: prayerChannelId(DEFAULT_NOTIFICATION_PREFS.adhanSound) }),
+          trigger: expect.objectContaining({ channelId: prayerChannelId(DEFAULT_NOTIFICATION_PREFS.adhanSound) }),
         }),
       );
     });

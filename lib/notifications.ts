@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { timezoneOffsetMs } from "@/lib/tz-offset";
 import {
   calculatePrayerTimes,
   PRAYER_LOCATION_KEY,
@@ -222,11 +223,16 @@ export async function sendTestNotification(
       body,
       data: { type: "test_reminder", showPopup: true, ruling: "مستحب" },
       ...(Platform.OS === "android"
-        ? { channelId: prayerChannelId(adhanSound), priority: Notifications.AndroidNotificationPriority.MAX }
+        ? { priority: Notifications.AndroidNotificationPriority.MAX }
         : {}),
       ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
     },
-    trigger: null, // immediate
+    // Immediate delivery, but still on the chosen adhan's channel. `channelId`
+    // has no slot on the content — expo reads it from the TRIGGER, and the
+    // channel-aware trigger below is the immediate form (trigger: null would
+    // fall back to expo's default channel and play the system sound instead of
+    // the adhan, which is exactly what shipped).
+    trigger: Platform.OS === "android" ? { channelId: prayerChannelId(adhanSound) } : null,
   });
 }
 
@@ -420,10 +426,11 @@ export async function scheduleAllNotifications(
             title: content.title,
             body: content.body,
             data: { type: "prayer", prayer, showPopup: true, ruling: "واجب" },
-            ...(Platform.OS === "android" ? { channelId: prayerChannelId(prefs.adhanSound), priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
+            ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
             ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
           },
           trigger: {
+            channelId: prayerChannelId(prefs.adhanSound),
             type: Notifications.SchedulableTriggerInputTypes.DATE,
             date: triggerDate,
           },
@@ -449,10 +456,11 @@ export async function scheduleAllNotifications(
               title: content.title,
               body: content.body,
               data: { type: "adhkaar", adhkaarType: "morning", showPopup: true, ruling: "سنة مؤكدة" },
-              ...(Platform.OS === "android" ? { channelId: ADHKAAR_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+              ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
               ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
             },
             trigger: {
+            channelId: ADHKAAR_CHANNEL_ID,
               type: Notifications.SchedulableTriggerInputTypes.DATE,
               date: morningDate,
             },
@@ -477,10 +485,11 @@ export async function scheduleAllNotifications(
               title: content.title,
               body: content.body,
               data: { type: "adhkaar", adhkaarType: "evening", showPopup: true, ruling: "سنة مؤكدة" },
-              ...(Platform.OS === "android" ? { channelId: ADHKAAR_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+              ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
               ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
             },
             trigger: {
+            channelId: ADHKAAR_CHANNEL_ID,
               type: Notifications.SchedulableTriggerInputTypes.DATE,
               date: eveningDate,
             },
@@ -539,11 +548,7 @@ function createTriggerDate(
   const tempDate = new Date(year, month, day, 12, 0, 0); // noon as reference
 
   // Get timezone offset at this date
-  const utcStr = tempDate.toLocaleString("en-US", { timeZone: "UTC" });
-  const tzStr = tempDate.toLocaleString("en-US", { timeZone: timezone });
-  const utcDate = new Date(utcStr);
-  const tzDate = new Date(tzStr);
-  const offsetMs = tzDate.getTime() - utcDate.getTime();
+  const offsetMs = timezoneOffsetMs(tempDate, timezone);
 
   // targetH:targetM is a WALL-CLOCK time in `timezone`. Build it as a UTC
   // wall-clock (Date.UTC), then subtract the tz offset to get the real UTC
@@ -649,10 +654,11 @@ export async function scheduleWeeklyReminder(
         title,
         body,
         data: { type: "weekly_reminder", url: "/(tabs)/weekly", showPopup: true, ruling: "مستحب" },
-        ...(Platform.OS === "android" ? { channelId: WEEKLY_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+        ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
         ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
       },
       trigger: {
+            channelId: WEEKLY_CHANNEL_ID,
         type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
         weekday: prefs.dayOfWeek,
         hour: prefs.hour,
@@ -757,10 +763,11 @@ export async function scheduleInactivityReminder(
         title,
         body,
         data: { type: "inactivity_reminder", url: "/(tabs)", showPopup: true, ruling: "مستحب" },
-        ...(Platform.OS === "android" ? { channelId: INACTIVITY_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+        ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
         ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
       },
       trigger: {
+            channelId: INACTIVITY_CHANNEL_ID,
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: 24 * 60 * 60, // 24 hours
         repeats: false,
@@ -860,10 +867,11 @@ export async function scheduleGoalsIncompleteReminder(
         title,
         body,
         data: { type: GOALS_INCOMPLETE_TYPE, url: "/(tabs)/weekly", showPopup: true, ruling: "مستحب" },
-        ...(Platform.OS === "android" ? { channelId: GOALS_INCOMPLETE_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
+        ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
         ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
       },
       trigger: {
+            channelId: GOALS_INCOMPLETE_CHANNEL_ID,
         type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
         seconds: secondsUntilReminder,
         repeats: false,
@@ -889,3 +897,6 @@ export async function cancelGoalsIncompleteReminder(): Promise<void> {
     }
   } catch {}
 }
+
+/** Exported for tests only — see tests/trigger-date-timezone.test.ts. */
+export const __test_createTriggerDate = createTriggerDate;
