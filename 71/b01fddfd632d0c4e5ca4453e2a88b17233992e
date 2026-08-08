@@ -1,10 +1,10 @@
-.gitignore
-  s_e34c26294b0bd6::t_207afac4a67a9a 91-92
+docs/superpowers/specs/2026-08-08-specialist-impact-measurement-design.md
+  s_e34c26294b0bd6::t_7ac6929cda3501 1-86
 ---
 {
   "schema_version": "authorship/3.0.0",
   "git_ai_version": "1.5.2",
-  "base_commit_sha": "87c6a0df9622d1ad2a0cda599d409ca06124163d",
+  "base_commit_sha": "71b01fddfd632d0c4e5ca4453e2a88b17233992e",
   "prompts": {},
   "sessions": {
     "s_e34c26294b0bd6": {
