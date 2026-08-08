@@ -1,0 +1,111 @@
+lib/adhan-sound-ids.js
+  s_47f5d0fbd22ca6::t_30fce94c76b3df 1-16
+tests/app-state-storage-scoping.test.ts
+  s_47f5d0fbd22ca6::t_2d57bb6db028b6 73,84,86-93,95-108
+  s_47f5d0fbd22ca6::t_8aafefdb218c16 109-121
+  s_47f5d0fbd22ca6::t_f1a5027f90cbef 122-134
+  s_47f5d0fbd22ca6::t_ce48f0cd9b32af 74-83,85,94
+tests/specialist-function-roles.test.ts
+  s_47f5d0fbd22ca6::t_397f10089d3145 1-44
+lib/app-gate.ts
+  s_47f5d0fbd22ca6::t_71505106fd8231 1-42
+tests/notifications.test.ts
+  s_47f5d0fbd22ca6::t_9b697424031d77 97-104
+  s_47f5d0fbd22ca6::t_cc9f0dde98be8a 212,233-246
+  s_47f5d0fbd22ca6::t_13009df17c3572 83-96
+  s_47f5d0fbd22ca6::t_3394fd643cfded 39
+  s_47f5d0fbd22ca6::t_9bce7288a3c337 119,121-125,127-132
+  s_47f5d0fbd22ca6::t_fe06565f328472 31
+  s_47f5d0fbd22ca6::t_e9646a32e830cb 213-232
+lib/notification-settings.ts
+  s_47f5d0fbd22ca6::t_baee0ea1be6d91 310-313
+  s_47f5d0fbd22ca6::t_e2f627c24545e8 282-309,314-324
+app.config.ts
+  s_47f5d0fbd22ca6::t_8b79a788675bd8 126-142,150-154
+  s_47f5d0fbd22ca6::t_43e842248792ea 143-149
+  s_47f5d0fbd22ca6::t_37bf71ba3bb8bb 4-5,10
+  s_47f5d0fbd22ca6::t_fafe58aa220a7c 280
+  s_47f5d0fbd22ca6::t_68c1056fb9415c 13
+app/(tabs)/notification-settings.tsx
+  s_47f5d0fbd22ca6::t_8e5af839905337 300,306-308,316
+  s_47f5d0fbd22ca6::t_f4cd6d621608f9 498
+  s_47f5d0fbd22ca6::t_0aae811c777188 196
+  s_47f5d0fbd22ca6::t_d99e02b0a8816a 506
+  s_47f5d0fbd22ca6::t_cc0693a01585a7 28-29
+  s_47f5d0fbd22ca6::t_0521e78c5ec2ce 199
+app/specialist-chat.tsx
+  s_47f5d0fbd22ca6::t_6b82dfe80ed086 21,29,39-44
+  s_47f5d0fbd22ca6::t_6ccb7ee231160e 107-109
+  s_47f5d0fbd22ca6::t_8180eb1bba1766 110
+app/_layout.tsx
+  s_47f5d0fbd22ca6::t_e2f627c24545e8 78,192,399,473
+  s_47f5d0fbd22ca6::t_121c508a34d474 231-241
+  s_47f5d0fbd22ca6::t_7b70ab33ff310d 204
+  s_47f5d0fbd22ca6::t_81e16fab7cdf7a 242
+  s_47f5d0fbd22ca6::t_f2a275baf31eb3 97
+  s_47f5d0fbd22ca6::t_8d472778263f73 243-253
+tests/advice-prefs.test.ts
+  s_47f5d0fbd22ca6::t_73b1c309463eac 1-40
+lib/notification-channels.ts
+  s_47f5d0fbd22ca6::t_4dacd296041e23 13
+server/db.ts
+  s_47f5d0fbd22ca6::t_8088c8f3e418c5 2319-2350,2359-2360,2370,2402-2403,2409,2423-2424,2430,2444-2445
+lib/specialist-roles.ts
+  s_47f5d0fbd22ca6::t_9e8644bccf0420 1-38
+tests/specialist-roles.test.ts
+  s_47f5d0fbd22ca6::t_964f3cc2ff7d9f 1-30
+lib/app-context.tsx
+  s_47f5d0fbd22ca6::t_f63535002402ce 581-586
+  s_47f5d0fbd22ca6::t_7d65f5fe1a61a8 760
+  s_47f5d0fbd22ca6::t_de92bd19e56ccc 36
+app/permissions-setup.tsx
+  s_47f5d0fbd22ca6::t_301d0eca4fabc1 256
+  s_47f5d0fbd22ca6::t_2edff8b820dd6a 28
+  s_47f5d0fbd22ca6::t_2db18717a23a3a 7
+lib/store.ts
+  s_47f5d0fbd22ca6::t_52be7b9d2aaa97 373-379
+  s_47f5d0fbd22ca6::t_6a4a3077a8c682 322
+  s_47f5d0fbd22ca6::t_c1a91341328fc7 223
+  s_47f5d0fbd22ca6::t_a65c8752fd29e7 366-370
+  s_47f5d0fbd22ca6::t_91287b28b7e2ec 359-365,371-372,380-381
+tests/app-gate.test.ts
+  s_47f5d0fbd22ca6::t_ee2cf18638fe00 1-52
+app/(tabs)/settings.tsx
+  s_47f5d0fbd22ca6::t_31c41d2e86a962 1475,1479
+lib/notifications.ts
+  s_47f5d0fbd22ca6::t_065c3c6b66f740 423
+  s_47f5d0fbd22ca6::t_c56bda555578c1 22-26
+  s_47f5d0fbd22ca6::t_f52f74bf19af98 96-109
+  s_47f5d0fbd22ca6::t_5bcf461b54f9b5 200-204
+  s_47f5d0fbd22ca6::t_80c90bc971d954 41
+  s_47f5d0fbd22ca6::t_ac0562da23b112 81-89
+  s_47f5d0fbd22ca6::t_fdff76f55ecbd2 273-275
+  s_47f5d0fbd22ca6::t_5ae83d9935be4d 206-209,225
+lib/advice-prefs.ts
+  s_47f5d0fbd22ca6::t_e2f627c24545e8 120,123
+app/find-specialist.tsx
+  s_47f5d0fbd22ca6::t_f2d6241738f2fd 21
+  s_47f5d0fbd22ca6::t_af7cd432e03aae 186
+  s_47f5d0fbd22ca6::t_c801da85add35f 291-292
+  s_47f5d0fbd22ca6::t_6515e58b08c10c 56
+  s_47f5d0fbd22ca6::t_3b602e3c56170b 153-163
+  s_47f5d0fbd22ca6::t_b9a3024e46d8af 54,57
+tests/notification-settings.test.ts
+  s_47f5d0fbd22ca6::t_ba27da9b18a0e7 1-60
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "a0193524e405e50a39c2b247da2888aafd4e54c1",
+  "prompts": {},
+  "sessions": {
+    "s_47f5d0fbd22ca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eff4e90f-580d-4819-9e70-eabcdcc6b55a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
