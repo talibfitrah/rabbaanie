@@ -18,6 +18,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
+import { getFunctionRoleLabel } from "@/lib/specialist-roles";
 
 const tx = (lang: string, nl: string, en: string, ar: string) =>
   lang === "ar" ? ar : lang === "en" ? en : nl;
@@ -50,9 +51,10 @@ export default function FindSpecialistScreen() {
   const matchType = findQuery.data?.matchType || "fallback";
   const isLoading = findQuery.isLoading || browseQuery.isLoading;
 
-  const openChat = (specialistId: number, name: string) => {
+  const openChat = (specialistId: number, name: string, functionRoles?: string[]) => {
     if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-    router.push(`/specialist-chat?id=${specialistId}&name=${encodeURIComponent(name)}`);
+    const rolesParam = functionRoles?.length ? `&roles=${encodeURIComponent(functionRoles.join(","))}` : "";
+    router.push(`/specialist-chat?id=${specialistId}&name=${encodeURIComponent(name)}${rolesParam}`);
   };
 
   const callPhone = (phone: string) => {
@@ -148,6 +150,17 @@ export default function FindSpecialistScreen() {
               )}
             </View>
 
+            {/* Function roles (father/mother/imam/doctor/etc.) */}
+            {Array.isArray(spec.functionRoles) && spec.functionRoles.length > 0 && (
+              <View style={[s.expertiseRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                {spec.functionRoles.map((role: string) => (
+                  <View key={role} style={s.roleTag}>
+                    <Text style={s.roleText}>{getFunctionRoleLabel(role, lang as "ar" | "en" | "nl")}</Text>
+                  </View>
+                ))}
+              </View>
+            )}
+
             {/* Expertise */}
             {spec.expertise && (
               <View style={[s.expertiseRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -170,7 +183,7 @@ export default function FindSpecialistScreen() {
             <View style={[s.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <TouchableOpacity
                 style={[s.chatBtn, { backgroundColor: "#2E7D32" }]}
-                onPress={() => openChat(spec.userId || spec.user?.id, spec.displayName || spec.user?.name || "Specialist")}
+                onPress={() => openChat(spec.userId || spec.user?.id, spec.displayName || spec.user?.name || "Specialist", spec.functionRoles)}
               >
                 <MaterialIcons name="chat" size={18} color="#fff" />
                 <Text style={s.chatBtnText}>
@@ -275,6 +288,8 @@ const s = StyleSheet.create({
   expertiseRow: { flexWrap: "wrap", gap: 6, marginBottom: 8 },
   expertiseTag: { backgroundColor: "#E8F5E9", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
   expertiseText: { fontSize: 11, color: "#2E7D32", fontWeight: "500" },
+  roleTag: { backgroundColor: "#E3F2FD", paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+  roleText: { fontSize: 11, color: "#1565C0", fontWeight: "500" },
   bioText: { fontSize: 13, lineHeight: 19, marginBottom: 12 },
   actionRow: { gap: 10, marginTop: 4 },
   chatBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },

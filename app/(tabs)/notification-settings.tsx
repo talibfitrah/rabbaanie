@@ -25,6 +25,8 @@ import {
   NATURE_SOUND_OPTIONS,
   type AdhanSoundOption,
   type NatureSoundOption,
+  MIN_MINUTES_BEFORE,
+  MAX_MINUTES_BEFORE,
 } from "@/lib/notifications";
 import {
   loadIqamahSilencePrefs,
@@ -191,10 +193,10 @@ export default function NotificationSettingsScreen() {
     if (Platform.OS === "web") return;
     const granted = await requestNotificationPermissions();
     if (!granted) { setNotifPermissionDenied(true); return; }
-    await sendTestNotification(language as "nl" | "en" | "ar");
+    await sendTestNotification(language as "nl" | "en" | "ar", notifPrefs.adhanSound);
     getScheduledCount().then(setNotifScheduledCount);
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
-  }, [language]);
+  }, [language, notifPrefs]);
 
   // Fire a full-screen (alarm-style) test — survives Samsung sleep and shows
   // centre-screen even over the lock screen (Notifee full-screen intent).
@@ -295,12 +297,15 @@ export default function NotificationSettingsScreen() {
       const { sound } = await Audio.Sound.createAsync(source, { shouldPlay: true, volume: 1.0 });
       audioRef.current = sound;
       sound.setOnPlaybackStatusUpdate((status: any) => {
-        if (status.didJustFinish || (status.positionMillis && status.positionMillis >= 5000)) {
+        if (status.didJustFinish) {
           sound.stopAsync().then(() => sound.unloadAsync()).catch(() => {});
           audioRef.current = null;
           setPlayingSound(null);
         }
       });
+      // Safety net only (not a preview length cap) — stops a stuck/corrupt
+      // clip that never fires didJustFinish. Comfortably longer than any
+      // bundled preview so it never cuts a real playback short.
       setTimeout(async () => {
         try {
           if (audioRef.current === sound) {
@@ -308,7 +313,7 @@ export default function NotificationSettingsScreen() {
             audioRef.current = null; setPlayingSound(null);
           }
         } catch {}
-      }, 5000);
+      }, 60000);
     } catch { setPlayingSound(null); }
   }, [playingSound]);
 
@@ -490,7 +495,7 @@ export default function NotificationSettingsScreen() {
               {t("notif.minutes_before")}
             </Text>
             <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 }}>
-              <Pressable onPress={() => { if (notifPrefs.minutesBefore > 0) handleMinutesBefore(notifPrefs.minutesBefore - 1); }}
+              <Pressable onPress={() => { if (notifPrefs.minutesBefore > MIN_MINUTES_BEFORE) handleMinutesBefore(notifPrefs.minutesBefore - 1); }}
                 style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
                 <MaterialIcons name="remove" size={20} color={colors.primary} />
               </Pressable>
@@ -498,7 +503,7 @@ export default function NotificationSettingsScreen() {
                 <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>{notifPrefs.minutesBefore}</Text>
                 <Text style={{ fontSize: 10, color: colors.muted }}>{getLabel("دقيقة", "min", "min")}</Text>
               </View>
-              <Pressable onPress={() => { if (notifPrefs.minutesBefore < 120) handleMinutesBefore(notifPrefs.minutesBefore + 1); }}
+              <Pressable onPress={() => { if (notifPrefs.minutesBefore < MAX_MINUTES_BEFORE) handleMinutesBefore(notifPrefs.minutesBefore + 1); }}
                 style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
                 <MaterialIcons name="add" size={20} color={colors.primary} />
               </Pressable>

@@ -220,6 +220,7 @@ export interface AppState {
   locationSettings: LocationSettings;
   dailyCheckins: DailyCheckin[];
   dailyTipCompletions: DailyTipCompletion[];
+  permissionsSetupCompleted: boolean;
 }
 
 // ============ DAILY TIP COMPLETIONS ============
@@ -318,6 +319,7 @@ export const defaultAppState: AppState = {
   locationSettings: defaultLocationSettings,
   dailyCheckins: [],
   dailyTipCompletions: [],
+  permissionsSetupCompleted: false,
 };
 
 // ============ STORAGE FUNCTIONS ============
@@ -353,6 +355,29 @@ export async function loadAppState(userId: number | null, options: { migrateLega
         console.error("Corrupt state data, resetting:", parseError);
         await AsyncStorage.removeItem(key);
         return defaultAppState;
+      }
+      // One-time adoption of the pre-AppState @permissions_setup_completed
+      // flag (used to live in its own device-wide AsyncStorage key, written
+      // by app/permissions-setup.tsx before that screen's completion state
+      // moved onto AppState). Same cold-start-only guard as the legacy-blob
+      // migration above and for the same reason: the old key was never
+      // account-scoped, so a login-time fallback read could otherwise hand
+      // one account's completion to a different one that hydrates next.
+      // Accepted tradeoff, same shape as the blob migration above: on a
+      // device that had multiple accounts before this upgrade, the old
+      // key can only be truthfully attributed to "whichever account
+      // hydrates first" — it was never recorded per-account to begin with,
+      // and there's no way to recover that after the fact.
+      if (parsed.permissionsSetupCompleted === undefined && userId != null && options.migrateLegacy) {
+        const legacyDone = await AsyncStorage.getItem("@permissions_setup_completed");
+        if (legacyDone === "true") {
+          parsed.permissionsSetupCompleted = true;
+          // Persist the adoption before discarding the only other copy of
+          // this signal below — otherwise it lives only in this call's
+          // return value and is gone for good on the very next cold start.
+          await AsyncStorage.setItem(key, JSON.stringify(parsed));
+        }
+        await AsyncStorage.removeItem("@permissions_setup_completed");
       }
       // Merge with defaults to handle schema migrations (new fields)
       return {

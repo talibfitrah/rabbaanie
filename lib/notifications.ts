@@ -10,7 +10,6 @@ import {
   type CalcMethod,
   type PrayerTimesResult,
 } from "./prayer-data";
-
 // ============ STORAGE KEYS ============
 
 export const NOTIFICATION_PREFS_KEY = "@notification_prefs";
@@ -19,6 +18,11 @@ export const NOTIFICATION_PREFS_KEY = "@notification_prefs";
 
 export type AdhanSoundOption = "takbeer_1" | "takbeer_2" | "takbeer_3";
 export type NatureSoundOption = "water_stream" | "birds_chirp" | "wind_gentle" | "rain_soft";
+
+// Lead-time bounds for "remind me N minutes before prayer" — shared by the
+// load-time clamp below and the stepper buttons in notification-settings.tsx.
+export const MIN_MINUTES_BEFORE = 1;
+export const MAX_MINUTES_BEFORE = 10;
 
 export interface NotificationPrefs {
   enabled: boolean;
@@ -34,7 +38,7 @@ export interface NotificationPrefs {
     morning: boolean;
     evening: boolean;
   };
-  minutesBefore: number; // 0, 5, 10, or 15
+  minutesBefore: number; // 1-10
   adhanSound: AdhanSoundOption; // Sound for prayer notifications
   natureSound: NatureSoundOption; // Sound for other notifications (adhkaar, reminders)
 }
@@ -74,23 +78,35 @@ export const NATURE_SOUND_OPTIONS: { id: NatureSoundOption; nameAr: string; name
 
 // ============ NOTIFICATION CHANNELS (Android) ============
 
-const PRAYER_CHANNEL_ID = "prayer_times_v2";
+// One immutable channel per adhan sound choice — Android never lets an
+// existing channel's sound change, so switching the user's preference means
+// switching which pre-created channel gets used, not editing prayer_times_v2
+// (now legacy, see LEGACY_CHANNEL_IDS in notification-channels.ts). The raw
+// resource filename must match the AdhanSoundOption id exactly (see the
+// withAdhanSoundResources config plugin in app.config.ts).
+export function prayerChannelId(sound: AdhanSoundOption): string {
+  return `prayer_times_v3_${sound}`;
+}
 const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
 const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
 
-  await Notifications.setNotificationChannelAsync(PRAYER_CHANNEL_ID, {
-    name: "Gebedstijden / Prayer Times",
-    importance: Notifications.AndroidImportance.MAX,
-    vibrationPattern: [0, 250, 250, 250],
-    sound: "default",
-    bypassDnd: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
-    enableLights: true,
-    lightColor: "#1B4332",
-  });
+  await Promise.all(
+    ADHAN_SOUND_OPTIONS.map(({ id: sound }) =>
+      Notifications.setNotificationChannelAsync(prayerChannelId(sound), {
+        name: `Gebedstijden / Prayer Times (${sound})`,
+        importance: Notifications.AndroidImportance.MAX,
+        vibrationPattern: [0, 250, 250, 250],
+        sound,
+        bypassDnd: true,
+        lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+        enableLights: true,
+        lightColor: "#1B4332",
+      }),
+    ),
+  );
 
   await Notifications.setNotificationChannelAsync(ADHKAAR_CHANNEL_ID, {
     name: "Adhkaar Herinneringen / Adhkaar Reminders",
@@ -181,10 +197,16 @@ export async function maybePromptBatteryOptimization(): Promise<void> {
 /**
  * Fire an immediate high-priority notification so the user can verify on-device,
  * right now, that notifications pop up (heads-up) and play a sound — without
- * waiting for a prayer time. Uses the prayer channel (MAX importance + sound)
- * and showPopup so the in-app centre popup is demonstrated too.
+ * waiting for a prayer time. Uses the prayer channel for the given adhanSound
+ * (MAX importance + that sound specifically) so the preview matches what a
+ * real prayer notification actually plays. The popup is guaranteed via
+ * resolveShouldShowPopup's type === "test_reminder" special case, not by the
+ * showPopup field on this notification's data payload.
  */
-export async function sendTestNotification(language: "nl" | "en" | "ar" = "ar"): Promise<void> {
+export async function sendTestNotification(
+  language: "nl" | "en" | "ar" = "ar",
+  adhanSound: AdhanSoundOption = DEFAULT_NOTIFICATION_PREFS.adhanSound,
+): Promise<void> {
   if (Platform.OS === "web") return;
   const title =
     language === "ar" ? "🔔 إشعار تجريبي" : language === "en" ? "🔔 Test notification" : "🔔 Testmelding";
@@ -200,7 +222,7 @@ export async function sendTestNotification(language: "nl" | "en" | "ar" = "ar"):
       body,
       data: { type: "test_reminder", showPopup: true, ruling: "مستحب" },
       ...(Platform.OS === "android"
-        ? { channelId: PRAYER_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX }
+        ? { channelId: prayerChannelId(adhanSound), priority: Notifications.AndroidNotificationPriority.MAX }
         : {}),
       ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
     },
@@ -248,6 +270,9 @@ export async function loadNotificationPrefs(): Promise<NotificationPrefs> {
     maghrib: true,
     isha: true,
   };
+  prefs.minutesBefore = Number.isFinite(prefs.minutesBefore)
+    ? Math.min(MAX_MINUTES_BEFORE, Math.max(MIN_MINUTES_BEFORE, prefs.minutesBefore))
+    : DEFAULT_NOTIFICATION_PREFS.minutesBefore;
   return prefs;
 }
 
@@ -293,17 +318,6 @@ function getNotificationContent(
   language: "nl" | "en" | "ar"
 ): { title: string; body: string } {
   const name = language === "ar" ? PRAYER_NAMES_AR[prayer] : language === "en" ? PRAYER_NAMES_EN[prayer] : PRAYER_NAMES_NL[prayer];
-
-  if (minutesBefore === 0) {
-    return {
-      title: language === "ar" ? `${name} - وقت الصلاة` : language === "en" ? `${name} - Prayer Time` : `${name} - Gebedstijd`,
-      body: language === "ar"
-        ? `حان وقت صلاة ${name} (${time})`
-        : language === "en"
-        ? `It's time for ${name} (${time})`
-        : `Het is tijd voor ${name} (${time})`,
-    };
-  }
 
   return {
     title: language === "ar" ? `${name} بعد ${minutesBefore} دقائق` : language === "en" ? `${name} in ${minutesBefore} min` : `${name} over ${minutesBefore} min`,
@@ -406,7 +420,7 @@ export async function scheduleAllNotifications(
             title: content.title,
             body: content.body,
             data: { type: "prayer", prayer, showPopup: true, ruling: "واجب" },
-            ...(Platform.OS === "android" ? { channelId: PRAYER_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
+            ...(Platform.OS === "android" ? { channelId: prayerChannelId(prefs.adhanSound), priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
             ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
           },
           trigger: {

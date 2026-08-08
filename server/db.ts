@@ -2316,30 +2316,48 @@ export async function getSpecialistProfile(userId: number) {
 }
 
 /** Get all available specialists with their profiles */
-export async function getAvailableSpecialists() {
+type SpecialistDeps = { getUserFunctions?: typeof getUserFunctions };
+
+/** Shared by all 4 specialist-listing functions below: looks up a profile's
+ * user record and function roles, and shapes the combined result. Returns
+ * null when the profile's user row is missing (mirrors each call site's
+ * pre-existing "skip if no user row" behavior). Takes an injectable
+ * getUserFunctions so callers can unit test the enrichment shape without a
+ * live DB. */
+export async function attachSpecialistUser(
+  db: NonNullable<Awaited<ReturnType<typeof getDb>>>,
+  profile: any,
+  deps: SpecialistDeps = {},
+) {
+  const getFunctions = deps.getUserFunctions ?? getUserFunctions;
+  const userRows = await db
+    .select()
+    .from(users)
+    .where(eq(users.id, profile.userId));
+  if (userRows.length === 0) return null;
+  const functions = await getFunctions(profile.userId);
+  return {
+    ...profile,
+    user: {
+      id: userRows[0].id,
+      name: userRows[0].name,
+      email: userRows[0].email,
+    },
+    functionRoles: functions.map((f: any) => f.functionRole),
+  };
+}
+
+export async function getAvailableSpecialists(deps: SpecialistDeps = {}) {
   const db = await getDb();
   if (!db) return [];
   const profiles = await db
     .select()
     .from(specialistProfiles)
     .where(eq(specialistProfiles.isAvailable, true));
-  // Get user info for each specialist
   const result = [];
   for (const profile of profiles) {
-    const userRows = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, profile.userId));
-    if (userRows.length > 0) {
-      result.push({
-        ...profile,
-        user: {
-          id: userRows[0].id,
-          name: userRows[0].name,
-          email: userRows[0].email,
-        },
-      });
-    }
+    const enriched = await attachSpecialistUser(db, profile, deps);
+    if (enriched) result.push(enriched);
   }
   return result;
 }
@@ -2349,6 +2367,7 @@ export async function findNearestSpecialist(
   lat: number,
   lon: number,
   excludeIds: number[] = [],
+  deps: SpecialistDeps = {},
 ) {
   const db = await getDb();
   if (!db) return [];
@@ -2378,29 +2397,16 @@ export async function findNearestSpecialist(
     })
     .sort((a, b) => a.distance - b.distance);
 
-  // Get user info for each
   const result = [];
   for (const profile of withDistance) {
-    const userRows = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, profile.userId));
-    if (userRows.length > 0) {
-      result.push({
-        ...profile,
-        user: {
-          id: userRows[0].id,
-          name: userRows[0].name,
-          email: userRows[0].email,
-        },
-      });
-    }
+    const enriched = await attachSpecialistUser(db, profile, deps);
+    if (enriched) result.push(enriched);
   }
   return result;
 }
 
 /** Find specialists by city */
-export async function findSpecialistsByCity(city: string) {
+export async function findSpecialistsByCity(city: string, deps: SpecialistDeps = {}) {
   const db = await getDb();
   if (!db) return [];
   const profiles = await db
@@ -2414,26 +2420,14 @@ export async function findSpecialistsByCity(city: string) {
     );
   const result = [];
   for (const profile of profiles) {
-    const userRows = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, profile.userId));
-    if (userRows.length > 0) {
-      result.push({
-        ...profile,
-        user: {
-          id: userRows[0].id,
-          name: userRows[0].name,
-          email: userRows[0].email,
-        },
-      });
-    }
+    const enriched = await attachSpecialistUser(db, profile, deps);
+    if (enriched) result.push(enriched);
   }
   return result;
 }
 
 /** Find specialists by country */
-export async function findSpecialistsByCountry(country: string) {
+export async function findSpecialistsByCountry(country: string, deps: SpecialistDeps = {}) {
   const db = await getDb();
   if (!db) return [];
   const profiles = await db
@@ -2447,20 +2441,8 @@ export async function findSpecialistsByCountry(country: string) {
     );
   const result = [];
   for (const profile of profiles) {
-    const userRows = await db
-      .select()
-      .from(users)
-      .where(eq(users.id, profile.userId));
-    if (userRows.length > 0) {
-      result.push({
-        ...profile,
-        user: {
-          id: userRows[0].id,
-          name: userRows[0].name,
-          email: userRows[0].email,
-        },
-      });
-    }
+    const enriched = await attachSpecialistUser(db, profile, deps);
+    if (enriched) result.push(enriched);
   }
   return result;
 }

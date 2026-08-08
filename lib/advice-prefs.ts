@@ -117,10 +117,10 @@ export async function loadLastAdviceTitle(): Promise<string | null> {
 export async function loadWidgetEnabled(): Promise<boolean> {
   try {
     const val = await AsyncStorage.getItem(WIDGET_NOTIFICATION_KEY);
-    if (val === null) return false; // default: disabled
+    if (val === null) return true; // default: enabled
     return val === "true";
   } catch {
-    return false;
+    return true;
   }
 }
 

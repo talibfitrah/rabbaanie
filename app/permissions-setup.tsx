@@ -3,10 +3,8 @@ import { View, Text, ScrollView, Pressable, Platform, Linking, ActivityIndicator
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useI18n } from "@/lib/i18n";
-
-const PERMISSIONS_COMPLETED_KEY = "@permissions_setup_completed";
+import { useAppState } from "@/lib/app-context";
 
 type PermissionStatus = "granted" | "denied" | "undetermined" | "unavailable";
 
@@ -27,6 +25,7 @@ export default function PermissionsSetupScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { language, isRTL } = useI18n();
+  const { completePermissionsSetup } = useAppState();
   const lang = language as "ar" | "en" | "nl";
   const [permissions, setPermissions] = useState<PermissionItem[]>([]);
   const [checking, setChecking] = useState(true);
@@ -254,7 +253,7 @@ export default function PermissionsSetupScreen() {
   };
 
   const handleContinue = async () => {
-    await AsyncStorage.setItem(PERMISSIONS_COMPLETED_KEY, "true");
+    await completePermissionsSetup();
     router.replace("/(tabs)/" as any);
   };
 

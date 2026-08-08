@@ -1472,11 +1472,11 @@ export default function SettingsScreen() {
           opacity: pressed ? 0.8 : 1,
         }]}
       >
-        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, flex: 1 }}>
           <View style={{ width: 44, height: 44, borderRadius: 12, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
             <MaterialIcons name="notifications-active" size={24} color={colors.primary} />
           </View>
-          <View>
+          <View style={{ flex: 1 }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
               {language === "ar" ? "جميع الإشعارات والتذكيرات" : isEn ? "All Notifications & Reminders" : "Alle meldingen & herinneringen"}
             </Text>

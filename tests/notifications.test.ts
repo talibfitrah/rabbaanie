@@ -28,6 +28,7 @@ vi.mock("react-native", () => ({
 }));
 
 import {
+  prayerChannelId,
   DEFAULT_NOTIFICATION_PREFS,
   loadNotificationPrefs,
   saveNotificationPrefs,
@@ -35,6 +36,7 @@ import {
   requestNotificationPermissions,
   scheduleAllNotifications,
   getScheduledCount,
+  sendTestNotification,
   type NotificationPrefs,
 } from "../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -78,6 +80,28 @@ describe("Notifications module", () => {
       const prefs = await loadNotificationPrefs();
       expect(prefs).toEqual(DEFAULT_NOTIFICATION_PREFS);
     });
+
+    it("clamps an out-of-range stored minutesBefore down to 10", async () => {
+      const stored: Partial<NotificationPrefs> = { minutesBefore: 45 };
+      (AsyncStorage.getItem as any).mockResolvedValue(JSON.stringify(stored));
+      const prefs = await loadNotificationPrefs();
+      expect(prefs.minutesBefore).toBe(10);
+    });
+
+    it("clamps an out-of-range stored minutesBefore up to 1", async () => {
+      const stored: Partial<NotificationPrefs> = { minutesBefore: 0 };
+      (AsyncStorage.getItem as any).mockResolvedValue(JSON.stringify(stored));
+      const prefs = await loadNotificationPrefs();
+      expect(prefs.minutesBefore).toBe(1);
+    });
+
+    it("does not let a non-numeric stored minutesBefore produce NaN", async () => {
+      const stored = { minutesBefore: "banana" };
+      (AsyncStorage.getItem as any).mockResolvedValue(JSON.stringify(stored));
+      const prefs = await loadNotificationPrefs();
+      expect(Number.isNaN(prefs.minutesBefore)).toBe(false);
+      expect(prefs.minutesBefore).toBe(DEFAULT_NOTIFICATION_PREFS.minutesBefore);
+    });
   });
 
   describe("saveNotificationPrefs", () => {
@@ -92,12 +116,20 @@ describe("Notifications module", () => {
   });
 
   describe("setupNotificationChannels", () => {
-    it("creates channels on Android", async () => {
+    it("creates one prayer channel per adhan sound, plus adhkaar and weekly", async () => {
       await setupNotificationChannels();
-      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(3);
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(5);
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
-        "prayer_times_v2",
-        expect.objectContaining({ name: "Gebedstijden / Prayer Times" })
+        prayerChannelId("takbeer_1"),
+        expect.objectContaining({ sound: "takbeer_1" })
+      );
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        prayerChannelId("takbeer_2"),
+        expect.objectContaining({ sound: "takbeer_2" })
+      );
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        prayerChannelId("takbeer_3"),
+        expect.objectContaining({ sound: "takbeer_3" })
       );
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         "adhkaar_reminders_v2",
@@ -175,6 +207,41 @@ describe("Notifications module", () => {
       ]);
       const count = await getScheduledCount();
       expect(count).toBe(3);
+    });
+  });
+
+  describe("sendTestNotification", () => {
+    it("schedules on the channel for the passed adhan sound", async () => {
+      await sendTestNotification("en", "takbeer_2");
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.objectContaining({ channelId: prayerChannelId("takbeer_2") }),
+        }),
+      );
+    });
+
+    it("falls back to the default adhan sound when none is passed", async () => {
+      await sendTestNotification("en");
+      expect(Notifications.scheduleNotificationAsync).toHaveBeenCalledWith(
+        expect.objectContaining({
+          content: expect.objectContaining({ channelId: prayerChannelId(DEFAULT_NOTIFICATION_PREFS.adhanSound) }),
+        }),
+      );
+    });
+  });
+
+  describe("prayerChannelId", () => {
+    it("gives each adhan sound choice a distinct channel id", () => {
+      const ids = new Set([
+        prayerChannelId("takbeer_1"),
+        prayerChannelId("takbeer_2"),
+        prayerChannelId("takbeer_3"),
+      ]);
+      expect(ids.size).toBe(3);
+    });
+
+    it("is stable for the same sound choice", () => {
+      expect(prayerChannelId("takbeer_2")).toBe(prayerChannelId("takbeer_2"));
     });
   });
 });

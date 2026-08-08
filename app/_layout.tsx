@@ -75,7 +75,7 @@ import { refreshAllWidgets } from "@/widgets/widgetSync";
 if (Platform.OS === "android") {
   require("@/widgets/widgetTaskHandler");
 }
-import { loadUnifiedNotifPrefs } from "@/lib/notification-settings";
+import { loadUnifiedNotifPrefs, resolveShouldShowPopup } from "@/lib/notification-settings";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -94,6 +94,7 @@ import {
   readStoredAgeGateStatus,
   useAgeGate,
 } from "@/lib/age-gate";
+import { resolvePendingRedirect } from "@/lib/app-gate";
 import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import * as NativeAuth from "@/lib/_core/auth";
 
@@ -188,6 +189,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const [showAnimatedSplash, setShowAnimatedSplash] = useState(true);
   // Register push notifications when authenticated
   usePushNotifications(isAuthenticated && ageStatus === "adult");
+
   // Safety timeout: if auth loading takes more than 5 seconds, treat as unauthenticated
   useEffect(() => {
     if (!loading) return;
@@ -199,6 +201,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   }, [loading]);
 
   const segment = segments[0] as string | undefined;
+
   // Computed during render (pure function) so gated children never mount for
   // even one frame when a redirect applies — e.g. a minor deep-linking past
   // the age gate.
@@ -225,16 +228,29 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const profileDone = appLoading
     ? true
     : isProfileComplete({ parentProfile: appState?.parentProfile, children: appState?.children });
-  const needsOnboarding =
-    !gateRedirect &&
-    !ageLoading &&
-    !(loading && !timedOut) &&
-    ageStatus === "adult" &&
-    isAuthenticated &&
-    !profileDone &&
-    !inSetup;
+  // permissionsSetupCompleted lives on AppState (lib/store.ts), not a
+  // separate AsyncStorage key read once on AuthGate's mount — that was tried
+  // first and needed a new special-cased re-read trigger for every path that
+  // could invalidate it (logout, account switch, "reset all data"), missing
+  // several. AppState already solves exactly this: useAppState() reflects
+  // whatever persist()/resetState() last set, immediately, on every render,
+  // for every one of those paths, since they already route through it for
+  // parentProfile/onboardingCompleted. appLoading is treated as "done" the
+  // same way profileDone above is, so this never flashes true before the
+  // real per-account value has loaded.
+  const permissionsSetupDone = appLoading ? true : Boolean(appState?.permissionsSetupCompleted);
 
-  const pendingRedirect = needsOnboarding ? "/onboarding" : gateRedirect;
+  const pendingRedirect = resolvePendingRedirect({
+    gateRedirect,
+    ageLoading,
+    loading,
+    timedOut,
+    ageStatus,
+    isAuthenticated,
+    profileDone,
+    permissionsSetupDone,
+    inSetup,
+  });
 
   useEffect(() => {
     if (ageLoading || (loading && !timedOut)) return;
@@ -380,66 +396,7 @@ export default function RootLayout() {
 
         // Check if this notification should show as popup
         const prefs = await loadUnifiedNotifPrefs();
-        let shouldPopup = false;
-        let category: string | null = null;
-
-        // Determine category from notification type
-        if (type.includes("prayer") || type.includes("adhan")) {
-          category = "prayer";
-        } else if (
-          type.includes("adhkaar") ||
-          type.includes("adhkar") ||
-          type.includes("morning") ||
-          type.includes("evening")
-        ) {
-          category = "adhkar";
-        } else if (
-          type.includes("muraqaba") ||
-          type.includes("ikhlas") ||
-          type.includes("khushoo") ||
-          type.includes("istighfar") ||
-          type.includes("iman") ||
-          type.includes("faith") ||
-          type.includes("friday")
-        ) {
-          category = "iman";
-        } else if (
-          type.includes("tarbiya") ||
-          type.includes("dua_children") ||
-          type.includes("spouse") ||
-          type.includes("daily_goal")
-        ) {
-          category = "tarbiya";
-        } else if (type.includes("iqamah")) {
-          category = "iqamah";
-        } else if (type.includes("weekly") || type.includes("goals")) {
-          category = "weekly";
-        } else if (
-          type.includes("qiyam") ||
-          type.includes("night") ||
-          type.includes("last_third")
-        ) {
-          category = "night";
-        } else if (
-          type.includes("reminder") ||
-          type.includes("advice") ||
-          type.includes("inactivity")
-        ) {
-          category = "reminders";
-        }
-
-        // Check display mode
-        if (
-          category &&
-          prefs.displayModes[category as keyof typeof prefs.displayModes]
-        ) {
-          const mode =
-            prefs.displayModes[category as keyof typeof prefs.displayModes];
-          shouldPopup = mode === "popup" || mode === "both";
-        }
-
-        // Also check explicit showPopup flag (for test notifications)
-        if (data.showPopup) shouldPopup = true;
+        const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
 
         if (shouldPopup) {
           const popupNotif: PopupNotification = {
@@ -513,62 +470,7 @@ export default function RootLayout() {
           const data = notif.request.content.data as any;
           if (!data) continue;
 
-          // Determine category
-          const type = data.type || "";
-          let category: string | null = null;
-          if (type.includes("prayer") || type.includes("adhan"))
-            category = "prayer";
-          else if (
-            type.includes("adhkaar") ||
-            type.includes("adhkar") ||
-            type.includes("morning") ||
-            type.includes("evening")
-          )
-            category = "adhkar";
-          else if (
-            type.includes("muraqaba") ||
-            type.includes("ikhlas") ||
-            type.includes("khushoo") ||
-            type.includes("istighfar") ||
-            type.includes("iman") ||
-            type.includes("faith") ||
-            type.includes("friday")
-          )
-            category = "iman";
-          else if (
-            type.includes("tarbiya") ||
-            type.includes("dua_children") ||
-            type.includes("spouse") ||
-            type.includes("daily_goal")
-          )
-            category = "tarbiya";
-          else if (type.includes("iqamah")) category = "iqamah";
-          else if (type.includes("weekly") || type.includes("goals"))
-            category = "weekly";
-          else if (
-            type.includes("qiyam") ||
-            type.includes("night") ||
-            type.includes("last_third")
-          )
-            category = "night";
-          else if (
-            type.includes("reminder") ||
-            type.includes("advice") ||
-            type.includes("inactivity")
-          )
-            category = "reminders";
-
-          // Check if this category should show popup
-          let shouldPopup = false;
-          if (
-            category &&
-            prefs.displayModes[category as keyof typeof prefs.displayModes]
-          ) {
-            const mode =
-              prefs.displayModes[category as keyof typeof prefs.displayModes];
-            shouldPopup = mode === "popup" || mode === "both";
-          }
-          if (data.showPopup) shouldPopup = true;
+          const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
 
           if (shouldPopup) {
             const popupNotif: PopupNotification = {

@@ -279,3 +279,46 @@ export const RULING_BG_COLORS: Record<string, string> = {
   "سنة مؤكدة": "#ECFDF5",
   "مستحب": "#ECFEFF",
 };
+
+// ============ POPUP DECISION ============
+
+const CATEGORY_KEYWORDS: [keyof NotifDisplayModes, string[]][] = [
+  ["prayer", ["prayer", "adhan"]],
+  ["adhkar", ["adhkaar", "adhkar", "morning", "evening"]],
+  ["iman", ["muraqaba", "ikhlas", "khushoo", "istighfar", "iman", "faith", "friday"]],
+  ["tarbiya", ["tarbiya", "dua_children", "spouse", "daily_goal"]],
+  ["iqamah", ["iqamah"]],
+  ["weekly", ["weekly", "goals"]],
+  ["night", ["qiyam", "night", "last_third"]],
+  ["reminders", ["reminder", "advice", "inactivity"]],
+];
+
+function categoryForType(type: string): keyof NotifDisplayModes | null {
+  for (const [category, keywords] of CATEGORY_KEYWORDS) {
+    if (keywords.some((kw) => type.includes(kw))) return category;
+  }
+  return null;
+}
+
+/**
+ * Whether a received notification should show the in-app centre popup.
+ * The test notification (type: "test_reminder") always forces a popup so the
+ * "Test notification" button stays a reliable proof it works, regardless of
+ * whatever display mode the user picked for the "reminders" category.
+ */
+export function resolveShouldShowPopup(
+  // showPopup is intentionally not read here — every notification producer
+  // still sets it (pre-existing, ~30 call sites), but the only forced-popup
+  // case is the test notification itself, matched by type below.
+  data: { type?: string } | null | undefined,
+  displayModes: NotifDisplayModes,
+): boolean {
+  if (!data) return false;
+  if (data.type === "test_reminder") return true;
+
+  const category = categoryForType(data.type || "");
+  if (!category) return false;
+
+  const mode = displayModes[category];
+  return mode === "popup" || mode === "both";
+}

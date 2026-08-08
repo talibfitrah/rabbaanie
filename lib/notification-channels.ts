@@ -10,6 +10,7 @@ import { Platform } from "react-native";
  */
 export const LEGACY_CHANNEL_IDS = [
   "prayer_times",
+  "prayer_times_v2",
   "adhkaar_reminders",
   "weekly_reminders",
   "inactivity_reminder",

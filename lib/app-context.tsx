@@ -33,6 +33,7 @@ interface AppContextType {
   updateReminderSettings: (settings: Partial<ReminderSettings>) => Promise<void>;
   updateLocationSettings: (settings: Partial<LocationSettings>) => Promise<void>;
   completeOnboarding: () => Promise<void>;
+  completePermissionsSetup: () => Promise<void>;
   resetState: () => Promise<void>;
   saveDailyCheckin: (checkin: DailyCheckin) => Promise<void>;
   markTipCompleted: (tipId: string) => Promise<void>;
@@ -577,6 +578,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await persist(newState);
   }, [persist]);
 
+  const completePermissionsSetup = useCallback(async () => {
+    const current = stateRef.current;
+    const newState = { ...current, permissionsSetupCompleted: true };
+    await persist(newState);
+  }, [persist]);
+
   const resetState = useCallback(async () => {
     const user = await Auth.getUserInfo();
     userIdRef.current = user?.id ?? null;
@@ -750,6 +757,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         updateReminderSettings,
         updateLocationSettings,
         completeOnboarding,
+        completePermissionsSetup,
         resetState,
         saveDailyCheckin,
         markTipCompleted,

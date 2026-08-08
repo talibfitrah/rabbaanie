@@ -70,4 +70,66 @@ describe("per-account app state storage", () => {
     expect(mockStorage["opvoedadvies_app_state_9"]).toBeUndefined();
     expect(mockStorage["opvoedadvies_app_state"]).toBeDefined();
   });
+
+  // Pre-upgrade accounts' stored JSON predates the permissionsSetupCompleted
+  // field entirely (it didn't exist in AppState yet), not merely "false" —
+  // simulate that exactly, since JSON.stringify(defaultAppState) would
+  // already include the field and mask the migration path being tested.
+  function oldShapeStateJson(): string {
+    const old: any = { ...defaultAppState };
+    delete old.permissionsSetupCompleted;
+    return JSON.stringify(old);
+  }
+
+  it("adopts the pre-AppState @permissions_setup_completed key into an existing account's state, then deletes it", async () => {
+    mockStorage["opvoedadvies_app_state_10"] = oldShapeStateJson();
+    mockStorage["@permissions_setup_completed"] = "true";
+
+    const loaded = await loadAppState(10, { migrateLegacy: true });
+    expect(loaded.permissionsSetupCompleted).toBe(true);
+    expect(mockStorage["@permissions_setup_completed"]).toBeUndefined();
+  });
+
+  it("does not adopt @permissions_setup_completed on a login-time read (no migrateLegacy)", async () => {
+    mockStorage["opvoedadvies_app_state_11"] = oldShapeStateJson();
+    mockStorage["@permissions_setup_completed"] = "true";
+
+    const loaded = await loadAppState(11);
+    expect(loaded.permissionsSetupCompleted).toBe(false);
+    expect(mockStorage["@permissions_setup_completed"]).toBeDefined();
+  });
+
+  it("never overrides an already-present permissionsSetupCompleted value with the legacy key", async () => {
+    mockStorage["opvoedadvies_app_state_12"] = JSON.stringify({ ...defaultAppState, permissionsSetupCompleted: false });
+    mockStorage["@permissions_setup_completed"] = "true";
+
+    const loaded = await loadAppState(12, { migrateLegacy: true });
+    expect(loaded.permissionsSetupCompleted).toBe(false);
+  });
+
+  it("persists the adopted permissionsSetupCompleted value, not just this call's return value", async () => {
+    mockStorage["opvoedadvies_app_state_13"] = oldShapeStateJson();
+    mockStorage["@permissions_setup_completed"] = "true";
+
+    const first = await loadAppState(13, { migrateLegacy: true });
+    expect(first.permissionsSetupCompleted).toBe(true);
+
+    // The legacy key is already gone — a second load must see the adopted
+    // value from the per-account blob itself, not silently lose it.
+    const second = await loadAppState(13, { migrateLegacy: true });
+    expect(second.permissionsSetupCompleted).toBe(true);
+  });
+
+  it("adopts both the unscoped legacy blob and the pre-AppState permissions flag in one first hydrate", async () => {
+    const old: any = { ...defaultAppState };
+    delete old.permissionsSetupCompleted;
+    mockStorage["opvoedadvies_app_state"] = JSON.stringify(old);
+    mockStorage["@permissions_setup_completed"] = "true";
+
+    const loaded = await loadAppState(20, { migrateLegacy: true });
+    expect(loaded.permissionsSetupCompleted).toBe(true);
+    expect(mockStorage["opvoedadvies_app_state_20"]).toBeDefined();
+    expect(mockStorage["opvoedadvies_app_state"]).toBeUndefined();
+    expect(mockStorage["@permissions_setup_completed"]).toBeUndefined();
+  });
 });

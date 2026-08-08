@@ -18,6 +18,7 @@ import { trpc } from "@/lib/trpc";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { useI18n } from "@/lib/i18n";
+import { getFunctionRoleLabel } from "@/lib/specialist-roles";
 
 const tx = (lang: string, nl: string, en: string, ar: string) =>
   lang === "ar" ? ar : lang === "en" ? en : nl;
@@ -25,7 +26,7 @@ const tx = (lang: string, nl: string, en: string, ar: string) =>
 export default function SpecialistChatScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { id, name } = useLocalSearchParams<{ id: string; name: string }>();
+  const { id, name, roles } = useLocalSearchParams<{ id: string; name: string; roles?: string }>();
   const { user } = useAuth();
   const { language } = useI18n();
   const lang = language || "nl";
@@ -35,6 +36,12 @@ export default function SpecialistChatScreen() {
 
   const specialistId = parseInt(id || "0");
   const specialistName = decodeURIComponent(name || "Specialist");
+  // Only present when opened from find-specialist (chatting WITH a specialist).
+  // Specialist-initiated chats with parents pass no roles and keep the generic
+  // subtitle below — parents don't have a functionRole to show.
+  const specialistRoleLabel = roles
+    ? roles.split(",").map((r) => getFunctionRoleLabel(r, lang as "ar" | "en" | "nl")).join(" • ")
+    : null;
 
   const messagesQuery = trpc.specialist.getMessages.useQuery(
     { specialistId },
@@ -97,10 +104,10 @@ export default function SpecialistChatScreen() {
           <View style={s.headerAvatar}>
             <MaterialIcons name="person" size={20} color="#fff" />
           </View>
-          <View>
-            <Text style={[s.headerName, { color: colors.foreground }]}>{specialistName}</Text>
-            <Text style={[s.headerSubtitle, { color: colors.muted }]}>
-              {tx(lang, "Persoon met kennis", "Person of knowledge", "أهل العلم")}
+          <View style={{ flex: 1 }}>
+            <Text style={[s.headerName, { color: colors.foreground }]} numberOfLines={1}>{specialistName}</Text>
+            <Text style={[s.headerSubtitle, { color: colors.muted }]} numberOfLines={1}>
+              {specialistRoleLabel || tx(lang, "Persoon met kennis", "Person of knowledge", "أهل العلم")}
             </Text>
           </View>
         </View>
