@@ -40,6 +40,7 @@ export default function SpecialistRegisterScreen() {
   const [selectedLanguages, setSelectedLanguages] = useState<string[]>([]);
 
   const registerMutation = trpc.specialist.registerWithCode.useMutation();
+  const utils = trpc.useUtils();
 
   const validateCode = async () => {
     if (!code.trim()) {
@@ -48,12 +49,26 @@ export default function SpecialistRegisterScreen() {
     }
     setLoading(true);
     try {
-      const result = await fetch(`/api/trpc/specialist.validateInvitationCode?input=${encodeURIComponent(JSON.stringify({ code: code.trim() }))}`);
-      // Use trpc directly
+      // Was a bare relative fetch whose result was then thrown away: on web any
+      // string advanced the wizard, and on native the URL had no base at all, so
+      // it always threw and no code could ever be entered from a phone.
+      // staleTime: 0 so a code is re-checked against the server every time. The
+      // default would serve a cached "valid" for a code consumed or revoked
+      // since — an authorization answer must not come out of a client cache.
+      const result = await utils.specialist.validateInvitationCode.fetch(
+        { code: code.trim() },
+        { staleTime: 0 },
+      );
+      if (!result.valid) {
+        Alert.alert("Fout", "Ongeldige of verlopen uitnodigingscode");
+        return;
+      }
       setCodeValid(true);
       setStep("profile");
     } catch (e) {
-      Alert.alert("Fout", "Ongeldige of verlopen uitnodigingscode");
+      // A thrown request is not a rejected code. Telling someone offline that
+      // their code is invalid sends them hunting for a new one.
+      Alert.alert("Fout", "Kon de code niet controleren. Controleer uw internetverbinding en probeer opnieuw.");
     } finally {
       setLoading(false);
     }

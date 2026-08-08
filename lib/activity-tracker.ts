@@ -4,6 +4,7 @@
  * Stores locally and syncs to server periodically
  */
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { authedFetch } from "@/lib/authed-fetch";
 
 const ACTIVITY_KEY = "child_activity_log";
 const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes
@@ -162,7 +163,16 @@ class ActivityTracker {
 
       // Send to server (fire and forget)
       try {
-        const response = await fetch("/api/trpc/childActivity.syncDailySummary", {
+        // Was a bare relative URL, which resolves against the page on web and
+        // against nothing at all on native — so this never once synced from a
+        // phone. authedFetch supplies both the API base and the session.
+        //
+        // TODO: childActivity.syncDailySummary does not exist on the server
+        // (neither repo defines it), so this 404s and the logs are never
+        // cleared. That is bounded — the local log is capped at 500 entries
+        // above — but the summaries go nowhere until the procedure is written.
+        // The transport is now correct; the endpoint is the missing half.
+        const response = await authedFetch("/api/trpc/childActivity.syncDailySummary", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ json: summary }),

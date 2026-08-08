@@ -5,6 +5,23 @@ vi.mock("@/constants/oauth", () => ({
   getApiBaseUrl: () => "http://localhost:3000",
 }));
 
+// weekly-data.ts now routes through publicFetch, whose module graph reaches
+// lib/_core/auth → react-native (Flow source vitest cannot parse) and native
+// storage. Same stubs the other transport-layer suites use.
+vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
+vi.mock("expo-secure-store", () => ({
+  getItemAsync: vi.fn().mockResolvedValue(null),
+  setItemAsync: vi.fn().mockResolvedValue(undefined),
+  deleteItemAsync: vi.fn().mockResolvedValue(undefined),
+}));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: {
+    getItem: vi.fn().mockResolvedValue(null),
+    setItem: vi.fn().mockResolvedValue(undefined),
+    removeItem: vi.fn().mockResolvedValue(undefined),
+  },
+}));
+
 vi.mock("@/lib/offline-cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),
   setCache: vi.fn().mockResolvedValue(undefined),
