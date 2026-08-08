@@ -1,0 +1,43 @@
+app/feedback.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 11,47
+app/login.tsx
+  s_47f5d0fbd22ca6::t_d6fe00e5039407 27,103-104,277
+app/(tabs)/dhikri.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 11,106
+app/forgot-password.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 9,44,86
+tests/api-transport-invariant.test.ts
+  s_47f5d0fbd22ca6::t_8052223780f8b6 70-72,75
+  s_47f5d0fbd22ca6::t_dffe82f45efbc7 1-32,43-69,73-74,76-84
+  s_47f5d0fbd22ca6::t_e5fe93b76d1b18 33-42
+app/register.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 20,100
+app/support.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 12,48
+lib/language-sync.ts
+  s_47f5d0fbd22ca6::t_8052223780f8b6 3,26
+app/(tabs)/fitrah.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 15,1115
+lib/app-context.tsx
+  s_47f5d0fbd22ca6::t_8052223780f8b6 20,66,104,158,479
+lib/server-books.ts
+  s_47f5d0fbd22ca6::t_8052223780f8b6 4,16,34
+lib/authed-fetch.ts
+  s_47f5d0fbd22ca6::t_bf094c168212a1 61-80
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "b8f5f80f03385313423ccc09e393dfa3b6673b98",
+  "prompts": {},
+  "sessions": {
+    "s_47f5d0fbd22ca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eff4e90f-580d-4819-9e70-eabcdcc6b55a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

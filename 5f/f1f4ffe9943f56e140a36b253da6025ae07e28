@@ -1,0 +1,31 @@
+app/(tabs)/personal-advice.tsx
+  s_47f5d0fbd22ca6::t_51fc1b97d20f74 17,607,744
+hooks/use-subscription.ts
+  s_47f5d0fbd22ca6::t_ab986647e59079 13
+  s_47f5d0fbd22ca6::t_785a677c1baa87 3
+lib/authed-fetch.ts
+  s_47f5d0fbd22ca6::t_c04b570d5b1c88 1-36
+tests/paid-endpoint-auth.test.ts
+  s_47f5d0fbd22ca6::t_d1899d13d634c1 1-112
+app/ai-chat.tsx
+  s_47f5d0fbd22ca6::t_51fc1b97d20f74 32,261,312,347,403,449,487,608,610,627,634
+  s_47f5d0fbd22ca6::t_f433382ee39f96 650,655-658,1727-1748
+package.json
+  s_47f5d0fbd22ca6::t_4e45425c277c8e 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5ff1f4ffe9943f56e140a36b253da6025ae07e28",
+  "prompts": {},
+  "sessions": {
+    "s_47f5d0fbd22ca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eff4e90f-580d-4819-9e70-eabcdcc6b55a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
