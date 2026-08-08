@@ -1,0 +1,26 @@
+app/(tabs)/concepts.tsx
+  s_47f5d0fbd22ca6::t_e56472c2104c66 24,1426,1471
+tests/paid-endpoint-auth.test.ts
+  s_47f5d0fbd22ca6::t_e56472c2104c66 107-109,112-115
+  s_47f5d0fbd22ca6::t_5f2afa394fe267 116
+app.config.ts
+  s_47f5d0fbd22ca6::t_946056f8c8a940 164
+package.json
+  s_47f5d0fbd22ca6::t_cd9cee4946155e 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "36cbc9a02d851022d9d7ba13efc47a275066e69f",
+  "prompts": {},
+  "sessions": {
+    "s_47f5d0fbd22ca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eff4e90f-580d-4819-9e70-eabcdcc6b55a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
