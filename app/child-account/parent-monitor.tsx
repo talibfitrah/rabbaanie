@@ -266,6 +266,15 @@ export default function ParentMonitorScreen() {
             <Text style={{ fontSize: 24 }}>{dailySummary?.eveningAdhkarDone ? "✅" : "❌"}</Text>
             <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{language === "ar" ? "أذكار المساء" : "Avond adhkaar"}</Text>
           </View>
+          {/* Screen-time figures are PACKAGE_USAGE_STATS-derived, so they are
+              sideload-only for the same reason the Apps tab is. They sat on the
+              DEFAULT tab of a screen called "monitor", which meant removing the
+              route-level channel block put a screen-time dashboard in front of
+              every Play user — and a Play reviewer — while the Console
+              declaration says the build contains no monitoring UI. On Play
+              nothing collects the numbers either, so it rendered 0 min and an
+              empty chart: a surveillance surface that is also broken. */}
+          {CHILD_MONITORING_ENABLED && (
           <View style={{ flex: 1, minWidth: 100, alignItems: "center", padding: 8 }}>
             <Text style={{ fontSize: 24 }}>⏱️</Text>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 14, marginTop: 4 }}>
@@ -273,6 +282,7 @@ export default function ParentMonitorScreen() {
             </Text>
             <Text style={{ color: colors.muted, fontSize: 11 }}>{language === "ar" ? "وقت الاستخدام" : "Gebruikstijd"}</Text>
           </View>
+          )}
         </View>
         <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
           <View style={{ flex: 1, minWidth: 100, alignItems: "center", padding: 8 }}>
@@ -305,7 +315,8 @@ export default function ParentMonitorScreen() {
           {language === "ar" ? "إحصائيات الأسبوع" : language === "nl" ? "Weekstatistieken" : "Weekly Statistics"}
         </Text>
         
-        {/* Screen Time Bar Chart */}
+        {/* Screen Time Bar Chart — sideload only, see the overview tile above. */}
+        {CHILD_MONITORING_ENABLED && (
         <View style={{ marginBottom: 20 }}>
           <Text style={{ color: colors.muted, fontSize: 12, textAlign, marginBottom: 8 }}>
             {language === "ar" ? "وقت الشاشة (بالدقائق)" : language === "nl" ? "Schermtijd (minuten)" : "Screen Time (minutes)"}
@@ -340,6 +351,7 @@ export default function ParentMonitorScreen() {
             })()}
           </View>
         </View>
+        )}
 
         {/* Tasks Completion Chart */}
         <View style={{ marginBottom: 20 }}>
@@ -423,12 +435,14 @@ export default function ParentMonitorScreen() {
 
         {/* Weekly Summary Numbers */}
         <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {CHILD_MONITORING_ENABLED && (
           <View style={{ alignItems: "center" }}>
             <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "bold" }}>
               {weeklyData.reduce((sum: number, d: any) => sum + Math.round((d.totalAppUsageSeconds || 0) / 60), 0)}
             </Text>
             <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "دقيقة إجمالي" : "min totaal"}</Text>
           </View>
+          )}
           <View style={{ alignItems: "center" }}>
             <Text style={{ color: colors.success, fontSize: 20, fontWeight: "bold" }}>
               {weeklyData.reduce((sum: number, d: any) => sum + (d.customTasksCompleted || 0), 0)}

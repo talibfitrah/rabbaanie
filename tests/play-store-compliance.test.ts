@@ -424,6 +424,42 @@ describe("Play policy surfaces", () => {
     );
   });
 
+  it("shows no screen-time figures anywhere on the Play build", () => {
+    const monitor = read("app/child-account/parent-monitor.tsx");
+    // Not just the Apps tab. `totalAppUsageSeconds` also fed a usage-time tile,
+    // a 7-day screen-time bar chart and a weekly minutes total on the DEFAULT
+    // tab of parent-monitor, so removing the route-level channel block put a
+    // screen-time dashboard in front of every Play user and every Play
+    // reviewer while the Console declaration says the build has no monitoring
+    // UI. Nothing collects the numbers on Play either, so it rendered 0 min and
+    // an empty chart: a surveillance surface that is also broken.
+    //
+    // Enclosure is computed, not guessed. Proximity ("is there a gate above
+    // this line?") passed when a gate was deleted, because it found the
+    // PREVIOUS block's gate. Counting does not work either — one line names the
+    // identifier twice. So: find each gate's real span by matching its
+    // parenthesis, then require every reference to fall inside one.
+    const spans: Array<[number, number]> = [];
+    const opener = "CHILD_MONITORING_ENABLED && (";
+    for (let i = monitor.indexOf(opener); i !== -1; i = monitor.indexOf(opener, i + 1)) {
+      let depth = 0;
+      for (let j = i + opener.length - 1; j < monitor.length; j++) {
+        if (monitor[j] === "(") depth++;
+        else if (monitor[j] === ")") {
+          depth--;
+          if (depth === 0) { spans.push([i, j]); break; }
+        }
+      }
+    }
+    expect(spans.length).toBeGreaterThan(0);
+    const refs = [...monitor.matchAll(/totalAppUsageSeconds/g)].map((m) => m.index!);
+    expect(refs.length).toBeGreaterThan(0);
+    const ungated = refs
+      .filter((at) => !spans.some(([open, close]) => at > open && at < close))
+      .map((at) => `line ${monitor.slice(0, at).split("\n").length}`);
+    expect(ungated).toEqual([]);
+  });
+
   it("keeps the app-usage monitoring screen out of the Play build", () => {
     const screen = read("app/child-account/usage-permission.tsx");
     // Child mode itself ships on both channels — the child holds no account and
