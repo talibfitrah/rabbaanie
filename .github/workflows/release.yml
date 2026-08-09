@@ -106,46 +106,25 @@ jobs:
           fi
           echo "Sideload build verified: permission present, distribution=github."
 
-      - name: Sign APK
-        env:
-          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
-          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
-          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
-          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
-        run: |
-          # Delete the decrypted keystore no matter how this step exits, and
-          # create it under a restrictive umask so it is never group/world
-          # readable while it exists.
-          trap 'rm -f release.p12' EXIT
-          ( umask 077; echo "$ANDROID_KEYSTORE_BASE64" | base64 -d > release.p12 )
-          BUILD_TOOLS="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)"
-          "$BUILD_TOOLS/apksigner" sign \
-            --ks release.p12 --ks-type PKCS12 \
-            --ks-pass env:ANDROID_KEYSTORE_PASSWORD \
-            --ks-key-alias "$ANDROID_KEY_ALIAS" \
-            --key-pass env:ANDROID_KEY_PASSWORD \
-            --out "rabbaanie-v${APP_VERSION}.apk" \
-            android/app/build/outputs/apk/release/app-release.apk
-          # Pinned signer: a wrong or rotated keystore must fail here rather than
-          # publish an APK that existing installs cannot upgrade to (Android
-          # refuses an update signed by a different key).
-          EXPECTED="d81a74e972038b3096f7a10b811744a476335f98cbc5bf9408ba233e21f35b63"
-          CERTS=$("$BUILD_TOOLS/apksigner" verify --print-certs "rabbaanie-v${APP_VERSION}.apk")
-          echo "$CERTS"
-          # Anchored on "certificate SHA-256 digest" specifically: --print-certs
-          # also emits a public-key digest line, and matching either would make
-          # the pin weaker than it looks.
-          if ! echo "$CERTS" | grep -qi "certificate SHA-256 digest: $EXPECTED"; then
-            echo "APK is not signed by the expected certificate" >&2
-            exit 1
-          fi
-          # grep -q would pass on "expected cert AND some other signer too", so
-          # count as well — the invariant is signed by that cert and nothing else.
-          SIGNERS=$(echo "$CERTS" | grep -ci "certificate SHA-256 digest:" || true)
-          if [ "$SIGNERS" -ne 1 ]; then
-            echo "Expected exactly 1 signer, found $SIGNERS" >&2
-            exit 1
-          fi
+      - name: Name the artifact
+        # NOT re-signed with release.p12. Gradle already signed this APK with
+        # the Expo/RN debug keystore (android/app/build.gradle wires
+        # buildTypes.release to signingConfigs.debug), and that key — not the
+        # release key — is the sideload channel's identity:
+        #   * every sideload install in the wild carries it, and Android refuses
+        #     an update signed by any other key (INSTALL_FAILED_UPDATE_INCOMPATIBLE);
+        #   * the Android OAuth client is registered against its SHA-1, so an
+        #     APK signed with anything else gets DEVELOPER_ERROR (code 10) on
+        #     Google sign-in.
+        # Signing this channel with release.p12 shipped exactly that pair of
+        # failures as v1.4.83 on 2026-08-09. play-release.yml keeps release.p12
+        # — that is the Play upload key and it belongs only there. Unifying the
+        # two identities is possible but needs a v3 signing-lineage rotation
+        # (apksigner rotate), never a bare key swap.
+        run: cp android/app/build/outputs/apk/release/app-release.apk "rabbaanie-v${APP_VERSION}.apk"
+
+      - name: Verify sideload signer
+        run: ./scripts/assert-sideload-artifact.sh "rabbaanie-v${APP_VERSION}.apk"
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@3bb12739c298aeb8a4eeaf626c5b8d85266b0e65 # v2
