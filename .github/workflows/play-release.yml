@@ -8,21 +8,39 @@ name: play-release
 # hand in the Play Console to enrol in Play App Signing and complete the store
 # listing; the AAB is published here as a workflow artifact to download.
 #
-# ACTION REQUIRED AT THAT FIRST SUBMISSION — it cannot be changed afterwards:
-# choose "use an existing key" and upload THIS keystore as the app signing key,
-# rather than letting Google generate one.
+# ACTION REQUIRED AT THAT FIRST SUBMISSION — read both items; the first one
+# used to say the opposite here, on a premise that is not true of this repo.
 #
-# Both channels ship the same applicationId (com.rabbaanie.app). Android refuses
-# an update whose signature differs from the installed one, so if Google mints
-# its own app signing key, Play-delivered installs and the sideload APKs built by
-# release.yml end up signed by different keys under one package name. A user who
-# installed from either channel then gets INSTALL_FAILED_UPDATE_INCOMPATIBLE from
-# the other and has to uninstall first, losing local data and their session.
-# Uploading the existing key keeps one signing identity across both channels.
+# 1. Let Google generate the app signing key. Take the DEFAULT.
 #
-# Trade-off being accepted: Google cannot reset a key it did not generate, so a
-# lost keystore becomes unrecoverable. The keystore therefore needs a backup that
-# does not live only on one laptop and in ANDROID_KEYSTORE_BASE64.
+#    The advice this replaces was "upload release.p12 as the app signing key, so
+#    both channels keep one signing identity". They do not have one to keep. The
+#    sideload APK is signed with android/app/debug.keystore (SHA-1 5e8f1606…) —
+#    stock Expo points the release buildType at signingConfigs.debug, and
+#    release.yml now asserts that debug certificate rather than re-signing.
+#    release.p12 (SHA-1 e7672d89…) has never reached a single user; signing a
+#    sideload build with it broke Google sign-in and bricked in-place updates,
+#    twice (1.4.73, then again as 1.4.83).
+#
+#    So the channels are already irreconcilable: Play cannot accept a
+#    debug-signed upload at all, and Android compares signatures, not versions.
+#    A sideload user must uninstall before installing from Play whichever key is
+#    chosen here. Uploading release.p12 buys nothing for that, and costs the one
+#    thing Google-managed signing is worth: Google cannot reset a key it did not
+#    generate, so a lost keystore would be unrecoverable. release.p12 stays the
+#    UPLOAD key — which Google CAN reset.
+#
+# 2. Register the Play App Signing SHA-1 as an Android OAuth client, or Google
+#    sign-in fails for every Play user with DEVELOPER_ERROR (code 10).
+#
+#    The certificate that reaches a device is Google's app signing key, not the
+#    upload key — a third SHA-1, and it does not exist until the app is created
+#    in Console. Copy it from Play Console → Setup → App signing, then add an
+#    Android OAuth client for package com.rabbaanie.app with that SHA-1 in Google
+#    Cloud project 546852827424. Keep the existing debug-SHA-1 client: it is what
+#    the sideload channel authenticates with, and deleting it breaks that build.
+#    The app surfaces this failure only as "Google sign-in failed. Please try
+#    again.", so it is invisible until a user reports it.
 on:
   push:
     tags: ["v*"]

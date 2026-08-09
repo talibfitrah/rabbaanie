@@ -225,6 +225,32 @@ export default function SubscribeScreen() {
                 <Text style={{ fontSize: 17, fontWeight: "800", color: colors.foreground, marginTop: 8, textAlign: "center" }}>{L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}</Text>
                 {status.expiresAt && !isPerpetualExpiry(status.expiresAt) ? <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text> : null}
                 {status.expiresAt ? <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{formatSubscriptionRemaining(status.expiresAt, language)}</Text> : null}
+                {/* Required, not a nicety: Play's subscription guidance says the
+                    app "should include a link on a settings or preferences
+                    screen that allows users to manage their subscriptions".
+                    Telling them where to cancel in prose (as the purchase card
+                    does) is not the same as giving them the link.
+
+                    Play channel only — a sideload install has no Play
+                    subscription to manage, and its Stripe membership is
+                    cancelled on the website.
+
+                    Not narrowed to source === "play": the generic subscriptions
+                    URL lists whatever the user actually has, so it is right for
+                    a coupon or legacy Stripe member too, and it is the one the
+                    Play reviewer will look for on a demo account whose
+                    membership did not come from Play. */}
+                {DISTRIBUTION_CHANNEL === "github" ? null : (
+                  <TouchableOpacity
+                    accessibilityRole="link"
+                    onPress={() => Linking.openURL("https://play.google.com/store/account/subscriptions").catch(() => {})}
+                    style={{ minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 10 }}
+                  >
+                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "700", textDecorationLine: "underline", textAlign: "center" }}>
+                      {L3("إدارة الاشتراك في Google Play", "Abonnement beheren in Google Play", "Manage subscription in Google Play")}
+                    </Text>
+                  </TouchableOpacity>
+                )}
               </View>
             ) : (
               <View style={{ backgroundColor: "#FFF7E6", borderColor: "#E9C46A", borderWidth: 1.5, borderRadius: 16, padding: 16, marginBottom: 14 }}>

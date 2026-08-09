@@ -297,6 +297,20 @@ export function usePlayBilling(accountTag: string | undefined) {
           // the rare one, and it rejects the fetch rather than returning a
           // status. Without this catch it escapes as an unhandled rejection and
           // the user watches the spinner stop with nothing explaining why.
+          //
+          // Both lines below mirror the `!ok` branch, and for the same reasons —
+          // this path used to set only the message, which made it the one way to
+          // reach "verify_failed" without the state that makes the retry work:
+          //
+          //   outcome stayed null, so a re-tap fell through to requestPurchase()
+          //   instead of re-verifying. Play answers ITEM_ALREADY_OWNED, and
+          //   someone who has paid is told "the purchase could not be completed".
+          //
+          //   the token stayed in settledRef, so Play re-delivering it in this
+          //   session hit the has(token) early return: spinner off, no message,
+          //   no grant.
+          settledRef.current.delete(token);
+          outcomeRef.current = "unverified";
           if (alive && !restore) setError("verify_failed");
         } finally {
           release();

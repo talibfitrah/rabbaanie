@@ -133,6 +133,25 @@ describe("payment channel separation", () => {
     expect(okBranch).toContain('setError("verify_failed")');
   });
 
+  it("treats a verify that never answered like one that refused", () => {
+    const billing = read("lib/play-billing.ts");
+    // A rejected fetch and a server that says no leave the user in the same
+    // place — paid, unverified — so they must leave the SAME state behind, not
+    // just the same message. Setting only the message (which this path did) is
+    // the one way to reach "verify_failed" with a null outcome, and then:
+    //   a re-tap skips the resync, calls requestPurchase for a subscription
+    //   Play already owns, and answers ITEM_ALREADY_OWNED as "the purchase
+    //   could not be completed" — to someone who has paid;
+    //   the token stays deduped, so Play re-delivering it in this session hits
+    //   the has(token) early return and nothing happens at all.
+    const catchAt = billing.indexOf("Losing connectivity right after paying");
+    expect(catchAt).toBeGreaterThan(-1);
+    const block = billing.slice(catchAt, billing.indexOf("} finally {", catchAt));
+    expect(block).toContain("settledRef.current.delete(token);");
+    expect(block).toContain('outcomeRef.current = "unverified";');
+    expect(block).toContain('setError("verify_failed")');
+  });
+
   it("can always recover a paid-but-unverified purchase", () => {
     const billing = read("lib/play-billing.ts");
     // The silent launch sweep sets no error, so after a remount the only signal
@@ -325,6 +344,21 @@ describe("Play policy surfaces", () => {
     expect(settings).toContain('path: "terms"');
     expect(settings).toContain('path: "account-deletion"');
     expect(settings).toContain("openBrowserAsync");
+  });
+
+  it("gives Play subscribers a link to manage their subscription", () => {
+    const screen = read("app/subscribe.tsx");
+    // Play's subscription guidance: the app "should include a link on a
+    // settings or preferences screen that allows users to manage their
+    // subscriptions". The purchase card's prose about where to cancel is not
+    // that link, and it only renders before buying — a subscriber never sees it.
+    expect(screen).toContain("https://play.google.com/store/account/subscriptions");
+    // Sideload has no Play subscription to manage; its Stripe membership is
+    // cancelled on the website, so the link must not render there.
+    const link = screen.slice(0, screen.indexOf("https://play.google.com/store/account/subscriptions"));
+    expect(link.lastIndexOf('DISTRIBUTION_CHANNEL === "github" ? null : (')).toBeGreaterThan(
+      link.lastIndexOf("</View>"),
+    );
   });
 
   it("carries the not-a-medical-device disclaimer", () => {
