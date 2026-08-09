@@ -356,8 +356,19 @@ export default function SubscribeScreen() {
                       {/* Same precondition as the Stripe and coupon paths: a
                           membership without the subscriber's details on record
                           leaves an account we cannot service. Checked before
-                          Play's sheet opens, not after money has moved. */}
-                      <TouchableOpacity onPress={async () => { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved) { setMsg(L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
+                          Play's sheet opens, not after money has moved.
+
+                          Skipped on a verify_failed retry, and that exception is
+                          the whole point. purchase() runs its recovery branches
+                          above the offer/tag check precisely so a stranded user
+                          can re-verify when the network is bad — and this button
+                          was undoing it, because the details POST fails for the
+                          same reason the verification did. The user tapped retry,
+                          saw "your details could not be saved", and
+                          play.purchase() was never reached, so no re-verification
+                          ever happened. Their money is already with Google; the
+                          details are not what is missing. */}
+                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed") { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved) { setMsg(L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
                         {play.busy || busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
                       </TouchableOpacity>
                       {/* Play requires the renewal terms to be visible before

@@ -190,9 +190,15 @@ describe("payment channel separation", () => {
     // And the control that triggers it has to be on screen in that state.
     expect(read("app/subscribe.tsx")).toContain('|| play.error === "verify_failed" ? (');
     // A live purchase rejected as another account's must not be silent.
+    // Bounded by the NEXT branch's marker rather than a character count: the
+    // count version broke the moment a comment grew, and the tempting fix is to
+    // raise the number, which quietly lets the assertion match a setError from a
+    // different branch entirely.
     const foreignAt = billing.indexOf('reason === "account_mismatch"');
     expect(foreignAt).toBeGreaterThan(-1);
-    expect(billing.slice(foreignAt, foreignAt + 600)).toContain('setError("purchase_foreign")');
+    const nextBranchAt = billing.indexOf('outcomeRef.current = "unverified"', foreignAt);
+    expect(nextBranchAt).toBeGreaterThan(foreignAt);
+    expect(billing.slice(foreignAt, nextBranchAt)).toContain('setError("purchase_foreign")');
   });
 
   it("does not carry one account's subscriber details into another's purchase", () => {
@@ -229,7 +235,21 @@ describe("payment channel separation", () => {
     // The result must be USED: a failed POST that still opens Play's sheet
     // reproduces the exact "membership with no details on record" this prevents.
     expect(subscribeSrc).toContain("const saved = await persistInfo();");
-    expect(subscribeSrc).toMatch(/if \(!saved\) \{[\s\S]{0,300}return;\s*\}\s*play\.purchase\(\)/);
+    // The rule has exactly ONE exception, and it is asserted rather than
+    // implied: a verify_failed retry starts no purchase, so demanding a details
+    // POST there strands the user whose network is the reason verification
+    // failed in the first place. Anything else reaching play.purchase() without
+    // the details is the bug this test exists for.
+    const press = subscribeSrc.slice(
+      subscribeSrc.indexOf("onPress={async () => { if (play.error !== "),
+      subscribeSrc.indexOf("play.purchase(); }}"),
+    );
+    expect(press.length).toBeGreaterThan(0);
+    // Inside the guarded block: a failed POST must return, never fall through.
+    expect(press).toMatch(/if \(!saved\) \{[\s\S]*?return;\s*\}/);
+    // And the ONLY thing allowed to skip that block is the retry condition.
+    expect(press).toContain('if (play.error !== "verify_failed") {');
+    expect(press).toContain("if (!infoComplete)");
   });
 
   it("treats Play's connection-open flush as a restore, not a live purchase", () => {

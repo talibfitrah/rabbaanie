@@ -145,6 +145,14 @@ export function usePlayBilling(accountTag: string | undefined) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchased, setPurchased] = useState(false);
+  // Mirrors `purchased` for the recovery branch in purchase(), which is a
+  // useCallback and would otherwise read the value captured at its last render
+  // — false, even just after settle() set it true in the same tick.
+  const purchasedRef = useRef(false);
+  const markPurchased = (value: boolean) => {
+    purchasedRef.current = value;
+    setPurchased(value);
+  };
   // Read inside the listener, which is registered once — a ref keeps it seeing
   // the current tag instead of the value captured when it was first attached.
   const accountTagRef = useRef(accountTag);
@@ -179,11 +187,24 @@ export function usePlayBilling(accountTag: string | undefined) {
   // "foreign"/"unverified" would early-return instead of purchasing, and a
   // stale `purchased` would trigger a spurious status refetch. subscribe.tsx
   // clears its own state on uid change; this is the same reset for the hook's.
+  const previousTag = useRef(accountTag);
   useEffect(() => {
+    const previous = previousTag.current;
+    previousTag.current = accountTag;
+    // Only a real switch, never the initial undefined -> tag fill. The tag is
+    // status?.playAccountTag, so it always arrives late: open the screen while
+    // the server is unreachable and the launch sweep records "unverified" for a
+    // paid purchase it could not verify, then the status GET finally succeeds,
+    // the tag appears, and an unconditional reset erases that diagnosis — after
+    // which the next Subscribe tap calls requestPurchase() for a subscription
+    // Play already owns. An account switch still resets, because subscribe.tsx
+    // clears status on uid change, so a switch is tagA -> undefined -> tagB and
+    // the first of those two steps qualifies.
+    if (previous === undefined || previous === accountTag) return;
     outcomeRef.current = null;
     settledRef.current.clear();
     buyingRef.current = false;
-    setPurchased(false);
+    markPurchased(false);
     setError(null);
   }, [accountTag]);
 
@@ -247,7 +268,11 @@ export function usePlayBilling(accountTag: string | undefined) {
             // report, and emphatically not "your payment went through" — the
             // user never made one. Leave it deduped so the sweep stops asking.
             if (reason === "account_mismatch") {
-              settledRef.current.add(token);
+              // No add() here: the token was already added unconditionally above,
+              // and every other branch's add/delete placement in this function is
+              // load-bearing — a redundant one invites the reader to hunt for a
+              // meaning it does not have. Leaving it deduped is what stops the
+              // sweep asking again, and that is already true.
               outcomeRef.current = "foreign";
               // Silent only when this is the launch sweep finding a stranger's
               // purchase. If the user just paid, saying nothing leaves them with
@@ -289,7 +314,7 @@ export function usePlayBilling(accountTag: string | undefined) {
           outcomeRef.current = null;
           invalidateSubscriptionCache();
           if (alive) {
-            setPurchased(true);
+            markPurchased(true);
             if (!restore) setError(null);
           }
         } catch {
@@ -441,23 +466,51 @@ export function usePlayBilling(accountTag: string | undefined) {
           setError("verify_failed");
           return;
         }
+        // Cleared BEFORE the resync so that what the ref holds afterwards is
+        // produced by this run, not left over from the last one. Reading it
+        // without clearing cannot tell "Play has forgotten the purchase" from
+        // "Play still has it and the server refused it a second time" — settle()
+        // writes the same "unverified" in the second case. That mattered: the
+        // stale reading reported verify_gone ("no longer reports that purchase,
+        // contact support") to someone whose purchase is very much still there,
+        // and then nulled the outcome, so their NEXT tap fell through to
+        // requestPurchase(), hit ITEM_ALREADY_OWNED, and told a user who has
+        // paid that their purchase could not be completed — the exact sequence
+        // this whole outcome ref exists to prevent.
+        outcomeRef.current = null;
         try {
           await resyncRef.current();
         } catch {
+          outcomeRef.current = "unverified";
           setBusy(false);
           setError("verify_failed");
           return;
         }
-        // If the resync neither confirmed it nor changed the diagnosis, Play no
-        // longer reports the purchase at all (auto-refunded, expired, or a
-        // different Play account). Clear the state so the button becomes a real
-        // Subscribe again instead of looping through an empty resync forever.
-        if (outcomeRef.current === "unverified") {
-          outcomeRef.current = null;
-          setBusy(false);
-          setError("verify_gone");
+        // Re-widened deliberately. TypeScript narrows the ref to `null` from the
+        // assignment above and cannot see that the awaited resync writes to it
+        // through settle(), so without this every case below reads as dead code.
+        const afterResync = outcomeRef.current as null | "pending" | "unverified" | "foreign";
+        switch (afterResync) {
+          case "unverified":
+            // Still owned, still refused. Honest retry-later, not "it's gone".
+            setBusy(false);
+            setError("verify_failed");
+            return;
+          case "pending":
+          case "foreign":
+            // settle() already set the matching message for these.
+            setBusy(false);
+            return;
+          default:
+            // Nothing came back for this purchase. Either it verified (settle
+            // set purchased) or Play no longer reports it at all — refunded,
+            // expired, or a different Play account. Either way the button
+            // becomes a real Subscribe again rather than looping through an
+            // empty resync forever.
+            setBusy(false);
+            if (!purchasedRef.current) setError("verify_gone");
+            return;
         }
-        return;
       }
     }
     // Only the BUY path needs a live offer and an account tag. The recovery
