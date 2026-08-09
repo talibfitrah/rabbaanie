@@ -1,0 +1,34 @@
+components/persistent-tab-bar.tsx
+  s_fa6ae4295cb142::t_b98d3ee4c3f37a 23-28
+lib/age-gate.tsx
+  s_fa6ae4295cb142::t_9bc3e8a5e2815c 58-62
+app.config.ts
+  s_fa6ae4295cb142::t_8d8788c6fab452 164
+app/login.tsx
+  s_fa6ae4295cb142::t_e46dd47e3cd9a3 688,705-707
+  s_fa6ae4295cb142::t_1bd61792637046 710-714
+app/support.tsx
+  s_fa6ae4295cb142::t_22229bb70aeacb 83
+package.json
+  s_fa6ae4295cb142::t_ff2651f703ceb3 3
+tests/age-gate.test.ts
+  s_fa6ae4295cb142::t_320f8ea91b786c 164-167,172-184
+  s_fa6ae4295cb142::t_8f89faae164da8 198-205
+  s_fa6ae4295cb142::t_e46dd47e3cd9a3 168-171,185-197,206-207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4456631a533ef07f71c6da0dff7f9d717a9215d2",
+  "prompts": {},
+  "sessions": {
+    "s_fa6ae4295cb142": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e403c821-8b6e-484e-9444-f73bc6a84ec3",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": null
+    }
+  }
+}
