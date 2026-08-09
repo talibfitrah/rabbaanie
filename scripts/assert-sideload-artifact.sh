@@ -139,4 +139,34 @@ if ! grep -q 'REQUEST_INSTALL_PACKAGES' "$MANTXT"; then
   exit 1
 fi
 
+# The monitoring capability must be PRESENT here, the mirror of the Play gate
+# asserting com.android.vending.BILLING is present. Both channels lose a feature
+# silently when a check only looks for what must be absent.
+#
+# This is not hypothetical. app.config.ts writes
+# `expoAutolinking.exclude = ["expo-usage-stats"]` into settings.gradle for a
+# Play build, `android/` is reused unless --clean is passed, and the plugin used
+# to only ADD that line — never remove it. A github prebuild after a play one
+# therefore produced a sideload APK with no usage-stats module at all. It built,
+# installed and ran perfectly; it simply could not monitor anything.
+for REQUIRED in PACKAGE_USAGE_STATS isMonitoringTool; do
+  if ! grep -q "$REQUIRED" "$MANTXT"; then
+    echo "" >&2
+    echo "FORBIDDEN: $REQUIRED is MISSING — this sideload build cannot do app-usage monitoring." >&2
+    echo "Most likely a stale Play-channel exclusion in android/settings.gradle; rebuild with --clean." >&2
+    exit 1
+  fi
+done
+
+# And the bytecode, because a permission without the module behind it is the
+# stalkerware signature in reverse: declared, unusable.
+DEX="$TMP/dex.bin"
+if unzip -p "$ART" '*.dex' > "$DEX" 2>/dev/null && [ -s "$DEX" ]; then
+  if ! grep -a -qE 'expo/modules/usagestats|UsageStatsModule' "$DEX"; then
+    echo "" >&2
+    echo "FORBIDDEN: the usage-stats native module is absent from the sideload artifact." >&2
+    exit 1
+  fi
+fi
+
 echo "OK: $ART is a sideload-channel build signed by the sideload key and nothing else, with a working updater."

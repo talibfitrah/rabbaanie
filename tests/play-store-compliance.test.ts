@@ -461,6 +461,30 @@ describe("Play policy surfaces", () => {
     );
   });
 
+  it("undoes the Play autolinking exclusion on the sideload channel", () => {
+    const config = read("app.config.ts");
+    // The plugin used to `return config` on github, which only looks like a
+    // no-op. android/ is reused unless --clean is passed, so a Play prebuild
+    // followed by a github one left `expoAutolinking.exclude` behind and the
+    // sideload APK shipped with no usage-stats module, no PACKAGE_USAGE_STATS
+    // and no isMonitoringTool. It built, installed and ran; it just could not
+    // monitor. Confirmed against a real artifact, not imagined.
+    const githubBranch = config.slice(
+      config.indexOf("if (isGithubBuild) {"),
+      config.indexOf("const withoutNativeMonitoring"),
+    );
+    expect(githubBranch).toContain("withSettingsGradle");
+    expect(githubBranch).toContain("filter");
+    expect(githubBranch).toContain("AUTOLINK_EXCLUSION");
+    // And the sideload gate must assert the capability is PRESENT — the mirror
+    // of the Play gate asserting BILLING is present. A gate that only checks
+    // what must be absent lets a feature disappear silently.
+    const gate = read("scripts/assert-sideload-artifact.sh");
+    expect(gate).toContain("PACKAGE_USAGE_STATS");
+    expect(gate).toContain("isMonitoringTool");
+    expect(gate).toContain("usagestats");
+  });
+
   it("declares no location foreground service it never starts", () => {
     const config = read("app.config.ts");
     // expo-location merges a LocationTaskService with

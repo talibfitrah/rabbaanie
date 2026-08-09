@@ -66,12 +66,68 @@ const RETIRED_APP_SCHEMES: Array<string | undefined> = [
 // parenting program. The Play variant excludes the native module at Gradle
 // autolinking time and removes stale manifest declarations. The GitHub/sideload
 // variant keeps the native capability.
+const AUTOLINK_EXCLUSION = `expoAutolinking.exclude = ["${USAGE_STATS_MODULE}"]`;
+
 const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
-  if (isGithubBuild) return config;
+  // The github branch does NOT just skip — it actively undoes what a previous
+  // Play prebuild wrote. `android/` is reused unless --clean is passed, so a
+  // one-directional plugin that only ADDS the exclusion leaves it behind: run a
+  // Play prebuild, then a github one, and the sideload build silently ships
+  // with no usage-stats module, no PACKAGE_USAGE_STATS and no isMonitoringTool.
+  // That happened for real — a 1.4.85 sideload APK built this way lost the
+  // monitoring capability entirely, and neither Gradle nor any test noticed,
+  // because everything about it is valid; it is just missing a feature.
+  if (isGithubBuild) {
+    const withoutStaleExclusion = withSettingsGradle(config, (modConfig) => {
+      modConfig.modResults.contents = modConfig.modResults.contents
+        .split("\n")
+        .filter((line) => line.trim() !== AUTOLINK_EXCLUSION)
+        .join("\n");
+      return modConfig;
+    });
+
+    // Second layer of the same problem. Re-linking the native module is not
+    // enough: `blockedPermissions` and the meta-data mod below write
+    // tools:node="remove" entries into android/app/src/main/AndroidManifest.xml
+    // for a Play build, prebuild MERGES into that file rather than regenerating
+    // it, and nothing takes those entries back out when the block list shrinks.
+    // So the module compiled in (bytecode present) while its own manifest
+    // declarations were stripped on the way through — PACKAGE_USAGE_STATS and
+    // isMonitoringTool both absent from an APK that otherwise looked correct.
+    // Only the ones github actually needs are undone; SYSTEM_ALERT_WINDOW,
+    // RECORD_AUDIO, ACTIVITY_RECOGNITION and USE_FULL_SCREEN_INTENT are blocked
+    // on BOTH channels and must stay removed.
+    const GITHUB_NEEDS = [
+      "android.permission.PACKAGE_USAGE_STATS",
+      "android.permission.READ_EXTERNAL_STORAGE",
+      "android.permission.WRITE_EXTERNAL_STORAGE",
+    ];
+    return withAndroidManifest(withoutStaleExclusion, (modConfig) => {
+      const manifest = modConfig.modResults.manifest;
+      manifest["uses-permission"] = (manifest["uses-permission"] ?? []).filter(
+        (item: any) =>
+          !(
+            item.$?.["tools:node"] === "remove" &&
+            GITHUB_NEEDS.includes(item.$?.["android:name"])
+          ),
+      );
+      const app = AndroidConfig.Manifest.getMainApplicationOrThrow(
+        modConfig.modResults,
+      );
+      app["meta-data"] = (app["meta-data"] ?? []).filter(
+        (item) =>
+          !(
+            item.$["tools:node"] === "remove" &&
+            item.$["android:name"] === "isMonitoringTool"
+          ),
+      );
+      return modConfig;
+    });
+  }
 
   const withoutNativeMonitoring = withSettingsGradle(config, (modConfig) => {
     const useExpoModules = "expoAutolinking.useExpoModules()";
-    const exclusion = `expoAutolinking.exclude = ["${USAGE_STATS_MODULE}"]`;
+    const exclusion = AUTOLINK_EXCLUSION;
 
     if (!modConfig.modResults.contents.includes(useExpoModules)) {
       throw new Error(
