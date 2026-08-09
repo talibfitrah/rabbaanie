@@ -103,6 +103,28 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
       },
     });
 
+    // expo-location ships a LocationTaskService declared with
+    // foregroundServiceType="location", and it merges into the manifest whether
+    // or not the app uses it. This app never does: only
+    // requestForegroundPermissionsAsync and getCurrentPositionAsync, no
+    // startLocationUpdatesAsync, no geofencing, and the only TaskManager task
+    // is the widget refresh. Leaving it declared would oblige a Play Console
+    // foreground-service declaration for the `location` type — the most closely
+    // scrutinised of them — and there is no truthful use case to give, because
+    // the service is never started. Removing it is not a behaviour change; it
+    // deletes an obligation.
+    const services = application.service ?? [];
+    application.service = services.filter(
+      (item) =>
+        item.$["android:name"] !== "expo.modules.location.services.LocationTaskService",
+    );
+    application.service.push({
+      $: {
+        "android:name": "expo.modules.location.services.LocationTaskService",
+        "tools:node": "remove",
+      },
+    } as (typeof services)[number]);
+
     // Prebuild can reuse an existing native directory, and expo-router does
     // not remove a previously generated scheme filter when `scheme` becomes
     // undefined. Remove it explicitly so a stale prebuild cannot re-expose the

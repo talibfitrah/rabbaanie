@@ -461,6 +461,22 @@ describe("Play policy surfaces", () => {
     );
   });
 
+  it("declares no location foreground service it never starts", () => {
+    const config = read("app.config.ts");
+    // expo-location merges a LocationTaskService with
+    // foregroundServiceType="location" into every build. This app only calls
+    // requestForegroundPermissionsAsync and getCurrentPositionAsync — no
+    // startLocationUpdatesAsync, no geofencing, and the only TaskManager task
+    // is the widget refresh — so it is never started. Declared, it obliges a
+    // Play Console foreground-service declaration for the location type, the
+    // most closely scrutinised, with no truthful justification available.
+    expect(config).toContain("expo.modules.location.services.LocationTaskService");
+    expect(config).toContain('"tools:node": "remove"');
+    // And the artifact gate must check the removal actually survived, since a
+    // config plugin that stops matching fails silently.
+    expect(read("scripts/assert-play-artifact.sh")).toContain("LocationTaskService");
+  });
+
   it("shows no screen-time figures anywhere on the Play build", () => {
     const monitor = read("app/child-account/parent-monitor.tsx");
     // Not just the Apps tab. `totalAppUsageSeconds` also fed a usage-time tile,

@@ -96,6 +96,18 @@ if grep -q 'isMonitoringTool' "$MANTXT"; then
   fail "isMonitoringTool metadata is present in the Play build"
 fi
 
+# expo-location's LocationTaskService is declared with
+# foregroundServiceType="location" and merges in whether or not the app uses
+# it. This app never starts it. Left in, it obliges a Play Console
+# foreground-service declaration for the location type — the most closely
+# scrutinised — with no truthful use case to give. app.config.ts removes it;
+# this asserts the removal survived into the artifact, because a config plugin
+# that silently stops matching is exactly the failure the other checks here
+# exist for.
+if grep -q 'LocationTaskService' "$MANTXT"; then
+  fail "expo-location's LocationTaskService is present — that is a location foreground service the app never starts"
+fi
+
 # The only REQUIRED permission asserted here, and the only check that fails for
 # something being absent rather than present. `android.permissions` in
 # app.config.ts is a restrictive allow-list and blockedPermissions emits
