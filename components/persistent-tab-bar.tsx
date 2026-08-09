@@ -20,6 +20,12 @@ const HIDDEN_ROUTES = [
   "/details",
   "/ai-chat",
   "/chat-notes",
+  // Full-screen chat like /ai-chat above, so hidden for signed-in visitors
+  // the same way — plus reachable signed-out now that lib/age-gate.tsx gives
+  // it its own carve-out (the login screen's "need help?" link), where a
+  // floating tab bar implying access to Family/Messages/etc. would be
+  // actively misleading for a visitor who was never signed in.
+  "/support",
 ];
 
 // All 7 tab definitions matching the main tab bar exactly

@@ -55,6 +55,11 @@ export function getGateRedirect({
   if (!childMonitoringEnabled && segment === "child-account") {
     return isAuthenticated ? "/(tabs)" : "/login";
   }
+  // "support" is reachable both signed-in (Settings' "Contact the technical
+  // team" row) and signed-out (the login screen's "need help?" link) — unlike
+  // inAuthGroup above, it must NOT bounce a signed-in visitor back to /(tabs),
+  // so it gets its own unconditional carve-out rather than joining that list.
+  if (segment === "support") return null;
   if (!isAuthenticated && !inAuthGroup) return "/login";
   if (isAuthenticated && inAuthGroup) return "/(tabs)";
   return null;

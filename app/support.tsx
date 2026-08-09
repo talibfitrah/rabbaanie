@@ -80,7 +80,7 @@ export default function SupportScreen() {
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
+        <TouchableOpacity onPress={() => (router.canGoBack() ? router.back() : router.replace("/login" as any))}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
         <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: align }}>{L3("الدعم التقنيّ", "Technische support", "Technical support")}</Text>
       </View>
 

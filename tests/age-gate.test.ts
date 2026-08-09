@@ -161,6 +161,50 @@ describe("neutral age gate", () => {
     ).toBe("/age-check");
   });
 
+  it("reaches the support screen whether signed in or signed out", () => {
+    // Signed-out: the login screen's "need help signing in?" link. Without
+    // its own carve-out this returns "/login", bouncing the tap straight
+    // back to the screen it was tapped from.
+    expect(
+      getGateRedirect({
+        status: "adult",
+        isAuthenticated: false,
+        segment: "support",
+        childMonitoringEnabled: false,
+      }),
+    ).toBeNull();
+    // Signed-in: Settings' "Contact the technical team" row (the flow this
+    // screen was built for). If "support" were folded into inAuthGroup
+    // instead of getting its own check, it would inherit that group's
+    // isAuthenticated-bounce-to-"/(tabs)" rule and break this existing path
+    // for every signed-in user.
+    expect(
+      getGateRedirect({
+        status: "adult",
+        isAuthenticated: true,
+        segment: "support",
+        childMonitoringEnabled: false,
+      }),
+    ).toBeNull();
+    // A minor (or an unclassified visitor) is still sent to the age check.
+    expect(
+      getGateRedirect({
+        status: "minor",
+        isAuthenticated: false,
+        segment: "support",
+        childMonitoringEnabled: false,
+      }),
+    ).toBe("/age-check");
+    expect(
+      getGateRedirect({
+        status: null,
+        isAuthenticated: false,
+        segment: "support",
+        childMonitoringEnabled: false,
+      }),
+    ).toBe("/age-check");
+  });
+
   it("enables notifications only after both the adult gate and authentication", () => {
     expect(canUseNotifications(null, true)).toBe(false);
     expect(canUseNotifications("minor", true)).toBe(false);

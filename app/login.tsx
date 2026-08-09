@@ -8,7 +8,6 @@ import {
   ScrollView,
   KeyboardAvoidingView,
   TextInput,
-  Linking,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useEffect, useRef, useState } from "react";
@@ -25,7 +24,6 @@ import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
 
 import { publicFetch } from "@/lib/authed-fetch";
-const SUPPORT_EMAIL = "support@albunyaan.tv";
 
 /**
  * Login Screen - Email/Password + Google Sign-In
@@ -687,9 +685,7 @@ export default function LoginScreen() {
                 </TouchableOpacity>
 
                 <TouchableOpacity
-                  onPress={() =>
-                    Linking.openURL(`mailto:${SUPPORT_EMAIL}`).catch(() => {})
-                  }
+                  onPress={() => router.push("/support" as any)}
                   accessibilityRole="link"
                   activeOpacity={0.6}
                   style={{
@@ -706,12 +702,16 @@ export default function LoginScreen() {
                     }}
                   >
                     {tx(
-                      "Hulp nodig bij het inloggen? Mail ",
-                      "Need help signing in? Contact ",
-                      "تحتاج مساعدة في تسجيل الدخول؟ راسل ",
+                      "Hulp nodig bij het inloggen? ",
+                      "Need help signing in? ",
+                      "تحتاج مساعدة في تسجيل الدخول؟ ",
                     )}
                     <Text style={{ textDecorationLine: "underline" }}>
-                      {SUPPORT_EMAIL}
+                      {tx(
+                        "Technische support",
+                        "Technical support",
+                        "الدعم التقنيّ",
+                      )}
                     </Text>
                   </Text>
                 </TouchableOpacity>
