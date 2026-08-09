@@ -134,6 +134,8 @@ async function verifyWithServer(
  * methods) or replay one the app never finished. So the listener is the source
  * of truth and is mounted for the whole life of the screen.
  */
+type Outcome = null | "pending" | "unverified" | "foreign";
+
 export function usePlayBilling(accountTag: string | undefined) {
   const enabled = isPlayBillingEnabled();
   const [offer, setOffer] = useState<AnnualOffer | null>(null);
@@ -185,7 +187,22 @@ export function usePlayBilling(accountTag: string | undefined) {
    *  "unverified" — Play says this account owns it; our server would not confirm.
    *  "foreign"    — it is owned, but by a different Rabbaanie account.
    */
-  const outcomeRef = useRef<null | "pending" | "unverified" | "foreign">(null);
+  const outcomeRef = useRef<Outcome>(null);
+  /**
+   * The ONE writer for the outcome. `recoverable` mirrors it for the screen,
+   * which cannot read a ref — and the two drifted the first time they were
+   * maintained as separate statements: a `setRecoverable(false)` that was meant
+   * to sit beside `outcomeRef.current = null` in the verify_gone branch simply
+   * was not there. `recoverable` stayed true with no outcome behind it, and the
+   * next tap took that as "this is a recovery", skipped the subscriber-details
+   * check AND the POST that saves them, and bought a real membership with no
+   * name, address or phone on record — the exact thing the details guard exists
+   * to prevent. Lockstep by convention failed; lockstep by construction cannot.
+   */
+  const setOutcome = (value: Outcome) => {
+    outcomeRef.current = value;
+    setRecoverable(value !== null);
+  };
 
   // Account switches must not inherit the previous user's billing verdict:
   // "foreign"/"unverified" would early-return instead of purchasing, and a
@@ -205,8 +222,7 @@ export function usePlayBilling(accountTag: string | undefined) {
     // clears status on uid change, so a switch is tagA -> undefined -> tagB and
     // the first of those two steps qualifies.
     if (previous === undefined || previous === accountTag) return;
-    outcomeRef.current = null;
-    setRecoverable(false);
+    setOutcome(null);
     settledRef.current.clear();
     buyingRef.current = false;
     markPurchased(false);
@@ -256,8 +272,7 @@ export function usePlayBilling(accountTag: string | undefined) {
         // the purchase once it settles, so leave it alone until then — but say
         // so, because this is a normal outcome and not an error.
         if (purchase?.purchaseState === "pending") {
-          outcomeRef.current = "pending";
-          if (alive) setRecoverable(true);
+          setOutcome("pending");
           if (alive && !restore) setError("purchase_pending");
           release();
           return;
@@ -279,8 +294,7 @@ export function usePlayBilling(accountTag: string | undefined) {
               // load-bearing — a redundant one invites the reader to hunt for a
               // meaning it does not have. Leaving it deduped is what stops the
               // sweep asking again, and that is already true.
-              outcomeRef.current = "foreign";
-              if (alive) setRecoverable(true);
+              setOutcome("foreign");
               // Silent only when this is the launch sweep finding a stranger's
               // purchase. If the user just paid, saying nothing leaves them with
               // a cleared spinner, no message, and a refund in three days.
@@ -299,11 +313,10 @@ export function usePlayBilling(accountTag: string | undefined) {
             // which clears the spinner without setting an error or a success —
             // the user taps Subscribe and simply nothing happens.
             settledRef.current.delete(token);
-            outcomeRef.current = "unverified";
+            setOutcome("unverified");
             // Set even on the silent restore path: this is the ONLY signal the
             // screen gets that a paid purchase needs re-verifying, and without
             // it a user whose offer never loaded had no control to tap at all.
-            if (alive) setRecoverable(true);
             if (alive && !restore) setError("verify_failed");
             return;
           }
@@ -322,8 +335,7 @@ export function usePlayBilling(accountTag: string | undefined) {
           } catch {
             settledRef.current.delete(token);
           }
-          outcomeRef.current = null;
-          if (alive) setRecoverable(false);
+          setOutcome(null);
           invalidateSubscriptionCache();
           if (alive) {
             markPurchased(true);
@@ -347,8 +359,7 @@ export function usePlayBilling(accountTag: string | undefined) {
           //   session hit the has(token) early return: spinner off, no message,
           //   no grant.
           settledRef.current.delete(token);
-          outcomeRef.current = "unverified";
-          if (alive) setRecoverable(true);
+          setOutcome("unverified");
           if (alive && !restore) setError("verify_failed");
         } finally {
           release();
@@ -490,11 +501,11 @@ export function usePlayBilling(accountTag: string | undefined) {
         // requestPurchase(), hit ITEM_ALREADY_OWNED, and told a user who has
         // paid that their purchase could not be completed — the exact sequence
         // this whole outcome ref exists to prevent.
-        outcomeRef.current = null;
+        setOutcome(null);
         try {
           await resyncRef.current();
         } catch {
-          outcomeRef.current = "unverified";
+          setOutcome("unverified");
           setBusy(false);
           setError("verify_failed");
           return;

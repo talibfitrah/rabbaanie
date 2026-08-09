@@ -132,6 +132,31 @@ describe("payment channel separation", () => {
     expect(okBranch).toContain('setError("verify_failed")');
   });
 
+  it("keeps the purchase outcome and its UI mirror impossible to drift apart", () => {
+    const billing = read("lib/play-billing.ts");
+    // `recoverable` exists so the screen can offer a recovery control the ref
+    // cannot expose. Maintained as two statements, they drifted immediately: a
+    // setRecoverable(false) meant to accompany the verify_gone clear was simply
+    // absent, so the flag stayed true with no outcome behind it. The next tap
+    // read that as a recovery, skipped the subscriber-details check AND the POST
+    // that saves them, and bought a real membership with nothing on record.
+    //
+    // One writer, enforced here: every assignment goes through setOutcome.
+    expect(billing).toContain("const setOutcome = (value: Outcome) => {");
+    // Comments stripped first: the explanation above names both symbols, and
+    // counting prose as code made this assertion fail on its own documentation.
+    const body = billing
+      .slice(billing.indexOf("export function usePlayBilling"))
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    const rawWrites = body.match(/outcomeRef\.current\s*=/g) ?? [];
+    // Exactly one: the assignment inside setOutcome itself.
+    expect(rawWrites.length).toBe(1);
+    // And nothing else may poke the mirror directly either.
+    const rawFlag = body.match(/setRecoverable\(/g) ?? [];
+    expect(rawFlag.length).toBe(1);
+  });
+
   it("treats a verify that never answered like one that refused", () => {
     const billing = read("lib/play-billing.ts");
     // A rejected fetch and a server that says no leave the user in the same
@@ -147,7 +172,7 @@ describe("payment channel separation", () => {
     expect(catchAt).toBeGreaterThan(-1);
     const block = billing.slice(catchAt, billing.indexOf("} finally {", catchAt));
     expect(block).toContain("settledRef.current.delete(token);");
-    expect(block).toContain('outcomeRef.current = "unverified";');
+    expect(block).toContain('setOutcome("unverified");');
     expect(block).toContain('setError("verify_failed")');
   });
 
@@ -158,7 +183,7 @@ describe("payment channel separation", () => {
     // tap falls through to requestPurchase for a subscription Play already owns
     // — ITEM_ALREADY_OWNED, shown as "purchase could not be completed", to
     // someone who has paid.
-    expect(billing).toContain('outcomeRef.current = "unverified";');
+    expect(billing).toContain('setOutcome("unverified");');
     expect(billing).toContain('case "unverified": {');
     // purchase() must handle every state Play can already be in. requestPurchase
     // is only correct when Play holds nothing: in any other state it fails with
@@ -203,7 +228,7 @@ describe("payment channel separation", () => {
     // different branch entirely.
     const foreignAt = billing.indexOf('reason === "account_mismatch"');
     expect(foreignAt).toBeGreaterThan(-1);
-    const nextBranchAt = billing.indexOf('outcomeRef.current = "unverified"', foreignAt);
+    const nextBranchAt = billing.indexOf('setOutcome("unverified")', foreignAt);
     expect(nextBranchAt).toBeGreaterThan(foreignAt);
     expect(billing.slice(foreignAt, nextBranchAt)).toContain('setError("purchase_foreign")');
   });
