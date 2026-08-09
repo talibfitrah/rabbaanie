@@ -1,0 +1,23 @@
+tests/play-store-compliance.test.ts
+  s_e017c36d3728f3::t_c8ebb6fc6a0e68 146-151
+  s_e017c36d3728f3::t_936e96916fd522 175,186,231
+  s_e017c36d3728f3::t_4099f0ed79bb4a 135-145,152-159
+lib/play-billing.ts
+  s_e017c36d3728f3::t_b768088b9424b5 137-138,190-205,225,275,297,316,338,362,504,508
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f7cc89654d374ab0403bea65fde401114fae9658",
+  "prompts": {},
+  "sessions": {
+    "s_e017c36d3728f3": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0585e079-12a4-4052-ba93-306204634f2c",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
