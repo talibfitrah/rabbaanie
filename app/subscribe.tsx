@@ -114,7 +114,11 @@ export default function SubscribeScreen() {
     setLoading(true);
     // Clear the subscriber details too — they gate the purchase.
     setFirstName(""); setLastName(""); setMaritalStatus("");
-    setAddress(""); setEmail(""); setPhone("");
+    // Email falls back to the session's own address, exactly as loadInfo does.
+    // Blanking it outright dropped a prefill the user never typed, and since
+    // email is one of the fields infoComplete requires, an account whose
+    // /info fetch then failed could not reach the Subscribe button at all.
+    setAddress(""); setEmail(((user as any)?.email as string) || ""); setPhone("");
   }, [uid]);
   useEffect(() => { loadStatus(); loadInfo(); }, [loadStatus, loadInfo]);
 
@@ -283,14 +287,16 @@ export default function SubscribeScreen() {
                   <Text style={{ fontWeight: "800", fontSize: 13, color: colors.foreground, flex: 1, textAlign: align }}>{L3("الخاصّ", "Speciaal", "Special")}</Text>
                 </View>
                 {/* Same rule as the purchase card below: on Play the price
-                    comes from Play, because it is set per country and
-                    includes local tax. Showing a hardcoded €12 here while the
-                    button shows the real local price is the price
-                    discrepancy this whole change exists to remove. */}
+                    comes from Play, because it is set per country and includes
+                    local tax. A dash until it arrives, never a euro figure —
+                    falling back to "€12" printed the Stripe price to a Play
+                    user whenever the offer had not loaded, and permanently
+                    whenever it could not, which is the exact discrepancy this
+                    change exists to remove. */}
                 {DISTRIBUTION_CHANNEL === "github" ? (
                   <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>€12 <Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}>{L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
                 ) : (
-                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>{play.offer ? play.offer.displayPrice : "€12"}<Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}> {L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
+                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>{play.offer ? play.offer.displayPrice : "—"}<Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}> {L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
                 )}
                 <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 10, textAlign: align }}>{L3("كلُّ ما في العامّ، وزيادةً:", "Alles van Algemeen, plus:", "Everything in General, plus:")}</Text>
                 {SPECIAL.map((s) => (
@@ -335,7 +341,7 @@ export default function SubscribeScreen() {
                   {DISTRIBUTION_CHANNEL === "github" ? (
                     <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
                   ) : (
-                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>{play.offer ? play.offer.displayPrice : "€12"}<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
+                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>{play.offer ? play.offer.displayPrice : "—"}<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
                   )}
                   <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
                   {/* One button per channel, never both: Stripe is an outside

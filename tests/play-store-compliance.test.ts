@@ -423,6 +423,17 @@ describe("Play policy surfaces", () => {
     expect(settings).toContain("openBrowserAsync");
   });
 
+  it("never prints a euro price on Play that Play did not supply", () => {
+    const screen = read("app/subscribe.tsx");
+    // Play sets the price per country and folds in local tax, so a hardcoded
+    // €12 shown while the offer loads — or permanently, when it cannot load —
+    // is the Stripe price quoted to a Play user. That is the discrepancy this
+    // whole change exists to remove, and a fallback quietly reintroduced it.
+    const playBranches = [...screen.matchAll(/play\.offer \? play\.offer\.displayPrice : "([^"]*)"/g)];
+    expect(playBranches.length).toBeGreaterThan(0);
+    for (const branch of playBranches) expect(branch[1]).not.toContain("€");
+  });
+
   it("gives Play subscribers a link to manage their subscription", () => {
     const screen = read("app/subscribe.tsx");
     // Play's subscription guidance: the app "should include a link on a
