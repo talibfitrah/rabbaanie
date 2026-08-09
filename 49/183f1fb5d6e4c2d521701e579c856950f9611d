@@ -1,0 +1,21 @@
+.github/workflows/release.yml
+  s_e4bb170f4f81e5::t_72ff3a189fba5b 109-127
+scripts/assert-sideload-artifact.sh
+  s_e4bb170f4f81e5::t_5c741f43a6989a 1-88
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "49183f1fb5d6e4c2d521701e579c856950f9611d",
+  "prompts": {},
+  "sessions": {
+    "s_e4bb170f4f81e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "5372f93c-b854-455b-8878-017ee4710d89",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
