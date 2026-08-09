@@ -73,6 +73,13 @@ export default function UsagePermissionScreen() {
   }, []);
 
   useEffect(() => {
+    // Channel first, and inside the effect rather than above it because hooks
+    // cannot be skipped. The <Redirect> further down runs only AFTER these
+    // effects have already probed the native module and attached an AppState
+    // listener; on Play they are inert solely because the module is absent —
+    // an accident of the autolinking exclusion, which child-account/home.tsx
+    // explicitly refuses to rely on. Same invariant, stated the same way here.
+    if (!CHILD_MONITORING_ENABLED) return;
     checkPermission();
     // Re-check when app comes back to foreground (after settings)
     const subscription = AppState.addEventListener("change", (state) => {
@@ -89,6 +96,7 @@ export default function UsagePermissionScreen() {
   // Monitoring is allowed to start only after its persistent notice is visible.
   useEffect(() => {
     let cancelled = false;
+    if (!CHILD_MONITORING_ENABLED) return;
     if (!permissionGranted) {
       setNoticeReady(null);
       return () => {

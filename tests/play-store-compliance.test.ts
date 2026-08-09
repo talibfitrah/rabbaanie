@@ -462,6 +462,20 @@ describe("Play policy surfaces", () => {
 
   it("keeps the app-usage monitoring screen out of the Play build", () => {
     const screen = read("app/child-account/usage-permission.tsx");
+    // The <Redirect> alone is not enough: hooks cannot be skipped, so both
+    // effects run BEFORE it — probing the native module and attaching an
+    // AppState listener. On Play they were inert only because the module is
+    // absent, which is an accident of the autolinking exclusion rather than a
+    // decision, and child-account/home.tsx explicitly refuses to rely on it.
+    // Each effect states the channel invariant itself.
+    const effects = [...screen.matchAll(/useEffect\(\(\) => \{/g)].map((m) => m.index!);
+    const probing = effects.filter((at) =>
+      /checkPermission\(\)|runNoticeGatedCollection|permissionGranted/.test(screen.slice(at, at + 700)),
+    );
+    expect(probing.length).toBeGreaterThan(0);
+    for (const at of probing) {
+      expect(screen.slice(at, at + 700)).toContain("if (!CHILD_MONITORING_ENABLED) return;");
+    }
     // Child mode itself ships on both channels — the child holds no account and
     // enters from a signed-in adult's session. Only PACKAGE_USAGE_STATS
     // monitoring is sideload-only, and a Play reviewer finding a "grant usage

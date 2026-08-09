@@ -313,10 +313,13 @@ export function usePlayBilling(accountTag: string | undefined) {
             // which clears the spinner without setting an error or a success —
             // the user taps Subscribe and simply nothing happens.
             settledRef.current.delete(token);
+            // setOutcome runs on the silent restore path too, and that is the
+            // point: it is the ONLY signal the screen gets that a paid purchase
+            // needs re-verifying, and without it a user whose offer never
+            // loaded had no control to tap at all. The message below is a
+            // different question and stays quiet on restore — someone who just
+            // opened the screen has not paid anything to be told about.
             setOutcome("unverified");
-            // Set even on the silent restore path: this is the ONLY signal the
-            // screen gets that a paid purchase needs re-verifying, and without
-            // it a user whose offer never loaded had no control to tap at all.
             if (alive && !restore) setError("verify_failed");
             return;
           }
