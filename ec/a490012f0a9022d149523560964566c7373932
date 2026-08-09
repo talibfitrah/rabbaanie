@@ -1,0 +1,34 @@
+tests/google-pkce-signin.test.ts
+  s_fa6ae4295cb142::t_e27f012188234e 244-263
+  s_fa6ae4295cb142::t_dd5dab10ef07db 305,308-309
+  s_fa6ae4295cb142::t_97fcf965b44e9f 39
+  s_fa6ae4295cb142::t_19eed05388a7a3 283-304,306-307,310-312
+app.config.ts
+  s_fa6ae4295cb142::t_e33667f418ecdd 164
+package.json
+  s_fa6ae4295cb142::t_80ba8e90632c36 3
+app/login.tsx
+  s_fa6ae4295cb142::t_c8a6ca09f4e02e 22
+  s_fa6ae4295cb142::t_7b7ec3f5c5a0c7 260-266,272-274
+  s_fa6ae4295cb142::t_1e2bf4a16b59cb 267-269
+lib/google-oauth.ts
+  s_fa6ae4295cb142::t_72701345892501 150-152
+  s_fa6ae4295cb142::t_37a177ae85abb0 19-38
+  s_fa6ae4295cb142::t_6b64201629f960 39-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "eca490012f0a9022d149523560964566c7373932",
+  "prompts": {},
+  "sessions": {
+    "s_fa6ae4295cb142": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e403c821-8b6e-484e-9444-f73bc6a84ec3",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
