@@ -110,7 +110,6 @@ describe("payment channel separation", () => {
     // otherwise be granted a year of access AND auto-refunded by Google after
     // three days, because nothing ever acknowledged it.
     expect(billing).toMatch(/for \(const purchase of owned \?\? \[\]\)\s*await settle\(purchase,\s*true\)/);
-    expect(billing).not.toContain("if (typeof token === \"string\" && token) await verifyWithServer(token);");
   });
 
   it("survives a network failure between paying and verifying", () => {

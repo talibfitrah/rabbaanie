@@ -47,15 +47,25 @@ fi
 # already trusts.
 EXPECTED="fac61745dc0903786fb9ede62a962b399f7348f0bb6f899b8332667591033b9c"
 
+# ANDROID_SDK_ROOT as well as ANDROID_HOME: on the box this script exists for,
+# only ANDROID_SDK_ROOT is set and apksigner is not on PATH, so looking at
+# ANDROID_HOME alone made the gate exit 1 every time. Failing closed is right,
+# but an unrunnable gate gets skipped — and a skipped signer check is exactly
+# how 1.4.81, 1.4.82 and 1.4.83 shipped with the wrong key.
+SDK="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
 APKSIGNER=""
-if [ -n "${ANDROID_HOME:-}" ] && [ -d "$ANDROID_HOME/build-tools" ]; then
-  APKSIGNER="$ANDROID_HOME/build-tools/$(ls "$ANDROID_HOME/build-tools" | sort -V | tail -n1)/apksigner"
+if [ -n "$SDK" ] && [ -d "$SDK/build-tools" ]; then
+  # Stable versions only. A plain `sort -V | tail -n1` picks 36.1.0-rc1 over
+  # 36.0.0 on this machine, which makes the release gate depend on whichever
+  # release candidate happens to be installed.
+  BT=$(ls "$SDK/build-tools" | grep -E '^[0-9]+(\.[0-9]+)*$' | sort -V | tail -n1)
+  [ -n "$BT" ] && APKSIGNER="$SDK/build-tools/$BT/apksigner"
 fi
 if [ ! -x "$APKSIGNER" ]; then
   APKSIGNER=$(command -v apksigner || true)
 fi
 if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
-  echo "apksigner not found (set ANDROID_HOME or put it on PATH) — refusing to ship unverified" >&2
+  echo "apksigner not found (set ANDROID_HOME/ANDROID_SDK_ROOT or put it on PATH) — refusing to ship unverified" >&2
   exit 1
 fi
 
@@ -85,4 +95,48 @@ if [ "$SIGNERS" -ne 1 ]; then
   exit 1
 fi
 
-echo "OK: $ART is signed by the sideload key and nothing else."
+# --- The artifact must also BE a sideload build -----------------------------
+# The signing key is necessary but not sufficient. app.config.ts defaults
+# APP_DISTRIBUTION to "play", so a hand build that forgets to export
+# APP_DISTRIBUTION=github is still Gradle-signed with the debug key and sails
+# through every check above. That APK carries "distribution":"play", which
+# leaves UPDATER_ENABLED false (hooks/use-updates.ts) and REQUEST_INSTALL_PACKAGES
+# absent — so anyone who installs it loses the in-app updater, the ONLY delivery
+# mechanism on this channel. It cannot be walked back by publishing a fixed
+# build, because the broken install can no longer fetch one. Uninstall and
+# reinstall by hand is the only recovery, which is the same unrecoverable class
+# of failure the signing pin exists to prevent.
+TMP=$(mktemp -d)
+trap 'rm -rf "$TMP"' EXIT
+
+if ! unzip -p "$ART" assets/app.config > "$TMP/app.config" 2>/dev/null || [ ! -s "$TMP/app.config" ]; then
+  echo "Could not read the embedded Expo config from $ART — refusing to ship unverified" >&2
+  exit 1
+fi
+if ! grep -q '"distribution":"github"' "$TMP/app.config"; then
+  echo "" >&2
+  echo "FORBIDDEN: $ART is not a sideload-channel build: $(grep -o '"distribution":"[a-z]*"' "$TMP/app.config" || echo 'field absent')" >&2
+  echo "Installing it would permanently disable the in-app updater for that user." >&2
+  exit 1
+fi
+
+# The permission the updater needs. Read from the shipped manifest rather than
+# inferred from the channel, because blockedPermissions in app.config.ts emits
+# tools:node="remove" and a stale prebuild can strip it even from a correctly
+# flagged github build. Binary XML has a UTF-16LE string pool, so a plain grep
+# finds nothing and would pass vacuously; extract both encodings and check that
+# the extraction itself worked before trusting a negative.
+MANTXT="$TMP/manifest.txt"
+unzip -p "$ART" AndroidManifest.xml > "$TMP/manifest.bin" 2>/dev/null || true
+{ strings -a "$TMP/manifest.bin"; strings -a -e l "$TMP/manifest.bin"; } > "$MANTXT" 2>/dev/null || true
+if ! grep -q 'com.rabbaanie.app' "$MANTXT"; then
+  echo "Manifest text extraction failed (package name not found) — refusing to ship unverified" >&2
+  exit 1
+fi
+if ! grep -q 'REQUEST_INSTALL_PACKAGES' "$MANTXT"; then
+  echo "" >&2
+  echo "FORBIDDEN: REQUEST_INSTALL_PACKAGES is missing — the in-app updater cannot install anything." >&2
+  exit 1
+fi
+
+echo "OK: $ART is a sideload-channel build signed by the sideload key and nothing else, with a working updater."
