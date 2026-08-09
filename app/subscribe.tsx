@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ScrollView, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Linking, Alert } from "react-native";
+import { ScrollView, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -240,7 +240,7 @@ export default function SubscribeScreen() {
                     a coupon or legacy Stripe member too, and it is the one the
                     Play reviewer will look for on a demo account whose
                     membership did not come from Play. */}
-                {DISTRIBUTION_CHANNEL === "github" ? null : (
+                {DISTRIBUTION_CHANNEL === "github" || Platform.OS !== "android" ? null : (
                   <TouchableOpacity
                     accessibilityRole="link"
                     onPress={() => Linking.openURL("https://play.google.com/store/account/subscriptions").catch(() => {})}
@@ -351,7 +351,7 @@ export default function SubscribeScreen() {
                     <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
                       {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
                     </TouchableOpacity>
-                  ) : (play.offer && status?.playAccountTag) || play.error === "verify_failed" ? (
+                  ) : (play.offer && status?.playAccountTag) || play.error === "verify_failed" || play.recoverable ? (
                     <>
                       {/* Same precondition as the Stripe and coupon paths: a
                           membership without the subscriber's details on record
@@ -368,7 +368,7 @@ export default function SubscribeScreen() {
                           play.purchase() was never reached, so no re-verification
                           ever happened. Their money is already with Google; the
                           details are not what is missing. */}
-                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed") { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved) { setMsg(L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
+                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved) { setMsg(L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
                         {play.busy || busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
                       </TouchableOpacity>
                       {/* Play requires the renewal terms to be visible before

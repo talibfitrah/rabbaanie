@@ -187,8 +187,15 @@ describe("payment channel separation", () => {
     // switch re-strands the user while leaving the original check in place.
     // Assert nothing between the function head and the switch mentions `offer`.
     expect(billing.slice(purchaseAt, switchAt)).not.toMatch(/\boffer\b/);
-    // And the control that triggers it has to be on screen in that state.
-    expect(read("app/subscribe.tsx")).toContain('|| play.error === "verify_failed" ? (');
+    // And the control that triggers it has to be on screen in that state —
+    // including the silent one. The launch sweep sets no error, so gating the
+    // button on the error string alone left a paid user with no control at all
+    // whenever pickAnnualOffer returned null (empty eligible-offer list, or the
+    // product not sold in their country — both normal). `recoverable` is the
+    // hook's separate signal for exactly that case.
+    expect(billing).toContain("recoverable");
+    const screen = read("app/subscribe.tsx");
+    expect(screen).toContain('play.error === "verify_failed" || play.recoverable ? (');
     // A live purchase rejected as another account's must not be silent.
     // Bounded by the NEXT branch's marker rather than a character count: the
     // count version broke the moment a comment grew, and the tempting fix is to
@@ -248,7 +255,7 @@ describe("payment channel separation", () => {
     // Inside the guarded block: a failed POST must return, never fall through.
     expect(press).toMatch(/if \(!saved\) \{[\s\S]*?return;\s*\}/);
     // And the ONLY thing allowed to skip that block is the retry condition.
-    expect(press).toContain('if (play.error !== "verify_failed") {');
+    expect(press).toContain('if (play.error !== "verify_failed" && !play.recoverable) {');
     expect(press).toContain("if (!infoComplete)");
   });
 
@@ -375,7 +382,11 @@ describe("Play policy surfaces", () => {
     // Sideload has no Play subscription to manage; its Stripe membership is
     // cancelled on the website, so the link must not render there.
     const link = screen.slice(0, screen.indexOf("https://play.google.com/store/account/subscriptions"));
-    expect(link.lastIndexOf('DISTRIBUTION_CHANNEL === "github" ? null : (')).toBeGreaterThan(
+    // Android too, not just the Play channel. DISTRIBUTION_CHANNEL fails closed
+    // to "play" for anything not built as github, so an iOS or web build was
+    // offering subscribers a link to manage a Google Play subscription they
+    // cannot possibly hold.
+    expect(link.lastIndexOf('DISTRIBUTION_CHANNEL === "github" || Platform.OS !== "android" ? null : (')).toBeGreaterThan(
       link.lastIndexOf("</View>"),
     );
   });

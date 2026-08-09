@@ -145,6 +145,10 @@ export function usePlayBilling(accountTag: string | undefined) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchased, setPurchased] = useState(false);
+  // Mirrors outcomeRef for the SCREEN, which needs to know a recovery is
+  // possible before it can offer a control that triggers one. A ref alone
+  // cannot do that: it does not re-render.
+  const [recoverable, setRecoverable] = useState(false);
   // Mirrors `purchased` for the recovery branch in purchase(), which is a
   // useCallback and would otherwise read the value captured at its last render
   // — false, even just after settle() set it true in the same tick.
@@ -202,6 +206,7 @@ export function usePlayBilling(accountTag: string | undefined) {
     // the first of those two steps qualifies.
     if (previous === undefined || previous === accountTag) return;
     outcomeRef.current = null;
+    setRecoverable(false);
     settledRef.current.clear();
     buyingRef.current = false;
     markPurchased(false);
@@ -252,6 +257,7 @@ export function usePlayBilling(accountTag: string | undefined) {
         // so, because this is a normal outcome and not an error.
         if (purchase?.purchaseState === "pending") {
           outcomeRef.current = "pending";
+          if (alive) setRecoverable(true);
           if (alive && !restore) setError("purchase_pending");
           release();
           return;
@@ -274,6 +280,7 @@ export function usePlayBilling(accountTag: string | undefined) {
               // meaning it does not have. Leaving it deduped is what stops the
               // sweep asking again, and that is already true.
               outcomeRef.current = "foreign";
+              if (alive) setRecoverable(true);
               // Silent only when this is the launch sweep finding a stranger's
               // purchase. If the user just paid, saying nothing leaves them with
               // a cleared spinner, no message, and a refund in three days.
@@ -293,6 +300,10 @@ export function usePlayBilling(accountTag: string | undefined) {
             // the user taps Subscribe and simply nothing happens.
             settledRef.current.delete(token);
             outcomeRef.current = "unverified";
+            // Set even on the silent restore path: this is the ONLY signal the
+            // screen gets that a paid purchase needs re-verifying, and without
+            // it a user whose offer never loaded had no control to tap at all.
+            if (alive) setRecoverable(true);
             if (alive && !restore) setError("verify_failed");
             return;
           }
@@ -312,6 +323,7 @@ export function usePlayBilling(accountTag: string | undefined) {
             settledRef.current.delete(token);
           }
           outcomeRef.current = null;
+          if (alive) setRecoverable(false);
           invalidateSubscriptionCache();
           if (alive) {
             markPurchased(true);
@@ -336,6 +348,7 @@ export function usePlayBilling(accountTag: string | undefined) {
           //   no grant.
           settledRef.current.delete(token);
           outcomeRef.current = "unverified";
+          if (alive) setRecoverable(true);
           if (alive && !restore) setError("verify_failed");
         } finally {
           release();
@@ -553,5 +566,14 @@ export function usePlayBilling(accountTag: string | undefined) {
   // `enabled` is deliberately not returned: the screen keys its UI off `offer`,
   // which is null on the sideload channel anyway, so a second flag would be one
   // more thing a caller could check instead of the one that matters.
-  return { offer, loading, busy, error, purchased, purchase };
+  // `recoverable` is returned separately from `error` because the launch sweep
+  // deliberately sets no error — it must not shout at someone who merely opened
+  // the screen. But that left a paid, unverified user with NO control when
+  // pickAnnualOffer returned null (an empty eligible-offer list, or a product
+  // not sold in their country, both documented as normal): the card said
+  // "in-app subscribing isn't available here", their money sat with Google, and
+  // Google auto-refunded after three days. Ordering the outcome switch above
+  // the offer/tag check in purchase() was meant to prevent exactly that, and
+  // the UI gate was undoing it.
+  return { offer, loading, busy, error, purchased, recoverable, purchase };
 }
