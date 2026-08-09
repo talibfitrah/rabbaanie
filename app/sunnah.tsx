@@ -69,11 +69,23 @@ export default function SunnahScreen() {
   const searching = q.length > 0;
   const results = useMemo(() => (searching ? MOMENTS.filter((m) => momentText(m).includes(q)) : []), [q, lang]);
 
+  // Daa3iyah (share bug report): the share text was silently dropping the deeds
+  // list, the reflect line per dua, and the whole 4-category advice section —
+  // everything below must mirror what renderMoment() actually puts on screen.
+  const adviceLine = (label: string, arr?: Loc[]) => (arr && arr.length ? `\n${label}:\n${arr.map((it) => `  • ${L(it)}`).join("\n")}` : "");
+
   const shareMoment = (m: Moment) => {
     const body =
       `🕌 ${L(m.title)}\n\n` +
       `• ${tt("Ikhlaas", "Sincerity", "تذكيرُ الإخلاص")}: ${L(m.ikhlas)}\n\n` +
-      m.duas.map((d) => `• ${d.text}${!isAr && d.translit ? `\n${d.translit}` : ""}${!isAr && (d.nl || d.en) ? `\n${tt(d.nl || "", d.en || "", "")}` : ""}\n(${L(d.source)})${d.reward ? `\n${tt("Beloning", "Reward", "الأجر")}: ${L(d.reward)}` : ""}`).join("\n\n") +
+      (m.duas || []).map((d) => `• ${d.text}${!isAr && d.translit ? `\n${d.translit}` : ""}${!isAr && (d.nl || d.en) ? `\n${tt(d.nl || "", d.en || "", "")}` : ""}${d.reward ? `\n${tt("Beloning", "Reward", "الأجر")}: ${L(d.reward)}` : ""}${d.reflect ? `\n${tt("Overdenk", "Reflect", "تفكّر")}: ${L(d.reflect)}` : ""}\n(${L(d.source)})`).join("\n\n") +
+      (m.deeds && m.deeds.length ? `\n\n${tt("Bijbehorende daden", "Accompanying deeds", "أعمالٌ مصاحبة")}:\n${m.deeds.map((it) => `  • ${L(it)}`).join("\n")}` : "") +
+      (m.advice ? `\n\n${tt("Adviezen", "Advice", "نصائح")}:` +
+        adviceLine(tt("In je denken", "In your thinking", "في تفكيرك"), m.advice.think) +
+        adviceLine(tt("In je gevoel", "In your feeling", "في إحساسك"), m.advice.feel) +
+        adviceLine(tt("In je spreken", "In your speech", "في خطابك"), m.advice.speak) +
+        adviceLine(tt("In je handelen", "In your action", "في جوارحك"), m.advice.act)
+        : "") +
       `\n\n— ${tt("Metgezel van de Soennah, Rabbaanie", "Sunnah Companion, Rabbaanie", "رفيق السنّة، تطبيق ربّانيّ")}`;
     Share.share({ message: body }).catch(() => {});
   };

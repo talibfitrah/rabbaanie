@@ -2699,6 +2699,31 @@ export async function sendLocalizedPush(
   return sendPushNotification(recipientUserId, title, body, data);
 }
 
+// Expo/FCM/APNs reject push payloads over ~4KB total (title + body + data,
+// JSON-serialized); a long body (e.g. a shared progress summary) would
+// silently fail to send otherwise. Budget by UTF-8 BYTES, not character
+// count: this app's push bodies are frequently Arabic (~2 bytes/char) with
+// many newlines (2 bytes once JSON-escaped as "\n"), so a character-count cap
+// alone can still serialize past the provider limit. Cuts on Unicode
+// code-point boundaries (not UTF-16 code units), so a cut doesn't land
+// mid-surrogate-pair and corrupt an emoji (plain .slice() can).
+// ponytail: doesn't handle multi-codepoint grapheme clusters (e.g. ZWJ emoji);
+// upgrade to Intl.Segmenter if a mangled compound emoji is ever reported.
+// Exported (not inlined) so tests exercise this exact function, not a copy.
+export function truncateToByteBudget(body: string, limitBytes: number): string {
+  if (Buffer.byteLength(body, "utf8") <= limitBytes) return body;
+  const chars = Array.from(body);
+  let bytes = 0;
+  let cut = chars.length;
+  for (let i = 0; i < chars.length; i++) {
+    bytes += Buffer.byteLength(chars[i], "utf8");
+    if (bytes > limitBytes) { cut = i; break; }
+  }
+  return `${chars.slice(0, cut).join("")}…`;
+}
+
+const PUSH_BODY_BYTE_LIMIT = 1200;
+
 export async function sendPushNotification(
   recipientUserId: number,
   title: string,
@@ -2707,6 +2732,11 @@ export async function sendPushNotification(
 ): Promise<boolean> {
   const pushToken = await getUserPushToken(recipientUserId);
   if (!pushToken) return false;
+
+  // Cap only the notification preview — the full text still reaches the DB message / share.
+  // Title is capped too (some callers embed unbounded strings, e.g. a child's name).
+  const safeTitle = truncateToByteBudget(title, PUSH_BODY_BYTE_LIMIT);
+  const safeBody = truncateToByteBudget(body, PUSH_BODY_BYTE_LIMIT);
 
   try {
     const response = await fetch("https://exp.host/--/api/v2/push/send", {
@@ -2718,8 +2748,8 @@ export async function sendPushNotification(
       },
       body: JSON.stringify({
         to: pushToken,
-        title,
-        body,
+        title: safeTitle,
+        body: safeBody,
         data: data ?? {},
         sound: "default",
         priority: "high",
@@ -3237,8 +3267,10 @@ export async function broadcastLocalizedPush(
       const lang = u.language || "nl";
       return {
         to: u.pushToken,
-        title: tx(lang, titleNl, titleEn, titleAr),
-        body: tx(lang, bodyNl, bodyEn, bodyAr),
+        // Same payload-size cap as sendPushNotification (this path builds its own
+        // Expo call instead of routing through it, so it needs the guard too).
+        title: truncateToByteBudget(tx(lang, titleNl, titleEn, titleAr), PUSH_BODY_BYTE_LIMIT),
+        body: truncateToByteBudget(tx(lang, bodyNl, bodyEn, bodyAr), PUSH_BODY_BYTE_LIMIT),
         data: data ?? {},
         sound: "default" as const,
         priority: "high" as const,

@@ -175,7 +175,7 @@ export default function ShareChildScreen() {
     if (selectedFields.has("issues") && issues.length > 0) {
       text += `\n${divider}\n`;
       text += `⚠️ ${tx(language as Lang, "Aandachtspunten", "Issues", "نقاط الاهتمام")}:\n\n`;
-      issues.slice(0, 5).forEach((issue: any) => {
+      issues.forEach((issue: any) => {
         text += `  • ${issue.title || issue.description || "—"}\n`;
         if (issue.severity) text += `    ${tx(language as Lang, "Ernst", "Severity", "الخطورة")}: ${issue.severity}\n`;
       });
@@ -187,8 +187,8 @@ export default function ShareChildScreen() {
       if (treated.length > 0) {
         text += `\n${divider}\n`;
         text += `💊 ${tx(language as Lang, "Behandelplan", "Treatment plan", "خطة العلاج")}:\n\n`;
-        treated.slice(0, 3).forEach((issue: any) => {
-          text += `  • ${issue.title}: ${issue.treatmentPlan?.substring(0, 100)}...\n`;
+        treated.forEach((issue: any) => {
+          text += `  • ${issue.title || issue.description || "—"}: ${issue.treatmentPlan}\n`;
         });
         text += "\n";
       }
@@ -221,6 +221,9 @@ export default function ShareChildScreen() {
     setSharing(true);
     try {
       const text = buildShareText();
+      // Escape before interpolating into HTML — text includes free-form parent/specialist
+      // notes and treatment plans, so it must not be trusted as markup.
+      const escapeHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
       // Create a simple HTML for PDF
       const html = `
         <html dir="${isRTL ? "rtl" : "ltr"}">
@@ -234,7 +237,7 @@ export default function ShareChildScreen() {
         </style></head>
         <body>
           <h1>📋 ${tx(language as Lang, "Samenvatting Kindgegevens", "Child Data Summary", "ملخص بيانات الطفل")}</h1>
-          <pre style="white-space: pre-wrap; font-family: Arial, sans-serif;">${text}</pre>
+          <pre style="white-space: pre-wrap; font-family: Arial, sans-serif;">${escapeHtml(text)}</pre>
         </body></html>
       `;
 
