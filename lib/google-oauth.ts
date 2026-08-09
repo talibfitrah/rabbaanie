@@ -16,6 +16,42 @@ export class GoogleSignInError extends Error {
   }
 }
 
+/**
+ * Clamp a sign-in error reason to something safe to interpolate into the
+ * user-visible "Google sign-in failed" message (app/login.tsx): short, no
+ * separators, never empty. `GoogleSignInError.reason` is already allowlisted
+ * at the source below for the server-response case, so this is the second,
+ * cheap layer — it mainly guards the one caller-side value that isn't
+ * source-constrained (a raw JS error's `.name`, safe by origin, not by
+ * allowlist), and keeps a future non-GoogleSignInError source from putting
+ * an email/URL shape on screen even if it isn't added to an allowlist.
+ * ponytail: the allowed charset (A-Za-z0-9_-) is also base64url's alphabet,
+ * so a token-shaped value would pass through unstripped (just truncated to
+ * 40 chars) — not reachable today (every current source is a bounded SDK
+ * code, a fixed literal, or the allowlisted server codes), but if a future
+ * source of `raw` could carry a token, widen this to an allowlist like
+ * KNOWN_GOOGLE_EXCHANGE_ERRORS instead of trusting the charset filter alone.
+ */
+export function sanitizeErrorDetail(raw: unknown): string {
+  return String(raw).replace(/[^A-Za-z0-9_-]/g, "").slice(0, 40) || "unknown";
+}
+
+// The exact set server/web-auth.ts's /auth/google/native route can send as
+// `error` today. Allowlisted, not just type-checked: `data.error` is server
+// text reaching a user-visible string (login.tsx interpolates
+// GoogleSignInError.reason into the sign-in-failed message), so a future
+// route change that starts returning something less generic — a raw
+// exception message, an email, anything with more shape than a status code
+// — doesn't quietly become user-visible. Add new codes here when the route
+// adds them; anything else collapses to the existing generic fallback.
+const KNOWN_GOOGLE_EXCHANGE_ERRORS = new Set([
+  "invalid_google_token",
+  "google_signin_unavailable",
+  "database_unavailable",
+  "no_account",
+  "admin_2fa_required",
+]);
+
 let configured = false;
 
 function configureGoogleSignIn(): void {
@@ -111,7 +147,9 @@ export async function completeNativeGoogleSignIn(): Promise<NativeGoogleSignInRe
     }
     if (!response.ok) {
       throw new GoogleSignInError(
-        typeof data.error === "string" ? data.error : "google_exchange_failed",
+        typeof data.error === "string" && KNOWN_GOOGLE_EXCHANGE_ERRORS.has(data.error)
+          ? data.error
+          : "google_exchange_failed",
       );
     }
     if (typeof data.sessionToken !== "string" || !data.sessionToken) {

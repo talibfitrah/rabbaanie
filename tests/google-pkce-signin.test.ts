@@ -36,6 +36,7 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 import {
   completeNativeGoogleSignIn,
   GoogleSignInError,
+  sanitizeErrorDetail,
 } from "../lib/google-oauth";
 
 describe("certificate-bound Android Google sign-in", () => {
@@ -240,6 +241,26 @@ describe("certificate-bound Android Google sign-in", () => {
     } satisfies Partial<GoogleSignInError>);
   });
 
+  it("collapses an unrecognized server error to the generic reason", async () => {
+    // The reason ends up interpolated into a user-visible string (app/login.tsx),
+    // so an allowlist gap here would let arbitrary server text reach the screen.
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    vi.stubGlobal(
+      "fetch",
+      vi.fn().mockResolvedValue({
+        ok: false,
+        json: vi.fn().mockResolvedValue({ error: "not-an-allowlisted-code" }),
+      }),
+    );
+
+    await expect(completeNativeGoogleSignIn()).rejects.toMatchObject({
+      reason: "google_exchange_failed",
+    } satisfies Partial<GoogleSignInError>);
+  });
+
   it("ships no browser callback scheme in the Play configuration", () => {
     const login = readFileSync("app/login.tsx", "utf8");
     const config = readFileSync("app.config.ts", "utf8");
@@ -257,5 +278,35 @@ describe("certificate-bound Android Google sign-in", () => {
     expect(server).toContain("googleTokenVerifier.verifyIdToken");
     expect(server).toContain("audience");
     expect(server).toContain("payload.email_verified !== true");
+  });
+});
+
+describe("sanitizeErrorDetail", () => {
+  it("passes short known-safe codes through unchanged", () => {
+    expect(sanitizeErrorDetail("10")).toBe("10");
+    expect(sanitizeErrorDetail("missing_google_id_token")).toBe(
+      "missing_google_id_token",
+    );
+    expect(sanitizeErrorDetail("AbortError")).toBe("AbortError");
+  });
+
+  it("strips separators so no email or URL shape can survive", () => {
+    expect(sanitizeErrorDetail("daa3iyah@gmail.com")).toBe("daa3iyahgmailcom");
+    expect(sanitizeErrorDetail("https://evil.example/steal?t=1")).toBe(
+      "httpsevilexamplestealt1",
+    );
+  });
+
+  it("caps length at 40 characters", () => {
+    const result = sanitizeErrorDetail("a".repeat(100));
+    expect(result).toHaveLength(40);
+  });
+
+  it("falls back to a fixed string only when nothing alphanumeric survives", () => {
+    expect(sanitizeErrorDetail("   ")).toBe("unknown");
+    expect(sanitizeErrorDetail("@@@###")).toBe("unknown");
+    // String(undefined) is the literal word "undefined" — itself alnum, so
+    // it survives the filter rather than triggering the empty-string fallback.
+    expect(sanitizeErrorDetail(undefined)).toBe("undefined");
   });
 });

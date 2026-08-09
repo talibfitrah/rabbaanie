@@ -19,6 +19,7 @@ import { useAppState } from "@/lib/app-context";
 import {
   completeNativeGoogleSignIn,
   GoogleSignInError,
+  sanitizeErrorDetail,
 } from "@/lib/google-oauth";
 import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
@@ -256,11 +257,21 @@ export default function LoginScreen() {
         );
         return;
       }
+      // This branch is the catch-all for every failure not already understood
+      // above (an SDK rejection after account selection, a missing idToken, a
+      // dropped connection to our own /auth/google/native) — console.error
+      // above is invisible on a release build with no device attached, so the
+      // in-app message is the only trace a real report ever carries. A short
+      // code costs nothing and turns "generic failure, no clue" into
+      // something that can be read off the screen and acted on.
+      // sanitizeErrorDetail (lib/google-oauth.ts) is the safety layer; see
+      // its docstring for what it guarantees and its documented ceiling.
+      const detail = sanitizeErrorDetail(denied ?? err?.name ?? "unknown");
       setError(
         tx(
-          "Google-inloggen mislukt. Probeer het opnieuw.",
-          "Google sign-in failed. Please try again.",
-          "فشل تسجيل الدخول بـ Google. حاول مرة أخرى.",
+          `Google-inloggen mislukt (${detail}). Probeer het opnieuw.`,
+          `Google sign-in failed (${detail}). Please try again.`,
+          `فشل تسجيل الدخول بـ Google (${detail}). حاول مرة أخرى.`,
         ),
       );
     } finally {
