@@ -120,7 +120,7 @@ export default function SubscribeScreen() {
 
   // Play Billing is inert on the sideload channel (see lib/play-billing.ts), so
   // this hook is safe to mount unconditionally.
-  const play = usePlayBilling(status?.playAccountTag);
+  const play = usePlayBilling(status?.playAccountTag, uid);
   // A verified Play purchase changes entitlement server-side; pull the new
   // status so the banner flips to "subscribed" without leaving the screen.
   useEffect(() => { if (play.purchased) loadStatus(); }, [play.purchased, loadStatus]);

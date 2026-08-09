@@ -157,6 +157,32 @@ describe("payment channel separation", () => {
     expect(rawFlag.length).toBe(1);
   });
 
+  it("resets on the account, not on the tag's arrival", () => {
+    const billing = read("lib/play-billing.ts");
+    // Keying the reset on the tag forced a choice between two failures: reset on
+    // every change and the initial undefined -> tag fill erases a diagnosis the
+    // launch sweep just produced; skip that transition and an account whose
+    // /status never succeeded hands its outcome, settled tokens and purchased
+    // flag to the NEXT account, whose tag arrives as the same transition. The
+    // uid changes exactly once per switch and never for a late tag.
+    expect(billing).toContain("usePlayBilling(accountTag: string | undefined, userId: number | undefined)");
+    expect(billing).toMatch(/markPurchased\(false\);\s*setError\(null\);\s*\}, \[userId\]\);/);
+    expect(read("app/subscribe.tsx")).toContain("usePlayBilling(status?.playAccountTag, uid)");
+  });
+
+  it("offers recovery only for failures that could actually resolve", () => {
+    const billing = read("lib/play-billing.ts");
+    // Google saying "expired" or "wrong product" is a definitive no. Treating
+    // those like a transient failure made the launch sweep offer its
+    // paid-but-unverified recovery to someone who never paid, and turned their
+    // first Subscribe tap into a resync instead of a purchase.
+    expect(billing).toContain("const DEFINITIVE_REJECTIONS = new Set([");
+    for (const reason of ["expired", "product_mismatch", "no_line_items"]) {
+      expect(billing).toContain(`"${reason}"`);
+    }
+    expect(billing).toContain('DEFINITIVE_REJECTIONS.has(reason) || reason.startsWith("state_")');
+  });
+
   it("treats a verify that never answered like one that refused", () => {
     const billing = read("lib/play-billing.ts");
     // A rejected fetch and a server that says no leave the user in the same

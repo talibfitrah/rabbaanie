@@ -73,6 +73,20 @@ function isPlayBillingEnabled(): boolean {
 type AnnualOffer = { displayPrice: string; offerToken: string };
 
 /**
+ * Reasons the server gives when Google has answered clearly and the answer is
+ * no. None of these change with a retry, so they must not put the screen into its
+ * paid-but-unverified recovery mode — that mode exists for failures that might
+ * resolve, and offering it after a definitive no strands a non-buyer in it.
+ */
+const DEFINITIVE_REJECTIONS = new Set([
+  "expired",
+  "no_line_items",
+  "product_mismatch",
+  "no_expiry",
+  "empty_response",
+]);
+
+/**
  * Pick the offer to buy out of what Play returned for the subscription.
  *
  * Split out as a pure function because it is the only branching logic here that
@@ -136,7 +150,7 @@ async function verifyWithServer(
  */
 type Outcome = null | "pending" | "unverified" | "foreign";
 
-export function usePlayBilling(accountTag: string | undefined) {
+export function usePlayBilling(accountTag: string | undefined, userId: number | undefined) {
   const enabled = isPlayBillingEnabled();
   const [offer, setOffer] = useState<AnnualOffer | null>(null);
   // Distinguishes "still asking Play" from "Play has nothing for you here".
@@ -208,26 +222,21 @@ export function usePlayBilling(accountTag: string | undefined) {
   // "foreign"/"unverified" would early-return instead of purchasing, and a
   // stale `purchased` would trigger a spurious status refetch. subscribe.tsx
   // clears its own state on uid change; this is the same reset for the hook's.
-  const previousTag = useRef(accountTag);
   useEffect(() => {
-    const previous = previousTag.current;
-    previousTag.current = accountTag;
-    // Only a real switch, never the initial undefined -> tag fill. The tag is
-    // status?.playAccountTag, so it always arrives late: open the screen while
-    // the server is unreachable and the launch sweep records "unverified" for a
-    // paid purchase it could not verify, then the status GET finally succeeds,
-    // the tag appears, and an unconditional reset erases that diagnosis — after
-    // which the next Subscribe tap calls requestPurchase() for a subscription
-    // Play already owns. An account switch still resets, because subscribe.tsx
-    // clears status on uid change, so a switch is tagA -> undefined -> tagB and
-    // the first of those two steps qualifies.
-    if (previous === undefined || previous === accountTag) return;
+    // Keyed on the ACCOUNT, not on the tag. Keying it on the tag meant choosing
+    // between two failures: reset on every change and the initial
+    // undefined -> tag fill erases a diagnosis the launch sweep just produced;
+    // skip undefined -> tag and an account whose /status never succeeded leaves
+    // its outcome, settled tokens and purchased flag to the NEXT account, whose
+    // tag arrives as the same undefined -> tag transition. The uid changes
+    // exactly once per switch and never for a late tag, which is the actual
+    // question being asked.
     setOutcome(null);
     settledRef.current.clear();
     buyingRef.current = false;
     markPurchased(false);
     setError(null);
-  }, [accountTag]);
+  }, [userId]);
 
   useEffect(() => {
     if (!enabled) return;
@@ -312,6 +321,18 @@ export function usePlayBilling(accountTag: string | undefined) {
             // delivery of this token would hit the `has(token)` early return,
             // which clears the spinner without setting an error or a success —
             // the user taps Subscribe and simply nothing happens.
+            // A DEFINITIVE verdict is not a recovery. Google told us plainly
+            // that this purchase does not entitle anything — expired, cancelled
+            // out of its paid period, a different product. Treating those like
+            // a transient failure meant the launch sweep, finding an old
+            // purchase on the device, offered its recovery control to someone
+            // who never paid, and turned their first Subscribe tap into a
+            // resync instead of a purchase. Only a failure that might resolve
+            // itself is worth re-verifying.
+            if (DEFINITIVE_REJECTIONS.has(reason) || reason.startsWith("state_")) {
+              if (alive && !restore) setError("verify_gone");
+              return;
+            }
             settledRef.current.delete(token);
             // setOutcome runs on the silent restore path too, and that is the
             // point: it is the ONLY signal the screen gets that a paid purchase
