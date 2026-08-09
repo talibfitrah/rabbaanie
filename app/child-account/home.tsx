@@ -18,6 +18,7 @@ import {
   hideMonitoringNotice,
   runNoticeGatedCollection,
 } from "@/lib/monitoring-notice";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { trpc } from "@/lib/trpc";
 
 // Daily wird based on age group (trilingual)
@@ -295,8 +296,17 @@ export default function ChildHomeScreen() {
     let cancelled = false;
     if (id > 0) {
       activityTracker.init(id);
-      // Auto-sync external app usage on open (Android native builds only)
-      if (isNativeModuleAvailable()) {
+      // Auto-sync external app usage on open (Android native builds only).
+      //
+      // CHILD_MONITORING_ENABLED is checked first, and deliberately not only
+      // isNativeModuleAvailable(). Child mode itself ships on both channels now,
+      // so the route-level channel block that used to make this file
+      // unreachable on Play is gone — leaving the native module's absence as the
+      // only thing preventing PACKAGE_USAGE_STATS collection in a Play build.
+      // That is an accident of the autolinking exclusion in app.config.ts, not a
+      // decision: any change to withPlayMonitoringDisabled would silently turn
+      // collection back on here. The channel is the actual invariant, so state it.
+      if (CHILD_MONITORING_ENABLED && isNativeModuleAvailable()) {
         // Play's Stalkerware policy requires a persistent notice on the
         // monitored device whenever monitoring is active. Gate it on the
         // permission actually being granted: with no permission nothing is

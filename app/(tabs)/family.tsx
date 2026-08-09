@@ -26,7 +26,6 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { SyncToast } from "@/components/sync-toast";
-import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { ReportAiContent } from "@/components/report-ai-content";
 
 import { authedFetch } from "@/lib/authed-fetch";
@@ -3827,7 +3826,6 @@ export default function FamilyScreen() {
                         />
                       </Pressable>
                     )}
-                    {CHILD_MONITORING_ENABLED && (
                       <Pressable
                         onPress={() =>
                           router.push(
@@ -3849,7 +3847,6 @@ export default function FamilyScreen() {
                           color="#8B5CF6"
                         />
                       </Pressable>
-                    )}
                   </View>
                 </View>
                 {/* Treatment issues for this child */}

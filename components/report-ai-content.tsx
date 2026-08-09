@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Alert, Text, TouchableOpacity } from "react-native";
+import { Alert, Text, TouchableOpacity, View } from "react-native";
 import { useI18n } from "@/lib/i18n";
 import { useColors } from "@/hooks/use-colors";
 import { apiCall } from "@/lib/_core/api";
@@ -35,6 +35,7 @@ type Props = {
 
 const TEXT = {
   nl: {
+    disclosure: "Door AI gegenereerd — controleer belangrijke informatie.",
     label: "Antwoord melden",
     confirmTitle: "Dit antwoord melden?",
     confirmBody:
@@ -45,6 +46,7 @@ const TEXT = {
     failed: "Melden is niet gelukt. Probeer het later opnieuw.",
   },
   en: {
+    disclosure: "AI-generated — check important information.",
     label: "Report response",
     confirmTitle: "Report this response?",
     confirmBody: "This sends the response to our team so we can review it.",
@@ -54,6 +56,7 @@ const TEXT = {
     failed: "Could not send the report. Please try again later.",
   },
   ar: {
+    disclosure: "مُولَّد بالذكاء الاصطناعيّ — تحقّق من المعلومات المهمّة.",
     label: "الإبلاغ عن الرد",
     confirmTitle: "هل تريد الإبلاغ عن هذا الرد؟",
     confirmBody: "سيتم إرسال هذا الرد إلى فريقنا لمراجعته.",
@@ -103,6 +106,24 @@ export function ReportAiContent({ content, surface, color }: Props) {
   };
 
   return (
+    <View style={{ alignSelf: isRTL ? "flex-end" : "flex-start" }}>
+      {/* The disclosure rides with the report control on purpose. Play's
+          AI-Generated Content policy wants users to understand AI is involved
+          "without needing to investigate beyond what the app itself
+          communicates", and this component is already rendered directly beneath
+          every AI output in the app — so pairing them means a new AI surface
+          cannot ship with a report button but no disclosure. */}
+      <Text
+        style={{
+          color: color ?? colors.muted,
+          fontSize: 11.5,
+          opacity: 0.85,
+          paddingHorizontal: 8,
+          textAlign: isRTL ? "right" : "left",
+        }}
+      >
+        {text.disclosure}
+      </Text>
     <TouchableOpacity
       onPress={confirm}
       disabled={sending}
@@ -113,7 +134,6 @@ export function ReportAiContent({ content, surface, color }: Props) {
         minHeight: 44,
         paddingVertical: 10,
         paddingHorizontal: 8,
-        alignSelf: isRTL ? "flex-end" : "flex-start",
         justifyContent: "center",
         opacity: sending ? 0.5 : 1,
       }}
@@ -128,5 +148,6 @@ export function ReportAiContent({ content, surface, color }: Props) {
         ⚑ {text.label}
       </Text>
     </TouchableOpacity>
+    </View>
   );
 }

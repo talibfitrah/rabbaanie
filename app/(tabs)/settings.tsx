@@ -67,6 +67,8 @@ import { useAuth } from "@/hooks/use-auth";
 import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
 import { formatSubscriptionRemaining, useSubscription } from "@/hooks/use-subscription";
 import * as Clipboard from "expo-clipboard";
+import { openBrowserAsync } from "expo-web-browser";
+import { getApiBaseUrl } from "@/constants/oauth";
 import { getSessionRole } from "@/lib/_core/auth";
 
 
@@ -1946,7 +1948,7 @@ export default function SettingsScreen() {
       <CommunicationSettings colors={colors} language={language} />
 
       {/* App info */}
-      <SettingsCollapsible title={language === "ar" ? "معلومات التطبيق" : isEn ? "App Info" : "App Info"} icon="info" colors={colors} isRTL={isRTL}>
+      <SettingsCollapsible title={language === "ar" ? "معلومات التطبيق" : isEn ? "App Info" : "App Info"} icon="info" colors={colors} isRTL={isRTL} defaultOpen>
         <Text className="text-lg font-bold mb-2" style={{ color: colors.foreground }}>
           {t("settings.about_title")}
         </Text>
@@ -1958,6 +1960,40 @@ export default function SettingsScreen() {
           {"\u2022"} Islamitische Gezinskunde (feb 2022 - juni 2025){"\n"}
           {"\u2022"} الموسوعة الميسرة في تربية الأولاد
         </Text>
+
+        {/* Google Play requires the privacy policy to be reachable from inside
+            the app, not only from the store listing — and this app collects
+            name, address, phone, location, family profiles and AI chat content,
+            so it is squarely in scope. Opened in an in-app browser rather than
+            handed to Chrome so the user never leaves the app.
+            The same block carries the disclaimer Play's Health Content policy
+            asks of an app with health-adjacent features (behaviour advice,
+            "treatment plans") that is not a cleared medical device. */}
+        <View style={{ marginTop: 16, gap: 2 }}>
+          {[
+            { path: "privacy", ar: "\u0633\u064a\u0627\u0633\u0629 \u0627\u0644\u062e\u0635\u0648\u0635\u064a\u0651\u0629", nl: "Privacybeleid", en: "Privacy policy" },
+            { path: "terms", ar: "\u0634\u0631\u0648\u0637 \u0627\u0644\u0627\u0633\u062a\u062e\u062f\u0627\u0645", nl: "Gebruiksvoorwaarden", en: "Terms of use" },
+            { path: "account-deletion", ar: "\u062d\u0630\u0641 \u0627\u0644\u062d\u0633\u0627\u0628 \u0648\u0627\u0644\u0628\u064a\u0627\u0646\u0627\u062a", nl: "Account en gegevens verwijderen", en: "Account and data deletion" },
+          ].map((link) => (
+            <Pressable
+              key={link.path}
+              accessibilityRole="link"
+              onPress={() => { const url = `${getApiBaseUrl()}/${link.path}?lang=${language === "nl" ? "nl" : "en"}`; openBrowserAsync(url).catch(() => { Linking.openURL(url).catch(() => {}); }); }}
+              style={({ pressed }) => [{ minHeight: 44, justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}
+            >
+              <Text style={{ color: colors.primary, fontSize: 14, textDecorationLine: "underline", textAlign: isRTL ? "right" : "left" }}>
+                {language === "ar" ? link.ar : isEn ? link.en : link.nl}
+              </Text>
+            </Pressable>
+          ))}
+          <Text style={{ color: colors.muted, fontSize: 12, lineHeight: 18, marginTop: 10, textAlign: isRTL ? "right" : "left" }}>
+            {language === "ar"
+              ? "\u0631\u0628\u0651\u0627\u0646\u064a\u0651 \u0644\u064a\u0633 \u062c\u0647\u0627\u0632\u064b\u0627 \u0637\u0628\u0651\u064a\u0651\u064b\u0627\u060c \u0648\u0644\u0627 \u064a\u064f\u0634\u062e\u0651\u0635 \u0623\u064a\u0651 \u062d\u0627\u0644\u0629\u064d \u0648\u0644\u0627 \u064a\u0639\u0627\u0644\u062c\u0647\u0627 \u0648\u0644\u0627 \u064a\u0634\u0641\u064a\u0647\u0627 \u0648\u0644\u0627 \u064a\u0645\u0646\u0639\u0647\u0627. \u0627\u0644\u0645\u062d\u062a\u0648\u0649 \u062a\u0631\u0628\u0648\u064a\u0651\u060c \u0648\u0644\u064a\u0633 \u0628\u062f\u064a\u0644\u064b\u0627 \u0639\u0646 \u0627\u0633\u062a\u0634\u0627\u0631\u0629 \u0645\u062e\u062a\u0635\u0651."
+              : isEn
+                ? "Rabbaanie is not a medical device and does not diagnose, treat, cure, or prevent any medical condition. The content is educational and is not a substitute for professional advice."
+                : "Rabbaanie is geen medisch hulpmiddel en stelt geen diagnose en behandelt, geneest of voorkomt geen enkele medische aandoening. De inhoud is educatief en vervangt geen professioneel advies."}
+          </Text>
+        </View>
       </SettingsCollapsible>
 
       {/* Home Screen Widgets Settings */}

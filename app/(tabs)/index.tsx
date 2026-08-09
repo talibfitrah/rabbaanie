@@ -18,7 +18,6 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
-import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -431,11 +430,14 @@ export default function AlgemeenScreen() {
               {syncing ? <ActivityIndicator size={18} color="#1B4332" /> : <MaterialIcons name="sync" size={22} color="#1B4332" />}
             </Pressable>
           )}
-          {CHILD_MONITORING_ENABLED && (
-            <Pressable onPress={() => router.push("/child-account/login" as any)} style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#E3F2FD" }, pressed && { opacity: 0.5 }]}>
-              <MaterialIcons name="child-care" size={22} color="#1565C0" />
-            </Pressable>
-          )}
+          {/* Both channels. The child cannot sign in on their own: this opens a
+              profile from inside the signed-in parent's session, and the server
+              resolves child access codes only among that parent's own children.
+              Only the app-usage monitoring is sideload-only — see
+              lib/age-gate.tsx for the full reasoning. */}
+          <Pressable onPress={() => router.push("/child-account/login" as any)} style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#E3F2FD" }, pressed && { opacity: 0.5 }]}>
+            <MaterialIcons name="child-care" size={22} color="#1565C0" />
+          </Pressable>
           {/* صدقة — الرئيسية، بجانب زر الطفل (msg 577) */}
           <Pressable
             onPress={() => {

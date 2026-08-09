@@ -95,6 +95,17 @@ done
 if grep -q 'isMonitoringTool' "$MANTXT"; then
   fail "isMonitoringTool metadata is present in the Play build"
 fi
+
+# The only REQUIRED permission asserted here, and the only check that fails for
+# something being absent rather than present. `android.permissions` in
+# app.config.ts is a restrictive allow-list and blockedPermissions emits
+# tools:node="remove", so a merge-order change or a future edit could strip the
+# billing permission that expo-iap contributes from its own manifest. Nothing
+# else would notice: the app builds, launches, and only fails when a real user
+# tries to pay. Every purchase on Play depends on this line.
+if ! grep -q 'com.android.vending.BILLING' "$MANTXT"; then
+  fail "com.android.vending.BILLING is MISSING — Play Billing cannot work"
+fi
 # Native Google sign-in is certificate-bound and consumes no redirect scheme;
 # a surviving auth scheme means a stale manifest. Matched as a whole word: the
 # package name com.rabbaanie.app contains "rabbaanie" and is present in every

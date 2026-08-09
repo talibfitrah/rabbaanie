@@ -30,14 +30,42 @@ type GateRedirectInput = {
   status: AgeGateStatus | null;
   isAuthenticated: boolean;
   segment?: string;
-  childMonitoringEnabled: boolean;
 };
 
+/**
+ * The child profile mode is deliberately NOT gated here by release channel.
+ *
+ * It used to be, via a `childMonitoringEnabled` flag — but that one flag stood
+ * for two unrelated things: the child's own profile experience, and the
+ * PACKAGE_USAGE_STATS app-usage tracking. Only the second is what Play screens
+ * as stalkerware, and it is already absent from the Play build three ways over
+ * (permission blocked in app.config.ts, native module excluded from Gradle
+ * autolinking, both asserted against the shipped artifact by
+ * scripts/assert-play-artifact.sh). Blocking the profile mode too cost the Play
+ * build a whole feature for no policy benefit.
+ *
+ * What keeps this compliant is below, and none of it depends on the channel.
+ * Stated precisely, because the loose version ("a child never has an account")
+ * is not what the code does: a child DOES have a `childAccounts` row with an
+ * access code. What they do not have is any way to authenticate on their own.
+ * `/child-account/*` sits behind the same `isAuthenticated` check as everything
+ * else, and `childAccount.login` is a protectedProcedure that resolves an access
+ * code only among `ctx.user.id`'s own children — so the child area is reachable
+ * only from inside a signed-in parent's session, on the parent's device. That
+ * session is the adult action Play's Families policy asks for.
+ *
+ * Do NOT count the "parent confirmation" PIN in child-account/login.tsx as part
+ * of that argument: it is generated client-side and rendered on the same screen
+ * as the field it is typed into. It is a speed bump, not an authorization
+ * control.
+ *
+ * The one genuinely monitoring-specific screen guards itself; see
+ * app/child-account/usage-permission.tsx.
+ */
 export function getGateRedirect({
   status,
   isAuthenticated,
   segment,
-  childMonitoringEnabled,
 }: GateRedirectInput): "/age-check" | "/login" | "/(tabs)" | null {
   const inAgeGate = segment === "age-check";
   // "register" belongs here for the same reason as "login": these are the
@@ -52,9 +80,6 @@ export function getGateRedirect({
 
   if (status !== "adult") return inAgeGate ? null : "/age-check";
   if (inAgeGate) return isAuthenticated ? "/(tabs)" : "/login";
-  if (!childMonitoringEnabled && segment === "child-account") {
-    return isAuthenticated ? "/(tabs)" : "/login";
-  }
   // "support" is reachable both signed-in (Settings' "Contact the technical
   // team" row) and signed-out (the login screen's "need help?" link) — unlike
   // inAuthGroup above, it must NOT bounce a signed-in visitor back to /(tabs),

@@ -24,9 +24,10 @@ import {
   Linking,
   ActivityIndicator,
 } from "react-native";
-import { useRouter, useLocalSearchParams } from "expo-router";
+import { Redirect, useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { useI18n } from "@/lib/i18n";
 import {
   isNativeModuleAvailable,
@@ -136,6 +137,15 @@ export default function UsagePermissionScreen() {
       router.back();
     }
   };
+
+  // App-usage monitoring is the one sideload-only capability inside child mode.
+  // The Play build ships without PACKAGE_USAGE_STATS and without the native
+  // module, so this screen could only ever offer a permission it cannot hold —
+  // and a Play reviewer finding a "grant usage access" flow is the exact
+  // stalkerware signature the build is shaped to avoid. Guarded here rather
+  // than in the router because the router only sees the top-level segment, and
+  // a screen-level guard holds for every route that reaches this file.
+  if (!CHILD_MONITORING_ENABLED) return <Redirect href="/(tabs)" />;
 
   // Not Android - show message
   if (Platform.OS !== "android") {

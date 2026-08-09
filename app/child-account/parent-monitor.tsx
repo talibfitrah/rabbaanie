@@ -3,6 +3,7 @@ import { Text, View, ScrollView, TouchableOpacity, Alert, Share, Platform, TextI
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
+import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { trpc } from "@/lib/trpc";
 import { useI18n } from "@/lib/i18n";
 
@@ -91,9 +92,14 @@ export default function ParentMonitorScreen() {
     { enabled: childAccountId > 0 && activeTab === "chat" }
   );
 
+  // The one query on this screen fed by PACKAGE_USAGE_STATS. Everything else
+  // here — tasks, chat, achievements, challenges, summaries, and the account
+  // creation that issues a child's access code — is ordinary family data and
+  // ships on both channels. Gating the whole screen instead (tried, reverted)
+  // left the Play build advertising child mode with no way to set it up.
   const appUsageQuery = trpc.childAppUsage.getDaily.useQuery(
     { childAccountId, date: todayDate },
-    { enabled: childAccountId > 0 && activeTab === "apps" }
+    { enabled: CHILD_MONITORING_ENABLED && childAccountId > 0 && activeTab === "apps" }
   );
 
   const aiConversationsQuery = trpc.childAiChat.listConversations.useQuery(
@@ -698,7 +704,12 @@ export default function ParentMonitorScreen() {
           )}
         </View>
 
-        {/* External app usage (Android) */}
+        {/* External app usage (Android) — the only PACKAGE_USAGE_STATS-derived
+            panel on this screen. Not conditioned here because the "Apps" tab
+            that renders it is itself gated on CHILD_MONITORING_ENABLED, so on a
+            Play build this code is never reached. The rest of the screen ships
+            on both channels: it is also where a child account is created and its
+            access code shown, which is why the screen is NOT gated wholesale. */}
         <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 16, borderWidth: 1, borderColor: colors.border }}>
           <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", textAlign, marginBottom: 12 }}>
             {language === "ar" ? "تطبيقات الهاتف الخارجية" : language === "nl" ? "Externe telefoon-apps" : "External phone apps"}
@@ -879,7 +890,7 @@ export default function ParentMonitorScreen() {
           {/* Tabs */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 44 }}>
             <View style={{ flexDirection: "row", gap: 8 }}>
-              {(["overview", "tasks", "chat", "apps", "ai"] as TabType[]).map(renderTab)}
+              {((CHILD_MONITORING_ENABLED ? ["overview", "tasks", "chat", "apps", "ai"] : ["overview", "tasks", "chat", "ai"]) as TabType[]).map(renderTab)}
             </View>
           </ScrollView>
 
@@ -888,7 +899,7 @@ export default function ParentMonitorScreen() {
             {activeTab === "overview" && renderOverview()}
             {activeTab === "tasks" && renderTasks()}
             {activeTab === "chat" && renderChat()}
-            {activeTab === "apps" && renderApps()}
+            {CHILD_MONITORING_ENABLED && activeTab === "apps" && renderApps()}
             {activeTab === "ai" && renderAiConversations()}
           </ScrollView>
         </View>

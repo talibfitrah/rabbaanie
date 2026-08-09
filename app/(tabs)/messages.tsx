@@ -33,7 +33,6 @@ import {
   generatePersonId,
 } from "@/lib/network-store";
 import { DatePicker } from "@/components/date-picker";
-import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 
@@ -1080,7 +1079,6 @@ function ParentsSection({
                       </View>
                     </View>
                   </View>
-                  {CHILD_MONITORING_ENABLED && (
                     <TouchableOpacity
                       onPress={() => router.push(`/child-account/parent-monitor?childId=${child.id}&childName=${encodeURIComponent(child.name || '')}` as any)}
                       style={{
@@ -1092,7 +1090,6 @@ function ParentsSection({
                     >
                       <MaterialIcons name="monitor" size={18} color={colors.primary} />
                     </TouchableOpacity>
-                  )}
                   <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />
                 </TouchableOpacity>
               );

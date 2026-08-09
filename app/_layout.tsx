@@ -95,7 +95,6 @@ import {
   useAgeGate,
 } from "@/lib/age-gate";
 import { resolvePendingRedirect } from "@/lib/app-gate";
-import { CHILD_MONITORING_ENABLED } from "@/lib/distribution";
 import * as NativeAuth from "@/lib/_core/auth";
 
 async function hasStoredNotificationEligibility(): Promise<boolean> {
@@ -218,7 +217,6 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           status: ageStatus,
           isAuthenticated,
           segment,
-          childMonitoringEnabled: CHILD_MONITORING_ENABLED,
         });
 
   const inSetup =

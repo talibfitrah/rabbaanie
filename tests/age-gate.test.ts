@@ -75,7 +75,6 @@ describe("neutral age gate", () => {
         status: null,
         isAuthenticated: false,
         segment: "login",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
     expect(
@@ -83,7 +82,6 @@ describe("neutral age gate", () => {
         status: "minor",
         isAuthenticated: true,
         segment: "(tabs)",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
     expect(
@@ -91,18 +89,16 @@ describe("neutral age gate", () => {
         status: "minor",
         isAuthenticated: false,
         segment: "age-check",
-        childMonitoringEnabled: false,
       }),
     ).toBeNull();
   });
 
-  it("routes adults through authentication and blocks Play monitoring deep links", () => {
+  it("routes adults through authentication", () => {
     expect(
       getGateRedirect({
         status: "adult",
         isAuthenticated: false,
         segment: "(tabs)",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/login");
     expect(
@@ -110,25 +106,42 @@ describe("neutral age gate", () => {
         status: "adult",
         isAuthenticated: true,
         segment: "login",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/(tabs)");
+  });
+
+  it("opens the child profile only from a signed-in adult session", () => {
+    // A child has a childAccounts row, but no way to authenticate on their own:
+    // reaching /child-account/* requires an adult who has passed the age gate
+    // AND is authenticated, and childAccount.login only resolves access codes
+    // among that parent's own children. That session is the "adult action
+    // before child access" the Families policy asks for, and it is what lets
+    // the Play build ship child mode without declaring a child target audience.
+    // Both channels behave identically here on purpose; only the app-usage
+    // monitoring inside child mode is sideload-only.
     expect(
       getGateRedirect({
         status: "adult",
         isAuthenticated: true,
         segment: "child-account",
-        childMonitoringEnabled: false,
-      }),
-    ).toBe("/(tabs)");
-    expect(
-      getGateRedirect({
-        status: "adult",
-        isAuthenticated: true,
-        segment: "child-account",
-        childMonitoringEnabled: true,
       }),
     ).toBeNull();
+    expect(
+      getGateRedirect({
+        status: "adult",
+        isAuthenticated: false,
+        segment: "child-account",
+      }),
+    ).toBe("/login");
+    // A minor who deep-links straight at the child area is still age-checked
+    // first: the app has no under-18 account holders on either channel.
+    expect(
+      getGateRedirect({
+        status: "minor",
+        isAuthenticated: false,
+        segment: "child-account",
+      }),
+    ).toBe("/age-check");
   });
 
   it("lets a signed-out adult reach sign-up, but still age-checks them first", () => {
@@ -139,7 +152,6 @@ describe("neutral age gate", () => {
         status: "adult",
         isAuthenticated: false,
         segment: "register",
-        childMonitoringEnabled: false,
       }),
     ).toBeNull();
     // A minor (or an unclassified visitor) is still sent to the age check.
@@ -148,7 +160,6 @@ describe("neutral age gate", () => {
         status: "minor",
         isAuthenticated: false,
         segment: "register",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
     expect(
@@ -156,7 +167,6 @@ describe("neutral age gate", () => {
         status: null,
         isAuthenticated: false,
         segment: "register",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
   });
@@ -170,7 +180,6 @@ describe("neutral age gate", () => {
         status: "adult",
         isAuthenticated: false,
         segment: "support",
-        childMonitoringEnabled: false,
       }),
     ).toBeNull();
     // Signed-in: Settings' "Contact the technical team" row (the flow this
@@ -183,7 +192,6 @@ describe("neutral age gate", () => {
         status: "adult",
         isAuthenticated: true,
         segment: "support",
-        childMonitoringEnabled: false,
       }),
     ).toBeNull();
     // A minor (or an unclassified visitor) is still sent to the age check.
@@ -192,7 +200,6 @@ describe("neutral age gate", () => {
         status: "minor",
         isAuthenticated: false,
         segment: "support",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
     expect(
@@ -200,7 +207,6 @@ describe("neutral age gate", () => {
         status: null,
         isAuthenticated: false,
         segment: "support",
-        childMonitoringEnabled: false,
       }),
     ).toBe("/age-check");
   });
