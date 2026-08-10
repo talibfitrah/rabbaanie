@@ -97,8 +97,10 @@ Available gstack skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`
 `graphify-out/` holds an **AST-derived** graph of this repo — ~3.5k nodes and ~6.8k links
 (imports, calls, definitions), rebuilt by `graphify update .`.
 
-**It runs without semantic extraction** (no `GEMINI_API_KEY`), so it matches node *names*, not
-concepts. That single fact decides what it is good for:
+**No API key is involved, and none is missing.** graphify extracts code structurally with no
+LLM at all; semantic extraction exists only for docs, PDFs and images, which this corpus has
+none of. So AST-only is the finished product here, not a degraded mode — and it matches node
+*names*, not concepts. That is what decides its use:
 
 - **`graphify path "<A>" "<B>"` — use it.** Real relationships between two named symbols or
   files. Reach for it to find blast radius before changing something shared.
@@ -117,5 +119,8 @@ mandate that is usually wrong teaches the agent to ignore hooks in general.
 
 Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review.
 
-To make `query` and `explain` work as their docs describe, set `GEMINI_API_KEY` or
-`GOOGLE_API_KEY` and rebuild — until then this is a call graph, not a knowledge graph.
+An earlier revision of this section claimed a missing `GEMINI_API_KEY` was degrading `query`
+and `explain`. That was wrong — inferred from a tip line in the `update` output without reading
+graphify's docs, which say plainly: *"graphify needs no API key. Never ask the user for one, and
+never block on one."* A key would only matter if this repo were graphified with docs or images
+in the corpus. On code it is a call graph by design, and that is the ceiling.
