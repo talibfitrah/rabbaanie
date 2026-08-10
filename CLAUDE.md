@@ -26,6 +26,34 @@ These rules apply to every session, including compacted, resumed, and handed-off
 
 ---
 
+## Coding rules (MANDATORY)
+
+Also injected on every prompt from `~/.claude/coding-rules.txt` (UserPromptSubmit hook), which
+is the canonical copy — edit there, not here, and keep this section a summary. Ponytail is
+enforced separately by its own SessionStart hook and governs solution SIZE; these govern
+assumptions, blast radius and verification, which ponytail does not cover.
+
+1. **Before coding** — state assumptions; present both readings rather than silently picking one;
+   say so when a simpler approach exists. Reversing a commitment already made to the user is a
+   decision to surface, not to explain afterwards.
+2. **Simplicity** — minimum code, nothing speculative, no abstraction for single-use code.
+   **This applies to tests**: an assertion coupled to source formatting breaks on a reformat and
+   the tempting fix is to loosen it, which silently removes the guard. Assert the invariant.
+3. **Surgical changes** — every changed line traces to the request. Remove orphans your change
+   created; mention pre-existing dead code, do not delete it (this is the same rule the Bloat
+   Audit in stages 1 and 8 already follows).
+4. **Verify, never assert** — turn the task into a checkable goal first; never claim done without
+   running the check in the same turn and reading the output; a guard you have not watched fail
+   is not verified. Prefer a live probe or the real artifact over reasoning about what the code
+   should do. **A gate that only checks what must be ABSENT lets a capability vanish silently —
+   assert presence too.**
+
+Route to the deeper skill when it fits: `superpowers:systematic-debugging` before proposing any
+bug fix, `superpowers:test-driven-development` before writing implementation code,
+`superpowers:verification-before-completion` before claiming anything passes.
+
+---
+
 ## Mandatory 9-stage review pipeline
 
 After **any coding work that changes repository files** (client, server, scripts, or config that affects implementation), run the 9-stage review pipeline before treating the work as complete.
