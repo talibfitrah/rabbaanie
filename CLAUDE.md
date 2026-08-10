@@ -66,10 +66,28 @@ Available gstack skills: `/office-hours`, `/plan-ceo-review`, `/plan-eng-review`
 
 ## graphify
 
-This project has a knowledge graph at graphify-out/ with god nodes, community structure, and cross-file relationships.
+`graphify-out/` holds an **AST-derived** graph of this repo — ~3.5k nodes and ~6.8k links
+(imports, calls, definitions), rebuilt by `graphify update .`.
 
-Rules:
-- For codebase questions, first run `graphify query "<question>"` when graphify-out/graph.json exists. Use `graphify path "<A>" "<B>"` for relationships and `graphify explain "<concept>"` for focused concepts. These return a scoped subgraph, usually much smaller than GRAPH_REPORT.md or raw grep output.
-- If graphify-out/wiki/index.md exists, use it for broad navigation instead of raw source browsing.
-- Read graphify-out/GRAPH_REPORT.md only for broad architecture review or when query/path/explain do not surface enough context.
-- After modifying code, run `graphify update .` to keep the graph current (AST-only, no API cost).
+**It runs without semantic extraction** (no `GEMINI_API_KEY`), so it matches node *names*, not
+concepts. That single fact decides what it is good for:
+
+- **`graphify path "<A>" "<B>"` — use it.** Real relationships between two named symbols or
+  files. Reach for it to find blast radius before changing something shared.
+- **`graphify update .` — after code changes.** Cheap, no API cost.
+- `graphify query "<question>"` — only when the question already names symbols you know. Given a
+  natural-language question it returns a BFS neighbourhood truncated to a token budget, and says
+  so: *"showing 67 of 461 nodes… the answer may be among the 394 cut nodes."*
+- `graphify explain "<concept>"` — needs a node whose **name** matches. `explain "play billing
+  purchase flow"` returns *"No node matching"*. Pass a real symbol.
+
+**Grep is the correct tool for locating a known symbol, string or file. Do not route that
+through graphify first.** Measured 2026-08-09: two such queries returned truncated noise and a
+grep answered both in one line immediately after. The PreToolUse hook that used to demand
+otherwise fired ~30 times in one session and produced nothing; it has been removed, because a
+mandate that is usually wrong teaches the agent to ignore hooks in general.
+
+Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review.
+
+To make `query` and `explain` work as their docs describe, set `GEMINI_API_KEY` or
+`GOOGLE_API_KEY` and rebuild — until then this is a call graph, not a knowledge graph.
