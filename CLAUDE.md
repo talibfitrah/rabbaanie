@@ -119,6 +119,13 @@ mandate that is usually wrong teaches the agent to ignore hooks in general.
 
 Read `graphify-out/GRAPH_REPORT.md` only for broad architecture review.
 
+**Keep graphify — the reason is context, not disk.** `path` answers a relationship question in
+one line where grepping and reading the two files costs hundreds; that saving is why the 37 MB
+and the rebuild-per-commit are worth it. The inverse is also measured: a natural-language
+`query` returned ~2000 tokens of truncated noise and still needed a grep afterwards, so it costs
+more than it saves. Use the cheap commands, skip the expensive one — do not re-litigate removing
+the tool.
+
 An earlier revision of this section claimed a missing `GEMINI_API_KEY` was degrading `query`
 and `explain`. That was wrong — inferred from a tip line in the `update` output without reading
 graphify's docs, which say plainly: *"graphify needs no API key. Never ask the user for one, and
