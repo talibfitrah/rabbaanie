@@ -266,6 +266,35 @@ describe("payment channel separation", () => {
     // and their membership is bought against someone else's details.
     expect(subscribe).toContain("infoRequestFor.current !== uid");
     expect(subscribe).toContain('setFirstName(""); setLastName("");');
+    // Assert the reset clears EVERY carried field, not just the two it began
+    // with. `extras` holds the previous account's kunya/gender; for a next user
+    // with no stored record the `if (d)` branch never runs, so anything left
+    // here is written into THEIR subscriber record on the first save. Checking
+    // only the name fields let that pass with every test green.
+    // Scoped to the [uid] effect, and asserted one statement at a time. Both
+    // matter: searching the whole file would stay green if these moved out of
+    // the reset (where they no longer guard an account switch at all), and
+    // pinning the block as one string would fail on a harmless reorder — after
+    // which the tempting fix is to loosen it and lose the guard entirely.
+    // The end marker is searched FROM the start index, not from 0: `}, [uid]);`
+    // also closes the loadStatus callback further up, so an unanchored search
+    // slices backwards and yields an empty string that matches nothing.
+    const resetStart = subscribe.indexOf("setStatus(null);");
+    const resetEnd = subscribe.indexOf("}, [uid]);", resetStart);
+    // Both indices asserted before slicing: a missing end marker yields -1, and
+    // slice(start, -1) then spans the rest of the file — the scoping this test
+    // depends on would vanish while every assertion below still passed.
+    expect(resetStart).toBeGreaterThan(-1);
+    expect(resetEnd).toBeGreaterThan(resetStart);
+    const reset = subscribe.slice(resetStart, resetEnd);
+    // Every field carried across an account switch, including maritalStatus:
+    // a stale value there reads as filled in while selecting no chip, so the
+    // next user submits a status the server refuses.
+    // setCoupon is in the list because a code typed under one account stayed in
+    // the box across a switch and could be redeemed into the next one.
+    for (const cleared of ['setFirstName("")', 'setLastName("")', 'setMaritalStatus("")', 'setStreetHouseNumber("")', 'setCity("")', 'setCountry("")', "setExtras({})", "setInfoLoaded(false)", 'setCoupon("")']) {
+      expect(reset, `account switch must clear ${cleared}`).toContain(cleared);
+    }
   });
 
   it("leaves a not-yet-paid purchase alone", () => {
@@ -290,6 +319,31 @@ describe("payment channel separation", () => {
     // address or phone on record.
     const subscribeSrc = read("app/subscribe.tsx");
     expect(subscribeSrc).toContain("async function persistInfo()");
+    // The erasure protection: persistInfo must consult what is already stored
+    // and bail when that is unknown. Asserted inside persistInfo's own body and
+    // as two independent facts rather than one pinned line — a formatting-exact
+    // regex would break on a behaviour-preserving edit, and the tempting repair
+    // is to loosen it until it guards nothing.
+    const persistStart = subscribeSrc.indexOf("async function persistInfo()");
+    const persistEnd = subscribeSrc.indexOf("async function saveInfo()", persistStart);
+    expect(persistEnd).toBeGreaterThan(persistStart);
+    const persist = subscribeSrc.slice(persistStart, persistEnd);
+    expect(persist).toContain("await currentExtras()");
+    expect(persist).toMatch(/if \(!ex\)\s*return/);
+    // The retry must read the stored record WITHOUT refilling the inputs.
+    // Letting it refill replaced what the user had just typed while the POST
+    // still sent the typed values, so they saw "saved ✓" beside a reverted
+    // form — and a stale stored status cleared the chip, so the next Save
+    // wrote the old details back over the ones just persisted.
+    const extrasStart = subscribeSrc.indexOf("async function currentExtras()");
+    expect(extrasStart).toBeGreaterThan(-1);
+    expect(subscribeSrc.slice(extrasStart, persistStart)).toContain("loadInfo(false)");
+    // All three submits must build their body through the shared builder, and
+    // none may reintroduce a flat `address`. Hand-building one of these bodies
+    // is the precise drift that refused every payment path for five days, and
+    // nothing else in the suite would notice it coming back.
+    expect((subscribeSrc.match(/buildSubscriberInfo\(fields,/g) || []).length).toBe(3);
+    expect(subscribeSrc).not.toMatch(/\baddress:/);
     // The result must be USED: a failed POST that still opens Play's sheet
     // reproduces the exact "membership with no details on record" this prevents.
     expect(subscribeSrc).toContain("const saved = await persistInfo();");
@@ -304,7 +358,12 @@ describe("payment channel separation", () => {
     );
     expect(press.length).toBeGreaterThan(0);
     // Inside the guarded block: a failed POST must return, never fall through.
-    expect(press).toMatch(/if \(!saved\) \{[\s\S]*?return;\s*\}/);
+    // persistInfo returns { ok, message } rather than a bare boolean, so that
+    // a refusal can carry the server's reason to the buyer. `.ok` is asserted
+    // here deliberately: `if (!saved)` on an object is never true, so the old
+    // spelling would have read as a guard while letting every failed save
+    // through to Play's payment sheet.
+    expect(press).toMatch(/if \(!saved\.ok\) \{[\s\S]*?return;\s*\}/);
     // And the ONLY thing allowed to skip that block is the retry condition.
     expect(press).toContain('if (play.error !== "verify_failed" && !play.recoverable) {');
     expect(press).toContain("if (!infoComplete)");

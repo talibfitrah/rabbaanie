@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { formatSubscriptionRemaining, invalidateSubscriptionCache, isPerpetualExpiry, subscriptionFetch } from "@/hooks/use-subscription";
 import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 import { usePlayBilling } from "@/lib/play-billing";
+import { MARITAL_OPTIONS, buildSubscriberInfo, isKnownMaritalStatus, isSubscriberInfoComplete, type SubscriberInfoExtras } from "@/lib/subscriber-info";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -33,17 +34,43 @@ export default function SubscribeScreen() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [maritalStatus, setMaritalStatus] = useState("");
-  const [address, setAddress] = useState("");
+  const [streetHouseNumber, setStreetHouseNumber] = useState("");
+  const [city, setCity] = useState("");
+  const [country, setCountry] = useState("");
   const [email, setEmail] = useState(((user as any)?.email as string) || "");
   const [phone, setPhone] = useState("");
-  const info = { firstName: firstName.trim(), lastName: lastName.trim(), maritalStatus, address: address.trim(), email: email.trim(), phone: phone.trim() };
-  const infoComplete = Object.values(info).every(Boolean);
-  const MARITAL = [
-    { k: "single", ar: "أعزب/عزباء", nl: "Alleenstaand", en: "Single" },
-    { k: "married", ar: "متزوّج/ة", nl: "Getrouwd", en: "Married" },
-    { k: "widowed", ar: "أرمل/ة", nl: "Weduwe", en: "Widowed" },
-    { k: "divorced", ar: "مطلّق/ة", nl: "Gescheiden", en: "Divorced" },
-  ];
+  // Held only to be handed back untouched on save — see SubscriberInfoExtras.
+  const [extras, setExtras] = useState<SubscriberInfoExtras>({});
+  // Separates "loaded, nothing stored" from "the load failed". Saving in the
+  // second case sends no optional fields, and the server's .set({ ...data })
+  // upsert turns each omitted one into null — erasing the gender most existing
+  // subscribers have on record. ponytail: covers a failed fetch only; a 500
+  // answers 200 with a null body, which no client can tell from an empty one.
+  const [infoLoaded, setInfoLoaded] = useState(false);
+  // All three paths refetch before submitting; only Save and the Play purchase
+  // REFUSE when that still fails, because both need a live session anyway, so
+  // refusing costs nothing.
+  //
+  // Redeeming and checking out deliberately proceed instead, and this is an
+  // accepted trade rather than an oversight. Refusing them protects one field:
+  // of the stored records, gender is set on 7 and kunya, postcode and
+  // addressLine2 on none, and gender is also held on users.gender. Against that
+  // it would cost a paying customer the coupon they already bought or the
+  // purchase they came to make — /redeem-coupon takes no session by design and
+  // is how someone whose token went stale regains access at all. A stale token
+  // also makes checkout anonymous server-side, where it INSERTs a pending row
+  // and erases nothing; only a live session with a persistently failing /info
+  // reaches the upsert, which the refetch above already makes rare.
+  // ponytail: PATCH semantics server-side would remove the trade entirely.
+  const infoNotLoadedMsg = L3("تعذّر تحميل معلوماتك. أعِد فتح الصفحة ثمّ حاول.", "Uw gegevens konden niet worden geladen. Open deze pagina opnieuw en probeer het dan.", "Your details could not be loaded. Reopen this page and try again.");
+  // Said whenever the server refuses the DETAILS rather than the code or the
+  // payment. Each route spells that refusal differently — "missing_info" on
+  // checkout and redeem, "incomplete" on info — and only some carry a message
+  // of their own, so all three land here rather than on wording that blames
+  // the coupon or claims payment is switched off.
+  const detailsRefusedMsg = L3("راجِع معلوماتك أعلاه ثمّ أعِد المحاولة.", "Controleer uw gegevens hierboven en probeer het opnieuw.", "Please check your details above and try again.");
+  const fields = { firstName, lastName, maritalStatus, streetHouseNumber, city, country, email, phone };
+  const infoComplete = isSubscriberInfoComplete(fields);
   // Tier explainer (msg 720): what General (free) vs Special (paid) unlocks.
   const GENERAL = [
     { k: "adhkar", icon: "auto-stories", ar: "الأذكار", nl: "Adhkaar", en: "Adhkaar" },
@@ -92,18 +119,44 @@ export default function SubscribeScreen() {
   // infoComplete stays true and their membership is bought against — and
   // recorded with — someone else's details.
   const infoRequestFor = useRef<number | undefined>(undefined);
-  const loadInfo = useCallback(async () => {
-    if (!uid) return;
+  // fillForm=false is the retry path: it needs what is STORED, and must not
+  // touch the inputs. Refilling them mid-submit replaced whatever the user had
+  // just typed with the stored values, so they were shown "saved ✓" beside a
+  // form that had silently reverted — and a stale stored status cleared the
+  // chip, so the next Save wrote the old details back over the new ones.
+  const loadInfo = useCallback(async (fillForm = true): Promise<SubscriberInfoExtras | null> => {
+    if (!uid) return null;
     infoRequestFor.current = uid;
+    let loaded: SubscriberInfoExtras = {};
     try {
       const r = await subscriptionFetch(`info?userId=${uid}`);
+      // An error body is still JSON: a 401 parses to a truthy object, which
+      // blanked every field and then counted as a successful load — so the
+      // erasure guard below would have passed on data never actually loaded.
+      if (!r.ok) return null;
       const d = await r.json();
-      if (infoRequestFor.current !== uid) return;
+      if (infoRequestFor.current !== uid) return null;
       if (d) {
-        setFirstName(d.firstName || ""); setLastName(d.lastName || ""); setMaritalStatus(d.maritalStatus || "");
-        setAddress(d.address || ""); setEmail(d.email || ((user as any)?.email as string) || ""); setPhone(d.phone || "");
+        if (fillForm) {
+          setFirstName(d.firstName || ""); setLastName(d.lastName || "");
+          // Screened, not trusted: a stored value from the old vocabulary would
+          // select no chip yet still count as filled in, so every submit would be
+          // refused for a reason the user never sees.
+          setMaritalStatus(isKnownMaritalStatus(d.maritalStatus) ? d.maritalStatus : "");
+          setStreetHouseNumber(d.streetHouseNumber || ""); setCity(d.city || ""); setCountry(d.country || "");
+          setEmail(d.email || ((user as any)?.email as string) || ""); setPhone(d.phone || "");
+        }
+        loaded = { kunya: d.kunya, gender: d.gender, addressLine2: d.addressLine2, postcode: d.postcode };
+        setExtras(loaded);
       }
-    } catch { /* ignore */ }
+      // Also true when there is no record yet: nothing stored is nothing to erase.
+      setInfoLoaded(true);
+      // Returned as well as stored, because a caller retrying after a failed
+      // first load needs them NOW: setExtras is not visible until the next
+      // render, so the payload it is about to build would still carry the empty
+      // extras and erase precisely what this refetch just recovered.
+      return loaded;
+    } catch { return null; }
   }, [uid, user]);
   // Drop the previous account's status the instant uid changes. Dropping only
   // out-of-order responses is not enough: until the new one lands, the card
@@ -118,7 +171,12 @@ export default function SubscribeScreen() {
     // Blanking it outright dropped a prefill the user never typed, and since
     // email is one of the fields infoComplete requires, an account whose
     // /info fetch then failed could not reach the Subscribe button at all.
-    setAddress(""); setEmail(((user as any)?.email as string) || ""); setPhone("");
+    setStreetHouseNumber(""); setCity(""); setCountry(""); setExtras({}); setInfoLoaded(false);
+    setEmail(((user as any)?.email as string) || ""); setPhone("");
+    // The typed code and the last message belong to the previous account too: a
+    // coupon entered under one account stayed in the box across a switch and
+    // could be redeemed into the next one.
+    setCoupon(""); setMsg("");
   }, [uid]);
   useEffect(() => { loadStatus(); loadInfo(); }, [loadStatus, loadInfo]);
 
@@ -138,23 +196,41 @@ export default function SubscribeScreen() {
     }, [loadStatus])
   );
 
+  /**
+   * What the server already stores, refetching once when the first load failed.
+   * null only when we still do not know — the state in which submitting erases
+   * the optional fields, because the server nulls every one the client omits.
+   */
+  async function currentExtras(): Promise<SubscriberInfoExtras | null> {
+    return infoLoaded ? extras : await loadInfo(false);
+  }
+
   /** POST the subscriber details. Shared by the Save button and the Play
    *  purchase, which must not proceed without them on record. */
-  async function persistInfo(): Promise<boolean> {
-    if (!uid || !infoComplete) return false;
+  async function persistInfo(): Promise<{ ok: boolean; message?: string }> {
+    if (!uid || !infoComplete) return { ok: false };
+    // Refusing here is the point: see infoLoaded. Saving without knowing what
+    // is already stored deletes it.
+    const ex = await currentExtras();
+    if (!ex) return { ok: false, message: infoNotLoadedMsg };
     try {
-      const r = await subscriptionFetch("info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info }) });
+      const r = await subscriptionFetch("info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info: buildSubscriberInfo(fields, ex), lang: language }) });
       const d = await r.json();
-      return !!d?.ok;
-    } catch { return false; }
+      // The server's own reason travels with the refusal — a name it will not
+      // accept, a marital status it no longer knows. Returning a bare false is
+      // what left a Play buyer with "could not be saved" and nothing to fix.
+      // This route spells the same refusal "incomplete" and sends no message,
+      // which is why Save alone still said "Could not save".
+      return { ok: !!d?.ok, message: d?.message || (d?.error === "incomplete" ? detailsRefusedMsg : undefined) };
+    } catch { return { ok: false }; }
   }
 
   async function saveInfo() {
     if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
-    const ok = await persistInfo();
-    setMsg(ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save."));
+    const saved = await persistInfo();
+    setMsg(saved.ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : (saved.message || L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save.")));
     setBusy(false);
   }
 
@@ -170,10 +246,17 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await subscriptionFetch("checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info }) });
+      // Refetch first, but proceed regardless — see currentExtras.
+      const ex = await currentExtras();
+      const r = await subscriptionFetch("checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info: buildSubscriberInfo(fields, ex ?? {}) }) });
       const d = await r.json();
       if (d.url) Linking.openURL(d.url);
-      else setMsg(L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later."));
+      // Same trap as the coupon path: a refused detail is not an inactive
+      // payment system, and saying so sent the user to a coupon field that
+      // was about to refuse them for the very same reason.
+      // missing_info carries no message of its own, so without naming it here
+      // a refused detail still reports the payment system as switched off.
+      else setMsg(d.message || (d.error === "missing_info" ? detailsRefusedMsg : L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later.")));
     } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
   }
 
@@ -184,7 +267,9 @@ export default function SubscribeScreen() {
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
     try {
-      const r = await subscriptionFetch("redeem-coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info, channel: DISTRIBUTION_CHANNEL }) });
+      // Refetch first, but proceed regardless — see currentExtras.
+      const ex = await currentExtras();
+      const r = await subscriptionFetch("redeem-coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info: buildSubscriberInfo(fields, ex ?? {}), lang: language, channel: DISTRIBUTION_CHANNEL }) });
       const d = await r.json();
       if (d.ok) {
         setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓"));
@@ -204,6 +289,13 @@ export default function SubscribeScreen() {
           : e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
           : e === "used_up" ? L3("استُنفد هذا الكوبون.", "Deze coupon is opgebruikt.", "This coupon is used up.")
           : e === "expired" || e === "inactive" ? L3("هذا الكوبون غيرُ صالح.", "Deze coupon is niet geldig.", "This coupon is not valid.")
+          // The server refused the DETAILS, not the code. Falling through to
+          // "invalid coupon" here is what hid a client/server contract drift
+          // for five days while no code was ever looked up. `message` is the
+          // server's own localized wording, which it sends for a refused name
+          // or marital status; missing_info carries none, so name the fix.
+          : e === "missing_info" || e === "invalid_marital_status" || e === "invalid_name"
+          ? (d.message || detailsRefusedMsg)
           : L3("كوبونٌ غيرُ صحيح.", "Ongeldige coupon.", "Invalid coupon."));
       }
     } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
@@ -316,13 +408,17 @@ export default function SubscribeScreen() {
                 <TextInput value={lastName} onChangeText={setLastName} placeholder={L3("اللقب", "Achternaam", "Last name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
               </View>
               <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
-                {MARITAL.map((m) => (
-                  <TouchableOpacity key={m.k} onPress={() => setMaritalStatus(m.k)} style={{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: maritalStatus === m.k ? colors.primary : colors.border, backgroundColor: maritalStatus === m.k ? colors.primary : colors.background }}>
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: maritalStatus === m.k ? "#fff" : colors.foreground }}>{L3(m.ar, m.nl, m.en)}</Text>
+                {MARITAL_OPTIONS.map((m) => (
+                  <TouchableOpacity key={m.value} onPress={() => setMaritalStatus(m.value)} style={{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: maritalStatus === m.value ? colors.primary : colors.border, backgroundColor: maritalStatus === m.value ? colors.primary : colors.background }}>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: maritalStatus === m.value ? "#fff" : colors.foreground }}>{L3(m.ar, m.nl, m.en)}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput value={address} onChangeText={setAddress} placeholder={L3("العنوان", "Adres", "Address")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
+              <TextInput value={streetHouseNumber} onChangeText={setStreetHouseNumber} placeholder={L3("الشارع ورقم البيت", "Straat en huisnummer", "Street and house number")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 8 }}>
+                <TextInput value={city} onChangeText={setCity} placeholder={L3("المدينة", "Plaats", "City")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+                <TextInput value={country} onChangeText={setCountry} placeholder={L3("البلد", "Land", "Country")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+              </View>
               <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder={L3("البريد الإلكترونيّ", "E-mail", "Email")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
               <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={L3("الهاتف", "Telefoon", "Phone")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 10 }} />
               <TouchableOpacity onPress={saveInfo} disabled={busy} style={{ backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
@@ -374,7 +470,7 @@ export default function SubscribeScreen() {
                           play.purchase() was never reached, so no re-verification
                           ever happened. Their money is already with Google; the
                           details are not what is missing. */}
-                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved) { setMsg(L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
+                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved.ok) { setMsg(saved.message || L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
                         {play.busy || busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
                       </TouchableOpacity>
                       {/* Play requires the renewal terms to be visible before
