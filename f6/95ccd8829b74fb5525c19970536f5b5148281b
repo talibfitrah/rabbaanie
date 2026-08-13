@@ -1,0 +1,74 @@
+app/subscribe.tsx
+  s_879fc4912f172f::t_d503e9d73224de 214-215,217
+  s_879fc4912f172f::t_ed7f24fc1340e6 133-135
+  s_879fc4912f172f::t_e1ececd669e95d 233
+  s_879fc4912f172f::t_f87742509d4602 12
+  s_879fc4912f172f::t_36625b434c4fa8 51-64
+  s_879fc4912f172f::t_32647219a2aa5a 128,130,136,138
+  s_879fc4912f172f::t_80aabf62b41660 50
+  s_879fc4912f172f::t_0fcbeecc629a1b 66-71
+  s_879fc4912f172f::t_d50239da0a3000 174
+  s_879fc4912f172f::t_e451cb2e844daf 149-150,154-159
+  s_879fc4912f172f::t_d8d33ec65608ec 44-49
+  s_879fc4912f172f::t_892bed2e3e8f40 152-153
+  s_879fc4912f172f::t_cb3aedd8a6025b 270-272
+  s_879fc4912f172f::t_b9bf7f6da3756c 417-421
+  s_879fc4912f172f::t_7e80f27a3172c9 65
+  s_879fc4912f172f::t_666aa8df650b9e 222-224
+  s_879fc4912f172f::t_925c99de053332 411-413
+  s_879fc4912f172f::t_09e7c5180c2f35 254-256
+  s_879fc4912f172f::t_b572742405ef08 140-148
+  s_879fc4912f172f::t_536797b3a5850c 232
+  s_879fc4912f172f::t_ea3c40e67f9857 257-259
+  s_879fc4912f172f::t_52c081d6867bf9 473
+  s_879fc4912f172f::t_6d713ce8d990f5 298
+  s_879fc4912f172f::t_c3a3afa5eb26c2 199-204,206-207
+  s_879fc4912f172f::t_6a1b7fdab9a7c7 37-39,42-43,72-73
+  s_879fc4912f172f::t_482fa7871d3fcb 210-213,219-221,225
+  s_879fc4912f172f::t_2d531fe7d4b57b 122-127
+  s_879fc4912f172f::t_9dce8e28ea64eb 175
+  s_879fc4912f172f::t_a382d5be4db1f6 205
+  s_879fc4912f172f::t_becc6f94a7b478 249-251
+  s_879fc4912f172f::t_25242cec32bda5 176-179
+  s_879fc4912f172f::t_cb048809f3668b 292-297
+app.config.ts
+  s_879fc4912f172f::t_ddbdb9e0d317f4 242
+tests/subscriber-info-contract.test.ts
+  s_879fc4912f172f::t_deb86d358795bf 6
+  s_879fc4912f172f::t_3c4e53f294c82b 1-5,7-103,127
+  s_879fc4912f172f::t_16212ae65a4119 104-126
+lib/subscriber-info.ts
+  s_879fc4912f172f::t_938a41aba03302 38-49
+  s_879fc4912f172f::t_8407ad69ed8b62 1-25,28-37,50-81
+  s_879fc4912f172f::t_4222e78cf40eae 26-27
+tests/play-store-compliance.test.ts
+  s_879fc4912f172f::t_15ad9f7e16a4ff 361-366
+  s_879fc4912f172f::t_d0c058967b7c71 293-295
+  s_879fc4912f172f::t_de25e501613042 274-278,290-292,296
+  s_879fc4912f172f::t_5488dec46b186c 269-273
+  s_879fc4912f172f::t_aa94e986d17c1f 333-340
+  s_879fc4912f172f::t_d4332afab24c6b 283-286,288-289
+  s_879fc4912f172f::t_1af0e775c4cfb9 279-282,287
+  s_879fc4912f172f::t_c0e3d0e5b435fb 297
+  s_879fc4912f172f::t_91438c2c664515 322-332
+  s_879fc4912f172f::t_0a5ff7a1aa8dba 341-346
+package.json
+  s_879fc4912f172f::t_ddbdb9e0d317f4 3
+  s_879fc4912f172f::t_bc28834d9b0a1f 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f695ccd8829b74fb5525c19970536f5b5148281b",
+  "prompts": {},
+  "sessions": {
+    "s_879fc4912f172f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "0c71bdee-d217-4621-bb6b-3c38f64a3f1a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
