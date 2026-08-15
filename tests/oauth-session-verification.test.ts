@@ -113,7 +113,10 @@ describe("OAuth session establishment", () => {
     // this test kept passing on the email match alone.
     expect(login).toContain("completeTokenSignIn(sessionToken)");
     expect(login).toContain("completeTokenSignIn(result.sessionToken)");
-    expect(login).toContain("completeNativeGoogleSignIn()");
+    // The call, not its argument list — see the same assertion in
+    // tests/google-pkce-signin.test.ts. What must hold is that the Google
+    // branch goes through the native SDK before any token is persisted.
+    expect(login).toContain("completeNativeGoogleSignIn(");
   });
 
   it("rolls back a token if encrypted user persistence fails", () => {

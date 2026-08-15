@@ -584,21 +584,37 @@ export default function WeekplanScreen() {
       const result = await response.json();
       if (result.plan) {
         setWeekPlan(result.plan);
-        // Save to cache
-        await AsyncStorage.setItem(
-          cacheKey,
-          JSON.stringify({ plan: result.plan, timestamp: Date.now() }),
-        );
-        // The cache key now changes whenever this child's issues change, so drop
-        // the superseded plans instead of leaving one behind per consultation.
-        try {
-          const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
-          const stale = (await AsyncStorage.getAllKeys()).filter(
-            (k) => k.startsWith(prefix) && k !== cacheKey,
+        // Only cache a plan the server actually produced. server/_core/index.ts
+        // answers a failed request with 500 { plan: "<localized error text>" },
+        // which satisfies the check above — so without response.ok that error
+        // string was written to AsyncStorage with a 7-day TTL, and loadPlan()
+        // serves the cache before fetching. The parent then saw "An error
+        // occurred" as their child's week plan on every open for a week, with no
+        // retry. Reachable today: server/advice.ts bounds analyticalQA at
+        // 500/2000/20 and this screen forwards it unclamped from a multiline
+        // TextInput, so one long answer triggers it. Showing the error once and
+        // refetching next time is the recoverable failure.
+        if (response.ok) {
+          await AsyncStorage.setItem(
+            cacheKey,
+            JSON.stringify({ plan: result.plan, timestamp: Date.now() }),
           );
-          if (stale.length > 0) await AsyncStorage.multiRemove(stale);
-        } catch {
-          // Pruning is housekeeping; a failure must not lose the plan just saved.
+          // Pruning belongs inside the same guard. It deletes the superseded
+          // plans for this child, so running it after a failed fetch would
+          // throw away a good cached plan without having stored a replacement —
+          // turning a transient server error into a lost week plan.
+          //
+          // The cache key changes whenever this child's issues change, so drop
+          // the superseded plans instead of leaving one behind per consultation.
+          try {
+            const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
+            const stale = (await AsyncStorage.getAllKeys()).filter(
+              (k) => k.startsWith(prefix) && k !== cacheKey,
+            );
+            if (stale.length > 0) await AsyncStorage.multiRemove(stale);
+          } catch {
+            // Pruning is housekeeping; a failure must not lose the plan just saved.
+          }
         }
         // Auto-expand first card of each group
         setExpandedCards({ "parent-0": true, "child-0": true });

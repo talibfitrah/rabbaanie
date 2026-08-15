@@ -18,6 +18,10 @@ import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 
 import { publicFetch } from "@/lib/authed-fetch";
+import {
+  buildRegistrationPayload,
+  isRegistrationComplete,
+} from "@/lib/registration";
 /**
  * Sign-up screen. The app was sign-in only, which left anyone without an
  * account at a dead end — the Play build could not even point them at the
@@ -28,7 +32,8 @@ import { publicFetch } from "@/lib/authed-fetch";
  * an unclassified visitor to /age-check before any auth route renders.
  */
 export default function RegisterScreen() {
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -60,13 +65,15 @@ export default function RegisterScreen() {
     writingDirection: (isRTL ? "rtl" : "ltr") as "rtl" | "ltr",
   };
 
+  const fields = { firstName, lastName, email, password };
+
   const handleRegister = async () => {
-    if (!name.trim() || !email.trim() || !password) {
+    if (!isRegistrationComplete(fields)) {
       setError(
         tx(
-          "Vul uw naam, e-mailadres en wachtwoord in",
-          "Please enter your name, email and password",
-          "أدخل اسمك وبريدك الإلكتروني وكلمة المرور",
+          "Vul uw voornaam, achternaam, e-mailadres en wachtwoord in",
+          "Please enter your first name, last name, email and password",
+          "أدخل اسمك الأول واسم العائلة وبريدك الإلكتروني وكلمة المرور",
         ),
       );
       return;
@@ -100,12 +107,7 @@ export default function RegisterScreen() {
       const response = await publicFetch(`/auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: name.trim(),
-          email: email.trim().toLowerCase(),
-          password,
-          language,
-        }),
+        body: JSON.stringify(buildRegistrationPayload(fields, language)),
       });
       const data = await response.json();
 
@@ -201,12 +203,31 @@ export default function RegisterScreen() {
           </View>
 
           <View style={{ width: "100%", maxWidth: 340, gap: 12 }}>
+            {/* Two fields, not one: the server validates the given name and
+                the family name separately (rabbaanie-api name-validation.ts),
+                and guessing a split out of one free-text box gets Arabic and
+                Indonesian compound names wrong — the exact cultures that
+                validator was written to accommodate. */}
             <View style={{ gap: 4 }}>
-              <Text style={labelStyle}>{tx("Naam", "Name", "الاسم")}</Text>
+              <Text style={labelStyle}>{tx("Voornaam", "First name", "الاسم الأول")}</Text>
               <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder={tx("Uw naam", "Your name", "اسمك")}
+                value={firstName}
+                onChangeText={setFirstName}
+                placeholder={tx("Uw voornaam", "Your first name", "اسمك الأول")}
+                placeholderTextColor={colors.muted}
+                autoCapitalize="words"
+                textAlign={isRTL ? "right" : "left"}
+                returnKeyType="next"
+                style={inputStyle}
+              />
+            </View>
+
+            <View style={{ gap: 4 }}>
+              <Text style={labelStyle}>{tx("Achternaam", "Last name", "اسم العائلة")}</Text>
+              <TextInput
+                value={lastName}
+                onChangeText={setLastName}
+                placeholder={tx("Uw achternaam", "Your last name", "اسم عائلتك")}
                 placeholderTextColor={colors.muted}
                 autoCapitalize="words"
                 textAlign={isRTL ? "right" : "left"}

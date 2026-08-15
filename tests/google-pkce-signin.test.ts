@@ -127,6 +127,9 @@ describe("certificate-bound Android Google sign-in", () => {
     await expect(completeNativeGoogleSignIn()).resolves.toEqual({
       kind: "session",
       sessionToken: "verified-session",
+      // A plain sign-in never creates, so this is false regardless of what the
+      // server sends — the assertion below still pins the body to {idToken}.
+      created: false,
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.rabbaanie.com/auth/google/native",
@@ -135,6 +138,94 @@ describe("certificate-bound Android Google sign-in", () => {
         body: JSON.stringify({ idToken: "signed-google-id-token" }),
       }),
     );
+  });
+
+  it("asks the server to create an account only when the user chose sign-up", async () => {
+    // The pairing matters, so read this with the test above it: that one pins
+    // the plain sign-in body to exactly {idToken}, which is what stops a tap on
+    // "Sign in with Google" from minting an account for someone who only meant
+    // to log in. This one proves the capability still exists when asked for —
+    // a guard that only checks for absence would let sign-up quietly stop
+    // working and still pass.
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi
+        .fn()
+        .mockResolvedValue({ sessionToken: "new-account-session", created: true }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      completeNativeGoogleSignIn({ createAccount: true, language: "ar" }),
+    ).resolves.toEqual({
+      kind: "session",
+      sessionToken: "new-account-session",
+      created: true,
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.rabbaanie.com/auth/google/native",
+      expect.objectContaining({
+        body: JSON.stringify({
+          idToken: "signed-google-id-token",
+          createAccount: true,
+          // Without this the server's normalizeLang(undefined) defaults the
+          // account to English, so an Arabic or Dutch user gets English mail
+          // and push until they change the setting again.
+          language: "ar",
+        }),
+      }),
+    );
+  });
+
+  it("reports what the SERVER did, not what the client asked for", () => {
+    // The account picker reopens on every call, so a user who taps "Create
+    // account with Google" can still pick an account that already exists. The
+    // server answers created:false there, and the screen must believe the
+    // server — keying an "empty slate" reset on the request flag wipes a real
+    // profile and then syncs the empty one back.
+    return (async () => {
+      mocks.signIn.mockResolvedValue({
+        type: "success",
+        data: { idToken: "signed-google-id-token" },
+      });
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({
+          sessionToken: "existing-account-session",
+          created: false,
+        }),
+      }));
+
+      await expect(
+        completeNativeGoogleSignIn({ createAccount: true }),
+      ).resolves.toEqual({
+        kind: "session",
+        sessionToken: "existing-account-session",
+        created: false,
+      });
+    })();
+  });
+
+  it("treats a server that omits `created` as NOT having created", () => {
+    // Fail closed: an older API answers {sessionToken} with no `created`. The
+    // destructive branch is the reset, so absence must mean "signed in".
+    return (async () => {
+      mocks.signIn.mockResolvedValue({
+        type: "success",
+        data: { idToken: "signed-google-id-token" },
+      });
+      vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+        ok: true,
+        json: vi.fn().mockResolvedValue({ sessionToken: "s" }),
+      }));
+
+      const result = await completeNativeGoogleSignIn({ createAccount: true });
+      expect(result).toEqual({ kind: "session", sessionToken: "s", created: false });
+    })();
   });
 
   // An admin is refused a session but handed a challenge, in a 403.
@@ -266,7 +357,11 @@ describe("certificate-bound Android Google sign-in", () => {
     const config = readFileSync("app.config.ts", "utf8");
     const identity = readFileSync("constants/app-identity.js", "utf8");
 
-    expect(login).toContain("completeNativeGoogleSignIn()");
+    // The call, not its argument list: the invariant is that this screen
+    // authenticates through the native SDK rather than a browser redirect, and
+    // that is equally true whether or not sign-up options are passed. Pinning
+    // the empty parens made a signature change look like a security regression.
+    expect(login).toContain("completeNativeGoogleSignIn(");
     expect(login).not.toContain("openAuthSessionAsync");
     expect(config).toContain("scheme: isGithubBuild ? env.scheme : undefined");
     expect(identity).not.toContain("GOOGLE_AUTH_REDIRECT_URI");

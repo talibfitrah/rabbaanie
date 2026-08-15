@@ -500,7 +500,17 @@ export default function SubscribeScreen() {
                        is shown in a neutral colour with different wording. */
                     <Text style={{ fontSize: 12.5, color: ["purchase_pending", "purchase_foreign"].includes(play.error || "") ? colors.muted : "#B3261E", marginTop: 10, textAlign: align, lineHeight: 19 }}>
                       {play.error === "purchase_pending"
-                        ? L3("دفعتك قيدُ المعالجة لدى Google Play. سيُفعَّل اشتراكك تلقائيًّا بمجرّد اكتمالها.", "Uw betaling wordt nog verwerkt door Google Play. Uw abonnement wordt automatisch geactiveerd zodra dat klaar is.", "Your payment is still being processed by Google Play. Your membership activates automatically once it completes.")
+                        // "Automatically" was a promise the app cannot keep.
+                        // purchaseUpdatedListener is registered inside
+                        // usePlayBilling, which only this screen mounts, so a
+                        // slow payment clearing while the user is anywhere else
+                        // is neither verified nor acknowledged — and Google
+                        // auto-refunds an unacknowledged purchase after three
+                        // days. Reopening this screen does settle it (the
+                        // connection-open flush is handled as a restore), so
+                        // asking for that is both true and sufficient. Same
+                        // wording as verify_failed directly below.
+                        ? L3("دفعتك قيدُ المعالجة لدى Google Play. أعِد فتح هذه الصفحة بعد اكتمالها ليُفعَّل اشتراكك.", "Uw betaling wordt nog verwerkt door Google Play. Open deze pagina opnieuw zodra dat klaar is, dan wordt uw abonnement geactiveerd.", "Your payment is still being processed by Google Play. Reopen this page once it completes and your membership will be activated.")
                         : play.error === "purchase_foreign"
                         ? L3("يوجد على هذا الجهاز اشتراكٌ اشتُري بحسابٍ آخر في ربّانيّ. سجّل الدخول بذلك الحساب، أو استخدم حساب Google مختلفًا للشراء.", "Op dit apparaat staat een abonnement dat met een ander Rabbaanie-account is gekocht. Log in met dat account, of gebruik een ander Google-account om te kopen.", "This device has a membership bought with a different Rabbaanie account. Sign in with that account, or use a different Google account to purchase.")
                         : play.error === "verify_gone"
