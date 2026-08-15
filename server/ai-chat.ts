@@ -710,11 +710,16 @@ export const aiChatRouter = router({
         // Owning the account counts as owning the row: matching on deviceId
         // alone locked a parent out of their own consultation the moment they
         // reinstalled, which is how these came to be unreachable at all.
+        // Once a row has a real owner the account is the only thing that counts:
+        // deviceId comes from the client, so still honouring it would let anyone
+        // who learns a device id overwrite an owned consultation. The device
+        // fallback survives only for rows nobody owns yet.
         const existing = await getParentAiConsultation(input.dbId);
         const ownsIt =
           existing &&
-          ((ownerId > 0 && existing.parentId === ownerId) ||
-            existing.deviceId === input.deviceId);
+          (existing.parentId > 0
+            ? existing.parentId === ownerId
+            : existing.deviceId === input.deviceId);
         if (!ownsIt) {
           return { dbId: null };
         }
@@ -748,11 +753,13 @@ export const aiChatRouter = router({
       deviceId: z.string(),
     }))
     .query(async ({ input, ctx }) => {
-      const { getParentAiConsultationsForOwner, adoptParentAiConsultations } = await import("./db");
+      const { getParentAiConsultationsForOwner } = await import("./db");
       const ownerId = ctx.user?.id ?? 0;
-      // Claim this device's unowned rows first, so they survive the next
-      // reinstall instead of being orphaned again the moment the id rotates.
-      await adoptParentAiConsultations(ownerId, input.deviceId);
+      // Reading does not claim anything. Adopting this device's unowned rows
+      // would have let any signed-in caller pass someone else's deviceId and
+      // take permanent ownership of their consultations — the id comes from the
+      // request body and nothing attests it. Unowned rows stay readable by
+      // device below; new ones carry the account from the start.
       const conversations = await getParentAiConsultationsForOwner(ownerId, input.deviceId);
       return conversations.map(c => ({
         dbId: c.id,

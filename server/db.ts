@@ -4748,25 +4748,3 @@ export async function getParentAiConsultationsForOwner(
     .orderBy(desc(parentAiConsultations.updatedAt));
 }
 
-/**
- * Claim this device's unowned consultations for the signed-in account, so the
- * next reinstall cannot orphan them again. Only rows nobody owns are touched,
- * so this can never move a consultation between two accounts.
- */
-export async function adoptParentAiConsultations(
-  parentId: number,
-  deviceId: string,
-) {
-  if (!parentId || !deviceId) return;
-  const database = await getDb();
-  if (!database) return;
-  await database
-    .update(parentAiConsultations)
-    .set({ parentId })
-    .where(
-      and(
-        eq(parentAiConsultations.parentId, 0),
-        eq(parentAiConsultations.deviceId, deviceId),
-      ),
-    );
-}
