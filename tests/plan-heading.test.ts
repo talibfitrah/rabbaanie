@@ -1,5 +1,40 @@
 import { describe, it, expect } from "vitest";
-import { isLatinSectionHeading } from "../lib/plan-heading";
+import {
+  isArabicSectionHeading,
+  isLatinSectionHeading,
+} from "../lib/plan-heading";
+
+describe("arabic plan section headers", () => {
+  // Every heading the Arabic advisor is told to write must open its own section,
+  // or it is swallowed into the body of the section above it.
+  const HEADERS = [
+    "التشخيص:",
+    "علاج في التصفية:",
+    "مهام الوالد:",
+    "مهام الابن:",
+    "الجدول الزمني والتقييم:",
+  ];
+
+  for (const header of HEADERS) {
+    it(`treats "${header}" as a section header`, () => {
+      expect(isArabicSectionHeading(header)).toBe(true);
+    });
+  }
+
+  // Both the renderer and the step parser ask this, and the advisor bolds its
+  // headings often. A bolded heading that is not recognised is the original
+  // defect: it gets folded into the section above instead of opening its own.
+  it("recognises a heading the advisor wrote in bold", () => {
+    expect(isArabicSectionHeading("**علاج في التزكية:**")).toBe(true);
+    expect(isArabicSectionHeading("**مهام الوالد:**")).toBe(true);
+  });
+
+  it("does not promote an ordinary task line", () => {
+    expect(
+      isArabicSectionHeading("اغرس في عقله أن الرزق من عند الله وحده لا شريك له"),
+    ).toBe(false);
+  });
+});
 
 // Regression guard: before this, an en/nl plan produced no heading1 at all, so
 // groupIntoSections put the whole plan in one collapsed section titled "مقدمة"

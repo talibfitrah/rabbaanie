@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from "react";
+import React, { useState, useCallback, useEffect, useRef } from "react";
 import {
   View,
   Text,
@@ -13,6 +13,13 @@ import {
 } from "react-native";
 import { DatePicker } from "@/components/date-picker";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import {
+  ArchivableIssue,
+  consultationArchiveKey,
+  consultationMessages,
+  consultationTitle,
+  findArchivedRow,
+} from "@/lib/consultation-archive";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -48,6 +55,137 @@ export default function ChildDetailScreen() {
   const child = state.children.find((c) => c.id === id);
   const env = state.environments.find((e) => e.childId === id);
   const issues = state.issues.filter((i) => i.childId === id);
+
+  /**
+   * Issues the running diagnosis is archiving itself. Saving the issue re-runs
+   * the backfill below before the diagnosis has archived it, and at that moment
+   * the consultation is in neither the server's list nor storage — so without
+   * this claim both paths would archive it and the parent would see it twice.
+   */
+  const liveArchiving = useRef<Set<string>>(new Set());
+
+  /**
+   * Records one consultation in the advisor archive. Only an issue that actually
+   * produced a plan is archived, so a failed request never inflates the owner's
+   * consultation count. Re-diagnosing the same issue updates its entry rather
+   * than appending a second one.
+   */
+  const archiveConsultation = async (issue: ArchivableIssue) => {
+    if (!issue.treatmentPlan || !child) return;
+    const key = consultationArchiveKey(issue.id);
+    const knownDbId = await AsyncStorage.getItem(key);
+    const res = await authedFetch(`/api/trpc/aiChat.saveConversationToDb`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        json: {
+          dbId: knownDbId ? Number(knownDbId) : undefined,
+          deviceId: await getDeviceId(),
+          consultationType: "child",
+          childId: child.id,
+          // ai-chat.tsx filters the per-child archive on this name.
+          childName: child.name,
+          language,
+          title: consultationTitle(issue.description),
+          messages: consultationMessages(issue),
+        },
+      }),
+    });
+    const savedDbId = (await res.json())?.result?.data?.json?.dbId;
+    if (savedDbId && !knownDbId) {
+      await AsyncStorage.setItem(key, String(savedDbId));
+    }
+  };
+
+  /**
+   * Consultations held before v1.4.88 were never recorded — the advisor stored
+   * the plan as a local issue and stopped there, so this child's archive looked
+   * empty however many times the parent had consulted. The issue still holds the
+   * problem, the questions and the plan, which is the whole consultation, so
+   * they are archived retroactively. Each issue is marked once, so this settles
+   * after a single pass and costs nothing on later opens.
+   */
+  useEffect(() => {
+    if (!child) return;
+    let cancelled = false;
+    (async () => {
+      // The partner's own consultations sync into this child's issues. They
+      // belong to the partner's archive and their device, not to this one.
+      const pending = issues.filter(
+        (i) => i.treatmentPlan && !i.syncedFromPartner,
+      );
+      if (pending.length === 0) return;
+      // Once every consultation has been archived this screen costs nothing to
+      // open, so work out what is actually missing before asking the server.
+      const missing = [];
+      for (const issue of pending) {
+        if (!(await AsyncStorage.getItem(consultationArchiveKey(issue.id)))) {
+          missing.push(issue);
+        }
+      }
+      if (missing.length === 0 || cancelled) return;
+      // What this device has already archived. Without this a consultation whose
+      // dbId was lost to a dropped response would be archived again on every
+      // open, and the parent would find the same consultation several times over.
+      let archived: {
+        dbId: number;
+        title: string;
+        childName: string;
+        messageCount: number;
+      }[];
+      try {
+        const deviceId = await getDeviceId();
+        const res = await authedFetch(
+          `/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(
+            JSON.stringify({ json: { deviceId } }),
+          )}`,
+        );
+        const rows = (await res.json())?.result?.data?.json;
+        // An error body has no rows, and reading that as "nothing is archived"
+        // would archive everything again — the very duplication this prevents.
+        if (!res.ok || !Array.isArray(rows)) return;
+        archived = rows;
+      } catch {
+        // Can't tell what is already there, so archiving now risks duplicates.
+        return;
+      }
+      for (const issue of missing) {
+        if (cancelled) return;
+        if (liveArchiving.current.has(issue.id)) continue;
+        const key = consultationArchiveKey(issue.id);
+        // Re-read: a live diagnosis may have archived this issue and released its
+        // claim since the list above was taken.
+        if (await AsyncStorage.getItem(key)) continue;
+        // Claim before the next await, so a second run of this effect cannot pass
+        // the same checks and archive this issue alongside us.
+        liveArchiving.current.add(issue.id);
+        try {
+          const existing = findArchivedRow(
+            archived,
+            child.name,
+            consultationTitle(issue.description),
+            consultationMessages(issue).length,
+          );
+          if (existing !== null) {
+            await AsyncStorage.setItem(key, String(existing));
+            // One row belongs to one consultation. Leaving it in the list would
+            // let a second issue with the same opening line claim it too, and the
+            // next re-diagnosis would overwrite the first one's transcript.
+            archived = archived.filter((row) => row.dbId !== existing);
+            continue;
+          }
+          await archiveConsultation(issue);
+        } catch {
+          // Offline or server down: leave it unmarked and retry on next open.
+        } finally {
+          liveArchiving.current.delete(issue.id);
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [child?.id, issues.length]);
 
   const [showIssueForm, setShowIssueForm] = useState(false);
   const [issueText, setIssueText] = useState("");
@@ -203,6 +341,7 @@ export default function ChildDetailScreen() {
   // Step 2: Submit answers and get the full treatment plan
   const handleSubmitWithAnswers = async (answers: string[]) => {
     setGeneratingPlan(true);
+    let claimedIssueId: string | null = null;
     try {
       const response = await authedFetch(`/api/advice/treatment`, {
         method: "POST",
@@ -245,6 +384,8 @@ export default function ChildDetailScreen() {
       if (reopenIssueId) {
         // Update existing issue with new diagnosis
         consultationIssueId = reopenIssueId;
+        claimedIssueId = consultationIssueId;
+        liveArchiving.current.add(consultationIssueId);
         await updateIssue(reopenIssueId, {
           treatmentPlan: result.plan,
           analyticalQA: qaHistory,
@@ -262,6 +403,8 @@ export default function ChildDetailScreen() {
           analyticalQA: qaHistory,
         };
         consultationIssueId = newIssue.id;
+        claimedIssueId = consultationIssueId;
+        liveArchiving.current.add(consultationIssueId);
         await addIssue(newIssue);
       }
 
@@ -270,45 +413,17 @@ export default function ChildDetailScreen() {
       // and is counted in the owner report. Without this the plan existed only as
       // a local issue. The plan itself keeps rendering on this page through the
       // issue cards; this is about the archive, not a second copy on screen.
-      // Only archive a consultation that actually produced a plan, so a failed
-      // request never inflates the owner's consultation count.
-      if (result.plan) {
-        try {
-          // Re-diagnosing the same issue must update its archive entry, not add a
-          // second one — otherwise the owner's consultation count counts one
-          // consultation many times.
-          const archiveKey = `@issue_consultation_${consultationIssueId}`;
-          const knownDbId = await AsyncStorage.getItem(archiveKey);
-          const res = await authedFetch(`/api/trpc/aiChat.saveConversationToDb`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              json: {
-                dbId: knownDbId ? Number(knownDbId) : undefined,
-                deviceId: await getDeviceId(),
-                consultationType: "child",
-                childId: child.id,
-                childName: child.name,
-                language,
-                title: issueText.slice(0, 50),
-                messages: [
-                  { role: "user", content: issueText },
-                  ...qaHistory.flatMap((qa) => [
-                    { role: "assistant", content: qa.question },
-                    { role: "user", content: qa.answer },
-                  ]),
-                  { role: "assistant", content: result.plan },
-                ],
-              },
-            }),
-          });
-          const savedDbId = (await res.json())?.result?.data?.json?.dbId;
-          if (savedDbId && !knownDbId) {
-            await AsyncStorage.setItem(archiveKey, String(savedDbId));
-          }
-        } catch (archiveErr) {
-          console.error("Error archiving consultation:", archiveErr);
-        }
+      try {
+        await archiveConsultation({
+          id: consultationIssueId,
+          description: issueText,
+          treatmentPlan: result.plan,
+          analyticalQA: qaHistory,
+        });
+      } catch (archiveErr) {
+        console.error("Error archiving consultation:", archiveErr);
+      } finally {
+        liveArchiving.current.delete(consultationIssueId);
       }
 
       // Notify partner about treatment plan creation/update
@@ -332,6 +447,10 @@ export default function ChildDetailScreen() {
       );
     } finally {
       setGeneratingPlan(false);
+      // If saving the issue threw, its claim was never released, and the backfill
+      // would keep skipping that consultation for as long as this screen is open.
+      // Only this diagnosis's own claim — the backfill holds its own.
+      if (claimedIssueId) liveArchiving.current.delete(claimedIssueId);
     }
   };
 
@@ -2157,49 +2276,17 @@ function AdvisorPlansForChild({
               </Text>
             </View>
           </Pressable>
+          {/* Render the plan text the advisor actually wrote, not the flattened
+              step list. plan.phases is a lossy derivative kept for the weekly
+              reminder; rendering it here dropped every "علاج في …" heading into
+              the tail of the bullet above it and lost the parent/child split. */}
           {expanded === plan.id && (
             <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-              {plan.phases?.map((phase: any, pi: number) => (
-                <View key={pi} style={{ marginBottom: 8 }}>
-                  {phase.phase && (
-                    <Text
-                      style={{
-                        fontSize: 12,
-                        fontWeight: "700",
-                        color: colors.foreground,
-                        marginBottom: 4,
-                      }}
-                    >
-                      {phase.phase}
-                    </Text>
-                  )}
-                  {phase.steps?.map((step: any, si: number) => (
-                    <View
-                      key={si}
-                      style={{
-                        flexDirection: "row",
-                        gap: 6,
-                        marginBottom: 4,
-                        paddingRight: 4,
-                      }}
-                    >
-                      <Text style={{ color: colors.primary, fontSize: 12 }}>
-                        {"•"}
-                      </Text>
-                      <Text
-                        style={{
-                          fontSize: 12,
-                          color: colors.foreground,
-                          flex: 1,
-                          lineHeight: 18,
-                        }}
-                      >
-                        {step.text}
-                      </Text>
-                    </View>
-                  ))}
-                </View>
-              ))}
+              <TreatmentPlanRenderer
+                planText={cleanTreatmentText(plan.content || "", lang)}
+                issueId={plan.id}
+                colors={colors}
+              />
             </View>
           )}
         </View>

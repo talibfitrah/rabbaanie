@@ -17,3 +17,19 @@ export function isLatinSectionHeading(cleaned: string): boolean {
   if (!/[A-Za-z]/.test(head)) return false;
   return head === head.toUpperCase();
 }
+
+/**
+ * A standalone Arabic section title, written without a number or a "#".
+ *
+ * "الجدول" belongs here as much as the rest: the advisor closes every plan with
+ * "الجدول الزمني والتقييم:", and while the numbered form was already recognised,
+ * the plain one was not — so the timeline was absorbed into the child's tasks.
+ */
+export function isArabicSectionHeading(title: string): boolean {
+  // The advisor bolds its headings often, and "**علاج في التزكية:**" neither
+  // starts with the keyword nor ends with the colon. Stripping the markdown here
+  // means every caller is right about it, rather than each having to remember.
+  const head = title.replace(/[*#_]/g, "").trim();
+  if (!/^(التشخيص|تشخيص|علاج ?في|مهام|الجدول)/.test(head)) return false;
+  return head.endsWith(":") || head.endsWith("،") || head.length < 40;
+}

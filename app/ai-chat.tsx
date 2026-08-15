@@ -39,6 +39,7 @@ import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { getDeviceId } from "@/lib/device-id";
+import { parseActionPlanSteps } from "@/lib/plan-steps";
 
 // Types
 interface Attachment {
@@ -663,7 +664,7 @@ function AIChatScreenInner() {
         try {
           const existing = await AsyncStorage.getItem("@advisor_action_plans");
           const plans = existing ? JSON.parse(existing) : [];
-          const parsedPhases = parseActionPlanSteps(aiContent);
+          const parsedPhases = parseActionPlanSteps(aiContent, language);
           const newPlan = {
             id: `plan_${Date.now()}`,
             content: aiContent,
@@ -740,69 +741,13 @@ function AIChatScreenInner() {
     return planIndicators.some(indicator => content.toLowerCase().includes(indicator.toLowerCase()));
   };
 
-  // Parse action plan into structured steps with phases
-  const parseActionPlanSteps = (content: string): { phase: string; steps: { id: string; text: string; day?: number }[] }[] => {
-    const phases: { phase: string; steps: { id: string; text: string; day?: number }[] }[] = [];
-    // Split by week/phase markers
-    const weekRegex = /(?:الأسبوع|Week|week|Fase|fase|المرحلة)\s*(\d+)/gi;
-    const sections = content.split(weekRegex);
-    
-    // If no week markers found, treat entire content as one phase
-    if (sections.length <= 1) {
-      const steps = extractSteps(content);
-      if (steps.length > 0) {
-        phases.push({ phase: language === "ar" ? "الأسبوع 1" : language === "en" ? "Week 1" : "Week 1", steps });
-      }
-    } else {
-      // Process pairs: sections[0] is before first match, then alternating match/content
-      for (let i = 1; i < sections.length; i += 2) {
-        const weekNum = sections[i];
-        const sectionContent = sections[i + 1] || "";
-        const phaseName = language === "ar" ? `الأسبوع ${weekNum}` : `Week ${weekNum}`;
-        const steps = extractSteps(sectionContent);
-        if (steps.length > 0) {
-          // Distribute steps across 7 days
-          const stepsPerDay = Math.ceil(steps.length / 7);
-          steps.forEach((step, idx) => {
-            step.day = Math.min(Math.floor(idx / stepsPerDay) + 1, 7);
-          });
-          phases.push({ phase: phaseName, steps });
-        }
-      }
-    }
-    return phases;
-  };
-
-  const extractSteps = (text: string): { id: string; text: string; day?: number }[] => {
-    const steps: { id: string; text: string; day?: number }[] = [];
-    // Match numbered steps: "1. ...", "2. ...", "١. ...", etc.
-    const stepRegex = /(?:^|\n)\s*(?:\d+|[١-٩٠]+)[.)\-\s]+(.+?)(?=\n\s*(?:\d+|[١-٩٠]+)[.)\-\s]|$)/gs;
-    let match;
-    while ((match = stepRegex.exec(text)) !== null) {
-      const stepText = match[1].trim().replace(/\n/g, " ").replace(/\*+/g, "").replace(/#+\s*/g, "").replace(/_{2,}/g, "").trim();
-      if (stepText.length > 5) {
-        steps.push({ id: `step_${Date.now()}_${steps.length}`, text: stepText });
-      }
-    }
-    // Fallback: split by lines starting with - or *
-    if (steps.length === 0) {
-      const lines = text.split("\n").filter(l => /^\s*[-*•]\s+/.test(l));
-      lines.forEach((line, idx) => {
-        const stepText = line.replace(/^\s*[-*•]\s+/, "").replace(/\*+/g, "").replace(/#+\s*/g, "").replace(/_{2,}/g, "").trim();
-        if (stepText.length > 5) {
-          steps.push({ id: `step_${Date.now()}_${idx}`, text: stepText });
-        }
-      });
-    }
-    return steps;
-  };
 
   // Save action plan to weekly tips with structured steps + schedule child-specific reminder
   const saveActionPlanToWeekly = async (messageContent: string) => {
     try {
       const existing = await AsyncStorage.getItem("@advisor_action_plans");
       const plans = existing ? JSON.parse(existing) : [];
-      const parsedPhases = parseActionPlanSteps(messageContent);
+      const parsedPhases = parseActionPlanSteps(messageContent, language);
       const newPlan = {
         id: `plan_${Date.now()}`,
         content: messageContent,

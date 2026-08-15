@@ -66,6 +66,29 @@ describe("deleting a consultation", () => {
   });
 });
 
+describe("updating a consultation", () => {
+  // The read and delete paths were guarded, but the save path takes the same
+  // sequential dbId and overwrites that row. Unguarded, any caller could walk
+  // dbId and overwrite every family's consultation with content of their own.
+  const body = procedureBody("saveConversationToDb");
+
+  it("checks ownership before overwriting an existing record", () => {
+    expect(body).toContain("existing.deviceId !== input.deviceId");
+    const guard = body.indexOf("existing.deviceId !== input.deviceId");
+    const update = body.indexOf("await updateParentAiConsultation");
+    expect(guard).toBeGreaterThan(-1);
+    expect(update).toBeGreaterThan(-1);
+    expect(guard).toBeLessThan(update);
+  });
+
+  // The name also appears in this procedure's `await import("./db")` line, so
+  // match the call itself — otherwise deleting the whole create branch still
+  // passes and the guard protects nothing.
+  it("still creates a new record when no dbId is supplied", () => {
+    expect(body).toContain("await createParentAiConsultation({");
+  });
+});
+
 describe("callers send the device id", () => {
   it("every conversation read/delete call passes one", () => {
     const client = fs.readFileSync("app/ai-chat.tsx", "utf-8");

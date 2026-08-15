@@ -2,6 +2,8 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
+import { extractSteps } from "@/lib/plan-steps";
+
 describe("Phase 9: Quran screen improvements", () => {
   const quranFile = fs.readFileSync(
     path.resolve(__dirname, "../app/(tabs)/concepts.tsx"),
@@ -96,8 +98,12 @@ describe("Phase 9: AI chat formatting", () => {
     expect(chatFile).toContain("replace(/\\*\\*([^*]+)\\*\\*/g");
   });
 
+  // The step parsing moved to lib/plan-steps.ts; check the markdown is actually
+  // stripped rather than that ai-chat.tsx still spells out the replace() call.
   it("should clean step text from markdown in extractSteps", () => {
-    expect(chatFile).toContain('.replace(/\\*+/g, "")');
+    expect(extractSteps("1. **اجلس** معه بعد الفجر").at(0)?.text).toBe(
+      "اجلس معه بعد الفجر",
+    );
   });
 });
 

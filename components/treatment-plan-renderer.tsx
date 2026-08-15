@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
 import { sectionOwner } from "@/lib/plan-owner";
-import { isLatinSectionHeading } from "@/lib/plan-heading";
+import { isArabicSectionHeading, isLatinSectionHeading } from "@/lib/plan-heading";
 import { planProgressKey } from "@/lib/plan-progress";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
@@ -103,11 +103,10 @@ function isHeading1(trimmed: string): boolean {
     /^#{1,2}\s/.test(trimmed) ||
     /^\*\*\d+\./.test(trimmed)
   )) return true;
-  // Also match standalone section titles like "التشخيص:" or "علاج في التصفية:"
-  if (
-    /^(التشخيص|تشخيص|علاج ?في|مهام)/.test(trimmed) &&
-    (trimmed.endsWith(":") || trimmed.endsWith("،") || trimmed.length < 40)
-  ) return true;
+  // Also match standalone section titles like "التشخيص:" or "علاج في التصفية:",
+  // bolded or not — a raw "**علاج في التزكية:**" matches nothing above, so
+  // without this it renders as body text inside the section before it.
+  if (isArabicSectionHeading(trimmed)) return true;
   return false;
 }
 

@@ -1,6 +1,8 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
 
+import { consultationMessages } from "@/lib/consultation-archive";
+
 // Daa3iyah (2026-08-15): after a consultation the owner report in لوحة الإدارة
 // still showed 0 محادثات المستشار, and the plan was missing from both the general
 // archive and the child's archive.
@@ -38,8 +40,15 @@ describe("child advisor records its consultation", () => {
     expect(childScreen).toContain("childName: child.name");
   });
 
+  // The transcript is built in lib/consultation-archive.ts now, so that both the
+  // live diagnosis and the backfill of older consultations produce the same entry.
   it("includes the generated plan in the saved messages", () => {
-    expect(childScreen).toContain('{ role: "assistant", content: result.plan }');
+    const messages = consultationMessages({
+      id: "i1",
+      description: "المشكلة",
+      treatmentPlan: "الخطة",
+    });
+    expect(messages.at(-1)).toEqual({ role: "assistant", content: "الخطة" });
   });
 });
 
