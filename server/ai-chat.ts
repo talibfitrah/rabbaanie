@@ -360,6 +360,29 @@ let nextLiveDataId = 1;
 // ROUTER
 // ============================================================
 
+/**
+ * Who may open, change or delete a stored consultation.
+ *
+ * The account owns it once there is one. deviceId is asserted by the client, so
+ * it is honoured only for rows nobody owns yet — otherwise learning a device id
+ * would be enough to read or delete another family's consultation.
+ *
+ * Listing (getParentAiConsultationsForOwner) applies the same rule, and all four
+ * paths must agree: widening only the list left rows that appeared in the
+ * archive but returned null when tapped and ignored every delete.
+ */
+function ownsConsultation(
+  row: { parentId?: number | null; deviceId?: string | null } | null | undefined,
+  ownerId: number,
+  deviceId: string,
+): boolean {
+  if (!row) return false;
+  if ((row.parentId ?? 0) > 0) return row.parentId === ownerId;
+  // Rows created by parentAiConsultRouter.create carry a NULL deviceId; without
+  // this they would match any caller who sent no device id at all.
+  return !!row.deviceId && row.deviceId === deviceId;
+}
+
 export const aiChatRouter = router({
   /**
    * Start a new conversation
@@ -715,12 +738,7 @@ export const aiChatRouter = router({
         // who learns a device id overwrite an owned consultation. The device
         // fallback survives only for rows nobody owns yet.
         const existing = await getParentAiConsultation(input.dbId);
-        const ownsIt =
-          existing &&
-          (existing.parentId > 0
-            ? existing.parentId === ownerId
-            : existing.deviceId === input.deviceId);
-        if (!ownsIt) {
+        if (!ownsConsultation(existing, ownerId, input.deviceId)) {
           return { dbId: null };
         }
         await updateParentAiConsultation(input.dbId, {
@@ -782,13 +800,13 @@ export const aiChatRouter = router({
       dbId: z.number(),
       deviceId: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { getParentAiConsultation } = await import("./db");
       const conv = await getParentAiConsultation(input.dbId);
       if (!conv) return null;
       // dbId is a sequential primary key, so without this an unauthenticated
       // caller could walk it and read every family's consultation.
-      if (conv.deviceId !== input.deviceId) return null;
+      if (!ownsConsultation(conv, ctx.user?.id ?? 0, input.deviceId)) return null;
       return {
         dbId: conv.id,
         title: conv.title || "",
@@ -808,12 +826,12 @@ export const aiChatRouter = router({
       dbId: z.number(),
       deviceId: z.string(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { getParentAiConsultation, deleteParentAiConsultation } = await import("./db");
       const conv = await getParentAiConsultation(input.dbId);
       // Same enumeration risk as the read path: without the ownership check any
       // caller could delete every family's consultations.
-      if (!conv || conv.deviceId !== input.deviceId) return { success: false };
+      if (!ownsConsultation(conv, ctx.user?.id ?? 0, input.deviceId)) return { success: false };
       await deleteParentAiConsultation(input.dbId);
       return { success: true };
     }),

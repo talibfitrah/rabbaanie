@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, StyleSheet, LayoutAnimation, Platform, UIManager } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
@@ -1144,7 +1144,10 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
   const [plans, setPlans] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
 
-  useEffect(() => { loadPlans(); }, [childId]);
+  // On focus, not just on mount: this tab stays mounted while the child screen
+  // is pushed over it, so ticks made there wrote progressDone/progressTotal
+  // while the percentage here sat unchanged until the app was restarted.
+  useFocusEffect(useCallback(() => { loadPlans(); }, [childId]));
 
   const loadPlans = async () => {
     try {
