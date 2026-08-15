@@ -239,7 +239,7 @@ const withAdhanSoundResources: ConfigPlugin = (config) =>
 // than what users already run.
 // versionCode is ALWAYS derived from the version here, so name and code can
 // never diverge and a missing/empty env var can't yield an invalid 0.
-const APP_VERSION = process.env.APP_VERSION ?? "1.4.93";
+const APP_VERSION = process.env.APP_VERSION ?? "1.4.94";
 // Same shape the release workflow enforces on the tag: three parts, minor/patch
 // 0-999 (the versionCode formula collides beyond that), no leading zeros. This
 // makes a bad local APP_VERSION fail loudly instead of shipping a wrong code.
