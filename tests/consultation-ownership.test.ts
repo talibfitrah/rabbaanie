@@ -28,6 +28,27 @@ describe("reading a consultation", () => {
   it("refuses records belonging to another device", () => {
     expect(body).toContain("conv.deviceId !== input.deviceId");
   });
+
+  it("takes it in the body, not the URL, since it authorises access", () => {
+    expect(body).toContain(".mutation(");
+    expect(body).not.toContain(".query(");
+    const client = fs.readFileSync("app/ai-chat.tsx", "utf-8");
+    expect(client).not.toMatch(/getConversationFromDb\?input=/);
+  });
+});
+
+describe("the device id is unguessable", () => {
+  it("is generated with a CSPRNG, not Math.random", () => {
+    const src = fs.readFileSync("lib/device-id.ts", "utf-8");
+    expect(src).toContain("expo-crypto");
+    expect(src).toContain("getRandomBytes");
+    // Strip comments first: the file explains *why* Math.random was rejected,
+    // and that prose must not read as a failure.
+    const code = src
+      .replace(/\/\*[\s\S]*?\*\//g, "")
+      .replace(/\/\/.*$/gm, "");
+    expect(code).not.toContain("Math.random");
+  });
 });
 
 describe("deleting a consultation", () => {

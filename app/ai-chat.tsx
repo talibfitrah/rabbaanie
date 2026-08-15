@@ -340,7 +340,11 @@ function AIChatScreenInner() {
       // Try loading from database first
       if (dbId) {
         try {
-          const res = await authedFetch(`/api/trpc/aiChat.getConversationFromDb?input=${encodeURIComponent(JSON.stringify({ json: { dbId, deviceId: await getDeviceId() } }))}`);
+          const res = await authedFetch(`/api/trpc/aiChat.getConversationFromDb`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ json: { dbId, deviceId: await getDeviceId() } }),
+          });
           const data = await res.json();
           const conv = data.result?.data?.json;
           if (conv && conv.messages) {

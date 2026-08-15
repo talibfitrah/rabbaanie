@@ -734,12 +734,15 @@ export const aiChatRouter = router({
     }),
 
   /** Get a single conversation with messages from database */
+  // A mutation, not a query, purely so the deviceId travels in the POST body:
+  // it authorises access to the conversation, and a GET would leave it in URLs,
+  // access logs and proxy logs.
   getConversationFromDb: publicProcedure
     .input(z.object({
       dbId: z.number(),
       deviceId: z.string(),
     }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const { getParentAiConsultation } = await import("./db");
       const conv = await getParentAiConsultation(input.dbId);
       if (!conv) return null;
