@@ -175,3 +175,28 @@ describe("the reminder keys ticks off the same cleaned text the screens parse", 
     expect(text).toContain("اقرأ باب الإخلاص");
   });
 });
+
+describe("concurrent progress writes do not clobber each other", () => {
+  it("keeps both plans' counts when two renderers report at once", async () => {
+    // Every plan lives in ONE JSON blob under @advisor_action_plans, so two
+    // overlapping read-modify-writes each start from the same snapshot and the
+    // second puts back a list that never saw the first. Two renderers reporting
+    // together is the ordinary case: the weekly tab remounts its cards on focus
+    // while the child screen is still settling.
+    store["@advisor_action_plans"] = JSON.stringify([
+      { ...plan({}), id: "plan_a" },
+      { ...plan({}), id: "plan_b" },
+    ]);
+
+    await Promise.all([
+      cachePlanProgress("plan_a", 1, 3),
+      cachePlanProgress("plan_b", 2, 4),
+    ]);
+
+    const saved = JSON.parse(store["@advisor_action_plans"]);
+    const a = saved.find((p: any) => p.id === "plan_a");
+    const b = saved.find((p: any) => p.id === "plan_b");
+    expect([a.progressDone, a.progressTotal]).toEqual([1, 3]);
+    expect([b.progressDone, b.progressTotal]).toEqual([2, 4]);
+  });
+});

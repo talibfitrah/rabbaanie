@@ -22,7 +22,28 @@ export function planProgressKey(issueId: string): string {
  *
  * Returns whether anything changed, so a caller can skip a needless re-render.
  */
+// Serialises the read-modify-write below. The store holds every plan in one
+// JSON blob, so two overlapping writers each read it, each patch their own
+// entry, and the second write puts back a list that never saw the first — a
+// plan deleted while a renderer was reporting progress came straight back.
+// The runtime is single-threaded, so a promise chain is enough; nothing here
+// needs a real lock.
+let writeQueue: Promise<unknown> = Promise.resolve();
+function serialised<T>(fn: () => Promise<T>): Promise<T> {
+  const run = writeQueue.then(fn, fn);
+  writeQueue = run.catch(() => undefined);
+  return run;
+}
+
 export async function cachePlanProgress(
+  planId: string,
+  done: number,
+  total: number,
+): Promise<boolean> {
+  return serialised(() => cachePlanProgressUnlocked(planId, done, total));
+}
+
+async function cachePlanProgressUnlocked(
   planId: string,
   done: number,
   total: number,
