@@ -147,12 +147,16 @@ export default function ChildDetailScreen() {
         // meant one transient 500 archived nothing at all and said nothing, so
         // proceed with an empty list instead.
         //
-        // This is a robustness fix, NOT the cause of the empty archive: an
-        // earlier version of this comment blamed an expired session, which is
-        // false — listConversationsFromDb is a publicProcedure (server/ai-chat.ts)
-        // and authedFetch merely omits the header when signed out, so being
-        // logged out cannot fail this call. Why Daa3iyah's archive is empty is
-        // still open; a successful empty list would have let the pass run.
+        // A signed-out device really can fail here, but only against the server
+        // that is actually deployed: rabbaanie-api declares
+        // listConversationsFromDb as a protectedProcedure, while server/ in this
+        // repo still has it as publicProcedure. Reading only the repo says an
+        // expired session cannot fail this call; reading production says it can.
+        // The app talks to production, so it can.
+        //
+        // It is still not the reason Daa3iyah's archive is empty. He has no
+        // consultations on the server at all — the six that were there belong to
+        // another family — so nothing was hidden, it was never written.
         //
         // Cost of proceeding: if a previous POST stored a row but its response
         // was lost, no archive key was written, and a later failed list makes
