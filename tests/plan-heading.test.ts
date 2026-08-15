@@ -102,3 +102,33 @@ describe("arabic lines are never treated as latin headings", () => {
     expect(isLatinSectionHeading("2026")).toBe(false);
   });
 });
+
+describe("an Arabic task line is never promoted to a heading", () => {
+  // Arabic has no letter case, so `head === head.toUpperCase()` is true for any
+  // Arabic line whose only Latin characters are already capitals — and parents
+  // write plenty of those: TV, PC, AI, SMS, QR, WhatsApp abbreviations. The
+  // line then parses as heading1 instead of a task, so the step disappears from
+  // the checklist AND from that section's completed/total count. The doc
+  // comment claimed the Latin-letter requirement prevented exactly this.
+  for (const line of [
+    "راقب استخدام TV يوميًا",
+    "اضبط إعدادات PC للطفل",
+    "امنع تطبيقات AI عن الطفل",
+    "أرسل SMS للمعلّم",
+  ]) {
+    it(`treats "${line}" as a task, not a heading`, () => {
+      expect(isLatinSectionHeading(line)).toBe(false);
+    });
+  }
+
+  it("still recognises a genuine Latin ALL-CAPS heading", () => {
+    // The capability this exists for must not vanish with the fix.
+    expect(isLatinSectionHeading("WHAT MUST THE PARENT CHANGE FIRST?")).toBe(true);
+    expect(isLatinSectionHeading("TREATMENT PLAN - TASFIYA (correcting the mind)")).toBe(true);
+    expect(isLatinSectionHeading("ADVIES VOOR DE OUDER")).toBe(true);
+  });
+
+  it("still rejects a lower-case Latin line", () => {
+    expect(isLatinSectionHeading("teach him to pray on time")).toBe(false);
+  });
+});

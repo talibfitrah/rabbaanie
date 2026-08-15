@@ -58,15 +58,20 @@ export function progressSignature(
   progress: { issueId: string; completed: number }[],
 ): string {
   if (progress.length === 0) return "p0";
-  return (
-    "p" +
-    progress
-      .map((p) => `${p.issueId}:${p.completed}`)
-      .sort()
-      .join(",")
-      .split("")
-      .reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0)
-      .toString(36)
-      .replace("-", "")
-  );
+  const hash = progress
+    .map((p) => `${p.issueId}:${p.completed}`)
+    .sort()
+    .join(",")
+    .split("")
+    .reduce((h, c) => (h * 31 + c.charCodeAt(0)) | 0, 0);
+  // `>>> 0` rather than stripping the sign afterwards. `| 0` yields a SIGNED
+  // 32-bit int, so .toString(36).replace("-","") mapped h and -h to the same
+  // signature — two different progress states sharing one weekly plan cache
+  // key, serving a parent a plan built before their progress. Same shape as
+  // issuesSignature in lib/weekplan-cache.ts.
+  //
+  // Honest about the odds: a brute-force sweep of 160k realistic states found
+  // no actual collision, so this was unlikely rather than imminent. It is
+  // still cheaper to be correct than to reason about.
+  return "p" + (hash >>> 0).toString(36);
 }
