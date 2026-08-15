@@ -22,13 +22,19 @@ export function planProgressKey(issueId: string): string {
  *
  * Returns whether anything changed, so a caller can skip a needless re-render.
  */
-// Serialises the read-modify-write below. The store holds every plan in one
-// JSON blob, so two overlapping writers each read it, each patch their own
-// entry, and the second write puts back a list that never saw the first — a
-// plan deleted while a renderer was reporting progress came straight back.
-// The runtime is single-threaded, so a promise chain is enough; nothing here
-// needs a real lock.
+// The store holds every plan in one JSON blob, so two overlapping writers each
+// read it, each patch their own entry, and the second write puts back a list
+// that never saw the first. The runtime is single-threaded, so a promise chain
+// is enough; nothing here needs a real lock.
+//
+// EVERY writer of @advisor_action_plans must go through withPlanStore, not just
+// this file. A progress report serialised only against other progress reports
+// still loses to an un-queued delete running beside it, and brings the deleted
+// plan back — which is exactly the case this was written for.
 let writeQueue: Promise<unknown> = Promise.resolve();
+export function withPlanStore<T>(fn: () => Promise<T>): Promise<T> {
+  return serialised(fn);
+}
 function serialised<T>(fn: () => Promise<T>): Promise<T> {
   const run = writeQueue.then(fn, fn);
   writeQueue = run.catch(() => undefined);

@@ -14,7 +14,7 @@ import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/noti
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { cleanTreatmentText } from "@/lib/plan-text";
-import { cachePlanProgress } from "@/lib/plan-progress";
+import { cachePlanProgress, withPlanStore } from "@/lib/plan-progress";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -1184,12 +1184,16 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
 
   const removePlan = async (planId: string) => {
     try {
+      // Through the same queue cachePlanProgress uses: an un-queued delete
+      // beside a progress report loses the delete and the plan comes back.
+      await withPlanStore(async () => {
       const data = await AsyncStorage.getItem("@advisor_action_plans");
       if (data) {
         const filtered = JSON.parse(data).filter((p: any) => p.id !== planId);
         await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(filtered));
         setPlans(prev => prev.filter(p => p.id !== planId));
       }
+      });
     } catch (e) { console.error("Error removing plan:", e); }
   };
 

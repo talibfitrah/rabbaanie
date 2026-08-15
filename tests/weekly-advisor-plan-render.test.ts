@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
-import { taskKeysOf, rekeyTasksTo, parsePlanText } from "../lib/plan-blocks";
+import { taskKeysOf, parsePlanText, groupIntoSections } from "../lib/plan-blocks";
 
 // Daa3iyah (2026-08-15): «نفس الخطة بنفس الطريقة لابد ان تعرض في قسم العائلات
 // وفي قسم الأسبوعي … فالآن تعرض الخطة فقط كنص تحت بعض وليس بالطريقة المقدمة
@@ -80,39 +80,60 @@ describe("the bar and the cached count are one measurement", () => {
     expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
   });
 
-  it("gives a translated plan the ORIGINAL's task keys, in display order", () => {
-    // REVERSED DELIBERATELY. This used to assert the opposite — that a
-    // translation is counted against its own parse — which fixed the bar for a
-    // translated reader but broke everything that is not this component: the
-    // daily reminder parses plan.content, and the cached count is stored per
-    // plan and not per language, so "task-1" meant one task on screen and a
-    // different one in the reminder. One key space, the original's, is the only
-    // arrangement where a tick means the same task everywhere.
-    const shown = rekeyTasksTo(parsePlanText(DUTCH_PLAN), taskKeysOf(ARABIC_PLAN));
-    const shownTaskKeys = shown.filter((b) => b.type === "task").map((b) => (b as { key: string }).key);
-    expect(shownTaskKeys).toEqual(["task-0", "task-1"]);
-
-    // Ticking both visible boxes marks the plan's first two tasks — the same two
-    // the reminder, which reads the original, will now consider done.
-    const ticked = new Set(shownTaskKeys);
-    const remaining = taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k));
-    expect(remaining).toEqual(["task-2"]);
+  it("keys a plan's tasks by position, so the same key means the same task", () => {
+    // Positional keys are the whole reason the original text must be the one
+    // measured against: `task-1` is "the second task of whatever you parsed",
+    // and a translation that drops a task shifts what that refers to.
+    expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
+    expect(taskKeysOf(DUTCH_PLAN)).toEqual(["task-0", "task-1"]);
   });
 
-  it("does not renumber a translation that carries more tasks than the original", () => {
-    // Past the end there is nothing to map onto, so the extra keeps its own key
-    // rather than colliding with the plan's last task.
-    const longer = ARABIC_PLAN + "\n- خطوة زائدة أضافتها الترجمة";
-    const shown = rekeyTasksTo(parsePlanText(longer), ["task-0"]);
-    const keys = shown.filter((b) => b.type === "task").map((b) => (b as { key: string }).key);
-    expect(keys[0]).toBe("task-0");
-    expect(new Set(keys).size).toBe(keys.length);
+  it("leaves the plan's third task outstanding when only the translation is ticked", () => {
+    // The bug this guards: ticking both boxes a Dutch reader sees must not mark
+    // the Arabic plan's third task done, in the bar or in the daily reminder.
+    const ticked = new Set(taskKeysOf(DUTCH_PLAN));
+    expect(taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k))).toEqual(["task-2"]);
   });
 
-  it("re-keys what it displays instead of counting a second parse", () => {
-    // One source assertion is left on purpose, and it is about wiring rather
-    // than formatting: the component must pass its displayed blocks through
-    // rekeyTasksTo. What that function DOES is covered by behaviour above.
-    expect(renderer).toContain("rekeyTasksTo(parsePlanText(effectiveText)");
+  it("measures against the original while displaying the translation", () => {
+    // The wiring that actually fixes the cross-language mismatch: the denominator
+    // and the reported count come from planText, the displayed blocks from
+    // effectiveText. An earlier attempt added a rekeying step that mapped every
+    // key onto itself; this asserts the part that does the work.
+    expect(renderer).toContain("taskKeysOf(planText)");
+    expect(renderer).toContain("parsePlanText(effectiveText)");
+    expect(renderer).not.toContain("taskKeysOf(effectiveText)");
+  });
+});
+
+describe("no part of a plan is silently dropped", () => {
+  // parsePlanText promotes any numbered line containing تشخيص / مهام / الجدول /
+  // التقييم / العلاج to a heading. "راجع مهامك المنزلية معه" is an ordinary
+  // instruction that trips that rule — and when the next line is also a heading,
+  // grouping used to discard the section outright, taking the only copy of that
+  // instruction with it: gone from the screen, from the task count, and from the
+  // daily reminder, while the progress bar still reached 100%.
+  const PLAN = [
+    "مهام الوالد:",
+    "1. اجلس مع ابنك يوميًا بعد صلاة العصر لمدة عشر دقائق",
+    "2. راجع مهامك المنزلية معه حتى يتعلم المسؤولية",
+    "",
+    "مهام الابن:",
+    "3. التزم بأداء الصلاة في وقتها",
+  ].join("\n");
+
+  it("keeps every line of the plan reachable on screen", () => {
+    const sections = groupIntoSections(parsePlanText(PLAN));
+    const shown = sections.flatMap((sec) => [sec.title, ...sec.blocks.map((b: any) => b.text)]).join(" ");
+    expect(shown).toContain("اجلس مع ابنك");
+    expect(shown).toContain("التزم بأداء الصلاة");
+    // The one that used to vanish.
+    expect(shown).toContain("راجع مهامك المنزلية معه");
+  });
+
+  it("still drops the stand-in section before the first heading", () => {
+    // That one is ours, not the advisor's, so an empty "مقدمة" must not appear.
+    const sections = groupIntoSections(parsePlanText(PLAN));
+    expect(sections.some((sec) => sec.title === "مقدمة")).toBe(false);
   });
 });

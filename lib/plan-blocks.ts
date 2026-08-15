@@ -139,10 +139,16 @@ export function parsePlanText(text: string): ParsedBlock[] {
 /**
  * The task keys a plan's progress is measured against.
  *
- * Callers must pass the SAME text they render. Counting against a different
- * parse than the one on screen lets a reader tick every box they can see and
- * still be told they are at 6/10, because keys are positional and a
- * translation rarely parses to the same number of tasks.
+ * Always pass the plan's ORIGINAL text, never a translation of it, even when a
+ * translation is what is on screen. Keys are positional (`task-0`, `task-1`, …)
+ * and carry nothing about the text, so a translation that parses to a different
+ * number of tasks makes the same key mean a different task. One key space per
+ * plan — the original's — is what keeps a tick meaning the same thing in the
+ * renderer, in the cached count and in the daily reminder.
+ *
+ * The visible consequence, accepted: a translation that drops a task leaves the
+ * bar short of 100% with every visible box ticked. The plan really does have
+ * more tasks than the translation shows.
  */
 export function taskKeysOf(text: string): string[] {
   return parsePlanText(text)
@@ -150,20 +156,46 @@ export function taskKeysOf(text: string): string[] {
     .map((b) => (b as { key: string }).key);
 }
 
-/**
- * Re-key the task blocks of one parse onto another parse's keys, in order.
- *
- * A plan's ticks live in one key space — the original text's — because keys are
- * positional and everything outside the renderer (the daily reminder, the cached
- * count) reads the original. Displaying a translation therefore re-keys the
- * blocks it shows: the Nth task shown is the Nth task of the plan.
- *
- * A translation with MORE tasks than the original keeps its own keys past the
- * end, so the extras are tickable but private to that parse.
- */
-export function rekeyTasksTo(blocks: ParsedBlock[], keys: string[]): ParsedBlock[] {
-  let i = 0;
-  return blocks.map((b) =>
-    b.type === "task" ? { ...b, key: keys[i++] ?? b.key } : b,
-  );
+export interface Section {
+  title: string;
+  blocks: ParsedBlock[];
+  taskKeys: string[];
+  /** The stand-in section before the plan's first heading, not a real one. */
+  synthetic?: boolean;
+}
+
+/** Group blocks into collapsible sections by heading1. */
+export function groupIntoSections(blocks: ParsedBlock[]): Section[] {
+  const sections: Section[] = [];
+  let currentSection: Section = { title: "مقدمة", blocks: [], taskKeys: [], synthetic: true };
+  
+  for (const block of blocks) {
+    if (block.type === "heading1") {
+      // An empty section is still kept, because its TITLE may be the only place
+      // a plan step survives: parsePlanText promotes any numbered line whose text
+      // contains تشخيص / مهام / الجدول / التقييم / العلاج to a heading, so an
+      // ordinary instruction like "راجع مهامك المنزلية معه" becomes one — and
+      // dropping it when the next line is also a heading deleted that instruction
+      // from the screen, from the progress count and from the daily reminder,
+      // while the bar still read 100%.
+      //
+      // Only the stand-in section before the plan's first heading is dropped when
+      // empty; that one is ours, not the advisor's.
+      if (currentSection.blocks.length > 0 || !currentSection.synthetic) {
+        sections.push(currentSection);
+      }
+      currentSection = { title: block.text, blocks: [], taskKeys: [] };
+    } else {
+      currentSection.blocks.push(block);
+      if (block.type === "task") {
+        currentSection.taskKeys.push(block.key);
+      }
+    }
+  }
+  // Same rule at the end: a real heading is never dropped for being empty.
+  if (currentSection.blocks.length > 0 || !currentSection.synthetic) {
+    sections.push(currentSection);
+  }
+  
+  return sections;
 }

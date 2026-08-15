@@ -40,6 +40,8 @@ import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { getDeviceId } from "@/lib/device-id";
 import { parseActionPlanSteps } from "@/lib/plan-steps";
+import { parsePlanText } from "@/lib/plan-blocks";
+import { withPlanStore } from "@/lib/plan-progress";
 
 // Types
 interface Attachment {
@@ -366,6 +368,10 @@ function AIChatScreenInner() {
             }
             setChildSelectionPhase("ready");
             setShowHistory(false);
+            // Land on the newest message. The treatment plan is the last thing
+            // the advisor writes, so opening at the top made a resumed
+            // consultation look like it had no plan at all.
+            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 150);
             return;
           }
         } catch (dbErr) {
@@ -386,6 +392,7 @@ function AIChatScreenInner() {
         }
         setChildSelectionPhase("ready");
         setShowHistory(false);
+        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 150);
       }
     } catch (e) {
       console.error("Error resuming conversation:", e);
@@ -556,32 +563,78 @@ function AIChatScreenInner() {
       const childName = conv?.childName || "";
       const date = conv ? new Date(conv.createdAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-US") : "";
 
-      // Build text content
-      let text = `═══ ${title} ═══\n`;
-      if (childName) text += `${language === "ar" ? "الشخص" : "Person"}: ${childName}\n`;
-      if (date) text += `${language === "ar" ? "التاريخ" : "Date"}: ${date}\n`;
-      text += "\n";
+      // A Word document, not a wall of plain text. Daa3iyah shared one and got
+      // back an unreadable run-on: the treatment plan's own headings — تشخيص,
+      // علاج في التصفية, مهام الوالد — were in there but flattened into the
+      // paragraph before them. Word opens HTML saved as .doc natively, so the
+      // plan is rebuilt through the same parser the app renders it with and its
+      // headings come out as real headings.
+      const esc = (t: string) =>
+        String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      const isAr = language === "ar";
+      const advisorLabel = isAr ? "المستشار" : "Advisor";
+      const youLabel = isAr ? "أنت" : "You";
 
-      for (const msg of msgs) {
-        const role = msg.role === "user" ? (language === "ar" ? "أنت" : "You") : (language === "ar" ? "المستشار" : "Advisor");
-        text += `[${role}]:\n${msg.content}\n\n`;
-      }
+      const planHtml = (content: string) =>
+        parsePlanText(content)
+          .map((b) => {
+            switch (b.type) {
+              case "heading1": return `<h2>${esc(b.text)}</h2>`;
+              case "heading2": return `<h3>${esc(b.text)}</h3>`;
+              case "heading3": return `<h4>${esc(b.text)}</h4>`;
+              case "task": return `<p class="task">&#9744; ${esc(b.text)}</p>`;
+              case "warning": return `<p class="warn">${esc(b.text)}</p>`;
+              case "separator": return `<hr/>`;
+              default: return `<p>${esc(b.text)}</p>`;
+            }
+          })
+          .join("\n");
 
-      text += `\n--- ${language === "ar" ? "تطبيق ربّاني" : "Rabbaanie App"} ---`;
+      const body = msgs
+        .map((m) =>
+          m.role === "user"
+            ? `<div class="turn you"><p class="who">${youLabel}</p><p>${esc(m.content).replace(/\n/g, "<br/>")}</p></div>`
+            : `<div class="turn adv"><p class="who">${advisorLabel}</p>${planHtml(m.content)}</div>`,
+        )
+        .join("\n");
+
+      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
+<head><meta charset="utf-8"><title>${esc(title)}</title>
+<style>
+ body{font-family:"Traditional Arabic","Times New Roman",serif;font-size:14pt;line-height:1.8;margin:2cm;}
+ h1{font-size:20pt;color:#14532d;border-bottom:2px solid #14532d;padding-bottom:6pt;}
+ h2{font-size:16pt;color:#14532d;margin-top:18pt;}
+ h3{font-size:14pt;color:#166534;margin-top:12pt;}
+ h4{font-size:13pt;color:#166534;}
+ .meta{color:#555;font-size:12pt;margin:0 0 4pt;}
+ .turn{margin:14pt 0;padding:8pt 12pt;}
+ .adv{background:#f2f7f3;border-${isAr ? "right" : "left"}:3pt solid #14532d;}
+ .you{background:#fafafa;border-${isAr ? "right" : "left"}:3pt solid #999;}
+ .who{font-weight:bold;color:#14532d;margin:0 0 6pt;}
+ .task{margin:4pt 0;}
+ .warn{font-weight:bold;color:#7c2d12;}
+ .foot{margin-top:24pt;border-top:1px solid #ccc;padding-top:8pt;color:#777;font-size:11pt;}
+</style></head>
+<body dir="${isAr ? "rtl" : "ltr"}">
+<h1>${esc(title)}</h1>
+${childName ? `<p class="meta">${isAr ? "الابن" : "Child"}: ${esc(childName)}</p>` : ""}
+${date ? `<p class="meta">${isAr ? "التاريخ" : "Date"}: ${esc(date)}</p>` : ""}
+${body}
+<p class="foot">${isAr ? "تطبيق ربّاني" : "Rabbaanie App"}</p>
+</body></html>`;
 
       if (Platform.OS === "web") {
-        // On web, copy to clipboard
         if (navigator.clipboard) {
-          await navigator.clipboard.writeText(text);
+          await navigator.clipboard.writeText(html.replace(/<[^>]+>/g, ""));
           Alert.alert(language === "ar" ? "تم النسخ" : "Copied", language === "ar" ? "تم نسخ الاستشارة إلى الحافظة" : "Consultation copied to clipboard");
         }
       } else {
-        // On native, share as text file
-        const fileUri = FileSystem.documentDirectory + `consultation_${Date.now()}.txt`;
-        await FileSystem.writeAsStringAsync(fileUri, text, { encoding: FileSystem.EncodingType.UTF8 });
+        const safeName = (childName || title).replace(/[^\p{L}\p{N}]+/gu, "_").slice(0, 40) || "consultation";
+        const fileUri = FileSystem.documentDirectory + `${safeName}_${Date.now()}.doc`;
+        await FileSystem.writeAsStringAsync(fileUri, html, { encoding: FileSystem.EncodingType.UTF8 });
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
-          await Sharing.shareAsync(fileUri, { mimeType: "text/plain", dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation" });
+          await Sharing.shareAsync(fileUri, { mimeType: "application/msword", dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation" });
         }
       }
     } catch (e) {
@@ -688,6 +741,10 @@ function AIChatScreenInner() {
       // Auto-save action plan when detected (so it persists even if user exits)
       if (hasActionPlan) {
         try {
+          // Through the shared queue: this appends to the same one-blob store
+          // cachePlanProgress and the deletes use, so an un-queued append can
+          // drop a concurrent progress write or resurrect a deleted plan.
+          await withPlanStore(async () => {
           const existing = await AsyncStorage.getItem("@advisor_action_plans");
           const plans = existing ? JSON.parse(existing) : [];
           const parsedPhases = parseActionPlanSteps(aiContent, language);
@@ -707,6 +764,7 @@ function AIChatScreenInner() {
           await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(plans));
           // Also sync to server via app context (visible to partner)
           saveActionPlanToContext(newPlan).catch(() => {});
+          });
         } catch (e) {
           console.error("Auto-save action plan error:", e);
         }
@@ -771,10 +829,13 @@ function AIChatScreenInner() {
   // Save action plan to weekly tips with structured steps + schedule child-specific reminder
   const saveActionPlanToWeekly = async (messageContent: string) => {
     try {
+      // Same shared queue as every other writer of this key. It hands the new
+      // plan back so the child-specific store below still gets it.
+      const newPlan = await withPlanStore(async () => {
       const existing = await AsyncStorage.getItem("@advisor_action_plans");
       const plans = existing ? JSON.parse(existing) : [];
       const parsedPhases = parseActionPlanSteps(messageContent, language);
-      const newPlan = {
+      const plan = {
         id: `plan_${Date.now()}`,
         content: messageContent,
         phases: parsedPhases,
@@ -786,10 +847,12 @@ function AIChatScreenInner() {
         language,
         completedSteps: [],
       };
-      plans.push(newPlan);
+      plans.push(plan);
       await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(plans));
       // Also sync to server via app context (visible to partner)
-      saveActionPlanToContext(newPlan).catch(() => {});
+      saveActionPlanToContext(plan).catch(() => {});
+      return plan;
+      });
 
       // Also save to child-specific storage for the child detail screen
       if (selectedChild?.id && !selectedChild.id.startsWith("other_")) {

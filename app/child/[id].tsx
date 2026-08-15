@@ -13,7 +13,7 @@ import {
 } from "react-native";
 import { DatePicker } from "@/components/date-picker";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
-import { cachePlanProgress } from "@/lib/plan-progress";
+import { cachePlanProgress, withPlanStore } from "@/lib/plan-progress";
 import {
   ArchivableIssue,
   consultationArchiveKey,
@@ -2194,7 +2194,10 @@ function AdvisorPlansForChild({
                   JSON.stringify(filtered),
                 );
               }
-              // Also remove from global storage
+              // Also remove from global storage. Through the same queue
+              // cachePlanProgress uses: an un-queued delete beside a progress
+              // report loses the delete and the plan comes back.
+              await withPlanStore(async () => {
               const globalRaw = await AsyncStorage.getItem(
                 "@advisor_action_plans",
               );
@@ -2207,6 +2210,7 @@ function AdvisorPlansForChild({
                   JSON.stringify(filtered),
                 );
               }
+              });
               // Update local state
               setPlans((prev) => prev.filter((p) => p.id !== planId));
             } catch (e) {

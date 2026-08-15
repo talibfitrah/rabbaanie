@@ -9,8 +9,20 @@ import { parsePlanText } from "@/lib/plan-blocks";
 describe("TreatmentPlanRenderer", () => {
   const src = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf8");
 
+  // isArabicText is a private helper inside the component, and this file can't
+  // import the component either: it pulls in react-native, whose entry point
+  // uses Flow's `import typeof` syntax, which esbuild (vitest's transform)
+  // cannot parse. So this asserts the ternary's shape in the source rather
+  // than an importable function's resolved value — an Arabic-detecting call
+  // gates the checkbox row's flexDirection between "row-reverse" (Arabic/RTL)
+  // and "row" (else) — written to survive reformatting and identifier
+  // renames, unlike the exact `flexDirection: "row-reverse"` text this
+  // replaces, which the conditional itself never contains.
+  const CHECKBOX_ROW_RTL =
+    /styles\.taskRow[\s\S]{0,200}?flexDirection:\s*\w+\([^)]*\)\s*\?\s*"row-reverse"\s*:\s*"row"/;
+
   it("should have RTL checkbox layout (row-reverse)", () => {
-    expect(src).toContain('flexDirection: "row-reverse"');
+    expect(src).toMatch(CHECKBOX_ROW_RTL);
   });
 
   it("should have heading1 with large fontSize", () => {
@@ -39,7 +51,7 @@ describe("TreatmentPlanRenderer", () => {
   it("should handle checkboxes on the right side", () => {
     // row-reverse means first child (text) goes left, last child (checkbox) goes right
     expect(src).toContain("taskRow");
-    expect(src).toContain('flexDirection: "row-reverse"');
+    expect(src).toMatch(CHECKBOX_ROW_RTL);
   });
 
   it("should have progress bar", () => {
