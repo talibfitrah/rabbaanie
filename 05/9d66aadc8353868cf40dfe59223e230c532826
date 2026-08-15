@@ -1,0 +1,21 @@
+app.config.ts
+  s_adb59677e30baa::t_55ff28d0793a1c 164
+package.json
+  ai_agent 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "059d66aadc8353868cf40dfe59223e230c532826",
+  "prompts": {},
+  "sessions": {
+    "s_adb59677e30baa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b265ce5-6bcb-41ab-9034-5b560866feea",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
