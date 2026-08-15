@@ -1,0 +1,43 @@
+app/(tabs)/weekly.tsx
+  s_834a18df15f160::t_1b945bb1e06383 1233-1245
+  s_834a18df15f160::t_2d363060625761 1200-1205
+  s_834a18df15f160::t_a0e79021d9c510 1159-1164,1167-1175
+  s_834a18df15f160::t_b228a20674c917 15-16
+lib/weekly-goals-notification.ts
+  s_834a18df15f160::t_2f8b3338222b20 136-139,142
+  s_834a18df15f160::t_c029e61d7d7342 151-154
+  s_834a18df15f160::t_e2095d3e63f022 165-167
+  s_834a18df15f160::t_27f39064698794 143
+  s_834a18df15f160::t_f164959d4bdced 127
+tests/advisor-plan-reminder-progress.test.ts
+  s_834a18df15f160::t_aa6cce87b23d7b 20-23
+  s_834a18df15f160::t_471e35b7647d99 1
+  s_834a18df15f160::t_9ae1db4580b5e5 2-19,24-52,62-94
+  s_834a18df15f160::t_932b29aa595ceb 53-61
+tests/weekly-advisor-plan-render.test.ts
+  s_834a18df15f160::t_92290f37abcc06 1-16,18-28,30-35,37-39,45-46
+  s_834a18df15f160::t_975d7f40767517 17,29,36,40-44
+tests/phase8-features.test.ts
+  s_834a18df15f160::t_6460fd7aa9096e 166-169
+  s_834a18df15f160::t_346ad6fe90e079 128-131
+  s_834a18df15f160::t_79a1f1bb3b0f33 143
+  s_834a18df15f160::t_24798c2f882d5d 154-156
+  s_834a18df15f160::t_8ef0aad6e0263b 137-141
+  s_834a18df15f160::t_748c36995cbac3 144-145
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "07dd98a6fe0ae49e126487e663ddc780fdb9ed97",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
