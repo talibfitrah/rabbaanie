@@ -21,6 +21,18 @@ import { calculateAgeInWeeks, getYearKey, getWeekInYear } from "@/lib/store";
 import { ReportAiContent } from "@/components/report-ai-content";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import {
+  getWeekPlanCacheKey,
+  issuesSignature,
+  weekPlanCachePrefix,
+} from "@/lib/weekplan-cache";
+import {
+  planProgressKey,
+  completedTaskCount,
+  progressSignature,
+} from "@/lib/plan-progress";
+import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import { cleanTreatmentText } from "@/lib/plan-text";
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -417,14 +429,6 @@ function parsePlanIntoGroups(
 }
 
 // Cache key for week plan
-function getWeekPlanCacheKey(
-  childId: string,
-  lang: string,
-  weekInYear: number | null,
-  yearKey: string | null,
-): string {
-  return `weekplan_${childId}_${lang}_${yearKey}_w${weekInYear}`;
-}
 
 export default function WeekplanScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -452,8 +456,26 @@ export default function WeekplanScreen() {
   const isAgeCapped = age ? age.years > 12 : false;
   const actualAge = age?.years || 0;
 
+  const childIssues = child
+    ? state.issues.filter((i) => i.childId === child.id && !i.resolved)
+    : [];
+  const issuesSig = issuesSignature(childIssues);
+
+  // How far the parents have got with the advisor plan's tasks. null = not read
+  // yet; the plan waits for it so a fresh plan is never built as if no progress
+  // had been made.
+  const [planProgress, setPlanProgress] = useState<
+    { issueId: string; completed: number }[] | null
+  >(null);
+
   const cacheKey = child
-    ? getWeekPlanCacheKey(child.id, lang, weekInYear, yearKey)
+    ? getWeekPlanCacheKey(
+        child.id,
+        lang,
+        weekInYear,
+        yearKey,
+        `${issuesSig}_${progressSignature(planProgress || [])}`,
+      )
     : "";
 
   const toggleCard = useCallback((key: string) => {
@@ -461,15 +483,38 @@ export default function WeekplanScreen() {
     setExpandedCards((prev) => ({ ...prev, [key]: !prev[key] }));
   }, []);
 
-  // Load cached plan or fetch new one
+  // Read how many of each plan's tasks the parents have ticked off.
+  useEffect(() => {
+    let alive = true;
+    (async () => {
+      const entries = await Promise.all(
+        childIssues.map(async (i) => ({
+          issueId: i.id,
+          completed: completedTaskCount(
+            await AsyncStorage.getItem(planProgressKey(i.id)),
+          ),
+        })),
+      );
+      if (alive) setPlanProgress(entries);
+    })().catch(() => {
+      if (alive) setPlanProgress([]);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [child?.id, issuesSig]);
+
+  // Load cached plan or fetch new one. Waits for the progress read, and reruns
+  // when the cache key moves (new consultation, or another task ticked off).
   useEffect(() => {
     if (!child || !age) {
       setLoading(false);
       return;
     }
+    if (planProgress === null) return;
 
     loadPlan();
-  }, [child?.id, language]);
+  }, [child?.id, language, cacheKey, planProgress === null]);
 
   async function loadPlan() {
     try {
@@ -514,13 +559,20 @@ export default function WeekplanScreen() {
           language,
           environment: env || null,
           parentProfile: state.parentProfile,
-          recentIssues: state.issues
-            .filter((i) => i.childId === child.id && !i.resolved)
+          recentIssues: childIssues
             .slice(-5)
             .map((i) => ({
               description: i.description,
               treatmentPlan: i.treatmentPlan || "",
               childId: i.childId,
+              // The parent's own answers about this child live here (e.g. "his
+              // level of shar'i knowledge is university"). Without them the weekly
+              // plan falls back to generic age-based advice.
+              analyticalQA: i.analyticalQA || [],
+              // So the plan carries on from what they finished instead of
+              // repeating tasks already ticked off.
+              completedTasks:
+                (planProgress || []).find((p) => p.issueId === i.id)?.completed ?? 0,
             })),
         }),
       });
@@ -532,6 +584,17 @@ export default function WeekplanScreen() {
           cacheKey,
           JSON.stringify({ plan: result.plan, timestamp: Date.now() }),
         );
+        // The cache key now changes whenever this child's issues change, so drop
+        // the superseded plans instead of leaving one behind per consultation.
+        try {
+          const prefix = weekPlanCachePrefix(child.id);
+          const stale = (await AsyncStorage.getAllKeys()).filter(
+            (k) => k.startsWith(prefix) && k !== cacheKey,
+          );
+          if (stale.length > 0) await AsyncStorage.multiRemove(stale);
+        } catch {
+          // Pruning is housekeeping; a failure must not lose the plan just saved.
+        }
         // Auto-expand first card of each group
         setExpandedCards({ "parent-0": true, "child-0": true });
       }
@@ -802,6 +865,45 @@ export default function WeekplanScreen() {
           </Text>
         </View>
       )}
+      {/* The advisor's own plan for this child, shown the same interactive way as
+          on the child page, so what is done can be ticked off here too. */}
+      {childIssues
+        .filter((issue) => issue.treatmentPlan)
+        .map((issue) => (
+          <View key={issue.id} style={{ marginTop: 16 }}>
+            <Text
+              style={{
+                color: colors.primary,
+                fontSize: 14,
+                fontWeight: "800",
+                marginBottom: 4,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {tx(
+                lang,
+                `Adviesplan — ${child.name}`,
+                `Advisor plan — ${child.name}`,
+                `خطة المستشار — ${child.name}`,
+              )}
+            </Text>
+            <Text
+              style={{
+                color: colors.muted,
+                fontSize: 12,
+                marginBottom: 6,
+                textAlign: isRTL ? "right" : "left",
+              }}
+            >
+              {issue.description}
+            </Text>
+            <TreatmentPlanRenderer
+              planText={cleanTreatmentText(issue.treatmentPlan, lang)}
+              issueId={issue.id}
+              colors={colors}
+            />
+          </View>
+        ))}
       {weekPlan && (
         <ReportAiContent content={weekPlan} surface="child-week-plan" />
       )}

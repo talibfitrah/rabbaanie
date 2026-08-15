@@ -5,6 +5,8 @@ import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import { cleanTreatmentText } from "@/lib/plan-text";
 import { calculateAgeInWeeks } from "@/lib/store";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -650,18 +652,22 @@ export default function ChildProfileScreen() {
                     {issue.description}
                   </Text>
                   {issue.treatmentPlan && (
-                    <View>
+                    <View style={{ marginTop: 4 }}>
                       <Text
                         style={{
                           color: colors.primary,
                           fontSize: 11,
-                          marginTop: 4,
+                          fontWeight: "700",
                           textAlign: isRTL ? "right" : "left",
                         }}
                       >
-                        {tx(lang, "Plan:", "Plan:", "الخطة:")}{" "}
-                        {issue.treatmentPlan}
+                        {tx(lang, "Plan:", "Plan:", "الخطة:")}
                       </Text>
+                      <TreatmentPlanRenderer
+                        planText={cleanTreatmentText(issue.treatmentPlan, lang)}
+                        issueId={issue.id}
+                        colors={colors}
+                      />
                       <ReportAiContent
                         content={issue.treatmentPlan}
                         surface="child-profile-treatment-plan"

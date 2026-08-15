@@ -241,8 +241,10 @@ export default function ChildDetailScreen() {
         answer: answers[i] || "",
       }));
       const isUpdate = !!reopenIssueId;
+      let consultationIssueId: string;
       if (reopenIssueId) {
         // Update existing issue with new diagnosis
+        consultationIssueId = reopenIssueId;
         await updateIssue(reopenIssueId, {
           treatmentPlan: result.plan,
           analyticalQA: qaHistory,
@@ -259,7 +261,54 @@ export default function ChildDetailScreen() {
           resolved: false,
           analyticalQA: qaHistory,
         };
+        consultationIssueId = newIssue.id;
         await addIssue(newIssue);
+      }
+
+      // Record the consultation itself, so it appears in the advisor archive
+      // (المحادثات السابقة — both the full list and when filtered to this child)
+      // and is counted in the owner report. Without this the plan existed only as
+      // a local issue. The plan itself keeps rendering on this page through the
+      // issue cards; this is about the archive, not a second copy on screen.
+      // Only archive a consultation that actually produced a plan, so a failed
+      // request never inflates the owner's consultation count.
+      if (result.plan) {
+        try {
+          // Re-diagnosing the same issue must update its archive entry, not add a
+          // second one — otherwise the owner's consultation count counts one
+          // consultation many times.
+          const archiveKey = `@issue_consultation_${consultationIssueId}`;
+          const knownDbId = await AsyncStorage.getItem(archiveKey);
+          const res = await authedFetch(`/api/trpc/aiChat.saveConversationToDb`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              json: {
+                dbId: knownDbId ? Number(knownDbId) : undefined,
+                deviceId: await getDeviceId(),
+                consultationType: "child",
+                childId: child.id,
+                childName: child.name,
+                language,
+                title: issueText.slice(0, 50),
+                messages: [
+                  { role: "user", content: issueText },
+                  ...qaHistory.flatMap((qa) => [
+                    { role: "assistant", content: qa.question },
+                    { role: "user", content: qa.answer },
+                  ]),
+                  { role: "assistant", content: result.plan },
+                ],
+              },
+            }),
+          });
+          const savedDbId = (await res.json())?.result?.data?.json?.dbId;
+          if (savedDbId && !knownDbId) {
+            await AsyncStorage.setItem(archiveKey, String(savedDbId));
+          }
+        } catch (archiveErr) {
+          console.error("Error archiving consultation:", archiveErr);
+        }
       }
 
       // Notify partner about treatment plan creation/update
@@ -1941,6 +1990,7 @@ export default function ChildDetailScreen() {
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import { getDeviceId } from "@/lib/device-id";
 function AdvisorPlansForChild({
   childId,
   childName,
@@ -2163,28 +2213,7 @@ function AdvisorPlansForChild({
 /**
  * Clean treatment plan text: replace Latin transliterations with Arabic
  */
-function cleanTreatmentText(text: string, lang?: string): string {
-  let cleaned = text.replace(/\*\*/g, "");
-  // Only convert Latin Islamic terms to Arabic when language is Arabic
-  if (lang === "ar" || !lang) {
-    cleaned = cleaned
-      .replace(/\bAllaah\b/gi, "الله")
-      .replace(/\bAllah\b/gi, "الله")
-      .replace(/\bMaashaa'llaah\b/gi, "ما شاء الله")
-      .replace(/\bBismillaah\b/gi, "بسم الله")
-      .replace(/\bSubhaanAllaah\b/gi, "سبحان الله")
-      .replace(/\bIn shaa' Allaah\b/gi, "إن شاء الله")
-      .replace(/\bAstaghfirullaah\b/gi, "أستغفر الله")
-      .replace(/3Abd-ur-Ra'oof/gi, "عبد الرؤوف")
-      .replace(/3Abduraheem/gi, "عبد الرحيم")
-      .replace(/3Abdullaah/gi, "عبد الله")
-      .replace(/3Abd/g, "عبد")
-      .replace(/Ar-Rahmaan Ar-Raheem/gi, "الرحمن الرحيم")
-      .replace(/Ar-Rahmaan/gi, "الرحمن")
-      .replace(/Ar-Raheem/gi, "الرحيم");
-  }
-  return cleaned.trim();
-}
+import { cleanTreatmentText } from "@/lib/plan-text";
 
 type TreatmentGroup = {
   groupTitle: string; // "أهداف الوالد/الوالدين" or "أهداف الولد/البنت"

@@ -737,11 +737,15 @@ export const aiChatRouter = router({
   getConversationFromDb: publicProcedure
     .input(z.object({
       dbId: z.number(),
+      deviceId: z.string(),
     }))
     .query(async ({ input }) => {
       const { getParentAiConsultation } = await import("./db");
       const conv = await getParentAiConsultation(input.dbId);
       if (!conv) return null;
+      // dbId is a sequential primary key, so without this an unauthenticated
+      // caller could walk it and read every family's consultation.
+      if (conv.deviceId !== input.deviceId) return null;
       return {
         dbId: conv.id,
         title: conv.title || "",
@@ -759,9 +763,14 @@ export const aiChatRouter = router({
   deleteConversationFromDb: publicProcedure
     .input(z.object({
       dbId: z.number(),
+      deviceId: z.string(),
     }))
     .mutation(async ({ input }) => {
-      const { deleteParentAiConsultation } = await import("./db");
+      const { getParentAiConsultation, deleteParentAiConsultation } = await import("./db");
+      const conv = await getParentAiConsultation(input.dbId);
+      // Same enumeration risk as the read path: without the ownership check any
+      // caller could delete every family's consultations.
+      if (!conv || conv.deviceId !== input.deviceId) return { success: false };
       await deleteParentAiConsultation(input.dbId);
       return { success: true };
     }),

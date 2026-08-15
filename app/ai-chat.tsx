@@ -38,6 +38,7 @@ import { calculateAgeInWeeks } from "@/lib/store";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { getDeviceId } from "@/lib/device-id";
 
 // Types
 interface Attachment {
@@ -233,12 +234,7 @@ function AIChatScreenInner() {
       if (lang === "ar" || lang === "en" || lang === "nl") setLanguage(lang);
 
       // Get or create a stable device ID for anonymous persistence
-      let storedDeviceId = await AsyncStorage.getItem("@device_id");
-      if (!storedDeviceId) {
-        storedDeviceId = `device_${Date.now()}_${Math.random().toString(36).slice(2, 10)}`;
-        await AsyncStorage.setItem("@device_id", storedDeviceId);
-      }
-      setDeviceId(storedDeviceId);
+      setDeviceId(await getDeviceId());
 
       // Do NOT restore last conversation - always start fresh
       // User can access previous conversations via history button
@@ -344,7 +340,7 @@ function AIChatScreenInner() {
       // Try loading from database first
       if (dbId) {
         try {
-          const res = await authedFetch(`/api/trpc/aiChat.getConversationFromDb?input=${encodeURIComponent(JSON.stringify({ json: { dbId } }))}`);
+          const res = await authedFetch(`/api/trpc/aiChat.getConversationFromDb?input=${encodeURIComponent(JSON.stringify({ json: { dbId, deviceId: await getDeviceId() } }))}`);
           const data = await res.json();
           const conv = data.result?.data?.json;
           if (conv && conv.messages) {
@@ -403,7 +399,7 @@ function AIChatScreenInner() {
                 await authedFetch(`/api/trpc/aiChat.deleteConversationFromDb`, {
                   method: "POST",
                   headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({ json: { dbId } }),
+                  body: JSON.stringify({ json: { dbId, deviceId: await getDeviceId() } }),
                 });
               } catch (dbErr) {
                 console.error("Error deleting from DB:", dbErr);
@@ -449,7 +445,7 @@ function AIChatScreenInner() {
                   await authedFetch(`/api/trpc/aiChat.deleteConversationFromDb`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ json: { dbId: conv.dbId } }),
+                    body: JSON.stringify({ json: { dbId: conv.dbId, deviceId: await getDeviceId() } }),
                   });
                 } catch (dbErr) { /* ignore */ }
               }
@@ -487,7 +483,7 @@ function AIChatScreenInner() {
                   await authedFetch(`/api/trpc/aiChat.deleteConversationFromDb`, {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ json: { dbId: conv.dbId } }),
+                    body: JSON.stringify({ json: { dbId: conv.dbId, deviceId: await getDeviceId() } }),
                   });
                 } catch (dbErr) { /* ignore */ }
               }

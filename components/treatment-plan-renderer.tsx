@@ -5,6 +5,9 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import { sectionOwner } from "@/lib/plan-owner";
+import { isLatinSectionHeading } from "@/lib/plan-heading";
+import { planProgressKey } from "@/lib/plan-progress";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
 // stored plan's original language. The surrounding UI follows the user's choice.
@@ -153,7 +156,8 @@ function parsePlanText(text: string): ParsedBlock[] {
       const cleaned = cleanMarkdown(trimmed);
       if (cleaned.length < 100 && (
         cleaned.includes("تشخيص") || cleaned.includes("مهام") || cleaned.includes("الجدول") ||
-        cleaned.includes("التقييم") || cleaned.includes("العلاج")
+        cleaned.includes("التقييم") || cleaned.includes("العلاج") ||
+        isLatinSectionHeading(cleaned)
       )) {
         blocks.push({ type: "heading1", text: cleaned });
       } else if (isCompleteTask(trimmed)) {
@@ -257,7 +261,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   
   useEffect(() => {
-    AsyncStorage.getItem(`@treatment_tasks_${issueId}`).then((raw) => {
+    AsyncStorage.getItem(planProgressKey(issueId)).then((raw) => {
       if (raw) {
         setCompletedTasks(new Set<string>(JSON.parse(raw)));
       }
@@ -277,7 +281,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
     if (next.has(key)) next.delete(key);
     else next.add(key);
     setCompletedTasks(next);
-    await AsyncStorage.setItem(`@treatment_tasks_${issueId}`, JSON.stringify([...next]));
+    await AsyncStorage.setItem(planProgressKey(issueId), JSON.stringify([...next]));
   };
   
   const toggleSection = (idx: number) => {
@@ -333,6 +337,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
         const isExpanded = expandedSections.has(sIdx);
         const sectionCompleted = section.taskKeys.filter(k => completedTasks.has(k)).length;
         const sectionTotal = section.taskKeys.length;
+        const owner = sectionOwner(section.title);
         
         return (
           <View key={sIdx} style={[styles.sectionContainer, { borderColor: isExpanded ? colors.primary + "40" : colors.border }]}>
@@ -349,6 +354,29 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
               }]}
             >
               <View style={{ flex: 1 }}>
+                {owner && (
+                  <View
+                    style={{
+                      alignSelf: isArabicText(section.title) ? "flex-end" : "flex-start",
+                      backgroundColor:
+                        (owner.role === "parent" ? colors.primary : colors.success) + "18",
+                      borderRadius: 6,
+                      paddingHorizontal: 8,
+                      paddingVertical: 2,
+                      marginBottom: 4,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        fontWeight: "700",
+                        color: owner.role === "parent" ? colors.primary : colors.success,
+                      }}
+                    >
+                      {owner.label}
+                    </Text>
+                  </View>
+                )}
                 <Text style={{
                   fontSize: 15,
                   fontWeight: "800",
