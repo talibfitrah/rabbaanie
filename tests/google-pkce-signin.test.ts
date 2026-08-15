@@ -137,6 +137,40 @@ describe("certificate-bound Android Google sign-in", () => {
     );
   });
 
+  it("asks the server to create an account only when the user chose sign-up", async () => {
+    // The pairing matters, so read this with the test above it: that one pins
+    // the plain sign-in body to exactly {idToken}, which is what stops a tap on
+    // "Sign in with Google" from minting an account for someone who only meant
+    // to log in. This one proves the capability still exists when asked for —
+    // a guard that only checks for absence would let sign-up quietly stop
+    // working and still pass.
+    mocks.signIn.mockResolvedValue({
+      type: "success",
+      data: { idToken: "signed-google-id-token" },
+    });
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ sessionToken: "new-account-session" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    await expect(
+      completeNativeGoogleSignIn({ createAccount: true }),
+    ).resolves.toEqual({
+      kind: "session",
+      sessionToken: "new-account-session",
+    });
+    expect(fetchMock).toHaveBeenCalledWith(
+      "https://api.rabbaanie.com/auth/google/native",
+      expect.objectContaining({
+        body: JSON.stringify({
+          idToken: "signed-google-id-token",
+          createAccount: true,
+        }),
+      }),
+    );
+  });
+
   // An admin is refused a session but handed a challenge, in a 403.
   // If the !response.ok throw is ever moved above the requires2FA check the
   // challenge is dropped and the owner has no route into the app with Google —
@@ -266,7 +300,11 @@ describe("certificate-bound Android Google sign-in", () => {
     const config = readFileSync("app.config.ts", "utf8");
     const identity = readFileSync("constants/app-identity.js", "utf8");
 
-    expect(login).toContain("completeNativeGoogleSignIn()");
+    // The call, not its argument list: the invariant is that this screen
+    // authenticates through the native SDK rather than a browser redirect, and
+    // that is equally true whether or not sign-up options are passed. Pinning
+    // the empty parens made a signature change look like a security regression.
+    expect(login).toContain("completeNativeGoogleSignIn(");
     expect(login).not.toContain("openAuthSessionAsync");
     expect(config).toContain("scheme: isGithubBuild ? env.scheme : undefined");
     expect(identity).not.toContain("GOOGLE_AUTH_REDIRECT_URI");

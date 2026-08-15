@@ -82,8 +82,16 @@ export type NativeGoogleSignInResult =
  * independently verifies the token signature, issuer, expiry, and audience.
  *
  * Returns null when the user backed out of the Google picker.
+ *
+ * `createAccount` is the sign-up path and is opt-in for a reason: the flag is
+ * what lets the server mint an account for an identity it has never seen, so a
+ * tap on "Sign in with Google" must never carry it. The default omits the field
+ * entirely rather than sending false, so a server that predates it behaves
+ * identically for sign-in.
  */
-export async function completeNativeGoogleSignIn(): Promise<NativeGoogleSignInResult | null> {
+export async function completeNativeGoogleSignIn(
+  options: { createAccount?: boolean } = {},
+): Promise<NativeGoogleSignInResult | null> {
   configureGoogleSignIn();
   let result: SignInResponse;
   try {
@@ -122,7 +130,11 @@ export async function completeNativeGoogleSignIn(): Promise<NativeGoogleSignInRe
     const response = await publicFetch("/auth/google/native", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ idToken }),
+      body: JSON.stringify(
+        options.createAccount
+          ? { idToken, createAccount: true }
+          : { idToken },
+      ),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));

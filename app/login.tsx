@@ -56,7 +56,10 @@ export default function LoginScreen() {
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
   const { t, language } = useI18n();
-  const { rehydrateFromServer } = useAppState();
+  const { rehydrateFromServer, resetState } = useAppState();
+  // Set when the server says this Google identity has no account, so the screen
+  // can offer to create one instead of leaving the user at a dead end.
+  const [offerGoogleSignup, setOfferGoogleSignup] = useState(false);
 
   const isRTL = language === "ar";
 
@@ -202,11 +205,12 @@ export default function LoginScreen() {
     }
   };
 
-  const handleGoogleLogin = async () => {
+  const handleGoogleAuth = async (createAccount = false) => {
     setError("");
+    setOfferGoogleSignup(false);
     setLoading(true);
     try {
-      const result = await completeNativeGoogleSignIn();
+      const result = await completeNativeGoogleSignIn({ createAccount });
       if (!result) return;
       if (result.kind === "twoFactor") {
         // Hand off to the same code field the email flow uses; submitting it
@@ -220,7 +224,16 @@ export default function LoginScreen() {
         return;
       }
       await completeTokenSignIn(result.sessionToken);
-      await rehydrateFromServer();
+      // A just-created account has nothing on the server, so
+      // rehydrateFromServer() falls through to its "try local state" branch and
+      // adopts whatever the previous user left on this device — their children,
+      // birth dates and profile — and skips onboarding, because their
+      // onboardingCompleted is true. app/register.tsx calls resetState() for
+      // exactly this reason; the Google sign-up path creates accounts the same
+      // way and needs the same empty slate. Sign-in still rehydrates: that user
+      // does have server state, and wiping it would be the opposite bug.
+      if (createAccount) await resetState();
+      else await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {
       // Log the cause too: SDK rejections carry the readable name only there
@@ -228,11 +241,29 @@ export default function LoginScreen() {
       console.error("[Login] Google login error:", err, err?.cause);
       const denied = err instanceof GoogleSignInError ? err.reason : null;
       if (denied === "no_account") {
+        // Not a dead end any more. This gate was written when the app was
+        // sign-in only and accounts came from the website; in-app sign-up has
+        // since landed, so the honest answer to "no account" is to offer one.
+        // Only when this attempt was a sign-IN: if a sign-UP still comes back
+        // no_account the server has not shipped the creation path, and
+        // repeating the offer would loop the user through the Google picker
+        // forever. Say it plainly instead.
+        if (createAccount) {
+          setError(
+            tx(
+              "Account aanmaken met Google is nu niet beschikbaar. Maak hieronder een account aan met uw e-mailadres.",
+              "Creating an account with Google is unavailable right now. Please create one with your email below.",
+              "إنشاء حساب بواسطة Google غير متاح الآن. أنشئ حسابًا ببريدك الإلكتروني أدناه.",
+            ),
+          );
+          return;
+        }
+        setOfferGoogleSignup(true);
         setError(
           tx(
-            "Geen Rabbaanie-account gevonden voor dit Google-account.",
-            "No Rabbaanie account is linked to this Google account.",
-            "لا يوجد حساب ربّانيّ مرتبط بحساب Google هذا.",
+            "Nog geen Rabbaanie-account voor dit Google-account. Maak er direct een aan.",
+            "No Rabbaanie account yet for this Google account. Create one now.",
+            "لا يوجد حساب ربّانيّ لحساب Google هذا بعد. أنشئ حسابًا الآن.",
           ),
         );
         return;
@@ -612,7 +643,7 @@ export default function LoginScreen() {
                     </View>
 
                     <TouchableOpacity
-                      onPress={handleGoogleLogin}
+                      onPress={() => handleGoogleAuth()}
                       disabled={loading}
                       style={{
                         flexDirection: "row",
@@ -649,6 +680,47 @@ export default function LoginScreen() {
                         )}
                       </Text>
                     </TouchableOpacity>
+
+                    {/* Only after the server has said this identity has no
+                        account. Rendering it unconditionally would put a
+                        "create an account" button next to "sign in" for people
+                        who already have one, and every stray tap would ask the
+                        server to create a duplicate. */}
+                    {offerGoogleSignup ? (
+                      <TouchableOpacity
+                        onPress={() => handleGoogleAuth(true)}
+                        disabled={loading}
+                        accessibilityRole="button"
+                        style={{
+                          flexDirection: "row",
+                          alignItems: "center",
+                          justifyContent: "center",
+                          gap: 10,
+                          backgroundColor: colors.primary,
+                          borderRadius: 10,
+                          paddingVertical: 13,
+                          paddingHorizontal: 20,
+                          marginTop: 10,
+                          minHeight: 48,
+                          opacity: loading ? 0.7 : 1,
+                        }}
+                        activeOpacity={0.8}
+                      >
+                        <Text
+                          style={{
+                            fontSize: 14,
+                            fontWeight: "700",
+                            color: "#ffffff",
+                          }}
+                        >
+                          {tx(
+                            "Account aanmaken met Google",
+                            "Create account with Google",
+                            "إنشاء حساب بواسطة Google",
+                          )}
+                        </Text>
+                      </TouchableOpacity>
+                    ) : null}
                   </>
                 )}
 
