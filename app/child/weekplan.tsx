@@ -608,8 +608,17 @@ export default function WeekplanScreen() {
           // the superseded plans instead of leaving one behind per consultation.
           try {
             const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
+            // Match on the prefix WITHOUT its trailing underscore, so the
+            // pre-issuesSig keys are swept too. The old format was
+            // `weekplan_<id>_<lang>_<year>_w<week>` with nothing after it, and
+            // "…_w33".startsWith("…_w33_") is false — so every existing user's
+            // old entries were neither read nor removed, and leaked in
+            // AsyncStorage for good. Trimming one character is enough because
+            // the untrimmed prefix is what cacheKey itself is built from, so
+            // this can only ever match this child/lang/week's own keys.
+            const sweep = prefix.endsWith("_") ? prefix.slice(0, -1) : prefix;
             const stale = (await AsyncStorage.getAllKeys()).filter(
-              (k) => k.startsWith(prefix) && k !== cacheKey,
+              (k) => k.startsWith(sweep) && k !== cacheKey,
             );
             if (stale.length > 0) await AsyncStorage.multiRemove(stale);
           } catch {

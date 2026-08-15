@@ -121,6 +121,23 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
             item.$["android:name"] === "isMonitoringTool"
           ),
       );
+      // The third writer, and it was missing from this undo list. The Play
+      // branch pushes a tools:node="remove" for expo-location's
+      // LocationTaskService; prebuild MERGES into an existing manifest rather
+      // than regenerating it, so a play prebuild followed by a github one
+      // without --clean left that entry stripping the service from the sideload
+      // build too. Nil impact today — neither channel ever starts it — but this
+      // undo list exists precisely because a stale entry survived a channel
+      // switch once and shipped a build that could not monitor, and
+      // assert-play-artifact.sh only asserts the Play side.
+      app.service = (app.service ?? []).filter(
+        (item) =>
+          !(
+            item.$["tools:node"] === "remove" &&
+            item.$["android:name"] ===
+              "expo.modules.location.services.LocationTaskService"
+          ),
+      );
       return modConfig;
     });
   }
