@@ -200,7 +200,6 @@ function AIChatScreenInner() {
   // Database ID for current conversation
   const [currentDbId, setCurrentDbId] = useState<number | null>(null);
   // Device ID for anonymous persistence
-  const [deviceId, setDeviceId] = useState<string>("");
   // Multi-select mode for deleting conversations
   const [selectMode, setSelectMode] = useState(false);
   const [selectedConvIds, setSelectedConvIds] = useState<Set<string>>(new Set());
@@ -233,9 +232,6 @@ function AIChatScreenInner() {
     try {
       const lang = await AsyncStorage.getItem("@app_language");
       if (lang === "ar" || lang === "en" || lang === "nl") setLanguage(lang);
-
-      // Get or create a stable device ID for anonymous persistence
-      setDeviceId(await getDeviceId());
 
       // Do NOT restore last conversation - always start fresh
       // User can access previous conversations via history button

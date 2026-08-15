@@ -86,13 +86,16 @@ describe("the bar and the cached count are one measurement", () => {
     expect(taskKeysOf(ARABIC_PLAN)).toHaveLength(3);
     expect(taskKeysOf(DUTCH_PLAN)).toHaveLength(2);
 
-    const shown = taskKeysOf(DUTCH_PLAN);
-    const ticked = new Set(shown);
-    expect(shown.filter((k) => ticked.has(k)).length).toBe(shown.length);
-    // and measured against the original it would not have reached full
-    expect(taskKeysOf(ARABIC_PLAN).filter((k) => ticked.has(k)).length).toBeLessThan(
-      taskKeysOf(ARABIC_PLAN).length,
-    );
+    // Ticking every box the Dutch reader can see...
+    const ticked = new Set(taskKeysOf(DUTCH_PLAN));
+    // ...reads as complete against the text they were shown,
+    expect(taskKeysOf(DUTCH_PLAN).every((k) => ticked.has(k))).toBe(true);
+    // ...but short against the original — which is the bug, so the renderer
+    // must count the displayed text. (The first assertion above is trivially
+    // true by construction; this second one is the one that can fail.)
+    const original = taskKeysOf(ARABIC_PLAN);
+    expect(original.filter((k) => ticked.has(k)).length).toBe(2);
+    expect(original.length).toBe(3);
   });
 
   it("never measures progress against a parse other than the one displayed", () => {

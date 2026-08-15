@@ -4709,12 +4709,14 @@ export async function deleteParentAiConsultation(consultationId: number) {
  *
  * Every consultation was filed under deviceId alone with parentId hardcoded to
  * 0, so a reinstall or a new phone orphaned all of them: the rows stayed in the
- * table while the archive read empty. Daa3iyah had six he could not see
- * (2026-08-15), spread over two device ids.
+ * table while the archive read empty.
  *
- * A signed-in caller gets their own rows plus any still-unclaimed ones from the
- * device in front of them, which is what lets the legacy rows come back without
- * a hand-run migration. Anonymous callers keep the old device-only behaviour.
+ * A signed-in caller gets their own rows plus any unclaimed ones from the device
+ * in front of them. Note what that does NOT do: a legacy row is reachable only
+ * while the device still sends the id it was filed under, and nothing re-homes
+ * it to the account — read-time adoption was removed because a client-asserted
+ * deviceId must not be able to claim rows. Rows written from now on carry the
+ * account, so the orphaning stops going forward rather than being undone.
  */
 export async function getParentAiConsultationsForOwner(
   parentId: number,
