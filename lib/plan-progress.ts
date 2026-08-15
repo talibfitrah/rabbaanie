@@ -33,9 +33,6 @@ export function planProgressKey(issueId: string): string {
 // plan back — which is exactly the case this was written for.
 let writeQueue: Promise<unknown> = Promise.resolve();
 export function withPlanStore<T>(fn: () => Promise<T>): Promise<T> {
-  return serialised(fn);
-}
-function serialised<T>(fn: () => Promise<T>): Promise<T> {
   const run = writeQueue.then(fn, fn);
   writeQueue = run.catch(() => undefined);
   return run;
@@ -46,7 +43,7 @@ export async function cachePlanProgress(
   done: number,
   total: number,
 ): Promise<boolean> {
-  return serialised(() => cachePlanProgressUnlocked(planId, done, total));
+  return withPlanStore(() => cachePlanProgressUnlocked(planId, done, total));
 }
 
 async function cachePlanProgressUnlocked(
