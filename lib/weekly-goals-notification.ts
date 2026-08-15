@@ -2,6 +2,9 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
+import { parsePlanText } from "@/lib/plan-blocks";
+import { planProgressKey } from "@/lib/plan-progress";
+
 // ============ CONSTANTS ============
 
 const WEEKLY_GOALS_CHANNEL_ID = "weekly_goals_v2";
@@ -124,55 +127,53 @@ export async function cancelWeeklyGoalsNotification(): Promise<void> {
  * Prioritizes child-specific advisor plans, then general weekly goals.
  * Cycles through the goals based on the day of the week.
  */
+/**
+ * The tasks in a plan the parents have not ticked off yet.
+ *
+ * Read through the same parser that draws the checkboxes, and matched by the
+ * same task keys it stores, so "which are left" cannot drift from "how many are
+ * done". Counting with a second parser meant the reminder could skip past work
+ * that had never been done, or drop a plan it could not parse.
+ *
+ * Plans saved before the advisor kept its own text have only the parsed phases,
+ * and those are still read the way they always were.
+ */
+async function remainingPlanTasks(plan: any): Promise<string[]> {
+  const tasks = plan?.content
+    ? parsePlanText(plan.content).filter((b) => b.type === "task")
+    : [];
+  if (tasks.length > 0) {
+    const raw = await AsyncStorage.getItem(planProgressKey(plan.id));
+    const done = new Set<string>(raw ? JSON.parse(raw) : []);
+    return tasks
+      .filter((t) => !done.has((t as { key: string }).key))
+      .map((t) => (t as { text: string }).text);
+  }
+  return (plan?.phases ?? []).flatMap((ph: any) =>
+    (ph?.steps ?? [])
+      .filter((s: any) => !(plan.completedSteps ?? []).includes(s.id))
+      .map((s: any) => s.text),
+  );
+}
+
 export async function getCurrentGoalText(language: string): Promise<string | null> {
   try {
     const dayIndex = new Date().getDay();
 
-    // Priority 1: Advisor action plans (child-specific)
+    // Priority 1: Advisor action plans (child-specific). Newest first, taking
+    // the first plan with work still to do.
     const plansRaw = await AsyncStorage.getItem("@advisor_action_plans");
     if (plansRaw) {
       const plans = JSON.parse(plansRaw);
-      // Get active plans (not fully completed)
-      // Ticks live in planProgressKey now, written by the renderer on both the
-      // child screen and الأسبوعي; progressDone/Total is what it last reported.
-      // completedSteps is only still read so a plan ticked off before the
-      // upgrade is not resurrected as active.
-      const activePlans = plans.filter((p: any) => {
-        if (!p.phases || p.phases.length === 0) return false;
-        const totalSteps = p.progressTotal ?? p.phases.reduce((sum: number, ph: any) => sum + (ph.steps?.length || 0), 0);
-        return (p.progressDone ?? (p.completedSteps || []).length) < totalSteps;
-      });
-
-      if (activePlans.length > 0) {
-        // Pick the most recent active plan
-        const latestPlan = activePlans[activePlans.length - 1];
-        const childName = latestPlan.childName || "";
-        
-        // Find today's uncompleted step. The renderer records how many tasks are
-        // done, not which of these steps they were — both lists walk the plan in
-        // the order it was written, so skipping that many from the front lands on
-        // the work still ahead of the parents.
-        const allSteps: { text: string }[] = [];
-        for (const phase of latestPlan.phases) {
-          if (phase.steps) {
-            for (const step of phase.steps) {
-              if (!(latestPlan.completedSteps || []).includes(step.id)) {
-                allSteps.push(step);
-              }
-            }
-          }
-        }
-        // Only the renderer's count skips further — the loop above already
-        // dropped anything a pre-upgrade tick had recorded in completedSteps.
-        allSteps.splice(0, latestPlan.progressDone ?? 0);
-
-        if (allSteps.length > 0) {
-          const step = allSteps[dayIndex % allSteps.length];
-          const prefix = childName 
-            ? (language === "ar" ? `ل${childName}: ` : language === "en" ? `For ${childName}: ` : `Voor ${childName}: `)
-            : "";
-          return prefix + step.text;
-        }
+      for (let i = plans.length - 1; i >= 0; i--) {
+        const plan = plans[i];
+        const remaining = await remainingPlanTasks(plan);
+        if (remaining.length === 0) continue;
+        const childName = plan.childName || "";
+        const prefix = childName
+          ? (language === "ar" ? `ل${childName}: ` : language === "en" ? `For ${childName}: ` : `Voor ${childName}: `)
+          : "";
+        return prefix + remaining[dayIndex % remaining.length];
       }
     }
 

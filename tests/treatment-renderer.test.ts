@@ -1,6 +1,11 @@
 import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 
+// The block parser moved to lib/plan-blocks.ts so the renderer, the weekly card
+// and the daily reminder all count a plan's tasks the same way. It is plain TS
+// now, so these can assert what it does instead of what its source looks like.
+import { parsePlanText } from "@/lib/plan-blocks";
+
 describe("TreatmentPlanRenderer", () => {
   const src = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf8");
 
@@ -43,16 +48,17 @@ describe("TreatmentPlanRenderer", () => {
   });
 
   it("should have warning box for short-term tarbiya", () => {
-    expect(src).toContain("التربية القصيرة المدى مبنية على التربية الطويلة المدى");
+    const blocks = parsePlanText("التربية القصيرة المدى مبنية على التربية الطويلة المدى");
+    expect(blocks[0].type).toBe("warning");
   });
 
   it("should clean markdown symbols (**)", () => {
-    expect(src).toContain('.replace(/\\*\\*/g, "")');
+    const blocks = parsePlanText("1. **راجع نيتك في تربيته**");
+    expect(blocks[0]).toMatchObject({ type: "task", text: "راجع نيتك في تربيته" });
   });
 
   it("should handle separator (---)", () => {
-    expect(src).toContain('"---"');
-    expect(src).toContain("separator");
+    expect(parsePlanText("---")[0].type).toBe("separator");
   });
 
   it("should persist completed tasks to AsyncStorage", () => {
@@ -66,16 +72,15 @@ describe("TreatmentPlanRenderer", () => {
   });
 
   it("should detect main sections (تشخيص, مهام الوالد, مهام الابن)", () => {
-    expect(src).toContain("تشخيص");
-    expect(src).toContain("مهام الوالد");
-    expect(src).toContain("مهام الابن");
+    for (const title of ["التشخيص:", "مهام الوالد:", "مهام الابن:"]) {
+      expect(parsePlanText(title)[0]).toMatchObject({ type: "heading1" });
+    }
   });
 
   it("should detect sub-sections (تمهيد, تصفية, تزكية, تربية)", () => {
-    expect(src).toContain("تمهيد");
-    expect(src).toContain("تصفية");
-    expect(src).toContain("تزكية");
-    expect(src).toContain("تربية");
+    for (const title of ["تمهيد:", "تصفية (تصحيح عقل الوالد):", "تزكية:", "تربية في اللسان:"]) {
+      expect(parsePlanText(title)[0].type).toMatch(/^heading[12]$/);
+    }
   });
 });
 
