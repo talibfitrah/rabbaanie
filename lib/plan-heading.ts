@@ -9,12 +9,21 @@
  * is ignored, since those stay lower-case
  * ("TREATMENT PLAN - TASFIYA (correcting child's mind)").
  *
- * Arabic has no letter case, so requiring a Latin letter keeps Arabic task lines
- * from being promoted to headings.
+ * Arabic has no letter case, so requiring a Latin letter is NOT enough on its
+ * own: "راقب استخدام TV يوميًا" contains Latin letters that are already capitals,
+ * and toUpperCase() is the identity on the Arabic around them, so the line
+ * passed both checks and was filed as a heading. The step then vanished from
+ * the checklist and from its section's completed/total count. Parents write
+ * these constantly — TV, PC, AI, SMS.
+ *
+ * So the line must be Latin-script THROUGHOUT, not merely contain a Latin
+ * letter. An en/nl heading is; an Arabic task carrying an acronym is not.
  */
 export function isLatinSectionHeading(cleaned: string): boolean {
   const head = cleaned.replace(/\(.*$/, "").trim();
   if (!/[A-Za-z]/.test(head)) return false;
+  // Arabic block, including the presentation forms the advisor sometimes emits.
+  if (/[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(head)) return false;
   return head === head.toUpperCase();
 }
 
