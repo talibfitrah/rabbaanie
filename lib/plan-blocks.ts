@@ -135,3 +135,17 @@ export function parsePlanText(text: string): ParsedBlock[] {
   return blocks;
 }
 
+
+/**
+ * The task keys a plan's progress is measured against.
+ *
+ * Callers must pass the SAME text they render. Counting against a different
+ * parse than the one on screen lets a reader tick every box they can see and
+ * still be told they are at 6/10, because keys are positional and a
+ * translation rarely parses to the same number of tasks.
+ */
+export function taskKeysOf(text: string): string[] {
+  return parsePlanText(text)
+    .filter((b) => b.type === "task")
+    .map((b) => (b as { key: string }).key);
+}

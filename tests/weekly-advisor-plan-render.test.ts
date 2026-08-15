@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
+import { taskKeysOf } from "../lib/plan-blocks";
 
 // Daa3iyah (2026-08-15): «نفس الخطة بنفس الطريقة لابد ان تعرض في قسم العائلات
 // وفي قسم الأسبوعي … فالآن تعرض الخطة فقط كنص تحت بعض وليس بالطريقة المقدمة
@@ -56,11 +57,49 @@ describe("the bar and the cached count are one measurement", () => {
   // They used to be two: the bar divided by the tasks in the text on screen
   // (the auto-translation, when one was showing) while the cached count came
   // from the original, so the same plan could report more done than it had.
+  //
+  // The counting itself now lives in taskKeysOf, so it can be asserted by
+  // behaviour. The earlier version of this test pinned the exact source lines
+  // down to the semicolon, which a rename would break for no real reason —
+  // and the tempting fix, loosening the string, deletes the guard silently.
   const renderer = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf-8");
 
-  it("counts both against the original text's tasks", () => {
-    expect(renderer).toContain("const originalTaskKeys = parsePlanText(planText)");
-    expect(renderer).toContain("const totalTasks = originalTaskKeys.length;");
-    expect(renderer).toMatch(/completedCount = originalTaskKeys\.filter/);
+  const ARABIC_PLAN = [
+    "- اجلس مع ابنك بعد صلاة الفجر",
+    "- اقرأ معه صفحة من المصحف كلّ يوم",
+    "- ذكّره بفضل الصلاة في وقتها",
+  ].join("\n");
+  // Same plan, auto-translated, and one task short — which is the ordinary case,
+  // not a contrived one: the translator merges or drops a bullet often enough.
+  const DUTCH_PLAN = [
+    "- Zit na het fajr-gebed bij je zoon",
+    "- Lees samen elke dag een pagina",
+  ].join("\n");
+
+  it("gives one key per task, positionally", () => {
+    expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
+  });
+
+  it("counts a translation's own tasks, not the original's", () => {
+    // The shape of the bug: counting a Dutch reader against the Arabic parse
+    // showed 2/3 while every box on their screen was ticked.
+    expect(taskKeysOf(ARABIC_PLAN)).toHaveLength(3);
+    expect(taskKeysOf(DUTCH_PLAN)).toHaveLength(2);
+
+    const shown = taskKeysOf(DUTCH_PLAN);
+    const ticked = new Set(shown);
+    expect(shown.filter((k) => ticked.has(k)).length).toBe(shown.length);
+    // and measured against the original it would not have reached full
+    expect(taskKeysOf(ARABIC_PLAN).filter((k) => ticked.has(k)).length).toBeLessThan(
+      taskKeysOf(ARABIC_PLAN).length,
+    );
+  });
+
+  it("never measures progress against a parse other than the one displayed", () => {
+    // The invariant, not the formatting: whatever the component renders from is
+    // what it counts. A second parse of planText alongside the displayed
+    // effectiveText is exactly how the two numbers drifted apart before.
+    expect(renderer).toContain("parsePlanText(effectiveText)");
+    expect(renderer).not.toContain("parsePlanText(planText)");
   });
 });

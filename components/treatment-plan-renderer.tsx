@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
 import { sectionOwner } from "@/lib/plan-owner";
-import { parsePlanText, type ParsedBlock } from "@/lib/plan-blocks";
+import { parsePlanText, taskKeysOf, type ParsedBlock } from "@/lib/plan-blocks";
 import { planProgressKey } from "@/lib/plan-progress";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
@@ -144,24 +144,24 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   useEffect(() => {
     setTicksLoaded(false);
     AsyncStorage.getItem(planProgressKey(issueId)).then((raw) => {
-      if (raw) {
-        setCompletedTasks(new Set<string>(JSON.parse(raw)));
-      }
+      // Always replace, never leave the previous plan's ticks in state: with
+      // onProgressChange wired up, switching to a plan that has no saved ticks
+      // would report the old plan's count against the new one and then persist
+      // those keys under the new plan on the first toggle.
+      setCompletedTasks(raw ? new Set<string>(JSON.parse(raw)) : new Set<string>());
       setTicksLoaded(true);
     }).catch(() => setTicksLoaded(true));
   }, [issueId]);
 
   useEffect(() => {
     if (onProgressChange && ticksLoaded) {
-      // Both numbers come from the original text, never the translation on
-      // screen: a plan's task count is a property of the plan, not of who is
-      // reading it, and a numerator counted against a different parse can
-      // exceed its own denominator.
-      const keys = parsePlanText(planText).filter(b => b.type === "task").map(b => b.key);
+      // Same parse the bar and the checkboxes use, so what the card caches
+      // cannot disagree with what this screen shows.
+      const keys = taskKeysOf(effectiveText);
       const done = keys.filter(k => completedTasks.has(k)).length;
       onProgressChange(done, keys.length);
     }
-  }, [completedTasks, planText, ticksLoaded]);
+  }, [completedTasks, effectiveText, ticksLoaded]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);
@@ -179,24 +179,20 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   };
   
   const blocks = parsePlanText(effectiveText);
-  // The task keys the counts are measured against: the original text's, never
-  // the auto-translation on screen, so the bar here and the number the card
-  // caches are the same measurement.
+  // Measured against the very text being displayed, so the bar, the checkboxes
+  // and the number reported to the caller are all one parse. Counting against
+  // the original while rendering a translation let a reader tick every box on
+  // screen and still be shown 6/10, because keys are positional and the two
+  // parses rarely find the same number of tasks.
   //
-  // ponytail: keys are positional ("task-0", "task-1", …), so a tick is really a
-  // tick on the Nth task. A translation that parses to a different number of
-  // tasks therefore shifts what position N means. Mapping by index cannot fix
-  // that — both parses name their keys identically — it would take content-based
-  // matching, which is only worth building if a plan is actually read in two
-  // languages by the same family.
-  const originalTaskKeys = parsePlanText(planText)
-    .filter(b => b.type === "task")
-    .map(b => b.key);
+  // ponytail: positional keys mean a tick is a tick on the Nth task, so reading
+  // the same plan in two languages can still move a tick onto a different task.
+  // Only content-based anchoring fixes that, and it is worth building only if a
+  // family actually reads one plan in two languages.
+  const taskKeys = taskKeysOf(effectiveText);
   const sections = groupIntoSections(blocks);
-  // Counted the same way as what this component reports to its caller, so the
-  // bar on screen and the number the card caches cannot disagree.
-  const totalTasks = originalTaskKeys.length;
-  const completedCount = originalTaskKeys.filter(k => completedTasks.has(k)).length;
+  const totalTasks = taskKeys.length;
+  const completedCount = taskKeys.filter(k => completedTasks.has(k)).length;
   
   return (
     <View style={styles.container}>

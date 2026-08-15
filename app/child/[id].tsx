@@ -143,12 +143,21 @@ export default function ChildDetailScreen() {
         );
         const rows = (await res.json())?.result?.data?.json;
         // The list only exists to match back a consultation whose dbId was lost
-        // to a dropped response. Giving up when it cannot be read was wrong: the
-        // endpoint needs a session, so one expired login archived nothing at all
-        // and said nothing — the archive Daa3iyah reported still empty on 1.4.89.
-        // Every issue here has no archive key, so this device has no record of
-        // ever archiving it; going ahead risks a duplicate only in that rarer
-        // case, which beats the feature never working.
+        // to a dropped response. Returning outright when it could not be read
+        // meant one transient 500 archived nothing at all and said nothing, so
+        // proceed with an empty list instead.
+        //
+        // This is a robustness fix, NOT the cause of the empty archive: an
+        // earlier version of this comment blamed an expired session, which is
+        // false — listConversationsFromDb is a publicProcedure (server/ai-chat.ts)
+        // and authedFetch merely omits the header when signed out, so being
+        // logged out cannot fail this call. Why Daa3iyah's archive is empty is
+        // still open; a successful empty list would have let the pass run.
+        //
+        // Cost of proceeding: if a previous POST stored a row but its response
+        // was lost, no archive key was written, and a later failed list makes
+        // findArchivedRow miss and post it a second time. A duplicate row in
+        // that narrow case beats the pass dying whole.
         archived = res.ok && Array.isArray(rows) ? rows : [];
       } catch {
         archived = [];
