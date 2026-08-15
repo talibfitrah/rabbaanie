@@ -1,0 +1,33 @@
+components/treatment-plan-renderer.tsx
+  s_834a18df15f160::t_05a1968ba5ad71 272-276,280
+app/(tabs)/weekly.tsx
+  s_834a18df15f160::t_0200f3ece21d40 1167-1169
+  s_834a18df15f160::t_803170663ca457 17
+tests/advisor-plan-reminder-progress.test.ts
+  s_834a18df15f160::t_3ba876d30f4a41 96-118
+  s_834a18df15f160::t_53994aefdff4ae 34
+app/child/[id].tsx
+  s_834a18df15f160::t_afe295a9627228 2290-2295
+  s_834a18df15f160::t_6304b05d5930e8 16
+tests/weekly-advisor-plan-render.test.ts
+  s_834a18df15f160::t_39c3afd969f36b 40-46
+lib/plan-progress.ts
+  s_834a18df15f160::t_da965da598ea40 1-2
+  s_834a18df15f160::t_0fb85c397b4515 12-40
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f5de619a4c0bd9ae970ffce48c9f20230b0d511c",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
