@@ -78,34 +78,6 @@ jobs:
         working-directory: android
         run: ./gradlew assembleRelease --no-daemon
 
-      # Mirror image of the Play gate: this channel's whole purpose is the
-      # self-updater, so assert the permission IS present and that the config
-      # Gradle embedded actually says "github". Without this, a DISTRIBUTION
-      # regression ships green and only surfaces as users reporting that
-      # updates stopped arriving.
-      - name: Assert this is a working sideload build
-        run: |
-          MERGED=$(find android/app/build/intermediates/merged_manifests/release \
-                     -name AndroidManifest.xml | head -n1)
-          if [ -z "$MERGED" ]; then
-            echo "Could not locate the merged release manifest" >&2
-            exit 1
-          fi
-          if ! grep -q "android.permission.REQUEST_INSTALL_PACKAGES" "$MERGED"; then
-            echo "REQUEST_INSTALL_PACKAGES missing — the updater cannot install anything" >&2
-            exit 1
-          fi
-          # Read the app.config asset out of the PACKAGED APK rather than the
-          # build intermediate — the packaged copy is what Constants.expoConfig
-          # actually reads on device, so this proves the shipped artifact.
-          APK=android/app/build/outputs/apk/release/app-release.apk
-          if ! unzip -p "$APK" assets/app.config | grep -q '"distribution":"github"'; then
-            echo "Packaged config is not distribution=github — updater would be dead:" >&2
-            unzip -p "$APK" assets/app.config | grep -o '"distribution":"[^"]*"' >&2 || true
-            exit 1
-          fi
-          echo "Sideload build verified: permission present, distribution=github."
-
       - name: Name the artifact
         # NOT re-signed with release.p12. Gradle already signed this APK with
         # the Expo/RN debug keystore (android/app/build.gradle wires
@@ -123,7 +95,7 @@ jobs:
         # (apksigner rotate), never a bare key swap.
         run: cp android/app/build/outputs/apk/release/app-release.apk "rabbaanie-v${APP_VERSION}.apk"
 
-      - name: Verify sideload signer
+      - name: Verify the sideload artifact (signer, channel, updater)
         run: ./scripts/assert-sideload-artifact.sh "rabbaanie-v${APP_VERSION}.apk"
 
       - name: Publish GitHub Release
