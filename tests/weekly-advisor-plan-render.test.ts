@@ -51,3 +51,17 @@ describe("الأسبوعي renders the advisor plan the same way the child scree
     expect(advisorPlansComponent()).toContain("onProgressChange");
   });
 });
+
+describe("a tick means the same task in every language", () => {
+  // The blocks on screen come from the auto-translation when one is showing, and
+  // that parses to its own task-N numbering. Storing those keys would tick one
+  // plan under two different sets of keys, so a task ticked in Dutch would read
+  // as undone in Arabic — and the count the card caches would disagree too.
+  const renderer = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf-8");
+
+  it("stores and reads ticks under the original text's keys", () => {
+    expect(renderer).toContain("const originalTaskKeys = parsePlanText(planText)");
+    expect(renderer).toMatch(/onPress=\{\(\) => toggleTask\(storedKey\(block\.key\)\)\}/);
+    expect(renderer).toMatch(/completedTasks\.has\(storedKey\(block\.key\)\)/);
+  });
+});
