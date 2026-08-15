@@ -37,6 +37,13 @@ describe("الأسبوعي renders the advisor plan the same way the child scree
     expect(advisorPlansComponent()).toMatch(/issueId=\{plan\.id\}/);
   });
 
+  it("caches progress from the child screen too, so neither screen goes stale", () => {
+    // Only wiring الأسبوعي would leave a parent who works from the child screen
+    // with a weekly percentage and a daily reminder that never move.
+    const childScreen = fs.readFileSync("app/child/[id].tsx", "utf-8");
+    expect(childScreen).toMatch(/onProgressChange=\{[\s\S]{0,400}?cachePlanProgress/);
+  });
+
   it("takes the progress numbers from the renderer instead of the dead completedSteps count", () => {
     // toggleStepComplete was the only writer of completedSteps. Once the flat
     // list is gone nothing writes it, so a bar still dividing by it would freeze

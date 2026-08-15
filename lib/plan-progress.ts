@@ -1,3 +1,5 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
 /**
  * Where a plan's ticked-off tasks are stored. The renderer writes it; the weekly
  * plan reads it, so the next plan can carry on from what the parents finished
@@ -5,6 +7,35 @@
  */
 export function planProgressKey(issueId: string): string {
   return `@treatment_tasks_${issueId}`;
+}
+
+/**
+ * Caches what the renderer reports about an advisor plan onto the plan record.
+ *
+ * The ticks themselves live under planProgressKey; these are just the counts, so
+ * the collapsed card and the daily reminder can show a real number without
+ * parsing the plan text a second time — a second parser would be free to
+ * disagree with the one that drew the checkboxes.
+ *
+ * Both screens that render a plan call this, or a parent working from one of
+ * them would leave the other showing a stale percentage.
+ *
+ * Returns whether anything changed, so a caller can skip a needless re-render.
+ */
+export async function cachePlanProgress(
+  planId: string,
+  done: number,
+  total: number,
+): Promise<boolean> {
+  const data = await AsyncStorage.getItem("@advisor_action_plans");
+  if (!data) return false;
+  const plans = JSON.parse(data);
+  const idx = plans.findIndex((p: any) => p.id === planId);
+  if (idx < 0) return false;
+  if (plans[idx].progressDone === done && plans[idx].progressTotal === total) return false;
+  plans[idx] = { ...plans[idx], progressDone: done, progressTotal: total };
+  await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(plans));
+  return true;
 }
 
 /** How many tasks are ticked, given the raw stored value. */

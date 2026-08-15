@@ -13,6 +13,7 @@ import {
 } from "react-native";
 import { DatePicker } from "@/components/date-picker";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import { cachePlanProgress } from "@/lib/plan-progress";
 import {
   ArchivableIssue,
   consultationArchiveKey,
@@ -2286,6 +2287,12 @@ function AdvisorPlansForChild({
                 planText={cleanTreatmentText(plan.content || "", lang)}
                 issueId={plan.id}
                 colors={colors}
+                onProgressChange={(done: number, total: number) => {
+                  // Same cache الأسبوعي writes. Without this a parent who works
+                  // from this screen leaves the weekly card and the daily
+                  // reminder reading a count that never moves.
+                  cachePlanProgress(plan.id, done, total).catch(() => {});
+                }}
               />
             </View>
           )}

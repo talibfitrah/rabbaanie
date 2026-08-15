@@ -269,11 +269,15 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   
   useEffect(() => {
     if (onProgressChange) {
-      const blocks = parsePlanText(effectiveText);
+      // Counted on the original text, not the translation on screen. A plan's
+      // task count is a property of the plan, and callers persist this number —
+      // reporting the translated parse would make it swing with whichever
+      // language the plan happened to be opened in.
+      const blocks = parsePlanText(planText);
       const totalTasks = blocks.filter(b => b.type === "task").length;
       onProgressChange(completedTasks.size, totalTasks);
     }
-  }, [completedTasks, effectiveText]);
+  }, [completedTasks, planText]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);

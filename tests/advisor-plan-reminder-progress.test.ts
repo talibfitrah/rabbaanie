@@ -31,6 +31,7 @@ vi.mock("expo-notifications", () => ({
 }));
 
 import { getCurrentGoalText } from "@/lib/weekly-goals-notification";
+import { cachePlanProgress } from "@/lib/plan-progress";
 
 const plan = (extra: Record<string, unknown>) => ({
   id: "plan_1",
@@ -90,5 +91,28 @@ describe("the daily reminder follows the ticks the renderer records", () => {
       plan({ completedSteps: ["s1"] }),
     ]);
     expect(await getCurrentGoalText("ar")).toContain("اقرأ باب الإخلاص");
+  });
+});
+
+describe("cachePlanProgress records what the renderer reports", () => {
+  it("writes the counts onto the plan", async () => {
+    store["@advisor_action_plans"] = JSON.stringify([plan({})]);
+    expect(await cachePlanProgress("plan_1", 2, 3)).toBe(true);
+    const saved = JSON.parse(store["@advisor_action_plans"])[0];
+    expect(saved.progressDone).toBe(2);
+    expect(saved.progressTotal).toBe(3);
+  });
+
+  it("reports no change when the counts already match, so the screen does not re-render on every open", async () => {
+    store["@advisor_action_plans"] = JSON.stringify([
+      plan({ progressDone: 2, progressTotal: 3 }),
+    ]);
+    expect(await cachePlanProgress("plan_1", 2, 3)).toBe(false);
+  });
+
+  it("leaves an unknown plan alone", async () => {
+    store["@advisor_action_plans"] = JSON.stringify([plan({})]);
+    expect(await cachePlanProgress("plan_missing", 1, 3)).toBe(false);
+    expect(JSON.parse(store["@advisor_action_plans"])[0].progressDone).toBeUndefined();
   });
 });

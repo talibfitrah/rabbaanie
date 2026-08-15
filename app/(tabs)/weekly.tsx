@@ -14,6 +14,7 @@ import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/noti
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { cleanTreatmentText } from "@/lib/plan-text";
+import { cachePlanProgress } from "@/lib/plan-progress";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -1163,15 +1164,9 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
   // would be free to disagree with the one drawing the checkboxes.
   const savePlanProgress = async (planId: string, done: number, total: number) => {
     try {
-      const data = await AsyncStorage.getItem("@advisor_action_plans");
-      if (!data) return;
-      const allPlans = JSON.parse(data);
-      const planIdx = allPlans.findIndex((p: any) => p.id === planId);
-      if (planIdx < 0) return;
-      if (allPlans[planIdx].progressDone === done && allPlans[planIdx].progressTotal === total) return;
-      allPlans[planIdx] = { ...allPlans[planIdx], progressDone: done, progressTotal: total };
-      await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(allPlans));
-      setPlans(prev => prev.map(p => p.id === planId ? { ...p, progressDone: done, progressTotal: total } : p));
+      if (await cachePlanProgress(planId, done, total)) {
+        setPlans(prev => prev.map(p => p.id === planId ? { ...p, progressDone: done, progressTotal: total } : p));
+      }
     } catch (e) { console.error("Error saving plan progress:", e); }
   };
 
