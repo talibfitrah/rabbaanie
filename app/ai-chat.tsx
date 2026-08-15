@@ -41,6 +41,7 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { getDeviceId } from "@/lib/device-id";
 import { parseActionPlanSteps } from "@/lib/plan-steps";
 import { parsePlanText } from "@/lib/plan-blocks";
+import { buildConsultationRtf } from "@/lib/consultation-rtf";
 import { withPlanStore } from "@/lib/plan-progress";
 
 // Types
@@ -181,6 +182,9 @@ function AIChatScreenInner() {
   // One warning per visit when the server refuses to persist, so a lapsed
   // session is never silent but never nags either.
   const saveFailedWarned = useRef(false);
+  // Set while a resumed conversation is still laying out, so the list keeps
+  // being pulled to the newest message as more of it renders.
+  const pendingScrollToEnd = useRef(false);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
@@ -407,8 +411,10 @@ function AIChatScreenInner() {
             setShowHistory(false);
             // Land on the newest message. The treatment plan is the last thing
             // the advisor writes, so opening at the top made a resumed
-            // consultation look like it had no plan at all.
-            setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 150);
+            // consultation look like it had no plan at all. A timer cannot do
+            // this — the list is still laying out — so onContentSizeChange
+            // follows it down until it settles.
+            pendingScrollToEnd.current = true;
             return;
           }
         } catch (dbErr) {
@@ -429,7 +435,7 @@ function AIChatScreenInner() {
         }
         setChildSelectionPhase("ready");
         setShowHistory(false);
-        setTimeout(() => flatListRef.current?.scrollToEnd({ animated: false }), 150);
+        pendingScrollToEnd.current = true;
       }
     } catch (e) {
       console.error("Error resuming conversation:", e);
@@ -600,78 +606,34 @@ function AIChatScreenInner() {
       const childName = conv?.childName || "";
       const date = conv ? new Date(conv.createdAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-US") : "";
 
-      // A Word document, not a wall of plain text. Daa3iyah shared one and got
-      // back an unreadable run-on: the treatment plan's own headings — تشخيص,
-      // علاج في التصفية, مهام الوالد — were in there but flattened into the
-      // paragraph before them. Word opens HTML saved as .doc natively, so the
-      // plan is rebuilt through the same parser the app renders it with and its
-      // headings come out as real headings.
-      const esc = (t: string) =>
-        String(t ?? "").replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+      // Built by lib/consultation-rtf.ts so the escaping is testable: RTF is
+      // 7-bit and Arabic is entirely non-ASCII, so a mistake there yields a file
+      // that opens to a blank page — invisible to a type check.
       const isAr = language === "ar";
-      const advisorLabel = isAr ? "المستشار" : "Advisor";
-      const youLabel = isAr ? "أنت" : "You";
-
-      const planHtml = (content: string) =>
-        parsePlanText(content)
-          .map((b) => {
-            switch (b.type) {
-              case "heading1": return `<h2>${esc(b.text)}</h2>`;
-              case "heading2": return `<h3>${esc(b.text)}</h3>`;
-              case "heading3": return `<h4>${esc(b.text)}</h4>`;
-              case "task": return `<p class="task">&#9744; ${esc(b.text)}</p>`;
-              case "warning": return `<p class="warn">${esc(b.text)}</p>`;
-              case "separator": return `<hr/>`;
-              default: return `<p>${esc(b.text)}</p>`;
-            }
-          })
-          .join("\n");
-
-      const body = msgs
-        .map((m) =>
-          m.role === "user"
-            ? `<div class="turn you"><p class="who">${youLabel}</p><p>${esc(m.content).replace(/\n/g, "<br/>")}</p></div>`
-            : `<div class="turn adv"><p class="who">${advisorLabel}</p>${planHtml(m.content)}</div>`,
-        )
-        .join("\n");
-
-      const html = `<html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:w="urn:schemas-microsoft-com:office:word" xmlns="http://www.w3.org/TR/REC-html40">
-<head><meta charset="utf-8"><title>${esc(title)}</title>
-<style>
- body{font-family:"Traditional Arabic","Times New Roman",serif;font-size:14pt;line-height:1.8;margin:2cm;}
- h1{font-size:20pt;color:#14532d;border-bottom:2px solid #14532d;padding-bottom:6pt;}
- h2{font-size:16pt;color:#14532d;margin-top:18pt;}
- h3{font-size:14pt;color:#166534;margin-top:12pt;}
- h4{font-size:13pt;color:#166534;}
- .meta{color:#555;font-size:12pt;margin:0 0 4pt;}
- .turn{margin:14pt 0;padding:8pt 12pt;}
- .adv{background:#f2f7f3;border-${isAr ? "right" : "left"}:3pt solid #14532d;}
- .you{background:#fafafa;border-${isAr ? "right" : "left"}:3pt solid #999;}
- .who{font-weight:bold;color:#14532d;margin:0 0 6pt;}
- .task{margin:4pt 0;}
- .warn{font-weight:bold;color:#7c2d12;}
- .foot{margin-top:24pt;border-top:1px solid #ccc;padding-top:8pt;color:#777;font-size:11pt;}
-</style></head>
-<body dir="${isAr ? "rtl" : "ltr"}">
-<h1>${esc(title)}</h1>
-${childName ? `<p class="meta">${isAr ? "الابن" : "Child"}: ${esc(childName)}</p>` : ""}
-${date ? `<p class="meta">${isAr ? "التاريخ" : "Date"}: ${esc(date)}</p>` : ""}
-${body}
-<p class="foot">${isAr ? "تطبيق ربّاني" : "Rabbaanie App"}</p>
-</body></html>`;
+      const doc = buildConsultationRtf({
+        title,
+        childName,
+        date,
+        messages: msgs.map((m) => ({ role: m.role, content: m.content })),
+        isArabic: isAr,
+      });
 
       if (Platform.OS === "web") {
         if (navigator.clipboard) {
-          await navigator.clipboard.writeText(html.replace(/<[^>]+>/g, ""));
+          // Plain readable text on the clipboard, never the RTF control words.
+          const plain = msgs
+            .map((m) => `${m.role === "user" ? (isAr ? "أنت" : "You") : (isAr ? "المستشار" : "Advisor")}:\n${m.content}`)
+            .join("\n\n");
+          await navigator.clipboard.writeText(`${title}\n\n${plain}`);
           Alert.alert(language === "ar" ? "تم النسخ" : "Copied", language === "ar" ? "تم نسخ الاستشارة إلى الحافظة" : "Consultation copied to clipboard");
         }
       } else {
         const safeName = (childName || title).replace(/[^\p{L}\p{N}]+/gu, "_").slice(0, 40) || "consultation";
-        const fileUri = FileSystem.documentDirectory + `${safeName}_${Date.now()}.doc`;
-        await FileSystem.writeAsStringAsync(fileUri, html, { encoding: FileSystem.EncodingType.UTF8 });
+        const fileUri = FileSystem.documentDirectory + `${safeName}_${Date.now()}.rtf`;
+        await FileSystem.writeAsStringAsync(fileUri, doc, { encoding: FileSystem.EncodingType.UTF8 });
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
-          await Sharing.shareAsync(fileUri, { mimeType: "application/msword", dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation" });
+          await Sharing.shareAsync(fileUri, { mimeType: "application/rtf", dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation" });
         }
       }
     } catch (e) {
@@ -1661,6 +1623,20 @@ ${body}
                 contentContainerStyle={styles.messagesList}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                // Resuming a long consultation used to scroll on a 150ms timer,
+                // which raced FlatList's incremental layout: at that moment only
+                // the first handful of a 22-message thread existed, so it landed
+                // on message 7 and the plan — the last message — was never
+                // reached. Daa3iyah reported the plan missing three times over.
+                // Content size fires again on every batch, so this keeps
+                // following the growing list until it stops growing.
+                onContentSizeChange={() => {
+                  if (pendingScrollToEnd.current) {
+                    flatListRef.current?.scrollToEnd({ animated: false });
+                  }
+                }}
+                // Once the parent scrolls themselves, stop yanking them down.
+                onScrollBeginDrag={() => { pendingScrollToEnd.current = false; }}
               />
             )}
 
