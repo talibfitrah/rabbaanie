@@ -142,13 +142,16 @@ export default function ChildDetailScreen() {
           )}`,
         );
         const rows = (await res.json())?.result?.data?.json;
-        // An error body has no rows, and reading that as "nothing is archived"
-        // would archive everything again — the very duplication this prevents.
-        if (!res.ok || !Array.isArray(rows)) return;
-        archived = rows;
+        // The list only exists to match back a consultation whose dbId was lost
+        // to a dropped response. Giving up when it cannot be read was wrong: the
+        // endpoint needs a session, so one expired login archived nothing at all
+        // and said nothing — the archive Daa3iyah reported still empty on 1.4.89.
+        // Every issue here has no archive key, so this device has no record of
+        // ever archiving it; going ahead risks a duplicate only in that rarer
+        // case, which beats the feature never working.
+        archived = res.ok && Array.isArray(rows) ? rows : [];
       } catch {
-        // Can't tell what is already there, so archiving now risks duplicates.
-        return;
+        archived = [];
       }
       for (const issue of missing) {
         if (cancelled) return;
