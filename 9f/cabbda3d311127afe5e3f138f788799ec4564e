@@ -1,0 +1,30 @@
+lib/plan-progress.ts
+  s_4edd904afc89e5::t_16ebeeadf67e18 61-76
+tests/device-id-race.test.ts
+  s_4edd904afc89e5::t_5428b9faa96f5c 14-23,28-29,51-52,57,65
+  s_4edd904afc89e5::t_bebe77bb1690aa 1-13,24-27,35-50,53-56,58-64,67-72
+  s_4edd904afc89e5::t_00e3e1c676c7bc 30-34
+  s_4edd904afc89e5::t_9cd9756ffa3df2 66
+lib/plan-heading.ts
+  s_4edd904afc89e5::t_026905dc259d68 12-20,25-26
+lib/device-id.ts
+  s_4edd904afc89e5::t_9ab3a7f5c18a09 19-33,35-38,40,46-54
+tests/plan-heading.test.ts
+  s_4edd904afc89e5::t_377b9d69722773 105-134
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "9fcabbda3d311127afe5e3f138f788799ec4564e",
+  "prompts": {},
+  "sessions": {
+    "s_4edd904afc89e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8155add-e6fd-4484-a91b-e029dd3bf2a9",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
