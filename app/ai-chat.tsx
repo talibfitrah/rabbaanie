@@ -178,6 +178,9 @@ function AIChatScreenInner() {
   const colors = useColors();
   const router = useRouter();
   const flatListRef = useRef<FlatList>(null);
+  // One warning per visit when the server refuses to persist, so a lapsed
+  // session is never silent but never nags either.
+  const saveFailedWarned = useRef(false);
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
@@ -282,6 +285,25 @@ function AIChatScreenInner() {
           const dbId = data.result?.data?.json?.dbId;
           if (dbId && !currentDbId) {
             setCurrentDbId(dbId);
+          } else if (!res.ok || (currentDbId && dbId == null)) {
+            // The server did not persist this. Both ways of failing are
+            // indistinguishable from success without this check: a lapsed
+            // session makes the endpoint reject, and an ownership refusal
+            // returns {dbId: null} inside a normal 200. Either way the
+            // consultation only exists on this phone from here on, which is
+            // exactly the silence that left Daa3iyah with an empty archive for
+            // weeks. Warn once per screen, not per message.
+            if (!saveFailedWarned.current) {
+              saveFailedWarned.current = true;
+              Alert.alert(
+                language === "ar" ? "لم تُحفظ في الخادم" : "Not saved to server",
+                language === "ar"
+                  ? "هذه الاستشارة محفوظةٌ على هذا الهاتف فقط. سجّل الخروج ثمّ الدخول مرّةً أخرى ليُحفظ ما تكتبه."
+                  : language === "en"
+                  ? "This consultation is saved on this phone only. Sign out and back in so it is stored."
+                  : "Dit gesprek staat alleen op deze telefoon. Log uit en weer in zodat het wordt opgeslagen.",
+              );
+            }
           }
         } catch (dbErr) {
           console.error("Error saving to DB (falling back to local):", dbErr);
@@ -317,6 +339,21 @@ function AIChatScreenInner() {
           const res = await authedFetch(`/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(JSON.stringify({ json: { deviceId: deviceIdNow } }))}`);
           const data = await res.json();
           const dbConversations = data.result?.data?.json || [];
+          if (!res.ok && !saveFailedWarned.current) {
+            // A refused read falls through to local storage below, and local is
+            // usually empty for consultations that only ever lived on the
+            // server — so the archive reads as "you have none" when the real
+            // answer is "we could not ask". Say which.
+            saveFailedWarned.current = true;
+            Alert.alert(
+              language === "ar" ? "تعذّر جلب المحادثات" : "Could not load conversations",
+              language === "ar"
+                ? "لم يقبل الخادم الطلب، وما تراه هنا محفوظٌ على هذا الهاتف فقط. سجّل الخروج ثمّ الدخول مرّةً أخرى."
+                : language === "en"
+                ? "The server refused the request; what you see is stored on this phone only. Sign out and back in."
+                : "De server weigerde het verzoek; wat je ziet staat alleen op deze telefoon. Log uit en weer in.",
+            );
+          }
           if (dbConversations.length > 0) {
             const history = dbConversations.map((c: any) => ({
               id: `db_${c.dbId}`,
