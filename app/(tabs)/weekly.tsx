@@ -1196,7 +1196,15 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
         // has been opened once since the upgrade it has neither, so the old
         // saved counts stand in — stale, but the renderer corrects them the
         // moment the parent opens it.
-        const totalSteps = plan.progressTotal ?? (plan.phases || []).reduce((acc: number, ph: any) => acc + (ph.steps?.length || 0), 0);
+        // "||" not "??": a plan the block parser finds no tasks in reports a
+        // total of 0, and that is exactly when the steps parsed at save time are
+        // the only count there is — the same fallback the daily reminder makes.
+        const totalSteps = plan.progressTotal || (plan.phases || []).reduce((acc: number, ph: any) => acc + (ph.steps?.length || 0), 0);
+        // completedSteps is written by nothing now; it is still read so a plan
+        // ticked before the upgrade does not read as untouched. Those old ticks
+        // cannot be carried into the new list — they were keyed by step ids that
+        // no longer exist — so a plan opened once is recounted from the ticks the
+        // renderer holds and the old number is dropped.
         const completedCount = plan.progressDone ?? (plan.completedSteps || []).length;
         const progress = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
         const isExpanded = expanded === plan.id;
