@@ -210,7 +210,10 @@ export default function LoginScreen() {
     setOfferGoogleSignup(false);
     setLoading(true);
     try {
-      const result = await completeNativeGoogleSignIn({ createAccount });
+      const result = await completeNativeGoogleSignIn({
+        createAccount,
+        language,
+      });
       if (!result) return;
       if (result.kind === "twoFactor") {
         // Hand off to the same code field the email flow uses; submitting it
@@ -230,9 +233,17 @@ export default function LoginScreen() {
       // birth dates and profile — and skips onboarding, because their
       // onboardingCompleted is true. app/register.tsx calls resetState() for
       // exactly this reason; the Google sign-up path creates accounts the same
-      // way and needs the same empty slate. Sign-in still rehydrates: that user
-      // does have server state, and wiping it would be the opposite bug.
-      if (createAccount) await resetState();
+      // way and needs the same empty slate.
+      //
+      // Keyed on what the SERVER did, never on `createAccount`. Every call to
+      // completeNativeGoogleSignIn re-opens the account picker (it signs out of
+      // the SDK first, deliberately, so the picker appears at all), so a user
+      // who taps "Create account with Google" can still choose an account that
+      // already exists. The server signs them in and reports created:false.
+      // Resetting there wipes a real profile, and the next local edit syncs
+      // that empty state back over their server copy, soft-deleting their
+      // children. `created` is false unless the server explicitly said true.
+      if (result.created) await resetState();
       else await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {

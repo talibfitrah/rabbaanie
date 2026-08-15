@@ -72,7 +72,18 @@ function configureGoogleSignIn(): void {
  * code for admins with no authenticator, which is most of them.
  */
 export type NativeGoogleSignInResult =
-  | { kind: "session"; sessionToken: string }
+  | {
+      kind: "session";
+      sessionToken: string;
+      /**
+       * Whether the SERVER created the account on this call — never what the
+       * caller asked for. signIn() re-opens the account picker every time, so a
+       * user who tapped "Create account with Google" can still select an
+       * account that already exists; the server signs them in and answers
+       * false. Treating the request flag as the answer wipes a real profile.
+       */
+      created: boolean;
+    }
   | { kind: "twoFactor"; challengeToken: string; factor: "app" | "email" };
 
 /**
@@ -90,7 +101,7 @@ export type NativeGoogleSignInResult =
  * identically for sign-in.
  */
 export async function completeNativeGoogleSignIn(
-  options: { createAccount?: boolean } = {},
+  options: { createAccount?: boolean; language?: string } = {},
 ): Promise<NativeGoogleSignInResult | null> {
   configureGoogleSignIn();
   let result: SignInResponse;
@@ -132,7 +143,7 @@ export async function completeNativeGoogleSignIn(
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(
         options.createAccount
-          ? { idToken, createAccount: true }
+          ? { idToken, createAccount: true, language: options.language }
           : { idToken },
       ),
       signal: controller.signal,
@@ -167,7 +178,13 @@ export async function completeNativeGoogleSignIn(
     if (typeof data.sessionToken !== "string" || !data.sessionToken) {
       throw new GoogleSignInError("missing_session_token");
     }
-    return { kind: "session", sessionToken: data.sessionToken };
+    // Strict true, so a server that predates the field, or sends anything but
+    // a real boolean, reads as "signed in" — the non-destructive branch.
+    return {
+      kind: "session",
+      sessionToken: data.sessionToken,
+      created: data.created === true,
+    };
   } finally {
     clearTimeout(timeout);
   }
