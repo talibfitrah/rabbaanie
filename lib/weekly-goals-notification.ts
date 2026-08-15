@@ -3,6 +3,7 @@ import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 import { parsePlanText } from "@/lib/plan-blocks";
+import { cleanTreatmentText } from "@/lib/plan-text";
 import { planProgressKey } from "@/lib/plan-progress";
 
 // ============ CONSTANTS ============
@@ -138,9 +139,13 @@ export async function cancelWeeklyGoalsNotification(): Promise<void> {
  * Plans saved before the advisor kept its own text have only the parsed phases,
  * and those are still read the way they always were.
  */
-async function remainingPlanTasks(plan: any): Promise<string[]> {
+async function remainingPlanTasks(plan: any, language: string): Promise<string[]> {
+  // Cleaned exactly the way the two screens clean it before parsing. The task
+  // keys are positional, and cleaning can decide whether a line is a task at all
+  // (it strips the "**" that keeps "**1. …" from reading as a numbered step), so
+  // parsing the raw text here would key the ticks to different tasks.
   const tasks = plan?.content
-    ? parsePlanText(plan.content).filter((b) => b.type === "task")
+    ? parsePlanText(cleanTreatmentText(plan.content, language)).filter((b) => b.type === "task")
     : [];
   if (tasks.length > 0) {
     const raw = await AsyncStorage.getItem(planProgressKey(plan.id));
@@ -167,7 +172,7 @@ export async function getCurrentGoalText(language: string): Promise<string | nul
       const plans = JSON.parse(plansRaw);
       for (let i = plans.length - 1; i >= 0; i--) {
         const plan = plans[i];
-        const remaining = await remainingPlanTasks(plan);
+        const remaining = await remainingPlanTasks(plan, language);
         if (remaining.length === 0) continue;
         const childName = plan.childName || "";
         const prefix = childName

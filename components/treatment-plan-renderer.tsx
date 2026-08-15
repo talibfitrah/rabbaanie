@@ -136,25 +136,32 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   
+  // Callers persist what this component reports, so nothing may be reported
+  // before the stored ticks are in: the first render would otherwise save a 0
+  // over a plan the parents had already worked through.
+  const [ticksLoaded, setTicksLoaded] = useState(false);
+
   useEffect(() => {
+    setTicksLoaded(false);
     AsyncStorage.getItem(planProgressKey(issueId)).then((raw) => {
       if (raw) {
         setCompletedTasks(new Set<string>(JSON.parse(raw)));
       }
-    }).catch(() => {});
+      setTicksLoaded(true);
+    }).catch(() => setTicksLoaded(true));
   }, [issueId]);
-  
+
   useEffect(() => {
-    if (onProgressChange) {
-      // Counted on the original text, not the translation on screen. A plan's
-      // task count is a property of the plan, and callers persist this number —
-      // reporting the translated parse would make it swing with whichever
-      // language the plan happened to be opened in.
-      const blocks = parsePlanText(planText);
-      const totalTasks = blocks.filter(b => b.type === "task").length;
-      onProgressChange(completedTasks.size, totalTasks);
+    if (onProgressChange && ticksLoaded) {
+      // Both numbers come from the original text, never the translation on
+      // screen: a plan's task count is a property of the plan, not of who is
+      // reading it, and a numerator counted against a different parse can
+      // exceed its own denominator.
+      const keys = parsePlanText(planText).filter(b => b.type === "task").map(b => b.key);
+      const done = keys.filter(k => completedTasks.has(k)).length;
+      onProgressChange(done, keys.length);
     }
-  }, [completedTasks, planText]);
+  }, [completedTasks, planText, ticksLoaded]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);

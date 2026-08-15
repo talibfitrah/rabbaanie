@@ -1,10 +1,14 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 // The daily reminder used to decide "what is still to do" from plan.completedSteps,
-// which only the flat checkbox list in الأسبوعي ever wrote. That list is gone —
-// ticks are the renderer's now, reported back as progressDone/progressTotal — so
-// a reminder still reading completedSteps would offer the parents work they had
-// already finished, forever.
+// which only the flat checkbox list in الأسبوعي ever wrote. That list is gone, so
+// a reminder still reading it would offer the parents work they had already
+// finished, forever.
+//
+// It reads the ticks the renderer stores instead, through the same parser and the
+// same cleaning the screens use, and matches them by the very keys the checkboxes
+// wrote. Counting with a second parser is what these guard against: the two lists
+// were free to disagree about which task was which.
 
 const store: Record<string, string> = {};
 
@@ -135,5 +139,31 @@ describe("cachePlanProgress records what the renderer reports", () => {
     store["@advisor_action_plans"] = JSON.stringify([plan({})]);
     expect(await cachePlanProgress("plan_missing", 1, 3)).toBe(false);
     expect(JSON.parse(store["@advisor_action_plans"])[0].progressDone).toBeUndefined();
+  });
+});
+
+describe("the reminder keys ticks off the same cleaned text the screens parse", () => {
+  // cleanTreatmentText strips the "**" that stops "**1. …" from reading as a
+  // numbered step, so it decides whether these lines are tasks at all. Parsing
+  // the raw text here would number the tasks differently from the checkboxes
+  // that recorded the ticks, and the reminder would skip the wrong ones.
+  const bolded = {
+    id: "plan_b",
+    childName: "عبد الله",
+    content: [
+      "**مهام الوالد:**",
+      "**1. راجع نيتك في تربيته**",
+      "**2. اقرأ باب الإخلاص**",
+      "**3. دربه على الإقناع بالحسنى**",
+    ].join("\n"),
+    phases: [],
+  };
+
+  it("treats the first stored key as the first bolded step", async () => {
+    store["@advisor_action_plans"] = JSON.stringify([bolded]);
+    store["@treatment_tasks_plan_b"] = JSON.stringify(["task-0"]);
+    const text = await getCurrentGoalText("ar");
+    expect(text).not.toContain("راجع نيتك");
+    expect(text).toContain("اقرأ باب الإخلاص");
   });
 });
