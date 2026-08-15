@@ -179,16 +179,19 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   };
   
   const blocks = parsePlanText(effectiveText);
-  // Ticks are always stored against the ORIGINAL text's task keys. The blocks on
-  // screen may come from the auto-translation, which parses to its own task-N
-  // numbering; storing those would tick one plan under two different sets of
-  // keys, and a task ticked in Dutch would read as undone in Arabic. Both parses
-  // walk the plan in the same order, so the Nth task is the same task.
+  // The task keys the counts are measured against: the original text's, never
+  // the auto-translation on screen, so the bar here and the number the card
+  // caches are the same measurement.
+  //
+  // ponytail: keys are positional ("task-0", "task-1", …), so a tick is really a
+  // tick on the Nth task. A translation that parses to a different number of
+  // tasks therefore shifts what position N means. Mapping by index cannot fix
+  // that — both parses name their keys identically — it would take content-based
+  // matching, which is only worth building if a plan is actually read in two
+  // languages by the same family.
   const originalTaskKeys = parsePlanText(planText)
     .filter(b => b.type === "task")
     .map(b => b.key);
-  const storedKey = (blockKey: string) =>
-    originalTaskKeys[Number(blockKey.split("-")[1])] ?? blockKey;
   const sections = groupIntoSections(blocks);
   // Counted the same way as what this component reports to its caller, so the
   // bar on screen and the number the card caches cannot disagree.
@@ -234,7 +237,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
       {/* Collapsible sections */}
       {sections.map((section, sIdx) => {
         const isExpanded = expandedSections.has(sIdx);
-        const sectionCompleted = section.taskKeys.filter(k => completedTasks.has(storedKey(k))).length;
+        const sectionCompleted = section.taskKeys.filter(k => completedTasks.has(k)).length;
         const sectionTotal = section.taskKeys.length;
         const owner = sectionOwner(section.title);
         
@@ -319,11 +322,11 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
                         </Text>
                       );
                     case "task":
-                      const isCompleted = completedTasks.has(storedKey(block.key));
+                      const isCompleted = completedTasks.has(block.key);
                       return (
                         <Pressable
                           key={idx}
-                          onPress={() => toggleTask(storedKey(block.key))}
+                          onPress={() => toggleTask(block.key)}
                           style={({ pressed }) => [styles.taskRow, { flexDirection: isArabicText(block.text) ? "row-reverse" : "row", opacity: pressed ? 0.7 : 1 }]}
                         >
                           <Text style={[

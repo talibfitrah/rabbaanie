@@ -52,16 +52,15 @@ describe("الأسبوعي renders the advisor plan the same way the child scree
   });
 });
 
-describe("a tick means the same task in every language", () => {
-  // The blocks on screen come from the auto-translation when one is showing, and
-  // that parses to its own task-N numbering. Storing those keys would tick one
-  // plan under two different sets of keys, so a task ticked in Dutch would read
-  // as undone in Arabic — and the count the card caches would disagree too.
+describe("the bar and the cached count are one measurement", () => {
+  // They used to be two: the bar divided by the tasks in the text on screen
+  // (the auto-translation, when one was showing) while the cached count came
+  // from the original, so the same plan could report more done than it had.
   const renderer = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf-8");
 
-  it("stores and reads ticks under the original text's keys", () => {
+  it("counts both against the original text's tasks", () => {
     expect(renderer).toContain("const originalTaskKeys = parsePlanText(planText)");
-    expect(renderer).toMatch(/onPress=\{\(\) => toggleTask\(storedKey\(block\.key\)\)\}/);
-    expect(renderer).toMatch(/completedTasks\.has\(storedKey\(block\.key\)\)/);
+    expect(renderer).toContain("const totalTasks = originalTaskKeys.length;");
+    expect(renderer).toMatch(/completedCount = originalTaskKeys\.filter/);
   });
 });
