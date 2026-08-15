@@ -1,0 +1,21 @@
+server/db.ts
+  s_834a18df15f160::t_011d1b3c2652f1 4712,4714-4719
+tests/weekly-advisor-plan-render.test.ts
+  s_834a18df15f160::t_011d1b3c2652f1 89-98
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "004c1704a0b8103b2a086126b7b0ab8d43f20def",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
