@@ -181,7 +181,10 @@ function AIChatScreenInner() {
   const flatListRef = useRef<FlatList>(null);
   // One warning per visit when the server refuses to persist, so a lapsed
   // session is never silent but never nags either.
-  const saveFailedWarned = useRef(false);
+  const saveWarned = useRef(false);
+  // Separate from the save warning: one flag for two unrelated failures meant
+  // whichever happened first silenced the other for the rest of the visit.
+  const listWarned = useRef(false);
   // Set while a resumed conversation is still laying out, so the list keeps
   // being pulled to the newest message as more of it renders.
   const pendingScrollToEnd = useRef(false);
@@ -285,11 +288,17 @@ function AIChatScreenInner() {
               },
             }),
           });
-          const data = await res.json();
-          const dbId = data.result?.data?.json?.dbId;
+          // Read the body defensively: a gateway error body is not JSON, and
+          // letting res.json() throw here jumped straight past the check below.
+          const data = await res.json().catch(() => null);
+          const dbId = data?.result?.data?.json?.dbId;
           if (dbId && !currentDbId) {
             setCurrentDbId(dbId);
-          } else if (!res.ok || (currentDbId && dbId == null)) {
+          } else if (!res.ok || dbId == null) {
+            // dbId == null covers BOTH shapes of refusal: an update rejected for
+            // ownership, and a create the server never stored. Gating on
+            // currentDbId missed the second — a brand-new consultation that
+            // silently existed on the phone alone, which is the original bug.
             // The server did not persist this. Both ways of failing are
             // indistinguishable from success without this check: a lapsed
             // session makes the endpoint reject, and an ownership refusal
@@ -297,8 +306,8 @@ function AIChatScreenInner() {
             // consultation only exists on this phone from here on, which is
             // exactly the silence that left Daa3iyah with an empty archive for
             // weeks. Warn once per screen, not per message.
-            if (!saveFailedWarned.current) {
-              saveFailedWarned.current = true;
+            if (!saveWarned.current) {
+              saveWarned.current = true;
               Alert.alert(
                 language === "ar" ? "لم تُحفظ في الخادم" : "Not saved to server",
                 language === "ar"
@@ -343,12 +352,12 @@ function AIChatScreenInner() {
           const res = await authedFetch(`/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(JSON.stringify({ json: { deviceId: deviceIdNow } }))}`);
           const data = await res.json();
           const dbConversations = data.result?.data?.json || [];
-          if (!res.ok && !saveFailedWarned.current) {
+          if (!res.ok && !listWarned.current) {
             // A refused read falls through to local storage below, and local is
             // usually empty for consultations that only ever lived on the
             // server — so the archive reads as "you have none" when the real
             // answer is "we could not ask". Say which.
-            saveFailedWarned.current = true;
+            listWarned.current = true;
             Alert.alert(
               language === "ar" ? "تعذّر جلب المحادثات" : "Could not load conversations",
               language === "ar"

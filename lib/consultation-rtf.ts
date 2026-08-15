@@ -25,6 +25,16 @@ export function rtfEscape(text: string): string {
     if (ch === "\\" || ch === "{" || ch === "}") out += "\\" + ch;
     else if (ch === "\n") out += "\\par ";
     else if (c < 128) out += ch;
+    else if (c > 0xffff) {
+      // Beyond the BMP (emoji, and some rarer script blocks) RTF has no single
+      // code unit: it takes the UTF-16 surrogate PAIR, each escaped in turn.
+      // Subtracting 65536 from the code POINT, as an earlier version did, wrote
+      // a number Word cannot resolve to any character.
+      const v = c - 0x10000;
+      const hi = 0xd800 + (v >> 10);
+      const lo = 0xdc00 + (v & 0x3ff);
+      out += `\\u${hi - 65536}?\\u${lo - 65536}?`;
+    }
     // Signed 16-bit: Word reads values above 32767 as negative.
     else out += `\\u${c > 32767 ? c - 65536 : c}?`;
   }

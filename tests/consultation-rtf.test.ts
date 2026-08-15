@@ -24,6 +24,22 @@ describe("Arabic survives the 7-bit encoding", () => {
     expect(rtfEscape("Week 1")).toBe("Week 1");
   });
 
+  it("escapes a character beyond the BMP as a surrogate pair", () => {
+    // 🌙 = U+1F319. RTF has no single code unit for it; an earlier version
+    // subtracted 65536 from the code POINT and wrote a number Word cannot
+    // resolve, so the character silently became nothing.
+    const out = rtfEscape("\u{1F319}");
+    // U+1F319 - 0x10000 = 62233; hi = 0xD800 + (62233 >> 10) = 55356, which is
+    // -10180 signed; lo = 0xDC00 + (62233 & 1023) = 57113, which is -8423.
+    expect(out).toBe("\\u-10180?\\u-8423?");
+    // Both halves must land in the signed 16-bit range Word accepts.
+    for (const m of out.matchAll(/\\u(-?\d+)\?/g)) {
+      const n = Number(m[1]);
+      expect(n).toBeGreaterThanOrEqual(-32768);
+      expect(n).toBeLessThanOrEqual(32767);
+    }
+  });
+
   it("escapes the three characters that would otherwise be RTF syntax", () => {
     // Unescaped, a brace or backslash truncates the document at that point.
     expect(rtfEscape("{a}\\b")).toBe("\\{a\\}\\\\b");
