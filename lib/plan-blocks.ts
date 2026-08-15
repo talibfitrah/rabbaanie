@@ -149,3 +149,21 @@ export function taskKeysOf(text: string): string[] {
     .filter((b) => b.type === "task")
     .map((b) => (b as { key: string }).key);
 }
+
+/**
+ * Re-key the task blocks of one parse onto another parse's keys, in order.
+ *
+ * A plan's ticks live in one key space — the original text's — because keys are
+ * positional and everything outside the renderer (the daily reminder, the cached
+ * count) reads the original. Displaying a translation therefore re-keys the
+ * blocks it shows: the Nth task shown is the Nth task of the plan.
+ *
+ * A translation with MORE tasks than the original keeps its own keys past the
+ * end, so the extras are tickable but private to that parse.
+ */
+export function rekeyTasksTo(blocks: ParsedBlock[], keys: string[]): ParsedBlock[] {
+  let i = 0;
+  return blocks.map((b) =>
+    b.type === "task" ? { ...b, key: keys[i++] ?? b.key } : b,
+  );
+}

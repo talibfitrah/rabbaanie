@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
-import { taskKeysOf } from "../lib/plan-blocks";
+import { taskKeysOf, rekeyTasksTo, parsePlanText } from "../lib/plan-blocks";
 
 // Daa3iyah (2026-08-15): «نفس الخطة بنفس الطريقة لابد ان تعرض في قسم العائلات
 // وفي قسم الأسبوعي … فالآن تعرض الخطة فقط كنص تحت بعض وليس بالطريقة المقدمة
@@ -80,29 +80,39 @@ describe("the bar and the cached count are one measurement", () => {
     expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
   });
 
-  it("counts a translation's own tasks, not the original's", () => {
-    // The shape of the bug: counting a Dutch reader against the Arabic parse
-    // showed 2/3 while every box on their screen was ticked.
-    expect(taskKeysOf(ARABIC_PLAN)).toHaveLength(3);
-    expect(taskKeysOf(DUTCH_PLAN)).toHaveLength(2);
+  it("gives a translated plan the ORIGINAL's task keys, in display order", () => {
+    // REVERSED DELIBERATELY. This used to assert the opposite — that a
+    // translation is counted against its own parse — which fixed the bar for a
+    // translated reader but broke everything that is not this component: the
+    // daily reminder parses plan.content, and the cached count is stored per
+    // plan and not per language, so "task-1" meant one task on screen and a
+    // different one in the reminder. One key space, the original's, is the only
+    // arrangement where a tick means the same task everywhere.
+    const shown = rekeyTasksTo(parsePlanText(DUTCH_PLAN), taskKeysOf(ARABIC_PLAN));
+    const shownTaskKeys = shown.filter((b) => b.type === "task").map((b) => (b as { key: string }).key);
+    expect(shownTaskKeys).toEqual(["task-0", "task-1"]);
 
-    // Ticking every box the Dutch reader can see...
-    const ticked = new Set(taskKeysOf(DUTCH_PLAN));
-    // ...reads as complete against the text they were shown,
-    expect(taskKeysOf(DUTCH_PLAN).every((k) => ticked.has(k))).toBe(true);
-    // ...but short against the original — which is the bug, so the renderer
-    // must count the displayed text. (The first assertion above is trivially
-    // true by construction; this second one is the one that can fail.)
-    const original = taskKeysOf(ARABIC_PLAN);
-    expect(original.filter((k) => ticked.has(k)).length).toBe(2);
-    expect(original.length).toBe(3);
+    // Ticking both visible boxes marks the plan's first two tasks — the same two
+    // the reminder, which reads the original, will now consider done.
+    const ticked = new Set(shownTaskKeys);
+    const remaining = taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k));
+    expect(remaining).toEqual(["task-2"]);
   });
 
-  it("never measures progress against a parse other than the one displayed", () => {
-    // The invariant, not the formatting: whatever the component renders from is
-    // what it counts. A second parse of planText alongside the displayed
-    // effectiveText is exactly how the two numbers drifted apart before.
-    expect(renderer).toContain("parsePlanText(effectiveText)");
-    expect(renderer).not.toContain("parsePlanText(planText)");
+  it("does not renumber a translation that carries more tasks than the original", () => {
+    // Past the end there is nothing to map onto, so the extra keeps its own key
+    // rather than colliding with the plan's last task.
+    const longer = ARABIC_PLAN + "\n- خطوة زائدة أضافتها الترجمة";
+    const shown = rekeyTasksTo(parsePlanText(longer), ["task-0"]);
+    const keys = shown.filter((b) => b.type === "task").map((b) => (b as { key: string }).key);
+    expect(keys[0]).toBe("task-0");
+    expect(new Set(keys).size).toBe(keys.length);
+  });
+
+  it("re-keys what it displays instead of counting a second parse", () => {
+    // One source assertion is left on purpose, and it is about wiring rather
+    // than formatting: the component must pass its displayed blocks through
+    // rekeyTasksTo. What that function DOES is covered by behaviour above.
+    expect(renderer).toContain("rekeyTasksTo(parsePlanText(effectiveText)");
   });
 });

@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
 import { sectionOwner } from "@/lib/plan-owner";
-import { parsePlanText, taskKeysOf, type ParsedBlock } from "@/lib/plan-blocks";
+import { parsePlanText, taskKeysOf, rekeyTasksTo, type ParsedBlock } from "@/lib/plan-blocks";
 import { planProgressKey } from "@/lib/plan-progress";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
@@ -157,11 +157,11 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
     if (onProgressChange && ticksLoaded) {
       // Same parse the bar and the checkboxes use, so what the card caches
       // cannot disagree with what this screen shows.
-      const keys = taskKeysOf(effectiveText);
+      const keys = taskKeysOf(planText);
       const done = keys.filter(k => completedTasks.has(k)).length;
       onProgressChange(done, keys.length);
     }
-  }, [completedTasks, effectiveText, ticksLoaded]);
+  }, [completedTasks, planText, ticksLoaded]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);
@@ -178,21 +178,29 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
     setExpandedSections(next);
   };
   
-  const blocks = parsePlanText(effectiveText);
-  // Measured against the very text being displayed, so the bar, the checkboxes
-  // and the number reported to the caller are all one parse. Counting against
-  // the original while rendering a translation let a reader tick every box on
-  // screen and still be shown 6/10, because keys are positional and the two
-  // parses rarely find the same number of tasks.
+  // ONE key space for a plan's ticks: the original text's.
   //
-  // ponytail: positional keys mean a tick is a tick on the Nth task, so reading
-  // the same plan in two languages can still move a tick onto a different task.
-  // Only content-based anchoring fixes that, and it is worth building only if a
-  // family actually reads one plan in two languages.
-  const taskKeys = taskKeysOf(effectiveText);
+  // Keys are positional, and a translation rarely parses to the same number of
+  // tasks, so the two parses disagree about what "task-3" means. Everything that
+  // is not this component reads the original — the daily reminder parses
+  // plan.content, and the cached count is stored per plan, not per language — so
+  // keying the boxes to whatever is on screen made a tick mean one task here and
+  // a different one there, and toggling "show original" recounted the same plan
+  // against a different parse.
+  //
+  // The displayed blocks are therefore re-keyed onto the original's task keys in
+  // display order: the Nth task shown is the Nth task of the plan, whichever
+  // language it is being read in.
+  const taskKeys = taskKeysOf(planText);
+  const blocks = rekeyTasksTo(parsePlanText(effectiveText), taskKeys);
   const sections = groupIntoSections(blocks);
   const totalTasks = taskKeys.length;
   const completedCount = taskKeys.filter(k => completedTasks.has(k)).length;
+  // ponytail: a translation that drops a task leaves the reader unable to tick
+  // the ones it lost, so the bar can sit below 100% with every visible box
+  // ticked. That is the honest reading — the plan really does have more tasks
+  // than the translation shows. Content-anchored keys would fix it properly and
+  // are worth building only if a family actually reads one plan in two languages.
   
   return (
     <View style={styles.container}>
