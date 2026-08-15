@@ -9,6 +9,8 @@ import { describe, it, expect } from "vitest";
 import * as fs from "fs";
 import * as path from "path";
 
+import { extractSteps, parseActionPlanSteps } from "@/lib/plan-steps";
+
 const projectRoot = path.resolve(__dirname, "..");
 
 describe("Quran Screen (concepts.tsx)", () => {
@@ -82,8 +84,12 @@ describe("Advisor Action Plan Parsing (ai-chat.tsx)", () => {
     expect(content).toContain("parseActionPlanSteps");
   });
 
+  // The parsing itself moved to lib/plan-steps.ts, so these check what it does
+  // rather than that ai-chat.tsx still contains the code.
   it("should have extractSteps function", () => {
-    expect(content).toContain("extractSteps");
+    expect(extractSteps("1. اجلس معه بعد الفجر كل يوم")).toEqual([
+      expect.objectContaining({ text: "اجلس معه بعد الفجر كل يوم" }),
+    ]);
   });
 
   it("should save structured phases with steps", () => {
@@ -99,11 +105,20 @@ describe("Advisor Action Plan Parsing (ai-chat.tsx)", () => {
   });
 
   it("should detect week/phase markers in content", () => {
-    expect(content).toContain("الأسبوع|Week|week|Fase|fase|المرحلة");
+    const phases = parseActionPlanSteps(
+      "الأسبوع 1\n1. اجلس معه بعد الفجر\nالأسبوع 2\n1. راجع معه ما تعلمه",
+      "ar",
+    );
+    expect(phases.map((p) => p.phase)).toEqual(["الأسبوع 1", "الأسبوع 2"]);
   });
 
   it("should distribute steps across days", () => {
-    expect(content).toContain("step.day");
+    const [week] = parseActionPlanSteps(
+      "الأسبوع 1\n" +
+        Array.from({ length: 7 }, (_, i) => `${i + 1}. خطوة رقم ${i + 1}`).join("\n"),
+      "ar",
+    );
+    expect(week.steps.map((s) => s.day)).toEqual([1, 2, 3, 4, 5, 6, 7]);
   });
 });
 

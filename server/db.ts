@@ -873,7 +873,7 @@ export async function getDashboardStats() {
     .from(messages);
   const [convCount] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(aiConversations);
+    .from(parentAiConsultations);
   return {
     totalUsers: userCount?.count ?? 0,
     totalFamilies: familyCount?.count ?? 0,

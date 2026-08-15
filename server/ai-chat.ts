@@ -166,20 +166,32 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 التشخيص:
 (هنا تكتب التشخيص القاطع لجذر المشكلة - هل هي في العقل أم القلب أم اللسان أم الجوارح)
 
-علاج في التصفية:
-(هنا تكتب علاج العقل - إزالة الأفكار السيئة وغرس الجيدة - خطوات مرقمة)
+مهام الوالد:
+(ما يصلحه الوالد في نفسه أولاً، فالتربية تبدأ منه قبل أن تبدأ من الطفل)
+تصفية (تصحيح عقل الوالد):
+(خطوات مرقمة)
+تزكية (تصحيح قلب الوالد):
+(خطوات مرقمة)
+تربية (تصحيح سلوك الوالد في تعامله مع الطفل):
+(خطوات مرقمة)
 
-علاج في التزكية:
-(هنا تكتب علاج القلب - تحبيب الخير وتبغيض الشر - خطوات مرقمة)
+مهام الابن:
+(اكتب «مهام الابن» أو «مهام البنت» بحسب جنس الطفل)
+تصفية (علاج عقل الطفل - إزالة الأفكار السيئة وغرس الجيدة):
+(خطوات مرقمة)
+تزكية (علاج قلب الطفل - تحبيب الخير وتبغيض الشر):
+(خطوات مرقمة)
+تربية في اللسان (ترك الكلام السيئ وتعلم الجيد):
+(خطوات مرقمة)
+تربية في الجوارح (ترك الأفعال السيئة وممارسة الجيدة):
+(خطوات مرقمة)
 
-علاج في تربية اللسان:
-(هنا تكتب علاج اللسان - ترك الكلام السيئ وتعلم الجيد - خطوات مرقمة)
+الجدول الزمني والتقييم:
+(الأسبوع 1-2 ثم الأسبوع 3-4، ومعايير الانتقال للمرحلة التالية)
 
-علاج في تربية الجوارح:
-(هنا تكتب علاج السلوك - ترك الأفعال السيئة وممارسة الجيدة - خطوات مرقمة)
-
+- افصل دائمًا بين ما يفعله الوالد وما يفعله الابن/البنت؛ لا تدمج القسمين
 - كل قسم يبدأ بعنوانه في سطر مستقل متبوعًا بنقطتين (:)
-- كل خطوة تبدأ برقم وفعل أمر واضح
+- كل خطوة تبدأ برقم وفعل أمر واضح في سطر مستقل، ولا تكتب خطوتين في سطر واحد
 - كن مفصلاً وعمليًا في كل خطوة
 - ابنِ العلاج على الصفات الجيدة الموجودة عند الطفل
 - تنبيه دائم: التربية القصيرة المدى مبنية على التربية الطويلة المدى — بدونها لن تفلح
@@ -689,7 +701,14 @@ export const aiChatRouter = router({
       const { createParentAiConsultation, updateParentAiConsultation, getParentAiConsultation } = await import("./db");
       
       if (input.dbId) {
-        // Update existing
+        // Update existing. dbId is a sequential primary key and this endpoint is
+        // open, so without this check any caller could walk dbId and overwrite
+        // every family's consultation — the same enumeration the read and delete
+        // paths already refuse.
+        const existing = await getParentAiConsultation(input.dbId);
+        if (!existing || existing.deviceId !== input.deviceId) {
+          return { dbId: null };
+        }
         await updateParentAiConsultation(input.dbId, {
           messages: input.messages,
           messageCount: input.messages.length,
@@ -734,14 +753,21 @@ export const aiChatRouter = router({
     }),
 
   /** Get a single conversation with messages from database */
+  // A mutation, not a query, purely so the deviceId travels in the POST body:
+  // it authorises access to the conversation, and a GET would leave it in URLs,
+  // access logs and proxy logs.
   getConversationFromDb: publicProcedure
     .input(z.object({
       dbId: z.number(),
+      deviceId: z.string(),
     }))
-    .query(async ({ input }) => {
+    .mutation(async ({ input }) => {
       const { getParentAiConsultation } = await import("./db");
       const conv = await getParentAiConsultation(input.dbId);
       if (!conv) return null;
+      // dbId is a sequential primary key, so without this an unauthenticated
+      // caller could walk it and read every family's consultation.
+      if (conv.deviceId !== input.deviceId) return null;
       return {
         dbId: conv.id,
         title: conv.title || "",
@@ -759,9 +785,14 @@ export const aiChatRouter = router({
   deleteConversationFromDb: publicProcedure
     .input(z.object({
       dbId: z.number(),
+      deviceId: z.string(),
     }))
     .mutation(async ({ input }) => {
-      const { deleteParentAiConsultation } = await import("./db");
+      const { getParentAiConsultation, deleteParentAiConsultation } = await import("./db");
+      const conv = await getParentAiConsultation(input.dbId);
+      // Same enumeration risk as the read path: without the ownership check any
+      // caller could delete every family's consultations.
+      if (!conv || conv.deviceId !== input.deviceId) return { success: false };
       await deleteParentAiConsultation(input.dbId);
       return { success: true };
     }),

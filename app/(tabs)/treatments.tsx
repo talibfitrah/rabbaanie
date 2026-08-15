@@ -14,6 +14,8 @@ import { calculateAgeInWeeks, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import { cleanTreatmentText } from "@/lib/plan-text";
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
 
 export default function TreatmentsScreen() {
@@ -310,12 +312,11 @@ export default function TreatmentsScreen() {
                       >
                         {t("treatments.plan")}:
                       </Text>
-                      <Text
-                        className="text-xs leading-4"
-                        style={{ color: colors.foreground }}
-                      >
-                        {issue.treatmentPlan}
-                      </Text>
+                      <TreatmentPlanRenderer
+                        planText={cleanTreatmentText(issue.treatmentPlan, language)}
+                        issueId={issue.id}
+                        colors={colors}
+                      />
                       <ReportAiContent
                         content={issue.treatmentPlan}
                         surface="treatments-saved-plan"

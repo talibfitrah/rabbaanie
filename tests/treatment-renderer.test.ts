@@ -56,8 +56,13 @@ describe("TreatmentPlanRenderer", () => {
   });
 
   it("should persist completed tasks to AsyncStorage", () => {
-    expect(src).toContain("@treatment_tasks_");
+    // The key itself now lives in lib/plan-progress.ts, so the weekly plan can
+    // read the same progress the renderer writes.
+    expect(src).toContain("planProgressKey(issueId)");
     expect(src).toContain("AsyncStorage.setItem");
+    expect(
+      fs.readFileSync("lib/plan-progress.ts", "utf-8"),
+    ).toContain("@treatment_tasks_");
   });
 
   it("should detect main sections (تشخيص, مهام الوالد, مهام الابن)", () => {

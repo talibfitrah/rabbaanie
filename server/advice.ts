@@ -1450,6 +1450,16 @@ STRIKTE REGELS:
         description: z.string(),
         treatmentPlan: z.string().optional(),
         childId: z.string().optional(),
+        // This is a public procedure and these strings are concatenated into the
+        // model prompt, so bound them here rather than trusting the caller: an
+        // unbounded array of unbounded answers is both a cost and a context
+        // problem, and the prompt below carries binding instructions that
+        // arbitrary text should not get to sit next to.
+        analyticalQA: z.array(z.object({
+          question: z.string().max(500),
+          answer: z.string().max(2000),
+        })).max(20).optional(),
+        completedTasks: z.number().int().min(0).max(1000).optional(),
       })).optional(),
     }))
     .query(async ({ input }) => {
@@ -1467,17 +1477,46 @@ STRIKTE REGELS:
       if (input.recentIssues && input.recentIssues.length > 0) {
         const issuesList = input.recentIssues.map(issue => {
           const planSummary = issue.treatmentPlan ? issue.treatmentPlan.substring(0, 300) : "";
+          // What the parent actually told the advisor about this child. Ignoring it
+          // is how a plan ends up teaching salaah to a child whose parent already
+          // said he studies at university level.
+          const qa = (issue.analyticalQA || [])
+            .filter(x => x.answer.trim())
+            // Newest answers describe the child best, and this text is only
+            // context for one issue among several.
+            .slice(-6)
+            .map(x => isAr
+              ? `    س: ${x.question}\n    ج: ${x.answer}`
+              : isEn
+              ? `    Q: ${x.question}\n    A: ${x.answer}`
+              : `    V: ${x.question}\n    A: ${x.answer}`)
+            .join("\n");
+          const qaBlock = qa
+            ? (isAr
+              ? `\n  ما ذكره الوالد عن ابنه:\n${qa}`
+              : isEn
+              ? `\n  What the parent stated about this child:\n${qa}`
+              : `\n  Wat de ouder over dit kind vertelde:\n${qa}`)
+            : "";
+          const done = issue.completedTasks || 0;
+          const doneBlock = done > 0
+            ? (isAr
+              ? `\n  أتمّ الوالدان ${done} من مهام هذه الخطة.`
+              : isEn
+              ? `\n  The parents have completed ${done} task(s) of this plan.`
+              : `\n  De ouders hebben ${done} ta(a)k(en) van dit plan afgerond.`)
+            : "";
           return isAr
-            ? `- المشكلة: ${issue.description}\n  العلاج: ${planSummary}`
+            ? `- المشكلة: ${issue.description}\n  العلاج: ${planSummary}${qaBlock}${doneBlock}`
             : isEn
-            ? `- Issue: ${issue.description}\n  Treatment: ${planSummary}`
-            : `- Probleem: ${issue.description}\n  Behandeling: ${planSummary}`;
+            ? `- Issue: ${issue.description}\n  Treatment: ${planSummary}${qaBlock}${doneBlock}`
+            : `- Probleem: ${issue.description}\n  Behandeling: ${planSummary}${qaBlock}${doneBlock}`;
         }).join("\n");
         issuesContext = isAr
-          ? `\n\nمشكلات حديثة يجب دمج حلولها في الخطة الأسبوعية واليومية:\n${issuesList}\n\nمهم: أدمج خطوات علاج هذه المشكلات ضمن الأهداف الأسبوعية والأنشطة اليومية.`
+          ? `\n\nمشكلات حديثة يجب دمج حلولها في الخطة الأسبوعية واليومية:\n${issuesList}\n\nمهم: أدمج خطوات علاج هذه المشكلات ضمن الأهداف الأسبوعية والأنشطة اليومية.\n\nقاعدة ملزمة: ما ذكره الوالد عن ابنه أعلاه هو الحقيقة، فلا تخالفه ولا تتجاهله. اضبط مستوى الخطة على مستوى الابن الفعلي المذكور؛ فإن ذُكر أنه بلغ مستوى متقدمًا في علم أو مهارة فلا تعطه أهدافًا للمبتدئين في ذلك الباب، بل ابنِ على ما بلغه.\n\nوإن ذُكر أنّ الوالدين أتمّا شيئًا من مهام الخطة فلا تُعِد عليهما ما أتمّاه، بل انتقل إلى الخطوة التي تليها وابنِ عليها.`
           : isEn
-          ? `\n\nRecent issues that must be integrated into the weekly and daily plan:\n${issuesList}\n\nIMPORTANT: Integrate treatment steps for these issues into the weekly goals and daily activities.`
-          : `\n\nRecente problemen die ge\xEFntegreerd moeten worden in het week- en dagplan:\n${issuesList}\n\nBELANGRIJK: Integreer behandelstappen voor deze problemen in de weekdoelen en dagelijkse activiteiten.`;
+          ? `\n\nRecent issues that must be integrated into the weekly and daily plan:\n${issuesList}\n\nIMPORTANT: Integrate treatment steps for these issues into the weekly goals and daily activities.\n\nBINDING RULE: what the parent stated about the child above is the truth — do not contradict it or ignore it. Pitch the plan at the child's actual stated level; if the child is said to be advanced in some knowledge or skill, do not hand him beginner goals in that area, build on what he has already reached.\n\nAnd where the parents are said to have completed tasks of the plan, do not set those again — move on to the next step and build on it.`
+          : `\n\nRecente problemen die ge\xEFntegreerd moeten worden in het week- en dagplan:\n${issuesList}\n\nBELANGRIJK: Integreer behandelstappen voor deze problemen in de weekdoelen en dagelijkse activiteiten.\n\nBINDENDE REGEL: wat de ouder hierboven over het kind vertelde is de waarheid — spreek het niet tegen en negeer het niet. Stem het plan af op het werkelijke niveau van het kind; staat er dat het kind ergens gevorderd is, geef dan geen beginnersdoelen op dat gebied maar bouw voort op wat het al bereikt heeft.\n\nEn waar staat dat de ouders taken van het plan hebben afgerond, geef die niet opnieuw — ga door naar de volgende stap en bouw daarop voort.`;
       }
 
       const systemPrompt = isAr ? `أنت مستشار تربوي إسلامي متخصص في برنامج "علم الأسرة الإسلامي" (فبراير 2022 - يونيو 2025).
