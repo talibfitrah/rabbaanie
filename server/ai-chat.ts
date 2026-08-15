@@ -697,16 +697,25 @@ export const aiChatRouter = router({
       title: z.string().optional(),
       messages: z.array(z.any()),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ input, ctx }) => {
       const { createParentAiConsultation, updateParentAiConsultation, getParentAiConsultation } = await import("./db");
-      
+      const ownerId = ctx.user?.id ?? 0;
+
       if (input.dbId) {
         // Update existing. dbId is a sequential primary key and this endpoint is
         // open, so without this check any caller could walk dbId and overwrite
         // every family's consultation — the same enumeration the read and delete
         // paths already refuse.
+        //
+        // Owning the account counts as owning the row: matching on deviceId
+        // alone locked a parent out of their own consultation the moment they
+        // reinstalled, which is how these came to be unreachable at all.
         const existing = await getParentAiConsultation(input.dbId);
-        if (!existing || existing.deviceId !== input.deviceId) {
+        const ownsIt =
+          existing &&
+          ((ownerId > 0 && existing.parentId === ownerId) ||
+            existing.deviceId === input.deviceId);
+        if (!ownsIt) {
           return { dbId: null };
         }
         await updateParentAiConsultation(input.dbId, {
@@ -716,9 +725,10 @@ export const aiChatRouter = router({
         });
         return { dbId: input.dbId };
       } else {
-        // Create new
+        // Create new. parentId used to be hardcoded to 0, so a consultation
+        // belonged to a device and nothing else — reinstall and it was gone.
         const result = await createParentAiConsultation({
-          parentId: 0, // anonymous
+          parentId: ownerId,
           consultationType: input.consultationType || "child",
           targetId: input.childId || null,
           targetName: input.childName || null,
@@ -737,9 +747,13 @@ export const aiChatRouter = router({
     .input(z.object({
       deviceId: z.string(),
     }))
-    .query(async ({ input }) => {
-      const { getParentAiConsultationsByDevice } = await import("./db");
-      const conversations = await getParentAiConsultationsByDevice(input.deviceId);
+    .query(async ({ input, ctx }) => {
+      const { getParentAiConsultationsForOwner, adoptParentAiConsultations } = await import("./db");
+      const ownerId = ctx.user?.id ?? 0;
+      // Claim this device's unowned rows first, so they survive the next
+      // reinstall instead of being orphaned again the moment the id rotates.
+      await adoptParentAiConsultations(ownerId, input.deviceId);
+      const conversations = await getParentAiConsultationsForOwner(ownerId, input.deviceId);
       return conversations.map(c => ({
         dbId: c.id,
         title: c.title || "",

@@ -252,8 +252,15 @@ function AIChatScreenInner() {
         attachments: m.attachments?.map(a => ({ ...a, uri: "" })),
       }));
 
-      // Save to database (persistent)
-      if (deviceId) {
+      // Save to database (persistent).
+      //
+      // Read the id here rather than trust the `deviceId` state: it starts as
+      // "" and is filled by an async effect, and sendMessageWithText's
+      // useCallback does not list it as a dependency, so a save could run
+      // against the empty initial value and skip the server entirely — with
+      // nothing said, because the only report was a console.error.
+      const deviceIdNow = await getDeviceId();
+      if (deviceIdNow) {
         try {
           const res = await authedFetch(`/api/trpc/aiChat.saveConversationToDb`, {
             method: "POST",
@@ -262,7 +269,7 @@ function AIChatScreenInner() {
               json: {
                 conversationId: convId,
                 dbId: currentDbId || undefined,
-                deviceId,
+                deviceId: deviceIdNow,
                 childId: selectedChild?.id,
                 childName: selectedChild?.name,
                 childAge: selectedChild?.age,
@@ -303,10 +310,13 @@ function AIChatScreenInner() {
 
   const loadConversationHistory = async () => {
     try {
-      // Try loading from database first
-      if (deviceId) {
+      // Try loading from database first. Same reason as the save path: the
+      // state can still be "" here, and asking the server for an empty device
+      // id returns nothing, which reads exactly like an empty archive.
+      const deviceIdNow = await getDeviceId();
+      if (deviceIdNow) {
         try {
-          const res = await authedFetch(`/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(JSON.stringify({ json: { deviceId } }))}`);
+          const res = await authedFetch(`/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(JSON.stringify({ json: { deviceId: deviceIdNow } }))}`);
           const data = await res.json();
           const dbConversations = data.result?.data?.json || [];
           if (dbConversations.length > 0) {

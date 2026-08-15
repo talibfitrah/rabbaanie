@@ -4713,3 +4713,60 @@ export async function getParentAiConsultationsByDevice(deviceId: string) {
     .where(eq(parentAiConsultations.deviceId, deviceId))
     .orderBy(desc(parentAiConsultations.updatedAt));
 }
+
+/**
+ * A parent's consultations, keyed to their account when they have one.
+ *
+ * Every consultation was filed under deviceId alone with parentId hardcoded to
+ * 0, so a reinstall or a new phone orphaned all of them: the rows stayed in the
+ * table while the archive read empty. Daa3iyah had six he could not see
+ * (2026-08-15), spread over two device ids.
+ *
+ * A signed-in caller gets their own rows plus any still-unclaimed ones from the
+ * device in front of them, which is what lets the legacy rows come back without
+ * a hand-run migration. Anonymous callers keep the old device-only behaviour.
+ */
+export async function getParentAiConsultationsForOwner(
+  parentId: number,
+  deviceId: string,
+) {
+  if (!parentId) return getParentAiConsultationsByDevice(deviceId);
+  const database = await getDb();
+  if (!database) return [];
+  return database
+    .select()
+    .from(parentAiConsultations)
+    .where(
+      or(
+        eq(parentAiConsultations.parentId, parentId),
+        and(
+          eq(parentAiConsultations.parentId, 0),
+          eq(parentAiConsultations.deviceId, deviceId),
+        ),
+      ),
+    )
+    .orderBy(desc(parentAiConsultations.updatedAt));
+}
+
+/**
+ * Claim this device's unowned consultations for the signed-in account, so the
+ * next reinstall cannot orphan them again. Only rows nobody owns are touched,
+ * so this can never move a consultation between two accounts.
+ */
+export async function adoptParentAiConsultations(
+  parentId: number,
+  deviceId: string,
+) {
+  if (!parentId || !deviceId) return;
+  const database = await getDb();
+  if (!database) return;
+  await database
+    .update(parentAiConsultations)
+    .set({ parentId })
+    .where(
+      and(
+        eq(parentAiConsultations.parentId, 0),
+        eq(parentAiConsultations.deviceId, deviceId),
+      ),
+    );
+}
