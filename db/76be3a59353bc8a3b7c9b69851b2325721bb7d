@@ -1,0 +1,19 @@
+lib/device-id.ts
+  s_adb59677e30baa::t_fa57d5fa021ba2 2,10-17,22-27
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "db76be3a59353bc8a3b7c9b69851b2325721bb7d",
+  "prompts": {},
+  "sessions": {
+    "s_adb59677e30baa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b265ce5-6bcb-41ab-9034-5b560866feea",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
