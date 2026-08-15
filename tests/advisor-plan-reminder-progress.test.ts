@@ -95,18 +95,26 @@ describe("the daily reminder follows the ticks the renderer records", () => {
     expect(await getCurrentGoalText("ar")).toBeNull();
   });
 
-  it("keeps offering a plan whose text parses to no tasks, from its saved steps", async () => {
-    // A plan the block parser finds no tasks in must fall back to the steps that
-    // were parsed when it was saved, not vanish from the reminder for good.
+  // REVERSED DELIBERATELY. These two used to assert the opposite: that a plan
+  // the parser finds no tasks in falls back to plan.phases so it does not vanish
+  // from the reminder. That was written before it was clear that
+  // toggleStepComplete — the only writer of plan.completedSteps — went away with
+  // the flat list. With no writer the fallback's filter is a no-op, so it can
+  // only ever return EVERY step: a plan with no tickable surface anywhere in the
+  // app, offered again every single day with no way to ever finish it. A
+  // reminder you cannot dismiss is worse than one that stays quiet, and the plan
+  // is still on screen in الأسبوعي either way.
+  it("skips a plan whose text parses to no tasks, rather than nag forever", async () => {
     store["@advisor_action_plans"] = JSON.stringify([plan({ content: "لا توجد خطوات هنا" })]);
-    expect(await getCurrentGoalText("ar")).toContain("راجع نيتك");
+    // Nothing else is in the store, so the reminder has nothing to say at all.
+    expect(await getCurrentGoalText("ar")).toBeNull();
   });
 
-  it("still reads a plan saved before the advisor kept its own text", async () => {
+  it("skips a plan saved before the advisor kept its own text", async () => {
     store["@advisor_action_plans"] = JSON.stringify([
       plan({ content: undefined, completedSteps: ["s1"] }),
     ]);
-    expect(await getCurrentGoalText("ar")).toContain("اقرأ باب الإخلاص");
+    expect(await getCurrentGoalText("ar")).toBeNull();
   });
 
   it("moves on to an older plan when the newest is finished", async () => {

@@ -1147,7 +1147,16 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
   // On focus, not just on mount: this tab stays mounted while the child screen
   // is pushed over it, so ticks made there wrote progressDone/progressTotal
   // while the percentage here sat unchanged until the app was restarted.
-  useFocusEffect(useCallback(() => { loadPlans(); }, [childId]));
+  // Bumped on focus so the renderers below remount and re-read stored ticks.
+  // They keep completedTasks in component state, and this tab stays mounted
+  // while the child screen sits on top of it — so an expanded plan held the set
+  // it had on the way out, and the next tick there wrote that stale set back,
+  // erasing everything ticked on the child screen.
+  const [focusTick, setFocusTick] = useState(0);
+  useFocusEffect(useCallback(() => {
+    loadPlans();
+    setFocusTick((n) => n + 1);
+  }, [childId]));
 
   const loadPlans = async () => {
     try {
@@ -1244,6 +1253,7 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
                     it was saved. Keyed on plan.id, the key the child screen also
                     uses, so a task ticked on one screen is ticked on both. */}
                 <TreatmentPlanRenderer
+                  key={`${plan.id}-${focusTick}`}
                   planText={cleanTreatmentText(plan.content || "", lang)}
                   issueId={plan.id}
                   colors={colors}

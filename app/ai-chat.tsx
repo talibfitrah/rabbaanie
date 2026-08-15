@@ -521,16 +521,36 @@ function AIChatScreenInner() {
     });
   };
 
-  const shareConversation = async (convId: string) => {
+  const shareConversation = async (convId: string, dbId?: number) => {
     try {
-      // Load conversation messages
-      const stored = await AsyncStorage.getItem(`ai_chat_conv_${convId}`);
-      if (!stored) {
-        Alert.alert(language === "ar" ? "خطأ" : "Error", language === "ar" ? "لم يتم العثور على المحادثة" : "Conversation not found");
-        return;
+      // Server first, exactly like resumeConversation. Reading only local
+      // storage meant every server-backed consultation failed to share: those
+      // are listed with id `db_<dbId>` and have no `ai_chat_conv_db_<dbId>`
+      // entry, so sharing one always said "conversation not found" — and the
+      // local copy, where it exists at all, can be an older, shorter version
+      // that stops before the treatment plan.
+      let msgs: ChatMessage[] = [];
+      if (dbId) {
+        try {
+          const res = await authedFetch(`/api/trpc/aiChat.getConversationFromDb`, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ json: { dbId, deviceId: await getDeviceId() } }),
+          });
+          const conv = (await res.json())?.result?.data?.json;
+          if (conv?.messages?.length) msgs = conv.messages;
+        } catch {
+          // fall through to the local copy
+        }
       }
-      const data = JSON.parse(stored);
-      const msgs = data.messages || [];
+      if (msgs.length === 0) {
+        const stored = await AsyncStorage.getItem(`ai_chat_conv_${convId}`);
+        if (!stored) {
+          Alert.alert(language === "ar" ? "خطأ" : "Error", language === "ar" ? "لم يتم العثور على المحادثة" : "Conversation not found");
+          return;
+        }
+        msgs = JSON.parse(stored).messages || [];
+      }
       const conv = conversationHistory.find(h => h.id === convId);
       const title = conv?.title || (language === "ar" ? "استشارة" : "Consultation");
       const childName = conv?.childName || "";
@@ -1199,7 +1219,7 @@ function AIChatScreenInner() {
                   {!selectMode && (
                     <View style={{ gap: 6 }}>
                       <Pressable
-                        onPress={() => shareConversation(item.id)}
+                        onPress={() => shareConversation(item.id, item.dbId)}
                         style={({ pressed }) => [{
                           width: 36,
                           height: 36,

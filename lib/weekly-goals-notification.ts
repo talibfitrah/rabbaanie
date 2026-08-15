@@ -136,8 +136,11 @@ export async function cancelWeeklyGoalsNotification(): Promise<void> {
  * done". Counting with a second parser meant the reminder could skip past work
  * that had never been done, or drop a plan it could not parse.
  *
- * Plans saved before the advisor kept its own text have only the parsed phases,
- * and those are still read the way they always were.
+ * A plan whose text parses to no tasks contributes nothing. It used to fall back
+ * to plan.phases filtered by plan.completedSteps, but toggleStepComplete was the
+ * only writer of completedSteps and it is gone with the flat list, so that
+ * branch could only ever return every step: a plan the parent has no way to tick
+ * anywhere in the app, offered by the reminder every single day forever.
  */
 async function remainingPlanTasks(plan: any, language: string): Promise<string[]> {
   // Cleaned exactly the way the two screens clean it before parsing. The task
@@ -147,18 +150,12 @@ async function remainingPlanTasks(plan: any, language: string): Promise<string[]
   const tasks = plan?.content
     ? parsePlanText(cleanTreatmentText(plan.content, language)).filter((b) => b.type === "task")
     : [];
-  if (tasks.length > 0) {
-    const raw = await AsyncStorage.getItem(planProgressKey(plan.id));
-    const done = new Set<string>(raw ? JSON.parse(raw) : []);
-    return tasks
-      .filter((t) => !done.has((t as { key: string }).key))
-      .map((t) => (t as { text: string }).text);
-  }
-  return (plan?.phases ?? []).flatMap((ph: any) =>
-    (ph?.steps ?? [])
-      .filter((s: any) => !(plan.completedSteps ?? []).includes(s.id))
-      .map((s: any) => s.text),
-  );
+  if (tasks.length === 0) return [];
+  const raw = await AsyncStorage.getItem(planProgressKey(plan.id));
+  const done = new Set<string>(raw ? JSON.parse(raw) : []);
+  return tasks
+    .filter((t) => !done.has((t as { key: string }).key))
+    .map((t) => (t as { text: string }).text);
 }
 
 export async function getCurrentGoalText(language: string): Promise<string | null> {
