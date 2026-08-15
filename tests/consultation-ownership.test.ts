@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
+import { ownsConsultation } from "../server/consultation-ownership";
 
 // dbId is a sequential primary key on parentAiConsultations. Both endpoints are
 // publicProcedure and nothing gates /api/trpc, so before this an unauthenticated
@@ -25,8 +26,8 @@ describe("reading a consultation", () => {
     expect(body).toContain("deviceId: z.string()");
   });
 
-  it("refuses records belonging to another device", () => {
-    expect(body).toContain("conv.deviceId !== input.deviceId");
+  it("refuses records belonging to someone else", () => {
+    expect(body).toContain("ownsConsultation(conv");
   });
 
   it("takes it in the body, not the URL, since it authorises access", () => {
@@ -59,8 +60,8 @@ describe("deleting a consultation", () => {
   });
 
   it("checks ownership before deleting", () => {
-    expect(body).toContain("conv.deviceId !== input.deviceId");
-    const guard = body.indexOf("conv.deviceId !== input.deviceId");
+    expect(body).toContain("ownsConsultation(conv");
+    const guard = body.indexOf("ownsConsultation(conv");
     const del = body.indexOf("await deleteParentAiConsultation");
     expect(guard).toBeLessThan(del);
   });
@@ -73,8 +74,8 @@ describe("updating a consultation", () => {
   const body = procedureBody("saveConversationToDb");
 
   it("checks ownership before overwriting an existing record", () => {
-    expect(body).toContain("existing.deviceId !== input.deviceId");
-    const guard = body.indexOf("existing.deviceId !== input.deviceId");
+    expect(body).toContain("ownsConsultation(existing");
+    const guard = body.indexOf("ownsConsultation(existing");
     const update = body.indexOf("await updateParentAiConsultation");
     expect(guard).toBeGreaterThan(-1);
     expect(update).toBeGreaterThan(-1);
@@ -108,5 +109,40 @@ describe("callers send the device id", () => {
     for (const p of payloads) {
       expect(p).toContain("deviceId");
     }
+  });
+});
+
+describe("the ownership rule itself", () => {
+  // Tested as behaviour, not by grepping ai-chat.ts for an expression: the
+  // previous version of this file pinned the literal `deviceId !== input.deviceId`,
+  // so replacing that guard with a STRONGER one failed the test — the exact way
+  // a source-coupled assertion pushes you to loosen it and lose the guard.
+  const MINE = 42;
+  const THEIRS = 43;
+
+  it("lets the account through on any device", () => {
+    // The whole point: a reinstall rotates the device id, and the parent must
+    // still reach their own consultation.
+    expect(ownsConsultation({ parentId: MINE, deviceId: "old" }, MINE, "new")).toBe(true);
+  });
+
+  it("refuses another account even from the row's own device", () => {
+    // deviceId is client-asserted, so learning one must not be enough.
+    expect(ownsConsultation({ parentId: THEIRS, deviceId: "d1" }, MINE, "d1")).toBe(false);
+  });
+
+  it("falls back to the device only for rows nobody owns", () => {
+    expect(ownsConsultation({ parentId: 0, deviceId: "d1" }, 0, "d1")).toBe(true);
+    expect(ownsConsultation({ parentId: 0, deviceId: "d1" }, 0, "d2")).toBe(false);
+  });
+
+  it("does not treat two missing device ids as a match", () => {
+    // parentAiConsultRouter.create stores deviceId NULL; null === null would
+    // hand every such row to any caller sending nothing.
+    expect(ownsConsultation({ parentId: 0, deviceId: null }, 0, "")).toBe(false);
+  });
+
+  it("refuses a missing row", () => {
+    expect(ownsConsultation(null, MINE, "d1")).toBe(false);
   });
 });

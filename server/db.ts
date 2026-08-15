@@ -4704,16 +4704,6 @@ export async function deleteParentAiConsultation(consultationId: number) {
     .delete(parentAiConsultations)
     .where(eq(parentAiConsultations.id, consultationId));
 }
-export async function getParentAiConsultationsByDevice(deviceId: string) {
-  const database = await getDb();
-  if (!database) return [];
-  return database
-    .select()
-    .from(parentAiConsultations)
-    .where(eq(parentAiConsultations.deviceId, deviceId))
-    .orderBy(desc(parentAiConsultations.updatedAt));
-}
-
 /**
  * A parent's consultations, keyed to their account when they have one.
  *
@@ -4730,9 +4720,23 @@ export async function getParentAiConsultationsForOwner(
   parentId: number,
   deviceId: string,
 ) {
-  if (!parentId) return getParentAiConsultationsByDevice(deviceId);
   const database = await getDb();
   if (!database) return [];
+  if (!parentId) {
+    // Unowned rows only — the same rule ownsConsultation applies. Listing every
+    // row for the device would show a caller with no account the consultations
+    // that now belong to one, which open and delete would then refuse.
+    return database
+      .select()
+      .from(parentAiConsultations)
+      .where(
+        and(
+          eq(parentAiConsultations.parentId, 0),
+          eq(parentAiConsultations.deviceId, deviceId),
+        ),
+      )
+      .orderBy(desc(parentAiConsultations.updatedAt));
+  }
   return database
     .select()
     .from(parentAiConsultations)

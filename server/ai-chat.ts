@@ -10,6 +10,7 @@
 
 import { z } from "zod";
 import { router, publicProcedure } from "./_core/trpc";
+import { ownsConsultation } from "./consultation-ownership";
 import { invokeAI, invokeAIChat, getAIProviderStatus, type AIMessage as ProviderMessage } from "./ai-provider";
 
 // ============================================================
@@ -359,29 +360,6 @@ let nextLiveDataId = 1;
 // ============================================================
 // ROUTER
 // ============================================================
-
-/**
- * Who may open, change or delete a stored consultation.
- *
- * The account owns it once there is one. deviceId is asserted by the client, so
- * it is honoured only for rows nobody owns yet — otherwise learning a device id
- * would be enough to read or delete another family's consultation.
- *
- * Listing (getParentAiConsultationsForOwner) applies the same rule, and all four
- * paths must agree: widening only the list left rows that appeared in the
- * archive but returned null when tapped and ignored every delete.
- */
-function ownsConsultation(
-  row: { parentId?: number | null; deviceId?: string | null } | null | undefined,
-  ownerId: number,
-  deviceId: string,
-): boolean {
-  if (!row) return false;
-  if ((row.parentId ?? 0) > 0) return row.parentId === ownerId;
-  // Rows created by parentAiConsultRouter.create carry a NULL deviceId; without
-  // this they would match any caller who sent no device id at all.
-  return !!row.deviceId && row.deviceId === deviceId;
-}
 
 export const aiChatRouter = router({
   /**
