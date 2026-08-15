@@ -82,14 +82,30 @@ describe("progress reaches the plan generator", () => {
     expect(src).toContain("completedTasks:");
   });
 
-  it("the server accepts it", () => {
+  it("the server accepts it, bounded", () => {
     const src = fs.readFileSync("server/advice.ts", "utf-8");
-    expect(src).toContain("completedTasks: z.number().optional()");
+    expect(src).toMatch(/completedTasks: z\.number\(\)[^\n]*\.optional\(\)/);
+    // A caller must not be able to claim an absurd number of finished tasks.
+    expect(src).toContain("completedTasks: z.number().int().min(0).max(1000)");
   });
 
   it("the plan is told to move on rather than repeat finished tasks", () => {
     const src = fs.readFileSync("server/advice.ts", "utf-8");
     expect(src).toContain("انتقل إلى الخطوة التي تليها");
+  });
+});
+
+describe("one plan generation per change, not two", () => {
+  const src = fs.readFileSync("app/child/weekplan.tsx", "utf-8");
+
+  it("resets progress to not-read before re-reading it", () => {
+    // Otherwise the loader fires once on the new issue signature with stale
+    // progress, then again when the read lands — two paid generations racing.
+    expect(src).toContain("setPlanProgress(null)");
+  });
+
+  it("the loader waits while progress is unread", () => {
+    expect(src).toContain("if (planProgress === null) return;");
   });
 });
 

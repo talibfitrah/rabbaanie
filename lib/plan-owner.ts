@@ -1,4 +1,4 @@
-export type PlanSectionOwner = { label: string; role: "parent" | "child" };
+type PlanSectionOwner = { label: string; role: "parent" | "child" };
 
 /**
  * The Arabic treatment plan already separates "مهام الوالد" from "مهام الابن/البنت",

@@ -25,6 +25,23 @@ export function issuesSignature(issues: IssueStamp[]): string {
   return Math.abs(hash).toString(36);
 }
 
+/**
+ * Prefix identifying one child's plan for one language and one week.
+ *
+ * Pruning is scoped to this, not to the child alone: a broader prefix would
+ * delete the still-valid cache for every other language and week, so switching
+ * language would pay for a fresh plan instead of using the cached one.
+ */
+export function weekPlanCachePrefix(
+  childId: string,
+  lang: string,
+  weekInYear: number | null,
+  yearKey: string | null,
+): string {
+  return `weekplan_${childId}_${lang}_${yearKey}_w${weekInYear}_`;
+}
+
+/** Built from the prefix so the two can never drift apart. */
 export function getWeekPlanCacheKey(
   childId: string,
   lang: string,
@@ -32,10 +49,5 @@ export function getWeekPlanCacheKey(
   yearKey: string | null,
   issuesSig: string,
 ): string {
-  return `weekplan_${childId}_${lang}_${yearKey}_w${weekInYear}_${issuesSig}`;
-}
-
-/** Prefix used to find and prune a child's superseded plan caches. */
-export function weekPlanCachePrefix(childId: string): string {
-  return `weekplan_${childId}_`;
+  return weekPlanCachePrefix(childId, lang, weekInYear, yearKey) + issuesSig;
 }

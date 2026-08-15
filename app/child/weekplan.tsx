@@ -486,6 +486,11 @@ export default function WeekplanScreen() {
   // Read how many of each plan's tasks the parents have ticked off.
   useEffect(() => {
     let alive = true;
+    // Back to "not read yet" first. Leaving the previous count in place would let
+    // the loader below fire immediately on the new issue signature with stale
+    // progress, then fire again when this read lands — two paid plan generations
+    // racing to render.
+    setPlanProgress(null);
     (async () => {
       const entries = await Promise.all(
         childIssues.map(async (i) => ({
@@ -587,7 +592,7 @@ export default function WeekplanScreen() {
         // The cache key now changes whenever this child's issues change, so drop
         // the superseded plans instead of leaving one behind per consultation.
         try {
-          const prefix = weekPlanCachePrefix(child.id);
+          const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
           const stale = (await AsyncStorage.getAllKeys()).filter(
             (k) => k.startsWith(prefix) && k !== cacheKey,
           );
@@ -866,7 +871,11 @@ export default function WeekplanScreen() {
         </View>
       )}
       {/* The advisor's own plan for this child, shown the same interactive way as
-          on the child page, so what is done can be ticked off here too. */}
+          on the child page, so what is done can be ticked off here too.
+          Ticking here does not rebuild the weekly plan on the spot — that would
+          be one plan generation per checkbox. The tick is stored, and the next
+          time this screen opens the progress is read, the cache key moves, and
+          the new plan carries on from what was finished. */}
       {childIssues
         .filter((issue) => issue.treatmentPlan)
         .map((issue) => (
