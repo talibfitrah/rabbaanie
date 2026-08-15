@@ -124,7 +124,7 @@ export async function cancelWeeklyGoalsNotification(): Promise<void> {
  * Prioritizes child-specific advisor plans, then general weekly goals.
  * Cycles through the goals based on the day of the week.
  */
-async function getCurrentGoalText(language: string): Promise<string | null> {
+export async function getCurrentGoalText(language: string): Promise<string | null> {
   try {
     const dayIndex = new Date().getDay();
 
@@ -133,11 +133,14 @@ async function getCurrentGoalText(language: string): Promise<string | null> {
     if (plansRaw) {
       const plans = JSON.parse(plansRaw);
       // Get active plans (not fully completed)
+      // Ticks live in planProgressKey now, written by the renderer on both the
+      // child screen and الأسبوعي; progressDone/Total is what it last reported.
+      // completedSteps is only still read so a plan ticked off before the
+      // upgrade is not resurrected as active.
       const activePlans = plans.filter((p: any) => {
         if (!p.phases || p.phases.length === 0) return false;
-        const totalSteps = p.phases.reduce((sum: number, ph: any) => sum + (ph.steps?.length || 0), 0);
-        const completedSteps = (p.completedSteps || []).length;
-        return completedSteps < totalSteps;
+        const totalSteps = p.progressTotal ?? p.phases.reduce((sum: number, ph: any) => sum + (ph.steps?.length || 0), 0);
+        return (p.progressDone ?? (p.completedSteps || []).length) < totalSteps;
       });
 
       if (activePlans.length > 0) {
@@ -145,7 +148,10 @@ async function getCurrentGoalText(language: string): Promise<string | null> {
         const latestPlan = activePlans[activePlans.length - 1];
         const childName = latestPlan.childName || "";
         
-        // Find today's uncompleted step
+        // Find today's uncompleted step. The renderer records how many tasks are
+        // done, not which of these steps they were — both lists walk the plan in
+        // the order it was written, so skipping that many from the front lands on
+        // the work still ahead of the parents.
         const allSteps: { text: string }[] = [];
         for (const phase of latestPlan.phases) {
           if (phase.steps) {
@@ -156,6 +162,9 @@ async function getCurrentGoalText(language: string): Promise<string | null> {
             }
           }
         }
+        // Only the renderer's count skips further — the loop above already
+        // dropped anything a pre-upgrade tick had recorded in completedSteps.
+        allSteps.splice(0, latestPlan.progressDone ?? 0);
 
         if (allSteps.length > 0) {
           const step = allSteps[dayIndex % allSteps.length];

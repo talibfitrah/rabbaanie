@@ -125,13 +125,24 @@ describe("Advisor Action Plan Parsing (ai-chat.tsx)", () => {
 describe("Weekly Advisor Plans Section (weekly.tsx)", () => {
   const filePath = path.join(projectRoot, "app/(tabs)/weekly.tsx");
   const content = fs.readFileSync(filePath, "utf-8");
+  const rendererContent = fs.readFileSync(
+    path.join(projectRoot, "components/treatment-plan-renderer.tsx"),
+    "utf-8",
+  );
 
   it("should have AdvisorPlansSection component", () => {
     expect(content).toContain("AdvisorPlansSection");
   });
 
+  // The plan is no longer drawn as a flat list owned by this screen, so the
+  // identifiers this used to pin (toggleStepComplete/expandedPhase) are gone.
+  // What must not vanish is the capability: the parent can still tick a plan
+  // task off in الأسبوعي. That now lives in TreatmentPlanRenderer, which is also
+  // what the child screen uses, so both tick the same tasks.
   it("should support step completion toggling", () => {
-    expect(content).toContain("toggleStepComplete");
+    expect(content).toContain("<TreatmentPlanRenderer");
+    expect(rendererContent).toContain("toggleTask");
+    expect(rendererContent).toMatch(/setItem\(planProgressKey\(/);
   });
 
   it("should show progress bar for plans", () => {
@@ -140,7 +151,9 @@ describe("Weekly Advisor Plans Section (weekly.tsx)", () => {
   });
 
   it("should display phases with expandable sections", () => {
-    expect(content).toContain("expandedPhase");
+    // Sections are the plan's own headings now, collapsed by the renderer,
+    // rather than the week buckets this screen used to build.
+    expect(rendererContent).toContain("groupIntoSections");
   });
 
   it("should show day names for distributed steps", () => {
@@ -150,8 +163,10 @@ describe("Weekly Advisor Plans Section (weekly.tsx)", () => {
   });
 
   it("should show checkboxes for step completion", () => {
-    expect(content).toContain("check-box");
-    expect(content).toContain("check-box-outline-blank");
+    // A tickable box next to each task, filled with a ✓ once done.
+    expect(rendererContent).toMatch(/case "task":/);
+    expect(rendererContent).toContain("styles.checkbox");
+    expect(rendererContent).toContain("styles.checkmark");
   });
 });
 

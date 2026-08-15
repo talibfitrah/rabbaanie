@@ -12,6 +12,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWeeklyData } from "@/hooks/use-weekly-data";
 import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
+import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import { cleanTreatmentText } from "@/lib/plan-text";
 
 const PROGRESS_KEY = "@weekly_progress_v2";
 
@@ -1140,7 +1142,6 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
 }) {
   const [plans, setPlans] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
-  const [expandedPhase, setExpandedPhase] = useState<string | null>(null);
 
   useEffect(() => { loadPlans(); }, [childId]);
 
@@ -1155,22 +1156,23 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
     } catch (e) { console.error("Error loading advisor plans:", e); }
   };
 
-  const toggleStepComplete = async (planId: string, stepId: string) => {
+  // The renderer owns the ticks — it writes them under planProgressKey(plan.id),
+  // the same key the child screen uses, so both screens tick the same tasks.
+  // What it reports back is cached on the plan so the collapsed card can still
+  // show a real number without re-parsing the plan text here; a second parser
+  // would be free to disagree with the one drawing the checkboxes.
+  const savePlanProgress = async (planId: string, done: number, total: number) => {
     try {
       const data = await AsyncStorage.getItem("@advisor_action_plans");
-      if (data) {
-        const allPlans = JSON.parse(data);
-        const planIdx = allPlans.findIndex((p: any) => p.id === planId);
-        if (planIdx >= 0) {
-          const plan = allPlans[planIdx];
-          const completed = plan.completedSteps || [];
-          plan.completedSteps = completed.includes(stepId) ? completed.filter((s: string) => s !== stepId) : [...completed, stepId];
-          allPlans[planIdx] = plan;
-          await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(allPlans));
-          setPlans(prev => prev.map(p => p.id === planId ? { ...p, completedSteps: plan.completedSteps } : p));
-        }
-      }
-    } catch (e) { console.error("Error toggling step:", e); }
+      if (!data) return;
+      const allPlans = JSON.parse(data);
+      const planIdx = allPlans.findIndex((p: any) => p.id === planId);
+      if (planIdx < 0) return;
+      if (allPlans[planIdx].progressDone === done && allPlans[planIdx].progressTotal === total) return;
+      allPlans[planIdx] = { ...allPlans[planIdx], progressDone: done, progressTotal: total };
+      await AsyncStorage.setItem("@advisor_action_plans", JSON.stringify(allPlans));
+      setPlans(prev => prev.map(p => p.id === planId ? { ...p, progressDone: done, progressTotal: total } : p));
+    } catch (e) { console.error("Error saving plan progress:", e); }
   };
 
   const removePlan = async (planId: string) => {
@@ -1195,10 +1197,12 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
         </Text>
       </View>
       {plans.map((plan) => {
-        const phases = plan.phases || [];
-        const completedSteps = plan.completedSteps || [];
-        const totalSteps = phases.reduce((acc: number, ph: any) => acc + (ph.steps?.length || 0), 0);
-        const completedCount = completedSteps.length;
+        // progressDone/Total are what the renderer last reported. Until a plan
+        // has been opened once since the upgrade it has neither, so the old
+        // saved counts stand in — stale, but the renderer corrects them the
+        // moment the parent opens it.
+        const totalSteps = plan.progressTotal ?? (plan.phases || []).reduce((acc: number, ph: any) => acc + (ph.steps?.length || 0), 0);
+        const completedCount = plan.progressDone ?? (plan.completedSteps || []).length;
         const progress = totalSteps > 0 ? Math.round((completedCount / totalSteps) * 100) : 0;
         const isExpanded = expanded === plan.id;
 
@@ -1226,46 +1230,19 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
 
             {isExpanded && (
               <View style={{ marginTop: 12 }}>
-                {phases.length > 0 ? phases.map((phase: any, phIdx: number) => {
-                  const phaseKey = `${plan.id}_ph${phIdx}`;
-                  const isPhaseExpanded = expandedPhase === phaseKey;
-                  const phaseCompleted = (phase.steps || []).every((s: any) => completedSteps.includes(s.id));
-                  return (
-                    <View key={phIdx} style={{ marginBottom: 8 }}>
-                      <Pressable
-                        onPress={() => setExpandedPhase(isPhaseExpanded ? null : phaseKey)}
-                        style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", backgroundColor: phaseCompleted ? colors.success + "10" : colors.surface, borderRadius: 8, padding: 10, opacity: pressed ? 0.7 : 1 }]}
-                      >
-                        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
-                          <MaterialIcons name={phaseCompleted ? "check-circle" : "schedule"} size={16} color={phaseCompleted ? colors.success : colors.primary} />
-                          <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "700" }}>{phase.phase}</Text>
-                        </View>
-                        <MaterialIcons name={isPhaseExpanded ? "expand-less" : "expand-more"} size={18} color={colors.muted} />
-                      </Pressable>
-                      {isPhaseExpanded && (phase.steps || []).map((step: any, sIdx: number) => {
-                        const isComplete = completedSteps.includes(step.id);
-                        return (
-                          <Pressable
-                            key={step.id || sIdx}
-                            onPress={() => toggleStepComplete(plan.id, step.id)}
-                            style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", gap: 8, paddingVertical: 8, paddingHorizontal: 12, marginTop: 2, backgroundColor: isComplete ? colors.success + "08" : "transparent", borderRadius: 6, opacity: pressed ? 0.7 : 1 }]}
-                          >
-                            <MaterialIcons name={isComplete ? "check-box" : "check-box-outline-blank"} size={20} color={isComplete ? colors.success : colors.muted} />
-                            <View style={{ flex: 1 }}>
-                              <Text style={{ color: isComplete ? colors.muted : colors.foreground, fontSize: 12, lineHeight: 18, textAlign: "left", writingDirection: "rtl", textDecorationLine: isComplete ? "line-through" : "none" }}>
-                                {step.text}
-                              </Text>
-                            </View>
-                          </Pressable>
-                        );
-                      })}
-                    </View>
-                  );
-                }) : (
-                  <Text style={{ color: colors.foreground, fontSize: 12, lineHeight: 18, textAlign: "left", writingDirection: "rtl" }}>
-                    {plan.content}
-                  </Text>
-                )}
+                {/* The same renderer the child screen uses, on the text the
+                    advisor actually wrote. plan.phases is a lossy derivative —
+                    week buckets of bare step text — so drawing it here dropped
+                    every "علاج في …:" heading and the whole مهام الوالد /
+                    مهام الابن split, and froze the plan at the shape it had when
+                    it was saved. Keyed on plan.id, the key the child screen also
+                    uses, so a task ticked on one screen is ticked on both. */}
+                <TreatmentPlanRenderer
+                  planText={cleanTreatmentText(plan.content || "", lang)}
+                  issueId={plan.id}
+                  colors={colors}
+                  onProgressChange={(done: number, total: number) => savePlanProgress(plan.id, done, total)}
+                />
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", marginTop: 10, paddingTop: 8, borderTopWidth: 1, borderTopColor: colors.border }}>
                   <Text style={{ color: colors.muted, fontSize: 10 }}>{new Date(plan.savedAt).toLocaleDateString()}</Text>
                   <Pressable onPress={() => removePlan(plan.id)} style={({ pressed }) => [{ opacity: pressed ? 0.5 : 1 }]}>
