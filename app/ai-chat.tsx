@@ -20,6 +20,7 @@ import {
   Image,
   Alert,
   ScrollView,
+  BackHandler,
 } from "react-native";
 import { useRouter } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
@@ -1146,6 +1147,34 @@ function AIChatScreenInner() {
     }
   }, [messages.length]);
 
+  /**
+   * One step back, not out.
+   *
+   * Every in-screen layer was invisible to the old handler: with the history
+   * panel open, or a consultation resumed, it fell straight through to
+   * router.back() and left the advisor for the home screen. Android's hardware
+   * back never consulted it at all, so it always exited.
+   */
+  const goBackOneStep = useCallback(() => {
+    if (showHistory) { setShowHistory(false); return true; }
+    if (messages.length > 0) { startNewChat(); return true; }
+    if (childSelectionPhase === "age_input") { setChildSelectionPhase("select"); return true; }
+    if (childSelectionPhase === "ready") {
+      setChildSelectionPhase("select");
+      setSelectedChild(null);
+      setConsultationType("child");
+      return true;
+    }
+    router.back();
+    return true;
+  }, [showHistory, messages.length, childSelectionPhase]);
+
+  // Android's physical/gesture back, which previously bypassed all of the above.
+  useEffect(() => {
+    const sub = BackHandler.addEventListener("hardwareBackPress", goBackOneStep);
+    return () => sub.remove();
+  }, [goBackOneStep]);
+
   const renderMessage = ({ item }: { item: ChatMessage }) => {
     const isUser = item.role === "user";
     return (
@@ -1191,7 +1220,7 @@ function AIChatScreenInner() {
           </Text>
         ) : (
           <View style={language === "ar" ? { direction: "rtl" } as any : undefined}>
-            {item.hasActionPlan ? (
+            {(item.hasActionPlan || detectActionPlan(item.content)) ? (
               <TreatmentPlanRenderer
                 planText={item.content}
                 issueId={item.id}
@@ -1204,7 +1233,7 @@ function AIChatScreenInner() {
         )}
 
         {/* Action plan save button */}
-        {!isUser && item.hasActionPlan && (
+        {!isUser && (item.hasActionPlan || detectActionPlan(item.content)) && (
           <Pressable
             onPress={() => saveActionPlanToWeekly(item.content)}
             style={({ pressed }) => [
@@ -1286,18 +1315,7 @@ function AIChatScreenInner() {
       >
         {/* Header */}
         <View style={[styles.header, { borderBottomColor: colors.border }]}>
-          <Pressable onPress={() => {
-            // Step back within advisor: if in ready phase, go back to select; otherwise exit
-            if (childSelectionPhase === "ready" && messages.length === 0) {
-              setChildSelectionPhase("select");
-              setSelectedChild(null);
-              setConsultationType("child");
-            } else if (childSelectionPhase === "age_input") {
-              setChildSelectionPhase("select");
-            } else {
-              router.back();
-            }
-          }} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
+          <Pressable onPress={goBackOneStep} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
             <IconSymbol name="chevron.right" size={24} color={colors.foreground} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>{welcomeTitle}</Text>
