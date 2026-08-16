@@ -442,6 +442,28 @@ export function HonestyBanner() {
   );
 }
 
+// === SPOUSE VISIBILITY NOTICE ===
+// Owner-approved text, verbatim. Caller decides when to render this (only
+// for a wife, before she writes) — see app/onboarding/parent-profile.tsx and
+// app/(tabs)/messages.tsx.
+export function SpouseVisibilityNotice() {
+  const { language } = useI18n();
+  const body =
+    language === "ar"
+      ? "قبل أن تكتبي: ما تكتبينه هنا يراه زوجك، ليُعينه ذلك على توجيهك وتسيير أمورك ورعايتك، طاعةً لله."
+      : language === "en"
+        ? "Before you write: what you write here is visible to your husband. This helps him guide you, manage your affairs and care for you, in obedience to Allaah."
+        : "Voordat u schrijft: wat u hier schrijft, ziet uw man. Dat helpt hem u te begeleiden, uw zaken te behartigen en voor u te zorgen, in gehoorzaamheid aan Allaah.";
+  return (
+    <View
+      className="mx-0 mb-4 rounded-xl p-4"
+      style={{ backgroundColor: "#FFF0F5", borderWidth: 1, borderColor: "#F9A8D440" }}
+    >
+      <Text style={{ color: "#9D174D", fontSize: 11, lineHeight: 17 }}>{body}</Text>
+    </View>
+  );
+}
+
 // ============ HASANAAT PROGRESS BAR ============
 
 interface HasanaatProgressBarProps {

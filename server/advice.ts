@@ -380,6 +380,20 @@ function correctTranscription(text: string, lang: "nl" | "en"): string {
   return result;
 }
 
+/**
+ * Defensive strip of markdown emphasis markers (**bold**, __underline__) from
+ * LLM output before it reaches the client, which renders plain text. The
+ * prompts also instruct the model not to use these, but that's probabilistic
+ * — this is the guarantee for already-cached or non-compliant output. Only
+ * removes paired markers; a lone/unpaired * or _ is left untouched.
+ */
+export function stripMarkdownEmphasis(text: string): string {
+  if (!text) return text;
+  return text
+    .replace(/\*\*(.+?)\*\*/g, "$1")
+    .replace(/__(.+?)__/g, "$1");
+}
+
 // Load knowledge base once and cache
 let cachedKB: any = null;
 function getKnowledgeBase() {
@@ -1074,6 +1088,7 @@ export const adviceRouter = router({
 - لا تستخدم أرقامًا بدل الحروف العربية (لا تكتب 3 بدل ع).
 - لا تقل "تصفية الطفل" بل قل "التصفية لـ [اسم الطفل]".
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا بدون رموز.
+- قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا.
 
 قواعد المدح والتشجيع (صارمة):
@@ -1114,6 +1129,11 @@ Your advice must:
 TRANSLITERATION RULES (ALWAYS apply):
 - ALWAYS write "Allaah" with double 'a' (not "Allah"). E.g.: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - The Arabic letter ع (ain) is written as '3'. E.g.: 3abd, 3ilm, 3Abdullaah, 3aqeedah, 3ibaadah.
+- Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
+
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
 PRAISE AND ENCOURAGEMENT RULES (STRICT):
 - NEVER praise the child directly. Attribute all good to Allaah: "Maashaa'llaah, Allaah guided you"
@@ -1155,6 +1175,11 @@ Je advies moet:
 TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
+- Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
+
+REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
 LOFPRIJZING EN AANMOEDIGING (STRIKT):
 - Prijs het kind NOOIT rechtstreeks. Schrijf alle goede daden toe aan Allaah: "Maashaa'llaah, Allaah heeft jou geleid"
@@ -1426,12 +1451,33 @@ STRIKTE REGELS:
           }
           const parsed = JSON.parse(jsonStr);
           if (parsed.sections && Array.isArray(parsed.sections)) {
-            return { advice: rawText, sections: parsed.sections };
+            // Strip markdown emphasis from the extracted string fields, not
+            // from rawText before JSON.parse: stripMarkdownEmphasis's **
+            // regex isn't anchored to a single JSON string value, so an
+            // unpaired ** in one section's field and another unpaired ** in
+            // a different field on the same line get bridged and silently
+            // corrupted together. Scoping the strip to each already-parsed
+            // field keeps it correct per string, matching the function's
+            // own "lone/unpaired marker is left untouched" contract.
+            const sections = parsed.sections.map((s: any) => ({
+              ...s,
+              title: stripMarkdownEmphasis(s.title),
+              content: stripMarkdownEmphasis(s.content),
+            }));
+            // `advice` is the pre-`sections` fallback field for older
+            // clients — built from the already-parsed, already-per-field-
+            // stripped sections above, not from rawText: the same bridging
+            // bug the comment above warns about applies here too, and
+            // rawText is the raw JSON blob anyway, not prose.
+            const advice = sections
+              .map((s: any) => `${s.title || ""}\n${s.content || ""}`)
+              .join("\n\n");
+            return { advice, sections };
           }
         } catch (parseErr) {
           // JSON parsing failed, return as plain text
         }
-        return { advice: rawText };
+        return { advice: stripMarkdownEmphasis(rawText) };
       } catch (error) {
         return { advice: isAr ? "ابدأ كل يوم بتقوية صلتك بالله. التربية تبدأ بنفسك: صلاتك، علمك، سلوكك هي الأساس الذي يبني عليه أولادك. كن واعيًا بالفتن في بيئتك واحمِ أسرتك بالعلم والعادات الحسنة." : isEn ? "Start each day by strengthening your own bond with Allaah. Parenting begins with yourself: your prayer, your knowledge, your behavior are the foundation your children build upon. Be aware of the fitnah in your environment and protect your family through knowledge and good habits." : "Begin elke dag met het versterken van uw eigen band met Allaah. De opvoeding begint bij uzelf: uw gebed, uw kennis, uw gedrag zijn het fundament waarop uw kinderen bouwen. Wees bewust van de fitnah in uw omgeving en bescherm uw gezin door kennis en goede gewoontes." };
       }
@@ -1615,6 +1661,7 @@ ${mawsouahContext}
 - لا تقل "تربية الطفل" بل قل "التربية لـ [اسم الطفل]".
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا وواضحًا بدون أي رموز.
 - لا تستخدم النقطتين المزدوجتين (**المساء:**) أو أي شكل من أشكال bold/italic.
+- قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا بعناوين مضبوطة.` : isEn ? `You are an Islamic parenting advisor specialized in the "Islamic Family Science" program (Feb 2022 - June 2025).
 
 METHODOLOGY (from the primary source):
@@ -1677,6 +1724,11 @@ HYBRID ADVICE PRINCIPLES:
 TRANSLITERATION RULES (ALWAYS apply):
 - ALWAYS write "Allaah" with double 'a' (not "Allah"). E.g.: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - The Arabic letter ع (ain) is written as '3'. E.g.: 3abd, 3ilm, 3Abdullaah, 3aqeedah, 3ibaadah.
+- Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
+
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
 KNOWLEDGE BASE:
 ${knowledgeContext}
@@ -1745,6 +1797,11 @@ HYBRIDE ADVIESPRINCIPES:
 TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
+- Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
+
+REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
 KENNISBANK:
 ${knowledgeContext}
@@ -1821,7 +1878,7 @@ ${issuesContext}
 - استخدم العناوين بالضبط كما هي ("القسم الأول: الوالد مع نفسه"، "القسم الثاني: الوالد مع ولده"، "التصفية"، "التزكية"، "تربية اللسان"، "تربية الجوارح")
 - كل هدف يجب أن يحتوي على شكل عملي فريد خاص بذلك الهدف
 - لا تكرر أشكالًا عامة (ليس "اقرأ معه" أو "ناقش" لكل هدف)
-- اذكر النص الكامل للأحاديث والآيات في الشكل العملي
+- اذكر النص الكامل للآيات والأحاديث في الشكل العملي فقط إن كان نصّها موجودًا حرفيًا فيما زُوّدت به من قاعدة المعرفة أعلاه؛ لا تكتب نص آية أو حديث من الذاكرة، واكتفِ بذكر اسم الموضوع أو المبدأ إن لم يكن نصّه متوفرًا لديك
 - اجعل الأشكال ملموسة: من يفعل ماذا، متى، كم المدة، بأي وسيلة
 - نوّع: قصص، تمثيل أدوار، رسم، مشي، طبخ، طبيعة، رياضة، إلخ.` : isEn ? `Generate a HYBRID week plan that integrally includes the full situation of parent AND child:
 
@@ -1851,7 +1908,7 @@ Consider the bond between parent and child.
 IMPORTANT - ACTIVITIES:
 - Each goal MUST have a UNIQUE activity specifically suited to THAT individual goal
 - Do NOT repeat generic activities (not "read together" or "discuss" for every goal)
-- Include the FULL text of ahadith and ayaat in the activity (Arabic + translation)
+- Include the FULL text of an ayah or hadith in the activity (Arabic + translation) ONLY IF that exact text was already given to you in the context above — never write ayah or hadith text from memory; if no verbatim text was supplied for this topic, name the principle instead
 - Make activities concrete: who does what, when, how long, with what materials
 - Vary: storytelling, role-play, drawing, walking, cooking, nature, sports, etc.` : `Genereer een HYBRIDE weekplan dat de volledige situatie van ouder EN kind integraal meeneemt:
 
@@ -1912,7 +1969,7 @@ Houd rekening met de band tussen ouder en kind en de invloed van de ouder.
 BELANGRIJK - WERKVORMEN:
 - Elk doel MOET een UNIEKE werkvorm hebben die specifiek past bij DAT ene doel
 - GEEN generieke werkvormen herhalen (niet "lees samen" of "bespreek" voor elk doel)
-- Geef de VOLLEDIGE tekst van ahaadieth en aayaat in de werkvorm (Arabisch + vertaling)
+- Geef de VOLLEDIGE tekst van een ayah of hadith in de werkvorm (Arabisch + vertaling) ALLEEN als die letterlijke tekst je al is aangereikt in de context hierboven — schrijf nooit ayah- of hadith-tekst uit het geheugen; is er geen letterlijke tekst aangereikt voor dit onderwerp, noem dan alleen het principe
 - Maak werkvormen concreet: wie doet wat, wanneer, hoe lang, met welk materiaal
 - Varieer: verhalen vertellen, rollenspel, tekenen, wandeling, kookactiviteit, natuur, sport, etc.`;
 
@@ -1932,6 +1989,7 @@ BELANGRIJK - WERKVORMEN:
       } else {
         plan = correctTranscription(plan, isEn ? "en" : "nl");
       }
+      plan = stripMarkdownEmphasis(plan);
 
       return { plan };
     }),
@@ -2300,6 +2358,7 @@ ${mawsouahContext}
 - لا تستخدم أرقامًا بدل الحروف العربية (لا تكتب 3 بدل ع).
 - لا تقل "تصفية الطفل" بل قل "التصفية لـ [اسم الطفل]".
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا بدون رموز.
+- قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا.` : isEn ? `You are an Islamic parenting advisor and therapist specialized in the "Islamic Family Science" program (Feb 2022 - June 2025).
 
 METHODOLOGY (from the primary source):
@@ -2352,6 +2411,11 @@ HYBRID TREATMENT PRINCIPLES:
 TRANSLITERATION RULES (ALWAYS apply):
 - ALWAYS write "Allaah" with double 'a' (not "Allah"). E.g.: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - The Arabic letter ع (ain) is written as '3'. E.g.: 3abd, 3ilm, 3Abdullaah, 3aqeedah, 3ibaadah.
+- Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
+
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
 KNOWLEDGE BASE:
 ${treatmentContext}
@@ -2410,6 +2474,11 @@ HYBRIDE BEHANDELPRINCIPES:
 TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
+- Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
+
+REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
 KENNISBANK:
 ${treatmentContext}
@@ -2492,7 +2561,7 @@ ${environmentInfo}
 - يعلّق الأب كل شيء برضا الله وبالحسنات
 - يبيّن ما هي الحسنات وما هي السيئات
 
-كن دقيقًا جدًا: اذكر آيات دقيقة (مع السورة ورقم الآية)، أحاديث (مع المصدر)، أمثلة من الحياة اليومية، وأفعال يومية ملموسة.
+كن دقيقًا جدًا: اذكر آيات دقيقة (مع السورة ورقم الآية) وأحاديث (مع مصدرها) فقط إن كانت واردة حرفيًا فيما زُوّدت به من قاعدة المعرفة أعلاه — لا تختلق آية أو حديثًا أو مصدرًا من الذاكرة؛ ومثّل بأمثلة من الحياة اليومية وأفعال يومية ملموسة.
 استخدم منهجية علم الأسرة الإسلامي كدليل.
 ابنِ على الصفات الجيدة للطفل.
 ضمّن الوضع الأسري الكامل.
@@ -2522,7 +2591,7 @@ Generate a HYBRID and SPECIFIC treatment plan:
 9. USING GOOD QUALITIES & AFFINITIES
 10. MINDSETS FOR THE PARENT DURING TREATMENT
 
-Be VERY specific: name exact ayaat (with surah and ayah number), ahadith (with source), examples from daily life, and concrete daily actions.
+Be VERY specific: name exact ayaat (with surah and ayah number) and hadith (with source) ONLY when that exact text was already given to you in the context above — never invent an ayah, hadith, or source from memory. Also give examples from daily life and concrete daily actions.
 Use the Islamic Family Science methodology as a guide.
 Build on the child's good qualities.
 Integrally include the full family situation.` : `Genereer een HYBRIDE BEHANDELPLAN voor het volgende issue:
@@ -2609,7 +2678,7 @@ Genereer een HYBRIDE en SPECIFIEK behandelplan:
    - Hoe deze mindsets toe te passen
    - Valkuilen om te vermijden (gebaseerd op hun zwakke punten)
 
-Wees ZEER specifiek: noem exacte ayaat (met soerah en ayah-nummer), ahaadieth (met bron), voorbeelden uit het dagelijks leven, en concrete dagelijkse acties.
+Wees ZEER specifiek: noem exacte ayaat (met soerah en ayah-nummer) en ahaadieth (met bron) ALLEEN als die letterlijke tekst je al is aangereikt in de context hierboven — verzin nooit een ayah, hadith of bron uit het geheugen. Geef ook voorbeelden uit het dagelijks leven en concrete dagelijkse acties.
 Gebruik de methodiek uit de Islamitische Gezinskunde als leidraad.
 Bouw op de goede eigenschappen van het kind.
 Neem de volledige gezinssituatie integraal mee.`;
@@ -2630,6 +2699,7 @@ Neem de volledige gezinssituatie integraal mee.`;
       } else {
         plan = correctTranscription(plan, isEn ? "en" : "nl");
       }
+      plan = stripMarkdownEmphasis(plan);
 
       return { plan };
     }),
@@ -2786,6 +2856,12 @@ Neem de volledige gezinssituatie integraal mee.`;
       // 0014 has not run on this server yet — a real hazard given that server
       // code is hand-ported to the VM — spouse advice must degrade to what it
       // produced before this feature existed, not 500.
+      //
+      // Intentionally ungated by hasFullPartnerAccess/resolveGender: the
+      // product owner ruled spouse ADVICE may draw on the partner's data
+      // with no permission grant — only direct verbatim reading of the
+      // partner's profile (getPartnerProfile/syncWithPartner) requires one.
+      // Do not add a gender/grant check here to "fix" this.
       try {
         const partnerSignals = await db.getRecentDiagnosticSignals(partner.id, 7);
         interactionContext += buildPartnerSignalContext(summarizeSignals(partnerSignals), isAr ? "ar" : isEn ? "en" : "nl");
@@ -2805,14 +2881,15 @@ Neem de volledige gezinssituatie integraal mee.`;
 4. مستندة إلى منهج إسلامي (آيات/أحاديث عن العشرة بين الزوجين)
 5. لطيفة وبنّاءة ومشجعة على التعاون في التربية
 
-قدّم 3-5 اقتراحات عملية محددة. كل اقتراح بسطر أو سطرين.
+تنسيق الإخراج (مُلزم): اجمع اقتراحاتك الثلاثة إلى الخمسة في 2-4 أقسام مواضيعية قصيرة (مثل: العلاقة بين الزوجين، الانسجام الأسري، الرابطة الإيمانية بينهما) بدلاً من قائمة مسطّحة. ابدأ كل قسم بعنوان مرقّم في سطر مستقل: "1. العنوان"، "2. العنوان"، وهكذا — رقم عادي في النص، وليس نجومًا ولا خطًا عريضًا — ثم اذكر اقتراح (اقتراحات) ذلك القسم تحته كأسطر تبدأ بشرطة (-)، لا بترقيم، حتى لا تُقرأ كعناوين إضافية.
 استخدم أسلوب "يمكنك اليوم أن..." أو "جرّب هذا المساء..." - أفعال ملموسة وليس كلاماً عاماً.
 
 قواعد إلزامية:
 - ردّ بالعربية الفصحى فقط. لا تستخدم أي حروف لاتينية.
 - اكتب "الله" وليس "Allaah". اكتب "ما شاء الله" وليس "Maashaa'llaah".
 - اكتب الأسماء بالعربية فقط (عبد الرؤوف، عبد الله). لا تكتب "3Abd" أو أي شكل لاتيني.
-- لا تستخدم النجوم (**) أو أي رموز تنسيق.` :
+- لا تستخدم النجوم (**) أو أي رموز تنسيق.
+- قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.` :
         isEn ? `You are a specialized Islamic family counselor. Your task is to suggest DIRECT FACE-TO-FACE ACTIONS that ${myName} should do with ${partnerName} in real life (NOT through the app).
 
 The suggestions must be:
@@ -2822,12 +2899,17 @@ The suggestions must be:
 4. Grounded in Islamic methodology (verses/hadiths about spousal relations)
 5. Kind, constructive, and encouraging cooperation in parenting
 
-Provide 3-5 specific, actionable suggestions. Each 1-2 lines.
+OUTPUT FORMAT (binding): Group your 3-5 suggestions into 2-4 short THEMED SECTIONS (e.g. the relationship, family harmony, the Islamic connection between spouses) instead of a flat list. Start each section with a top-level numbered heading on its own line — "1. <heading>", "2. <heading>", etc., plain numbered text, never bold or asterisks — then list that section's suggestion(s) below it as dash-bulleted lines ("- ..."), never numbered, so they are not read as more headings.
 Use "You could today..." or "Try this evening..." style - tangible actions, not generic advice.
 
 TRANSLITERATION RULES (ALWAYS apply):
 - ALWAYS write "Allaah" with double 'a' (not "Allah"). E.g.: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - The Arabic letter ع (ain) is written as '3'. E.g.: 3abd, 3ilm, 3Abdullaah, 3aqeedah, 3ibaadah.
+- Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa).
+
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
 IMPORTANT: Respond entirely in English.` :
         `Je bent een gespecialiseerde islamitische gezinsadviseur. Je taak is DIRECTE FACE-TO-FACE ACTIES voor te stellen die ${myName} met ${partnerName} in het echte leven moet doen (NIET via de app).
@@ -2839,12 +2921,17 @@ De suggesties moeten:
 4. Geworteld zijn in islamitische methodiek (verzen/ahaadieth over omgang tussen echtgenoten)
 5. Vriendelijk, opbouwend en samenwerking in opvoeding aanmoedigend
 
-Geef 3-5 specifieke, uitvoerbare suggesties. Elke suggestie maximaal 1-2 regels.
+OUTPUTFORMAAT (bindend): Groepeer je 3-5 suggesties in 2-4 korte THEMATISCHE SECTIES (bijv. de relatie, de gezinsharmonie, de islamitische verbondenheid tussen de partners) in plaats van een platte lijst. Begin elke sectie met een genummerde kop op een eigen regel: "1. <kop>", "2. <kop>", enz. — gewone genummerde tekst, nooit vet of sterretjes — en zet de suggestie(s) van die sectie daaronder als regels die met een streepje (-) beginnen, niet genummerd, zodat ze niet als extra koppen worden gelezen.
 Gebruik "Je zou vandaag kunnen..." of "Probeer vanavond..." stijl - tastbare acties, geen algemeen advies.
 
 TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
+- Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa').
+
+REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
 BELANGRIJK: Antwoord volledig in het Nederlands.`;
       // Build user context from profiles
@@ -2906,6 +2993,7 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
       } else {
         adviceText = correctTranscription(adviceText, isEn ? "en" : "nl");
       }
+      adviceText = stripMarkdownEmphasis(adviceText);
       // Save to database
       if (adviceText) {
         const weekNum = Math.ceil((new Date().getTime() - new Date(new Date().getFullYear(), 0, 1).getTime()) / (7 * 24 * 60 * 60 * 1000));
@@ -2926,7 +3014,9 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
   getSpouseAdviceHistory: protectedProcedure
     .input(z.object({ limit: z.number().optional() }))
     .query(async ({ ctx, input }) => {
-      return db.getSpouseAdviceForUser(ctx.user.id, input.limit || 20);
+      const history = await db.getSpouseAdviceForUser(ctx.user.id, input.limit || 20);
+      // Defensive strip for rows saved before the markdown ban existed.
+      return history.map((row: any) => ({ ...row, content: stripMarkdownEmphasis(row.content) }));
     }),
 
   /** Mark spouse advice as read */
@@ -3057,6 +3147,7 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
 - كل نصيحة فريدة ومختلفة عن الأخرى
 - لا تستخدم أي حروف لاتينية أو رموز تنسيق
 - اكتب "الله" وليس "Allaah"
+- قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
 
 أجب بصيغة JSON فقط:
 {"tips": ["نصيحة 1", "نصيحة 2", ...]}`
@@ -3073,6 +3164,9 @@ Rules:
 - No generic tips (not "read Qur'aan" without specifics)
 - Each tip is unique and different
 - Write "Allaah" with double 'a'. Arabic letter ع = '3'.
+- Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa).
+- Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
+- SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
 
 Respond in JSON only:
 {"tips": ["tip 1", "tip 2", ...]}`
@@ -3089,6 +3183,9 @@ Regels:
 - Geen generieke tips (niet "lees Qur'aan" zonder specificatie)
 - Elke tip is uniek en anders
 - Schrijf "Allaah" met dubbele 'a'. Arabische letter ع = '3'.
+- Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa').
+- Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
+- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
 
 Antwoord alleen in JSON:
 {"tips": ["tip 1", "tip 2", ...]}`;
@@ -3125,11 +3222,14 @@ Antwoord alleen in JSON:
           }
           const parsed = JSON.parse(jsonStr);
           if (parsed.tips && Array.isArray(parsed.tips)) {
-            return { tips: parsed.tips };
+            // Strip after parsing, per tip — see the getGeneralAdvice
+            // comment above on why stripping rawText before JSON.parse can
+            // bridge and corrupt two different tips' text.
+            return { tips: parsed.tips.map(stripMarkdownEmphasis) };
           }
         } catch (parseErr) {
           // Fallback: split by newlines
-          const lines = rawText.split("\n").filter(l => l.trim().length > 10).map(l => l.replace(/^[\d\-\*\.]+\s*/, "").trim());
+          const lines = rawText.split("\n").filter(l => l.trim().length > 10).map(l => stripMarkdownEmphasis(l.replace(/^[\d\-\*\.]+\s*/, "").trim()));
           if (lines.length > 0) {
             return { tips: lines.slice(0, 7) };
           }

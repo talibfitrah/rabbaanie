@@ -29,6 +29,28 @@ import { SyncToast } from "@/components/sync-toast";
 import { ReportAiContent } from "@/components/report-ai-content";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import { translateProfileValue } from "@/lib/profile-labels";
+import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
+import type { inferRouterOutputs } from "@trpc/server";
+import type { AppRouter } from "@/server/routers";
+
+/**
+ * links.getPartnerProfile returns a union: a restricted payload omits
+ * parentProfile/children/issues/dailyCheckins/etc. entirely (the security
+ * boundary — see server/routers.ts). TypeScript's control-flow narrowing on
+ * `.access === "full"` doesn't reach into nested closures (the IIFEs below
+ * read partner data inside their own callback scope), so re-checking access
+ * inline at each read site doesn't actually protect them. Narrow once
+ * through this guard instead and read full-only fields off its result.
+ */
+type PartnerProfileData = inferRouterOutputs<AppRouter>["links"]["getPartnerProfile"];
+type FullPartnerProfile = Extract<NonNullable<PartnerProfileData>, { access: "full" }>;
+function isFullPartnerProfile(
+  data: PartnerProfileData | undefined,
+): data is FullPartnerProfile {
+  return !!data && data.access === "full";
+}
+
 if (
   Platform.OS === "android" &&
   UIManager.setLayoutAnimationEnabledExperimental
@@ -1289,6 +1311,62 @@ function AdviceSectionCollapsible({
   );
 }
 
+/**
+ * getSpouseAdvice's prompt (server/advice.ts) groups its suggestions into
+ * 2-4 themed sections, each opening with "1. <heading>" on its own line and
+ * "- " bulleted suggestions under it -- the same numbered-outline shape
+ * treatment plans use, parsed the same way, so it renders through the same
+ * collapsible-section component (AdviceSectionCollapsible) instead of one
+ * flat block of text carrying literal "1." and "-" markup.
+ *
+ * Falls back to the plain, unparsed text when it has no real headings (older
+ * cached advice predating this format, or a future prompt revert) so that
+ * case still reads exactly as it always has.
+ */
+function SpouseAdviceSections({
+  advice,
+  colors,
+  isRTL,
+  language,
+}: {
+  advice: string;
+  colors: any;
+  isRTL?: boolean;
+  language: string;
+}) {
+  const sections = groupIntoSections(parsePlanText(advice), language);
+  if (sections.length === 1 && sections[0].synthetic) {
+    return (
+      <Text
+        style={{
+          color: colors.foreground,
+          fontSize: 13,
+          lineHeight: 20,
+          textAlign: isRTL ? "right" : "left",
+        }}
+      >
+        {advice}
+      </Text>
+    );
+  }
+  return (
+    <View style={{ gap: 4 }}>
+      {sections.map((sec, idx) => (
+        <AdviceSectionCollapsible
+          key={idx}
+          title={sec.title}
+          content={sec.blocks
+            .map((b) => ("text" in b ? (b.type === "task" ? `• ${b.text}` : b.text) : ""))
+            .filter(Boolean)
+            .join("\n")}
+          colors={colors}
+          isRTL={isRTL}
+        />
+      ))}
+    </View>
+  );
+}
+
 function DayDetailCard({
   info,
   colors,
@@ -1550,6 +1628,13 @@ export default function FamilyScreen() {
     refetchOnMount: "always",
     staleTime: 0,
   });
+  // Narrowed once here so every full-only-field read below (including
+  // inside IIFE callbacks, where control-flow narrowing on `.access`
+  // doesn't reach) goes through a properly typed value instead of the raw
+  // union — see isFullPartnerProfile.
+  const fullPartnerProfile = isFullPartnerProfile(partnerProfileQuery.data)
+    ? partnerProfileQuery.data
+    : null;
   const shareProgressMutation = trpc.links.shareWeeklyProgress.useMutation();
   const syncMutation = trpc.links.syncWithPartner.useMutation();
 
@@ -1946,119 +2031,10 @@ export default function FamilyScreen() {
 
   const pp = state.parentProfile as any;
 
-  // Translate raw profile option values to display labels
-  const profileValueMap: Record<
-    string,
-    { nl: string; en: string; ar: string }
-  > = {
-    // Prayer
-    altijd_5: { nl: "Altijd alle 5", en: "Always all 5", ar: "دائمًا الخمس" },
-    meestal_4: { nl: "Meestal 4", en: "Usually 4", ar: "غالبًا 4" },
-    soms_3: { nl: "Soms 3", en: "Sometimes 3", ar: "أحيانًا 3" },
-    zelden_1_2: { nl: "Zelden (1-2)", en: "Rarely (1-2)", ar: "نادرًا (1-2)" },
-    nooit: { nl: "Geen", en: "None", ar: "لا" },
-    // Fajr
-    altijd_op_tijd: {
-      nl: "Altijd op tijd",
-      en: "Always on time",
-      ar: "دائمًا في وقتها",
-    },
-    meestal_op_tijd: {
-      nl: "Meestal op tijd",
-      en: "Usually on time",
-      ar: "غالبًا في وقتها",
-    },
-    soms_op_tijd: {
-      nl: "Soms op tijd",
-      en: "Sometimes on time",
-      ar: "أحيانًا في وقتها",
-    },
-    zelden_op_tijd: {
-      nl: "Zelden op tijd",
-      en: "Rarely on time",
-      ar: "نادرًا في وقتها",
-    },
-    // Hijab
-    ja_volledig: { nl: "Ja, volledig", en: "Yes, fully", ar: "نعم، كاملاً" },
-    ja_gedeeltelijk: {
-      nl: "Ja, gedeeltelijk",
-      en: "Yes, partially",
-      ar: "نعم، جزئيًا",
-    },
-    nee: { nl: "Nee", en: "No", ar: "لا" },
-    nee_maar_bezig: {
-      nl: "Nee, maar bezig",
-      en: "No, but working on it",
-      ar: "لا، لكنني بصدد ذلك",
-    },
-    // Knowledge sources
-    geleerden_direct: {
-      nl: "Direct bij geleerden",
-      en: "Directly from scholars",
-      ar: "مباشرة من العلماء",
-    },
-    studenten_van_kennis: {
-      nl: "Studenten van kennis",
-      en: "Students of knowledge",
-      ar: "طلاب العلم",
-    },
-    moskee_lessen: {
-      nl: "Moskee-lessen",
-      en: "Mosque lessons",
-      ar: "دروس المسجد",
-    },
-    boeken: { nl: "Boeken", en: "Books", ar: "الكتب" },
-    online_lessen: {
-      nl: "Online lessen",
-      en: "Online lessons",
-      ar: "دروس عبر الإنترنت",
-    },
-    youtube: { nl: "YouTube", en: "YouTube", ar: "يوتيوب" },
-    sociale_media: {
-      nl: "Sociale media",
-      en: "Social media",
-      ar: "وسائل التواصل",
-    },
-    geen: { nl: "Geen", en: "None", ar: "لا شيء" },
-    // Family science
-    ja_regelmatig: {
-      nl: "Ja, regelmatig",
-      en: "Yes, regularly",
-      ar: "نعم، بانتظام",
-    },
-    ja_soms: { nl: "Ja, soms", en: "Yes, sometimes", ar: "نعم، أحيانًا" },
-    // School type
-    regulier: {
-      nl: "Regulier onderwijs",
-      en: "Regular education",
-      ar: "تعليم نظامي",
-    },
-    thuisonderwijs: {
-      nl: "Thuisonderwijs",
-      en: "Homeschooling",
-      ar: "تعليم منزلي",
-    },
-    islamitisch: {
-      nl: "Islamitisch onderwijs",
-      en: "Islamic education",
-      ar: "تعليم إسلامي",
-    },
-    combinatie: { nl: "Combinatie", en: "Combination", ar: "مزيج" },
-    anders: { nl: "Anders", en: "Other", ar: "أخرى" },
-  };
 
   function translateValue(val: string | string[] | undefined): string {
-    if (!val) return "—";
-    if (Array.isArray(val)) {
-      return val
-        .map((v) => {
-          const entry = profileValueMap[v];
-          return entry ? tx(lang, entry.nl, entry.en, entry.ar) : v;
-        })
-        .join("، ");
-    }
-    const entry = profileValueMap[val];
-    return entry ? tx(lang, entry.nl, entry.en, entry.ar) : val;
+    if (!val || (Array.isArray(val) && val.length === 0)) return "—";
+    return translateProfileValue(val, lang);
   }
 
   const analysisItems: {
@@ -2827,16 +2803,12 @@ export default function FamilyScreen() {
             ) : spouseAdvice ? (
               <View style={{ gap: 8 }}>
                 {spouseAdvice.advice ? (
-                  <Text
-                    style={{
-                      color: colors.foreground,
-                      fontSize: 13,
-                      lineHeight: 20,
-                      textAlign: isRTL ? "right" : "left",
-                    }}
-                  >
-                    {spouseAdvice.advice}
-                  </Text>
+                  <SpouseAdviceSections
+                    advice={spouseAdvice.advice}
+                    colors={colors}
+                    isRTL={isRTL}
+                    language={language}
+                  />
                 ) : null}
                 {spouseAdvice.tips && spouseAdvice.tips.length > 0 ? (
                   <View style={{ gap: 4, marginTop: 4 }}>
@@ -3191,12 +3163,13 @@ export default function FamilyScreen() {
                   textAlign: isRTL ? "right" : "left",
                 }}
               >
-                {tx(
-                  lang,
-                  "Profiel van mijn vrouw",
-                  "My wife's profile",
-                  "ملف زوجتي",
-                )}
+                {/* Label follows the PARTNER's gender — a wife opening this sees
+                    "my husband's profile", not "my wife's". */}
+                {partnerProfileQuery.data.gender === "man"
+                  ? tx(lang, "Profiel van mijn man", "My husband's profile", "ملف زوجي")
+                  : partnerProfileQuery.data.gender === "vrouw"
+                    ? tx(lang, "Profiel van mijn vrouw", "My wife's profile", "ملف زوجتي")
+                    : tx(lang, "Profiel van mijn partner", "My partner's profile", "ملف شريكي")}
               </Text>
               <Text
                 style={{
@@ -3223,7 +3196,12 @@ export default function FamilyScreen() {
         )}
 
         {/* ═══════ PARTNER ANSWERS & INTERACTION ═══════ */}
-        {isAuthenticated && partnerProfileQuery.data && (
+        {/* Restricted payloads omit dailyCheckins/dailyTipCompletions/parentProfile
+            entirely — gate on full access so the panel never fabricates "not
+            completed" from a lack of access. Gender-only fields (the button
+            above) stay safe to show either way. */}
+        {isAuthenticated &&
+          fullPartnerProfile && (
           <ExpandableSection
             title={tx(
               lang,
@@ -3238,7 +3216,7 @@ export default function FamilyScreen() {
             <View style={{ gap: 10 }}>
               {/* Partner's daily check-in status */}
               {(() => {
-                const pCheckins = partnerProfileQuery.data?.dailyCheckins || [];
+                const pCheckins = fullPartnerProfile?.dailyCheckins || [];
                 const today = new Date().toISOString().slice(0, 10);
                 const todayCheckin = pCheckins.find(
                   (c: any) => c.date === today,
@@ -3330,8 +3308,7 @@ export default function FamilyScreen() {
 
               {/* Partner's daily tip interaction */}
               {(() => {
-                const pTips =
-                  partnerProfileQuery.data?.dailyTipCompletions || [];
+                const pTips = fullPartnerProfile?.dailyTipCompletions || [];
                 const today = new Date().toISOString().slice(0, 10);
                 const todayTips = pTips.filter((t: any) => t.date === today);
                 const weekTips = pTips.filter((t: any) => {
@@ -3425,27 +3402,8 @@ export default function FamilyScreen() {
 
               {/* Partner's profile answers summary */}
               {(() => {
-                const pp = partnerProfileQuery.data?.parentProfile;
+                const pp = fullPartnerProfile?.parentProfile;
                 if (!pp) return null;
-                const translateValue = (v: any) => {
-                  if (!v) return "-";
-                  const s = String(v);
-                  if (s.includes("ja"))
-                    return tx(
-                      lang,
-                      s,
-                      s.replace("ja", "yes"),
-                      s.replace("ja", "نعم"),
-                    );
-                  if (s.includes("nee"))
-                    return tx(
-                      lang,
-                      s,
-                      s.replace("nee", "no"),
-                      s.replace("nee", "لا"),
-                    );
-                  return s;
-                };
                 return (
                   <View
                     style={{

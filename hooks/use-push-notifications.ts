@@ -202,6 +202,15 @@ export function usePushNotifications(isAuthenticated: boolean) {
         ) {
           // Navigate to weekly goals tab
           router.push("/(tabs)/weekly");
+        } else if (
+          data?.type === "partner_profile_access_request" ||
+          data?.type === "partner_profile_access_granted"
+        ) {
+          // A request needs the husband to grant/decline it; a grant means
+          // the wife can now view it — both are actioned from the same
+          // screen. See server/routers.ts requestPartnerProfileAccess /
+          // grantPartnerProfileAccess for these two type strings.
+          router.push("/spouse-profile" as any);
         } else if (data?.url) {
           // Generic URL-based navigation
           router.push(data.url as string);

@@ -1074,8 +1074,10 @@ const adminRouter = router({
       const systemPrompt = `You are an expert Islamic parenting content writer. Generate a professional article based on the provided source material.
 Category: ${input.settings.category}${input.settings.subCategory ? " / " + input.settings.subCategory : ""}
 Age range: ${input.settings.ageRange || "all ages"}${structurePrompt}${seasonContext}${audienceContext}${toneContext}${maxWordsContext}
-${input.settings.includeHadith ? "Include relevant authentic hadieth with references." : ""}
-${input.settings.includeQuran ? "Include relevant Qur'aan verses with surah/ayah references." : ""}
+${input.settings.includeHadith ? "Include hadith ONLY IF that exact hadith text already appears in the source material above — never invent a hadith or reference from memory; if the source material contains none, omit this." : ""}
+${input.settings.includeQuran ? "Include Qur'aan verses ONLY IF that exact verse text already appears in the source material above — never invent a verse or reference from memory; if the source material contains none, omit this." : ""}
+
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
 
 Respond in JSON format:
 {
@@ -1088,9 +1090,9 @@ Respond in JSON format:
   "contentNl": "Full Dutch article in Markdown",
   "contentEn": "Full English article in Markdown",
   "contentAr": "Full Arabic article in Markdown",
-  "source": "Primary hadith/quran reference (Dutch)",
-  "sourceEn": "Primary reference (English)",
-  "sourceAr": "Primary reference (Arabic)",
+  "source": "Primary hadith/Qur'aan reference literally present in the source material, or empty string if none (Dutch)",
+  "sourceEn": "Primary hadith/Qur'aan reference literally present in the source material, or empty string if none (English)",
+  "sourceAr": "Primary hadith/Qur'aan reference literally present in the source material, or empty string if none (Arabic)",
   "tags": ["tag1", "tag2"],
   "slug": "url-friendly-slug"
 }`;
@@ -1267,7 +1269,7 @@ Respond in JSON format:
 // ============================================================
 // USER PROFILE ROUTER
 // ============================================================
-const profileRouter = router({
+export const profileRouter = router({
   /**
    * Self-service account deletion. Google Play requires an in-app path to
    * request deletion for any app that carries user accounts, and the Data
@@ -1287,6 +1289,53 @@ const profileRouter = router({
       const oldUser = await db.getUserById(ctx.user.id);
       const oldData = (oldUser?.profileData as any) || {};
       const newData = input.profileData;
+
+      // Gender drives an authorization decision (hasFullPartnerAccess): a
+      // husband reads his wife's full profile unconditionally; a wife
+      // needs his active grant. Gender used to be permanently immutable
+      // once set — specifically to stop a wife setting "man" just long
+      // enough to pass the husband-only grant check, then flipping back to
+      // "vrouw" to read the profile she just self-granted — but that left
+      // gender uncorrectable forever for a genuine mistake, silently, with
+      // no error and no path forward (this is a debounced fire-and-forget
+      // background sync, so it could happen without any deliberate action).
+      //
+      // Fix: allow the change, but remove the reason it was dangerous —
+      // any ACTUAL gender change now revokes every profile-access grant
+      // this user is a party to (db.revokeProfileAccessGrantsForUser).
+      // Self-granting via a temporary "man" flip gains an attacker nothing:
+      // flipping back to "vrouw" is itself a gender change, and destroys
+      // the grant it just created. See the 4-step exploit test in
+      // tests/partner-profile-access.test.ts (verified to fail against a
+      // naive "just allow it" version with no revocation).
+      //
+      // Revoke runs BEFORE the gender write, not after: if the process
+      // dies between the two calls, "revoked, but the gender write never
+      // landed" is safe (no grant survives either way, and the old gender
+      // is still on record), while the reverse order has a crash window
+      // where the new gender is already live but the self-issued grant
+      // still stands.
+      //
+      // Anchored on oldUser.gender — the dedicated `users.gender` COLUMN —
+      // not oldData.parentProfile.gender (the JSON copy). updateUserProfile
+      // fully REPLACES the profileData column on every save, so a JSON-only
+      // anchor is erasable: save({profileData:{}}) wipes it while leaving
+      // the dedicated column untouched (updateUserProfile only ever WRITES
+      // that column when parentProfile.gender is truthy, never clears it —
+      // see there). Re-stamp parentProfile.gender from the column on every
+      // save once it's on record, not just when the incoming value
+      // differs, so a save that omits parentProfile entirely can't drop
+      // the anchor out of the blob, or have a genuine change mistaken for
+      // a "never set" first-time set.
+      let genderAccessRevoked = false;
+      if (oldUser?.gender && newData && typeof newData === "object") {
+        const incomingGender = newData.parentProfile?.gender;
+        if (incomingGender && incomingGender !== oldUser.gender) {
+          await db.revokeProfileAccessGrantsForUser(ctx.user.id);
+          genderAccessRevoked = true;
+        }
+        newData.parentProfile = { ...(newData.parentProfile || {}), gender: incomingGender || oldUser.gender };
+      }
 
       await db.updateUserProfile(ctx.user.id, newData);
       // Sync language if present in parentProfile
@@ -1381,6 +1430,24 @@ const profileRouter = router({
                 `Persoonlijk profiel bijgewerkt`,
                 `Personal profile updated`,
                 `تم تحديث الملف الشخصي`,
+              ),
+            );
+          }
+
+          // Gender-change-triggered access revocation (see the big comment
+          // above near oldUser?.gender) gets its own line rather than
+          // folding silently into the generic "profile updated" message
+          // above: losing profile-read access is a bigger deal than an
+          // ordinary field edit, and a silent revocation is exactly the
+          // kind of security-relevant state change that deserves a signal
+          // instead of staying invisible to the affected partner.
+          if (genderAccessRevoked) {
+            changes.push(
+              db.tx(
+                partnerLang,
+                `Uw partner heeft het geslacht gewijzigd; toegang tot het profiel is ingetrokken`,
+                `Your partner changed their gender; profile access has been revoked`,
+                `غيّر شريكك الجنس المسجَّل؛ تم سحب صلاحية الاطلاع على الملف الشخصي`,
               ),
             );
           }
@@ -1563,7 +1630,29 @@ const profileRouter = router({
           console.warn("[profile.save] Child deletion sync failed:", e);
         }
       }
-      return { success: true };
+      // gender: the effective, persisted value (see the gender-change /
+      // grant-revocation comment above — round-7 replaced the old
+      // immutability rule, so a flip is no longer rejected, just revokes
+      // grants). Differs from what was just sent only when this save
+      // omitted parentProfile.gender entirely, in which case it falls back
+      // to the prior column value instead of reporting an absent one.
+      //
+      // KEPT deliberately (cubic round-5 flagged that no client currently
+      // reads it): this is the server half of the round-3 fix for gender
+      // divergence going silent — removing the field would regress exactly
+      // "silently overwriting and staying quiet" for whichever client
+      // eventually wires it up, and costs nothing to leave in place
+      // (fire-and-forget save, one extra JSON key). Not speculative
+      // scaffolding: it is already tested (see "profile.save reports the
+      // effective gender..." in tests/partner-profile-access.test.ts).
+      // Required client change, still not done: lib/app-context.tsx's
+      // syncToServer POSTs to /api/trpc/profile.save and only checks
+      // response.ok, discarding the body entirely — it would need to parse
+      // the tRPC envelope (result.data.json.gender, same shape
+      // syncFromServer already reads off profile.get) and, when it differs
+      // from the parentProfile.gender it just sent, patch local state to
+      // match the server's effective value.
+      return { success: true, gender: newData?.parentProfile?.gender ?? null };
     }),
 
   /** Get user profile from server */
@@ -1699,7 +1788,58 @@ const profileRouter = router({
 // ============================================================
 // PARENT-CHILD LINKS ROUTER - Blended family support
 // ============================================================
-const linksRouter = router({
+
+/**
+ * Owner-mandated gender gate for reading a partner's FULL profile (private
+ * fields + children/environments/issues/actionPlans/daily data). A husband
+ * reads his wife's full profile unconditionally; a wife reads her
+ * husband's full profile only with his active grant. Every other
+ * combination (missing/ambiguous/same gender) fails closed. `confirmed`
+ * must be `partner.partnershipConfirmed` from getPartnerOfUser — its
+ * shared-children legacy fallback can return a partner whose partnership
+ * is still a pending, unconfirmed invite (round-8 P1 fix), and gender alone
+ * says nothing about that: a husband unconditionally passes the gender
+ * check reading his wife, so without this he could read her ENTIRE profile
+ * before she ever confirmed his invite — breaking linkPartnerByPublicId's
+ * own promise, "No data is shared until you confirm."
+ *
+ * Shared by getPartnerProfile AND syncWithPartner so the rule can't drift
+ * between the two read paths — syncWithPartner used to merge partner data
+ * into the caller's own profile with no gate at all, which let an
+ * ungranted wife obtain via "sync" exactly what getPartnerProfile withheld.
+ */
+function hasFullPartnerAccess(
+  myGender: string,
+  partnerGender: string,
+  hasGrant: boolean,
+  confirmed: boolean,
+): boolean {
+  return (
+    confirmed &&
+    ((myGender === "man" && partnerGender === "vrouw") ||
+      (myGender === "vrouw" && partnerGender === "man" && hasGrant))
+  );
+}
+
+/**
+ * Both hasFullPartnerAccess inputs are gender-gated on data that can exist
+ * in two places: the dedicated `users.gender` COLUMN (added later, migration
+ * 0012, and the anchor profile.save/setMyGender re-sync onto) and the JSON
+ * `profileData.parentProfile.gender` copy. A legacy row can have either one
+ * set without the other. Reading only the JSON copy (as getPartnerProfile
+ * and syncWithPartner used to) means a legitimate husband whose own or his
+ * wife's JSON copy was never backfilled gets wrongly gated out even though
+ * the reliable column already answers it. Column wins when both are set,
+ * matching setMyGender's own columnGender || jsonGender precedence.
+ */
+function resolveGender(
+  columnGender: string | null | undefined,
+  jsonGender: string | null | undefined,
+): string {
+  return columnGender || jsonGender || "";
+}
+
+export const linksRouter = router({
   /** Generate/get user's public ID */
   getMyId: protectedProcedure.query(async ({ ctx }) => {
     const user = await db.getUserById(ctx.user.id);
@@ -1760,12 +1900,53 @@ const linksRouter = router({
   setMyGender: protectedProcedure
     .input(z.object({ gender: z.enum(["man", "vrouw"]) }))
     .mutation(async ({ ctx, input }) => {
-      const autoFunc = input.gender === "man" ? "vader" : "moeder";
+      // This is the remediation action behind needsMyGender: it must move
+      // the actual field getPartnerProfile/grantPartnerProfileAccess read
+      // (profileData.parentProfile.gender), not just userFunctions — and it
+      // must respect the same immutability rule as profile.save (see there
+      // for why gender is anchored on ctx.user.gender, the dedicated
+      // column, not profileData.parentProfile.gender).
+      //
+      // Column and JSON copy can independently be missing: the column was
+      // added later (migration 0012), so a legacy row can have the JSON set
+      // but the column still null; and profile.save's anchor only re-syncs
+      // the JSON FROM the column on a SUBSEQUENT save, which a user stuck on
+      // this exact screen (that's the whole reason they're calling this)
+      // may never trigger. Whichever of the two already holds a value is
+      // the source of truth — input.gender only wins when NEITHER does.
+      // That lets a genuine first-time set through, repairs a desynced copy
+      // in either direction, and never lets a flip through the back door.
+      const profileData = (ctx.user.profileData as any) || {};
+      const columnGender = (ctx.user as any).gender as string | undefined;
+      const jsonGender = profileData?.parentProfile?.gender as string | undefined;
+      const existingGender = columnGender || jsonGender;
+      // The role must track what actually gets persisted below, not the raw
+      // input — otherwise a flip the immutability guard correctly refuses
+      // still adds the vader/moeder role for the REJECTED gender.
+      const effectiveGender = existingGender || input.gender;
+      const autoFunc = effectiveGender === "man" ? "vader" : "moeder";
       // Check if already assigned
       const existing = await db.getUserFunctions(ctx.user.id);
       const alreadyHas = existing.some((f: any) => f.functionRole === autoFunc);
       if (!alreadyHas) {
         await db.addUserFunction(ctx.user.id, autoFunc);
+      }
+      if (!columnGender || !jsonGender) {
+        // This is a narrow gender-only remediation (see needsMyGender in
+        // getPartnerProfile, reachable long after onboarding from
+        // app/spouse-profile.tsx) — must not silently mark onboarding
+        // complete as a side effect of updateUserProfile's default.
+        await db.updateUserProfile(
+          ctx.user.id,
+          {
+            ...profileData,
+            parentProfile: {
+              ...(profileData.parentProfile || {}),
+              gender: effectiveGender,
+            },
+          },
+          { markOnboardingComplete: false },
+        );
       }
       return { function: autoFunc };
     }),
@@ -2115,24 +2296,258 @@ const linksRouter = router({
       };
     }),
 
-  /** Get partner's full profile data for mutual visibility */
+  /**
+   * Get partner's profile data. Owner-mandated gender gating: a husband
+   * reads his wife's full profile unconditionally; a wife reads her
+   * husband's full profile only with his active grant — and only once the
+   * partnership itself is confirmed either way (round-8 P1 fix; see
+   * hasFullPartnerAccess). Any other combination (missing/ambiguous/same
+   * gender, or an unconfirmed partnership) fails closed to a restricted
+   * payload that never serialises the private fields.
+   */
   getPartnerProfile: protectedProcedure.query(async ({ ctx }) => {
     const partner = await db.getPartnerOfUser(ctx.user.id);
     if (!partner) return null;
     const profileData = partner.profileData as any;
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    const partnerGender = resolveGender(
+      partner.gender,
+      profileData?.parentProfile?.gender,
+    );
+    const hasGrant = !!partner.profileAccessGrantedAt;
+    const hasPendingRequest = !!partner.profileAccessRequestedAt && !hasGrant;
+    const isFull = hasFullPartnerAccess(
+      myGender,
+      partnerGender,
+      hasGrant,
+      partner.partnershipConfirmed,
+    );
+    // These two signals describe the wife's request/grant state on the
+    // shared partnerships row, not her profile content — grantPartner-
+    // ProfileAccess itself only checks the caller's OWN gender, never the
+    // partner's. Gating visibility here on "partner's gender is currently
+    // vrouw" (as isFull does) could leave a genuine pending request
+    // permanently invisible to the husband if her gender was ever unset or
+    // changed after she requested it — unanswerable forever. Gate on the
+    // husband's own identity only; this also means they surface in the
+    // restricted branch below, not just the full one.
+    const isHusband = myGender === "man";
+    const incomingRequestPending = isHusband && hasPendingRequest;
+    const grantedToPartner = isHusband && hasGrant;
+
+    if (isFull) {
+      return {
+        id: partner.id,
+        name: partner.name,
+        gender: partnerGender || null,
+        parentProfile: profileData?.parentProfile || null,
+        children: profileData?.children || [],
+        environments: profileData?.environments || [],
+        issues: profileData?.issues || [],
+        actionPlans: profileData?.actionPlans || [],
+        dailyCheckins: profileData?.dailyCheckins || [],
+        dailyTipCompletions: profileData?.dailyTipCompletions || [],
+        lastSyncedAt: profileData?.lastSyncedAt || null,
+        access: "full" as const,
+        incomingRequestPending,
+        grantedToPartner,
+      };
+    }
+
     return {
       id: partner.id,
       name: partner.name,
-      gender: profileData?.parentProfile?.gender || null,
-      parentProfile: profileData?.parentProfile || null,
-      children: profileData?.children || [],
-      environments: profileData?.environments || [],
-      issues: profileData?.issues || [],
-      actionPlans: profileData?.actionPlans || [],
-      dailyCheckins: profileData?.dailyCheckins || [],
-      dailyTipCompletions: profileData?.dailyTipCompletions || [],
-      lastSyncedAt: profileData?.lastSyncedAt || null,
+      gender: partnerGender || null,
+      access: "restricted" as const,
+      canRequest:
+        myGender === "vrouw" &&
+        partnerGender === "man" &&
+        !hasGrant &&
+        !hasPendingRequest &&
+        // Otherwise the button targets a partnershipId the request/grant
+        // mutations' own status='active' AND confirmed=true filter rejects
+        // — an unconditional FORBIDDEN with no path forward (round-6 fix).
+        partner.partnershipConfirmed,
+      requestPending: hasPendingRequest,
+      needsGender: !myGender || !partnerGender || myGender === partnerGender,
+      needsMyGender: !myGender,
+      needsPartnerGender: !partnerGender,
+      ...(isHusband ? { incomingRequestPending, grantedToPartner } : {}),
     };
+  }),
+
+  /** Wife-only: ask her husband for permission to read his full profile. */
+  requestPartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "vrouw") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Alleen de vrouw kan dit verzoek versturen / Only the wife can send this request / يمكن للزوجة فقط إرسال هذا الطلب",
+      });
+    }
+    const partner = await db.getPartnerOfUser(ctx.user.id);
+    if (!partner)
+      throw new Error(
+        "Geen partner gekoppeld / No linked partner / لا يوجد شريك مرتبط",
+      );
+    // Idempotent: an unanswered request already pending, OR access already
+    // granted, means don't re-stamp or re-notify — otherwise every repeat
+    // tap (including from a wife who already has access, e.g. a stale UI)
+    // re-sends the husband a push + in-app message. grantPartnerProfileAccess
+    // never clears requestedAt, so checking requestedAt alone would miss the
+    // granted case; checking grantedAt directly also covers a proactive
+    // grant the husband made before any request existed. Both timestamps
+    // are bounded by the existing grant/revoke state machine
+    // (revokePartnerProfileAccess clears both), so no separate time window
+    // is needed.
+    if (partner.profileAccessGrantedAt || partner.profileAccessRequestedAt) {
+      return { success: true };
+    }
+    const ok = await db.requestPartnerProfileAccess(
+      partner.partnershipId,
+      ctx.user.id,
+    );
+    if (!ok) {
+      // Could be a genuine FORBIDDEN (partnership not active/confirmed), or
+      // a concurrent request/grant that landed between the idempotency
+      // check above and this write — db.requestPartnerProfileAccess's own
+      // WHERE clause is conditional on both timestamps being unset, so a
+      // race resolves to exactly one winner and the loser lands here. Read
+      // post-update state to tell them apart: the race case is idempotent
+      // success, not an error (round-7 P3 fix).
+      const fresh = await db.getPartnerOfUser(ctx.user.id);
+      if (fresh?.profileAccessGrantedAt || fresh?.profileAccessRequestedAt) {
+        return { success: true };
+      }
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Verzoek kon niet worden verstuurd / Request could not be sent / تعذر إرسال الطلب",
+      });
+    }
+    const senderName = ctx.user.name || "Partner";
+    const partnerLang = await db.getUserLanguage(partner.id);
+    await db.sendMessage({
+      familyId: 0,
+      senderId: ctx.user.id,
+      recipientId: partner.id,
+      type: "partner_profile_access_request",
+      subject: db.tx(partnerLang, "Verzoek om toegang", "Access request", "طلب الوصول"),
+      content: db.tx(
+        partnerLang,
+        `${senderName} vraagt toestemming om uw profiel te lezen.`,
+        `${senderName} is requesting permission to read your profile.`,
+        `تطلب ${senderName} إذنك للاطلاع على ملفك الشخصي.`,
+      ),
+    });
+    db.sendLocalizedPush(
+      partner.id,
+      "Verzoek om toegang",
+      "Access request",
+      "طلب الوصول",
+      `${senderName} vraagt toestemming om uw profiel te lezen`,
+      `${senderName} is requesting permission to read your profile`,
+      `تطلب ${senderName} إذنك للاطلاع على ملفك الشخصي`,
+      { type: "partner_profile_access_request", senderId: ctx.user.id },
+    ).catch(() => {});
+    return { success: true };
+  }),
+
+  /** Husband-only: grant his wife access to his profile. */
+  grantPartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "man") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Alleen de man kan dit toestaan / Only the husband can grant this / يمكن للزوج فقط منح هذا",
+      });
+    }
+    const partner = await db.getPartnerOfUser(ctx.user.id);
+    if (!partner)
+      throw new Error(
+        "Geen partner gekoppeld / No linked partner / لا يوجد شريك مرتبط",
+      );
+    const ok = await db.grantPartnerProfileAccess(
+      partner.partnershipId,
+      ctx.user.id,
+    );
+    if (!ok) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Kon geen toegang verlenen / Could not grant access / تعذر منح الوصول",
+      });
+    }
+    // Mirror requestPartnerProfileAccess's notify-the-other-party pattern:
+    // she asked, so she should be told it was approved rather than having
+    // to keep re-polling getPartnerProfile to find out.
+    const senderName = ctx.user.name || "Partner";
+    const partnerLang = await db.getUserLanguage(partner.id);
+    await db.sendMessage({
+      familyId: 0,
+      senderId: ctx.user.id,
+      recipientId: partner.id,
+      type: "partner_profile_access_granted",
+      subject: db.tx(partnerLang, "Toegang verleend", "Access granted", "تم منح الوصول"),
+      content: db.tx(
+        partnerLang,
+        `${senderName} heeft uw verzoek om toegang goedgekeurd.`,
+        `${senderName} approved your access request.`,
+        `وافق ${senderName} على طلب وصولك.`,
+      ),
+    });
+    db.sendLocalizedPush(
+      partner.id,
+      "Toegang verleend",
+      "Access granted",
+      "تم منح الوصول",
+      `${senderName} heeft uw verzoek goedgekeurd`,
+      `${senderName} approved your request`,
+      `وافق ${senderName} على طلبك`,
+      { type: "partner_profile_access_granted", senderId: ctx.user.id },
+    ).catch(() => {});
+    return { success: true };
+  }),
+
+  /** Husband-only: revoke a previously granted access. Works at any time. */
+  revokePartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "man") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message:
+          "Alleen de man kan dit intrekken / Only the husband can revoke this / يمكن للزوج فقط سحب هذا",
+      });
+    }
+    const partner = await db.getPartnerOfUser(ctx.user.id);
+    if (!partner)
+      throw new Error(
+        "Geen partner gekoppeld / No linked partner / لا يوجد شريك مرتبط",
+      );
+    const ok = await db.revokePartnerProfileAccess(
+      partner.partnershipId,
+      ctx.user.id,
+    );
+    if (!ok) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Kon toegang niet intrekken / Could not revoke access / تعذر سحب الوصول",
+      });
+    }
+    return { success: true };
   }),
 
   /** Full sync: pull all partner data and merge with local (called explicitly by user) */
@@ -2140,6 +2555,36 @@ const linksRouter = router({
     const partner = await db.getPartnerOfUser(ctx.user.id);
     if (!partner) return { success: false, message: "No partner linked" };
     const partnerData = partner.profileData as any;
+    // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without
+    // it, an ungranted wife could tap "sync" and get everything
+    // getPartnerProfile withholds merged straight into her own profile.
+    // Proceed-with-nothing rather than throw: sync is bidirectional (the
+    // husband's own sync must keep working unconditionally) and every
+    // client call site already branches on `.success` the same way it does
+    // for the pre-existing "no partner"/"no data" cases below — a thrown
+    // FORBIDDEN would be a jarring surprise here, including for
+    // app-context.tsx's silent background auto-sync on app open.
+    //
+    // Both genders fall back to the users.gender column when the JSON copy
+    // is missing (see resolveGender) — otherwise a legitimate husband's own
+    // sync silently returns success:false whenever his or his wife's JSON
+    // copy was never backfilled, with no error or explanation surfaced to
+    // the tapped button (round-3 fix).
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    const partnerGender = resolveGender(partner.gender, partnerData?.parentProfile?.gender);
+    if (
+      !hasFullPartnerAccess(
+        myGender,
+        partnerGender,
+        !!partner.profileAccessGrantedAt,
+        partner.partnershipConfirmed,
+      )
+    ) {
+      return { success: false, message: "No permission to sync partner data yet" };
+    }
     const myUser = await db.getUserById(ctx.user.id);
     const myData = myUser?.profileData as any;
     if (!myData || !partnerData)

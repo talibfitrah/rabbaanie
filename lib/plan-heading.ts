@@ -47,3 +47,31 @@ export function isArabicSectionHeading(title: string): boolean {
   if (!/^(التشخيص|تشخيص|علاج ?في|مهام|الجدول)/.test(head)) return false;
   return head.endsWith(":") || head.endsWith("،") || head.length < 40;
 }
+
+/**
+ * server/ai-chat.ts's own headings (`التشخيص:`, `مهام الوالد:`, `علاج في
+ * التصفية:`) carry no number, only an Arabic keyword and a trailing colon on
+ * their own line. Once useAutoTranslate renders the plan in the viewer's
+ * language, the keyword is gone (isArabicSectionHeading no longer matches)
+ * and the heading is ordinary sentence case, not ALL-CAPS the way advice.ts's
+ * own en/nl headings are (isLatinSectionHeading doesn't match either). The
+ * numbered task lines underneath then look, to plan-blocks.ts's isHeading1,
+ * like advice.ts's own numbered *heading* outline, and every task in the plan
+ * is wrongly promoted to a heading.
+ *
+ * What survives translation is punctuation, not vocabulary: the heading is
+ * still alone on its line and still ends in a colon. lib/plan-steps.ts's own
+ * SECTION_HEADING check already relies on the same "own line, ends in a
+ * colon" convention for this exact plan shape.
+ *
+ * Restricted to non-Arabic-script text so it never competes with
+ * isArabicSectionHeading: an untranslated sub-heading like "تصفية (تصحيح عقل
+ * الوالد):" must stay a heading2 nested under "مهام الوالد:", not jump to
+ * heading1 just because it also ends in a colon.
+ */
+export function isColonTerminatedHeading(line: string): boolean {
+  if (/^[-•*]\s/.test(line) || /^\d+[.)]\s/.test(line)) return false;
+  const head = line.replace(/[*#_]/g, "").trim();
+  if (!head.endsWith(":") || head.length === 0 || head.length >= 80) return false;
+  return !/\p{Script=Arabic}/u.test(head);
+}

@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { ParentProfile } from "@/lib/store";
-import { FormField, TextField, SelectField, MultiSelectField, HybridField, HonestyBanner, ValidationBanner, HasanaatProgressBar } from "@/components/form-field";
+import { FormField, TextField, SelectField, MultiSelectField, HybridField, HonestyBanner, SpouseVisibilityNotice, ValidationBanner, HasanaatProgressBar } from "@/components/form-field";
 import { DatePicker } from "@/components/date-picker";
 import { useI18n } from "@/lib/i18n";
 
@@ -958,6 +958,8 @@ export default function ParentProfileScreen() {
       >
         {/* Honesty banner */}
         <HonestyBanner />
+        {/* Disclosure: her husband sees what she writes here (owner-mandated, must precede writing) */}
+        {profile.gender === "vrouw" && <SpouseVisibilityNotice />}
 
         {/* Time indication - only on first phase (Fix #1) */}
         {currentPhaseIndex === 0 && (

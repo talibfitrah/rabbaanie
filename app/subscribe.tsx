@@ -441,6 +441,17 @@ export default function SubscribeScreen() {
             {/* Subscribe + coupon — only when not subscribed */}
             {!status?.subscribed && (
               <>
+                {/* Coupon moved above the subscribe button: a user on a
+                    smaller/scrolled screen never reached it when it sat below the
+                    button. The wording makes the choice explicit — coupon here,
+                    or the normal purchase path in the card right below. */}
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟ فعِّله هنا، أو اشترك بالطريقة المعتادة أدناه.", "Heeft u een coupon? Activeer die hier, of abonneer hieronder op de gebruikelijke manier.", "Have a coupon? Redeem it here, or subscribe below the normal way.")}</Text>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 14 }}>
+                  <TextInput value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+                  <TouchableOpacity onPress={redeem} disabled={busy || !coupon.trim()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", opacity: busy || !coupon.trim() ? 0.5 : 1 }}>
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>{L3("تفعيل", "Activeren", "Redeem")}</Text>
+                  </TouchableOpacity>
+                </View>
                 <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
                   {/* On Play, show Play's own price string rather than a
                       hardcoded €12: Play sets the price per country and folds
@@ -540,13 +551,6 @@ export default function SubscribeScreen() {
                           : L3("تعذّر إتمام عمليّة الشراء. حاول مرّةً أخرى.", "De aankoop kon niet worden voltooid. Probeer het opnieuw.", "The purchase could not be completed. Please try again.")}
                     </Text>
                   ) : null}
-                </View>
-                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟", "Heeft u een coupon?", "Have a coupon?")}</Text>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
-                  <TextInput value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
-                  <TouchableOpacity onPress={redeem} disabled={busy || !coupon.trim()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", opacity: busy || !coupon.trim() ? 0.5 : 1 }}>
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>{L3("تفعيل", "Activeren", "Redeem")}</Text>
-                  </TouchableOpacity>
                 </View>
               </>
             )}

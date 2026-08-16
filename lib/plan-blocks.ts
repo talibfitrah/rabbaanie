@@ -9,7 +9,11 @@
  * "which ones are left" came from two lists that were free to disagree, and the
  * reminder could skip past work the parents had not done.
  */
-import { isArabicSectionHeading, isLatinSectionHeading } from "@/lib/plan-heading";
+import {
+  isArabicSectionHeading,
+  isColonTerminatedHeading,
+  isLatinSectionHeading,
+} from "@/lib/plan-heading";
 
 export type ParsedBlock =
   | { type: "heading1"; text: string }
@@ -42,12 +46,12 @@ function isCompleteTask(line: string): boolean {
   return true;
 }
 
-function isHeading1(trimmed: string): boolean {
+function isHeading1(trimmed: string, isNumberedOutline: boolean, nextLineIsNumberedTask: boolean): boolean {
   const h1Match = trimmed.match(/^(?:#{1,2}\s+|(?:\*\*)?(\d+)\.\s*)(.+?)(?:\*\*)?$/);
   if (h1Match && (
-    trimmed.includes("تشخيص") || 
-    trimmed.includes("مهام الوالد") || 
-    trimmed.includes("مهام الابن") || 
+    trimmed.includes("تشخيص") ||
+    trimmed.includes("مهام الوالد") ||
+    trimmed.includes("مهام الابن") ||
     trimmed.includes("مهام البنت") ||
     trimmed.includes("الجدول الزمني") ||
     trimmed.includes("التحليل") ||
@@ -59,6 +63,28 @@ function isHeading1(trimmed: string): boolean {
   // bolded or not — a raw "**علاج في التزكية:**" matches nothing above, so
   // without this it renders as body text inside the section before it.
   if (isArabicSectionHeading(trimmed)) return true;
+  // And their translated form, where the Arabic keyword above no longer
+  // matches — see isColonTerminatedHeading's own comment for why the colon
+  // is what's left to key off once translation removes the vocabulary.
+  //
+  // Trusted only when this document is NOT itself a numbered outline: an
+  // advice.ts plan's BODY routinely contains its own colon-terminated labels
+  // once translated (its تمهيد:/تصفية:/تزكية:/تربية: sub-labels lose the
+  // Arabic keyword the same way its top-level headings do), and a single
+  // such line — even one as generic as "Doel:" — must not be read as a
+  // heading: doing so both invents a phantom section AND, before this gate
+  // existed, fed back into isNumberedOutline's own document-wide scan and
+  // convinced it a heading already existed, demoting the plan's two real
+  // numbered headings to tasks (cubic P2, measured on exactly one stray
+  // "Doel:" line).
+  //
+  // ai-chat.ts's real headings always introduce numbered tasks (see this
+  // file's own header comment on the two plan families) -- a colon-terminated
+  // line that ISN'T followed by one is a body label like "Doel:"/"Materialen:"
+  // sitting alone on its own line, the same mistake the isNumberedOutline
+  // guard above prevents for advice.ts's shape, left unguarded here until now
+  // (cubic round 3).
+  if (!isNumberedOutline && isColonTerminatedHeading(trimmed) && nextLineIsNumberedTask) return true;
   return false;
 }
 
@@ -67,7 +93,97 @@ export function parsePlanText(text: string): ParsedBlock[] {
   const lines = text.split("\n");
   const blocks: ParsedBlock[] = [];
   let taskIndex = 0;
-  
+
+  // Two plan shapes share this parser. server/advice.ts numbers its own
+  // top-level section outline 1..N and gives a heading no other form —
+  // everything under one is a dash bullet, plain paragraph, or one of
+  // advice.ts's own nested تمهيد:/تصفية:/تزكية:/تربية: sub-labels — so once
+  // translated into a language where neither an Arabic keyword nor the
+  // en/nl ALL-CAPS convention survives, the numbering is the only signal
+  // left that these lines are headings, not tasks.
+  //
+  // server/ai-chat.ts is the opposite in two different ways: its Arabic
+  // prompt's headings are un-numbered keyword lines, with numbered TASKS
+  // under them — sometimes restarting at 1 per heading, sometimes just
+  // continuing (advisor-plan-reminder-progress.test.ts's fixture does the
+  // latter, so numbering alone cannot tell the two families apart); its
+  // nl/en prompt has no keyword headings at all, only "Week N: …" phases,
+  // so translation cannot even lose that structure — there was never a
+  // heading-like line in the document to lose.
+  //
+  // An earlier version of this decided the family by scanning the WHOLE
+  // document for anything that already looks like an old-style heading, and
+  // trusting the numbered outline only when nothing matched. That misfired
+  // both ways: an advice.ts plan's translated body routinely contains its
+  // OWN incidental colon-terminated line (as plain as "Doel:") that the scan
+  // read as a heading, so a single stray line downgraded the plan's two real
+  // numbered headings back into tasks (cubic P2) — and an ai-chat.ts Week-
+  // phase plan has no line the scan recognises as a heading at all, so it
+  // was read as headingless and its numbered steps were wrongly promoted to
+  // headings instead (cubic P1). Both are the same mistake: weighing every
+  // line in the document as equally good evidence.
+  //
+  // What actually distinguishes the families needs no vocabulary and no
+  // vote-counting: advice.ts is handed its numbered template and told to
+  // fill it in verbatim, never to preface it, so its plans always OPEN on
+  // the numbered outline. ai-chat.ts's plans never open on a number — the
+  // first line is always whatever heads its first section, keyword or Week
+  // phase, translated or not. So trust only what opens the document: the
+  // whole plan is treated as advice.ts's numbered outline exactly when its
+  // first non-blank line is itself a top-level numbered line — nothing that
+  // comes after it, on either side, gets a vote.
+  const isTopLevelNumbered = (line: string) =>
+    /^\d+\.\s/.test(line.trim()) && !line.startsWith("  ") && !line.startsWith("\t");
+  const firstNonBlankLine = lines.find((l) => l.trim() !== "");
+  const topLevelNumberedIndices = lines
+    .map((l, idx) => (isTopLevelNumbered(l) ? idx : -1))
+    .filter((idx) => idx !== -1);
+  // A numbered line with nothing under it before the next one isn't heading a
+  // section -- it's one item in a flat numbered list, the shape getSpouseAdvice
+  // produced before its prompt required themed sections (still possible if the
+  // model ignores that instruction, and the shape lives on in cached advice).
+  // advice.ts's real outline always has body -- an intro sentence, a colon
+  // sub-label, a dash bullet -- between one numbered heading and the next; a
+  // flat list of tasks never does (cubic round 3).
+  const everyNumberedLineHasBody = topLevelNumberedIndices.every((idx, i) => {
+    const nextIdx = topLevelNumberedIndices[i + 1] ?? lines.length;
+    return lines.slice(idx + 1, nextIdx).some((l) => l.trim() !== "");
+  });
+  // everyNumberedLineHasBody alone isn't enough: the model sometimes adds one
+  // plain sentence of elaboration under a flat list's own tasks (still no
+  // themed sections), and that sentence satisfies "has body" exactly the way
+  // a real section's own intro sentence does -- promoting the tasks
+  // themselves to headings and losing every checkbox (cubic round 5). What a
+  // genuine advice.ts outline has that a flat list never does is dash-bulleted
+  // sub-items under MOST of its numbered headings -- that's how advice.ts
+  // actually formats a section's tasks (every row in the shape table below
+  // that needs isNumberedOutline true clears a majority; the translated Dutch
+  // fixture above even has one heading with no bullet at all under it and
+  // still clears a majority overall).
+  //
+  // "at least one" (a bare .some()) is not "most": a flat list's per-item
+  // elaboration is USUALLY prose, but the model sometimes dresses up ONE
+  // item's elaboration as a dash bullet while leaving the rest plain, and
+  // that single stray bullet was enough for a bare .some() to call the whole
+  // document a numbered outline -- promoting every task in it, including the
+  // ones with no bullet at all, to a heading (cubic round 7). A majority
+  // can't be tipped by one outlier in either direction: one bulleted item
+  // among mostly-plain ones stays a flat list; one plain item among
+  // mostly-bulleted ones (the Dutch fixture's diagnosis heading) stays part
+  // of an outline.
+  const numberedBodyIsBulletedCount = topLevelNumberedIndices.filter((idx, i) => {
+    const nextIdx = topLevelNumberedIndices[i + 1] ?? lines.length;
+    return lines.slice(idx + 1, nextIdx).some((l) => /^[-•*]\s/.test(l.trim()));
+  }).length;
+  const mostNumberedBodiesAreBulleted =
+    numberedBodyIsBulletedCount * 2 > topLevelNumberedIndices.length;
+  const isNumberedOutline =
+    !!firstNonBlankLine &&
+    isTopLevelNumbered(firstNonBlankLine) &&
+    topLevelNumberedIndices.length >= 2 &&
+    everyNumberedLineHasBody &&
+    mostNumberedBodiesAreBulleted;
+
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i];
     const trimmed = line.trim();
@@ -84,7 +200,8 @@ export function parsePlanText(text: string): ParsedBlock[] {
       continue;
     }
     
-    if (isHeading1(trimmed)) {
+    const nextNonBlank = lines.slice(i + 1).find((l) => l.trim() !== "");
+    if (isHeading1(trimmed, isNumberedOutline, !!nextNonBlank && isTopLevelNumbered(nextNonBlank))) {
       blocks.push({ type: "heading1", text: cleanMarkdown(trimmed) });
       continue;
     }
@@ -105,11 +222,11 @@ export function parsePlanText(text: string): ParsedBlock[] {
     
     if (/^\d+\.\s/.test(trimmed) && !line.startsWith("  ") && !line.startsWith("\t")) {
       const cleaned = cleanMarkdown(trimmed);
-      if (cleaned.length < 100 && (
+      if (isNumberedOutline || (cleaned.length < 100 && (
         cleaned.includes("تشخيص") || cleaned.includes("مهام") || cleaned.includes("الجدول") ||
         cleaned.includes("التقييم") || cleaned.includes("العلاج") ||
         isLatinSectionHeading(cleaned)
-      )) {
+      ))) {
         blocks.push({ type: "heading1", text: cleaned });
       } else if (isCompleteTask(trimmed)) {
         blocks.push({ type: "task", text: cleaned, key: `task-${taskIndex++}` });
@@ -164,10 +281,18 @@ export interface Section {
   synthetic?: boolean;
 }
 
-/** Group blocks into collapsible sections by heading1. */
-export function groupIntoSections(blocks: ParsedBlock[]): Section[] {
+/**
+ * Group blocks into collapsible sections by heading1.
+ *
+ * This module has no i18n access of its own (it is plain, dependency-free TS —
+ * see the file header), so the fallback title before the plan's first real
+ * heading is threaded in from the caller, which does. Defaults to Arabic so
+ * every existing call site that omits it is unaffected.
+ */
+export function groupIntoSections(blocks: ParsedBlock[], language?: string): Section[] {
   const sections: Section[] = [];
-  let currentSection: Section = { title: "مقدمة", blocks: [], taskKeys: [], synthetic: true };
+  const introTitle = language === "en" ? "Introduction" : language === "nl" ? "Inleiding" : "مقدمة";
+  let currentSection: Section = { title: introTitle, blocks: [], taskKeys: [], synthetic: true };
   
   for (const block of blocks) {
     if (block.type === "heading1") {

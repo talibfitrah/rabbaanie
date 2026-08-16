@@ -891,6 +891,10 @@ export const partnerships = mysqlTable("partnerships", {
   createdAt: timestamp("createdAt").defaultNow().notNull(),
   updatedAt: timestamp("updatedAt").defaultNow().onUpdateNow().notNull(),
   dissolvedAt: timestamp("dissolvedAt"),
+  /** Wife's request to read her husband's full profile (owner-mandated gating) */
+  profileAccessRequestedAt: timestamp("profileAccessRequestedAt"),
+  /** Husband's grant of that request; cleared on revoke */
+  profileAccessGrantedAt: timestamp("profileAccessGrantedAt"),
 });
 
 export type Partnership = typeof partnerships.$inferSelect;

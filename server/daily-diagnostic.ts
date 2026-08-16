@@ -3,8 +3,33 @@
  *
  * Each spouse answers a handful of short, single-choice questions about
  * THEMSELVES (prayer / psychological state / physical state / children) once
- * a day. Questions are generated per-family via the AI, with a static
- * fallback so a family never sees an empty check-in.
+ * a day. The question set is a fixed, curated, trilingual bank — NOT
+ * AI-generated. The AI is only ever a *consumer* of the answers (via
+ * summarizeSignals/buildPartnerSignalContext, folded into the OTHER spouse's
+ * advice prompt in server/advice.ts); it never writes the questions
+ * themselves. That is a deliberate, owner-mandated design change (this
+ * module used to call an LLM to write the day's questions), made to remove
+ * two whole bug classes at the root:
+ *   - A generated question once addressed a man as «تواصلك مع زوجك» ("your
+ *     husband") — the old prompt stated the answerer's gender but never
+ *     constrained how to name their spouse, so the model guessed wrong.
+ *     Curated text makes this class of bug structurally impossible.
+ *   - A generated question once asked about الإنجاب (family planning),
+ *     which must never be asked. A fixed bank simply never contains it.
+ *
+ * SOURCE VALUE CONTRACT (load-bearing for Play Store AI-content compliance,
+ * not just informational — components/daily-diagnostic-card.tsx gates its
+ * ReportAiContent control on `source === "generated"`): every row this
+ * module creates from here on is stamped "curated" — never "generated"
+ * again, since nothing here calls a model anymore. "generated"/"fallback"
+ * can still surface for a brief transition window on rows a still-live OLD
+ * deploy wrote for TODAY before this change rolled out (getToday only ever
+ * reads *today's* row, so this self-resolves the next calendar day and
+ * cannot recur) — that is correct, not a bug: a row that really was
+ * AI-generated genuinely should still offer the report control that day.
+ * Never special-case "curated" back into "generated" to keep that control
+ * showing; a curated, non-AI question set is exactly the case Play's policy
+ * does not require reporting on.
  *
  * PRIVACY (scoped to THIS module's own contribution only — see caveat
  * below): every question here is single-choice (no free text field exists
@@ -23,12 +48,23 @@
  * appended). That is a known, PRE-EXISTING leak this task was told not to
  * extend, not one this module fixes — flagged to the product owner, not
  * silently patched.
+ *
+ * SECOND CAVEAT (round-8 P1 audit): getSpouseAdvice's own db.getPartnerOfUser
+ * lookup is never gated on partnershipConfirmed — unlike getPartnerProfile/
+ * syncWithPartner (server/routers.ts, round-8 P1 fix), it draws on the
+ * partner's full profileData (parentProfile fields, dailyCheckins,
+ * environments, ...) regardless of whether the partnership is confirmed.
+ * That is deliberate on the gender/grant axis (see server/advice.ts's own
+ * comment: spouse advice may draw on the partner's data with no grant), but
+ * confirmation is a different axis — an unconfirmed "partner" found via the
+ * shared-children legacy fallback is not the same thing as an ungranted but
+ * agreed-upon one. Also flagged to the product owner, not silently patched
+ * here — server/advice.ts is out of this task's file scope.
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
-import { invokeLLM } from "./_core/llm";
 
 export const DIAGNOSTIC_CATEGORIES = ["prayer", "psychological", "physical", "children"] as const;
 export type DiagnosticCategory = (typeof DIAGNOSTIC_CATEGORIES)[number];
@@ -53,29 +89,6 @@ export interface DiagnosticAnswer {
 
 const TONES: readonly DiagnosticTone[] = ["positive", "neutral", "needs_support"];
 
-const optionSchema = z.object({
-  label: z.string().trim().min(1).max(60),
-  tone: z.enum(TONES as [DiagnosticTone, ...DiagnosticTone[]]),
-});
-const questionSchema = z.object({
-  category: z.enum(DIAGNOSTIC_CATEGORIES),
-  text: z.string().trim().min(1).max(160),
-  options: z
-    .array(optionSchema)
-    .min(2)
-    .max(4)
-    // Distinct labels only — a duplicate would render as a duplicate React
-    // key on the client and make two option rows highlight on one tap.
-    .refine((options) => new Set(options.map((o) => o.label)).size === options.length, {
-      message: "Option labels must be distinct within a question",
-    }),
-});
-const questionSetSchema = z.array(questionSchema).length(DIAGNOSTIC_CATEGORIES.length);
-
-// ============================================================
-// Static fallback — always available, no network dependency
-// ============================================================
-
 // No `lang` parameter: every call site only ever reaches gAr's return value
 // through t()'s third (Arabic) argument, which t() itself only reads when
 // lang === "ar" — a lang check inside gAr can never actually change what
@@ -84,145 +97,226 @@ function gAr(gender: Gender, male: string, female: string, neutral: string): str
   return gender === "man" ? male : gender === "vrouw" ? female : neutral;
 }
 
+// ============================================================
+// Curated question bank — trilingual, gendered, no AI, no free text.
+//
+// Each category holds one or more phrasings ("variants"); buildQuestionsForToday
+// picks one variant per category, deterministically, from the row's own date
+// string — so the same user always sees the same four questions on a given
+// day, but a different four (or fewer repeats) across days. Every topic here
+// is one the product owner explicitly approved:
+//   - prayer:        presence of heart (khushoo') in prayer; share of dhikr
+//                     through the day; drive (himmah) in seeking what
+//                     benefits one's religion
+//   - psychological:  one's own mood; whether you checked on your spouse's
+//                      psychological state (تعاهد); whether you checked on
+//                      your spouse's faith/himmah (تعاهد)
+//   - physical:       one's own physical state
+//   - children:       sincerity (إخلاص) in raising them; drive/energy with them
+// Deliberately absent: anything about الإنجاب (family planning) — never
+// asked, on any variant, in any language.
+// ============================================================
+
+type QuestionVariant = (gender: Gender, lang: Lang) => DiagnosticQuestion;
+
+function tOf(lang: Lang) {
+  return (nl: string, en: string, ar: string) => (lang === "ar" ? ar : lang === "en" ? en : nl);
+}
+
+// Variant indices within QUESTION_BANK[category] that ask about the user's
+// SPOUSE (تعاهد) rather than themselves — must be excluded from the pool for
+// any user with no confirmed partner (single/widowed/divorced/unlinked), or
+// they get asked about a spouse they don't have. Every other variant in the
+// bank is self-only and safe unconditionally. See buildQuestionsForToday.
+const PARTNER_ONLY_VARIANT_INDICES: Partial<Record<DiagnosticCategory, ReadonlySet<number>>> = {
+  psychological: new Set([1, 2]), // the two تعاهد variants just below
+};
+
+const QUESTION_BANK: Record<DiagnosticCategory, QuestionVariant[]> = {
+  prayer: [
+    // Deliberately NOT "was your prayer on time" — the home screen's
+    // existing check-in already asks that. This asks about presence of
+    // mind (khushoo'), a distinct angle, so the two cards never repeat the
+    // same question.
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "prayer",
+        text: t("Hoe was uw aanwezigheid van geest tijdens het gebed vandaag?", "How present were you during your prayer today?", "كيف كان خشوعك في الصلاة اليوم؟"),
+        options: [
+          { label: t("Aanwezig en geconcentreerd", "Present and focused", "خاشعاً ومركّزاً"), tone: "positive" },
+          { label: t("Vaak afgeleid", "Often distracted", "كثير التشتت"), tone: "needs_support" },
+          { label: t("Wisselend", "It varied", "متفاوت"), tone: "neutral" },
+        ],
+      };
+    },
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "prayer",
+        text: t("Wat was uw aandeel aan dhikr (Godsgedachtenis) vandaag?", "How much dhikr (remembrance of Allah) did you have today?", "ما كان نصيبك من ذكر الله اليوم؟"),
+        options: [
+          { label: t("Ruim, de hele dag door", "Plenty, throughout the day", "نصيب وافر طوال اليوم"), tone: "positive" },
+          { label: t("Heel weinig vandaag", "Very little today", "قليل جدا اليوم"), tone: "needs_support" },
+          { label: t("Gemiddeld", "Average", "متوسط"), tone: "neutral" },
+        ],
+      };
+    },
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "prayer",
+        text: t(
+          "Hoe was uw inzet vandaag om te zoeken naar wat uw geloof ten goede komt?",
+          "How was your drive today to seek what benefits your religion?",
+          "كيف كانت همّتك اليوم في طلب ما ينفعك في دينك؟",
+        ),
+        options: [
+          { label: t("Sterke inzet", "Strong drive", "همّة عالية"), tone: "positive" },
+          { label: t("Weinig energie ervoor", "Low energy for it", gAr(gender, "كنت فاتراً في ذلك", "كنت فاترة في ذلك", "كنت فاتراً في ذلك")), tone: "needs_support" },
+          { label: t("Gemiddeld", "Average", "معتدلة"), tone: "neutral" },
+        ],
+      };
+    },
+  ],
+  psychological: [
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "psychological",
+        text: t("Hoe was uw gemoedstoestand vandaag?", "How was your mood today?", "كيف كانت حالتك النفسية اليوم؟"),
+        options: [
+          { label: t("Rustig en tevreden", "Calm and content", gAr(gender, "مطمئن ومرتاح البال", "مطمئنة ومرتاحة البال", "مطمئن ومرتاح البال")), tone: "positive" },
+          { label: t("Gestrest of bezorgd", "Stressed or worried", gAr(gender, "متوتر أو مهموم", "متوترة أو مهمومة", "متوتر أو مهموم")), tone: "needs_support" },
+          { label: t("Gewone dag", "An ordinary day", "حالة عادية"), tone: "neutral" },
+        ],
+      };
+    },
+    // تعاهُد الزوج/الزوجة — checking in on your spouse is itself a
+    // relational/psychological act, so both تعاهد variants live in this
+    // category. The spouse must be named with the CORRECT noun for the
+    // ANSWERER's own gender (زوجتك = your wife, said to a man; زوجك = your
+    // husband, said to a woman) — this exact confusion was the root cause
+    // of a real production bug (a man told «تواصلك مع زوجك»).
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "psychological",
+        text: t(
+          "Heeft u vandaag aan uw partner gevraagd hoe het met zijn/haar gemoedstoestand gaat?",
+          "Did you ask your spouse about their psychological state today?",
+          gAr(gender, "هل سألت زوجتك عن حالتها النفسية اليوم؟", "هل سألت زوجك عن حالته النفسية اليوم؟", "هل سألت شريك حياتك عن حالته النفسية اليوم؟"),
+        ),
+        options: [
+          { label: t("Ja, ik heb gevraagd", "Yes, I asked", "نعم، سألت"), tone: "positive" },
+          { label: t("Nee, ik ben het vergeten", "No, I forgot", "لم أسأل اليوم"), tone: "needs_support" },
+          { label: t("Kort gevraagd", "Asked briefly", "سألت باقتضاب"), tone: "neutral" },
+        ],
+      };
+    },
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "psychological",
+        text: t(
+          "Heeft u vandaag aan uw partner gevraagd naar zijn/haar geloofsbeleving en inzet (himmah)?",
+          "Did you ask your spouse about their faith and drive (himmah) today?",
+          gAr(gender, "هل سألت زوجتك عن حالتها الإيمانية وهمّتها اليوم؟", "هل سألت زوجك عن حالته الإيمانية وهمّته اليوم؟", "هل سألت شريك حياتك عن حالته الإيمانية وهمّته اليوم؟"),
+        ),
+        options: [
+          { label: t("Ja, ik heb gevraagd", "Yes, I asked", "نعم، سألت"), tone: "positive" },
+          { label: t("Nee, ik ben het vergeten", "No, I forgot", "لم أسأل اليوم"), tone: "needs_support" },
+          { label: t("Kort gevraagd", "Asked briefly", "سألت باقتضاب"), tone: "neutral" },
+        ],
+      };
+    },
+  ],
+  physical: [
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "physical",
+        text: t("Hoe was uw lichamelijke gesteldheid vandaag?", "How was your physical state today?", "كيف كانت حالتك الجسدية اليوم؟"),
+        options: [
+          { label: t("Fit en energiek", "Fit and energetic", gAr(gender, "نشيط وبصحة جيدة", "نشيطة وبصحة جيدة", "نشيط وبصحة جيدة")), tone: "positive" },
+          { label: t("Moe of uitgeput", "Tired or exhausted", gAr(gender, "متعب أو مرهق", "متعبة أو مرهقة", "متعب أو مرهق")), tone: "needs_support" },
+          { label: t("Gewone dag", "An ordinary day", "حالة عادية"), tone: "neutral" },
+        ],
+      };
+    },
+  ],
+  children: [
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "children",
+        text: t(
+          "Hoe was uw oprechtheid (ikhlaas) vandaag in de opvoeding van uw kinderen?",
+          "How was your sincerity (ikhlaas) today in raising your children?",
+          "كيف كان إخلاصك اليوم في تربية أبنائك؟",
+        ),
+        options: [
+          { label: t("Oprecht, voor Allah alleen", "Sincere, for Allah alone", gAr(gender, "كنت مخلصاً لله في ذلك", "كنت مخلصة لله في ذلك", "كنت مخلصاً لله في ذلك")), tone: "positive" },
+          { label: t("Er weinig bij stilgestaan vandaag", "Barely thought about it today", "لم أستحضر الإخلاص كثيرا اليوم"), tone: "needs_support" },
+          { label: t("Gewone dag", "An ordinary day", "متفاوت"), tone: "neutral" },
+        ],
+      };
+    },
+    (gender, lang) => {
+      const t = tOf(lang);
+      return {
+        category: "children",
+        text: t(
+          "Hoe was uw inzet en energie vandaag bij de omgang met uw kinderen?",
+          "How was your energy and drive with your children today?",
+          "كيف كانت همّتك ونشاطك مع أبنائك اليوم؟",
+        ),
+        options: [
+          {
+            label: t(
+              "Geduldig en betrokken",
+              "Patient and engaged",
+              gAr(gender, "كنت صبورا ومتفاعلا معهم", "كنت صبورة ومتفاعلة معهم", "كنت صبورا ومتفاعلا معهم"),
+            ),
+            tone: "positive",
+          },
+          { label: t("Te weinig aandacht gegeven", "Gave them too little attention", "قصّرت في الاهتمام بهم اليوم"), tone: "needs_support" },
+          { label: t("Gewone dag", "An ordinary day", "تعامل عادي"), tone: "neutral" },
+        ],
+      };
+    },
+  ],
+};
+
+// Deterministic string hash (polynomial rolling hash) — NOT Math.random(),
+// on purpose: the same date string must always pick the same variant, so a
+// user reloading the app mid-day (or a retried request) sees an identical
+// set, and getToday's get-or-create stays idempotent.
+function dateSeed(date: string): number {
+  let seed = 0;
+  for (let i = 0; i < date.length; i++) seed = (seed * 31 + date.charCodeAt(i)) >>> 0;
+  return seed;
+}
+
 /**
- * Deterministic, trilingual, gendered fallback question set. Used whenever
- * generation fails or hasn't run yet — a family must never see an empty
- * check-in.
+ * Today's curated four-question set — pure, deterministic, no I/O.
+ * `hasPartner` defaults to false (fail-safe): a caller that forgets to pass
+ * it gets the set that's safe for someone with no confirmed partner, never
+ * the one that risks asking about a spouse they don't have.
  */
-export function buildFallbackQuestions(gender: Gender, lang: Lang): DiagnosticQuestion[] {
-  const t = (nl: string, en: string, ar: string) => (lang === "ar" ? ar : lang === "en" ? en : nl);
-
-  return [
-    {
-      // Deliberately NOT "was your prayer on time" — the home screen's
-      // existing check-in already asks that. This asks about presence of
-      // mind (khushoo'), a distinct angle, so the two cards never repeat
-      // the same question.
-      category: "prayer",
-      text: t("Hoe was uw aanwezigheid van geest tijdens het gebed vandaag?", "How present were you during your prayer today?", "كيف كان خشوعك في الصلاة اليوم؟"),
-      options: [
-        { label: t("Aanwezig en geconcentreerd", "Present and focused", "خاشعاً ومركّزاً"), tone: "positive" },
-        { label: t("Vaak afgeleid", "Often distracted", "كثير التشتت"), tone: "needs_support" },
-        { label: t("Wisselend", "It varied", "متفاوت"), tone: "neutral" },
-      ],
-    },
-    {
-      category: "psychological",
-      text: t("Hoe was uw gemoedstoestand vandaag?", "How was your mood today?", "كيف كانت حالتك النفسية اليوم؟"),
-      options: [
-        {
-          label: t(
-            "Rustig en tevreden",
-            "Calm and content",
-            gAr(gender, "مطمئن ومرتاح البال", "مطمئنة ومرتاحة البال", "مطمئن ومرتاح البال"),
-          ),
-          tone: "positive",
-        },
-        {
-          label: t(
-            "Gestrest of bezorgd",
-            "Stressed or worried",
-            gAr(gender, "متوتر أو مهموم", "متوترة أو مهمومة", "متوتر أو مهموم"),
-          ),
-          tone: "needs_support",
-        },
-        { label: t("Gewone dag", "An ordinary day", "حالة عادية"), tone: "neutral" },
-      ],
-    },
-    {
-      category: "physical",
-      text: t("Hoe was uw lichamelijke gesteldheid vandaag?", "How was your physical state today?", "كيف كانت حالتك الجسدية اليوم؟"),
-      options: [
-        {
-          label: t("Fit en energiek", "Fit and energetic", gAr(gender, "نشيط وبصحة جيدة", "نشيطة وبصحة جيدة", "نشيط وبصحة جيدة")),
-          tone: "positive",
-        },
-        {
-          label: t("Moe of uitgeput", "Tired or exhausted", gAr(gender, "متعب أو مرهق", "متعبة أو مرهقة", "متعب أو مرهق")),
-          tone: "needs_support",
-        },
-        { label: t("Gewone dag", "An ordinary day", "حالة عادية"), tone: "neutral" },
-      ],
-    },
-    {
-      category: "children",
-      text: t("Hoe ging het vandaag met de kinderen?", "How did it go with the children today?", "كيف كان تعاملك مع الأبناء اليوم؟"),
-      options: [
-        {
-          label: t(
-            "Geduldig en betrokken",
-            "Patient and engaged",
-            gAr(gender, "كنت صبورا ومتفاعلا معهم", "كنت صبورة ومتفاعلة معهم", "كنت صبورا معهم"),
-          ),
-          tone: "positive",
-        },
-        { label: t("Te weinig aandacht gegeven", "Gave them too little attention", "قصّرت في الاهتمام بهم اليوم"), tone: "needs_support" },
-        { label: t("Gewone dag", "An ordinary day", "تعامل عادي"), tone: "neutral" },
-      ],
-    },
-  ];
+export function buildQuestionsForToday(gender: Gender, lang: Lang, date: string, hasPartner = false): DiagnosticQuestion[] {
+  const seed = dateSeed(date);
+  return DIAGNOSTIC_CATEGORIES.map((category, i) => {
+    const allVariants = QUESTION_BANK[category];
+    const excludedIndices = hasPartner ? undefined : PARTNER_ONLY_VARIANT_INDICES[category];
+    const variants = excludedIndices ? allVariants.filter((_, idx) => !excludedIndices.has(idx)) : allVariants;
+    return variants[(seed + i) % variants.length](gender, lang);
+  });
 }
 
-// ============================================================
-// AI generation: prompt + strict parse/validate (never trust raw output)
-// ============================================================
-
-export function buildGenerationPrompt(input: { gender: Gender; lang: Lang; childrenAges: number[] }): {
-  system: string;
-  user: string;
-} {
-  const { gender, lang, childrenAges } = input;
-  const categoryList = DIAGNOSTIC_CATEGORIES.join(", ");
-  const system =
-    lang === "ar"
-      ? `أنت تُعِدّ أسئلة تسجيل يومي قصيرة داخل تطبيق أسري إسلامي. أعد أربعة أسئلة فقط، سؤال واحد بالضبط لكل فئة من: ${categoryList} (الصلاة، الحالة النفسية، الحالة الجسدية، التعامل مع الأبناء) بهذا الترتيب.
-كل سؤال: سطر واحد قصير بالعربية الفصحى فقط، بلا أي حروف لاتينية.
-كل سؤال له 2 إلى 4 خيارات إجابة قصيرة (بضع كلمات لا أكثر) — ممنوع طلب إجابة حرة مطلقًا. كل خيار يحمل وسم tone بقيمة واحدة من: positive أو neutral أو needs_support.
-سؤال فئة الصلاة تحديدًا: لا تسأل هل صلّى في وقتها أو فاتته صلاة — هذا التطبيق يسأل ذلك في مكان آخر من الشاشة. اسأل عن جانب مختلف مثل الخشوع أو الحضور القلبي.
-أعد النتيجة بصيغة JSON فقط بلا أي شرح، مصفوفة من أربعة عناصر شكل كل عنصر: {"category":"...","text":"...","options":[{"label":"...","tone":"..."}]}`
-      : lang === "en"
-        ? `You write short daily check-in questions for an Islamic family app. Return exactly four questions, one per category, in this order: ${categoryList} (prayer, psychological state, physical state, dealing with the children).
-Each question: one short line, plain English.
-Each question has 2-4 short single-choice options (a few words each) — never ask for free text. Each option carries a "tone" of exactly one of: positive, neutral, needs_support.
-For the prayer category specifically: do NOT ask whether prayers were on time or missed — this app already asks that elsewhere on the same screen. Ask about a different angle, such as presence of mind (khushoo) during prayer.
-Return JSON only, no explanation: an array of four items shaped {"category":"...","text":"...","options":[{"label":"...","tone":"..."}]}`
-        : `Je schrijft korte dagelijkse check-in vragen voor een islamitische gezins-app. Geef precies vier vragen terug, één per categorie, in deze volgorde: ${categoryList} (gebed, psychische staat, lichamelijke staat, omgang met de kinderen).
-Elke vraag: één korte regel, gewoon Nederlands.
-Elke vraag heeft 2-4 korte keuzeopties (een paar woorden) — vraag nooit om vrije tekst. Elke optie draagt een "tone" van precies: positive, neutral, needs_support.
-Voor de gebedscategorie specifiek: vraag NIET of het gebed op tijd was of gemist werd — de app vraagt dat al elders op hetzelfde scherm. Vraag naar een ander aspect, zoals aanwezigheid van geest (khushoo) tijdens het gebed.
-Geef alleen JSON terug, geen uitleg: een array van vier items in de vorm {"category":"...","text":"...","options":[{"label":"...","tone":"..."}]}`;
-
-  const genderWord =
-    lang === "ar" ? (gender === "man" ? "زوج (رجل)" : gender === "vrouw" ? "زوجة (امرأة)" : "أحد الزوجين") : gender || "unspecified";
-  const agesText = childrenAges.length > 0 ? childrenAges.join(", ") : lang === "ar" ? "لا يوجد أبناء بعد" : "none yet";
-  const user =
-    lang === "ar"
-      ? `الشخص الذي سيُجيب: ${genderWord}. أعمار الأبناء تقريبًا: ${agesText}.`
-      : lang === "en"
-        ? `The person answering: ${genderWord}. Approximate children's ages: ${agesText}.`
-        : `De persoon die antwoordt: ${genderWord}. Ongeveer leeftijden van de kinderen: ${agesText}.`;
-
-  return { system, user };
-}
-
-/** Strict parse+validate of the model's response. Any deviation -> null (caller falls back). */
-export function parseGeneratedQuestions(raw: string): DiagnosticQuestion[] | null {
-  const stripped = raw
-    .trim()
-    .replace(/^```(?:json)?\s*/i, "")
-    .replace(/```\s*$/i, "")
-    .trim();
-  let data: unknown;
-  try {
-    data = JSON.parse(stripped);
-  } catch {
-    return null;
-  }
-  const result = questionSetSchema.safeParse(data);
-  if (!result.success) return null;
-  const categories = new Set(result.data.map((q) => q.category));
-  if (categories.size !== DIAGNOSTIC_CATEGORIES.length) return null; // duplicate or missing category
-  return result.data;
+/** Every phrasing this module can ever produce, for exhaustive content tests. */
+export function allBankQuestions(gender: Gender, lang: Lang): DiagnosticQuestion[] {
+  return DIAGNOSTIC_CATEGORIES.flatMap((category) => QUESTION_BANK[category].map((variant) => variant(gender, lang)));
 }
 
 // ============================================================
@@ -290,56 +384,6 @@ export function buildPartnerSignalContext(summary: Partial<Record<DiagnosticCate
 // Router
 // ============================================================
 
-/** Whole-year ages of the user's own children, from their own profileData.children. */
-export function childrenAgesFromProfile(profileData: any): number[] {
-  const children = Array.isArray(profileData?.children) ? profileData.children : [];
-  return children
-    .map((c: any) => (c?.birthDate ? Math.floor((Date.now() - new Date(c.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : null))
-    .filter((age: number | null): age is number => age !== null && age >= 0);
-}
-
-// Race-loser recovery window: short enough not to matter to a normal open,
-// long enough to usually catch the winner's LLM call landing (typically
-// 1-3s). Exported so tests can compute how far to advance vi.useFakeTimers()
-// rather than sleeping for real.
-export const LOSER_POLL_ATTEMPTS = 4;
-export const LOSER_POLL_DELAY_MS = 700;
-
-function sleep(ms: number): Promise<void> {
-  return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-/**
- * A race loser (or a request that arrives while the winner's row is still
- * "pending") polls briefly for the real row instead of immediately serving
- * an unpersisted fallback that could never be submitted (its labels don't
- * match what actually gets stored). Never calls the LLM — read-only.
- */
-async function pollForFinishedRow(userId: number, date: string) {
-  for (let i = 0; i < LOSER_POLL_ATTEMPTS; i++) {
-    await sleep(LOSER_POLL_DELAY_MS);
-    const row = await db.getDiagnosticCheckinForToday(userId, date);
-    if (row && row.source !== "pending") return row;
-  }
-  return null;
-}
-
-// A "pending" row older than this is treated as abandoned (its owner's
-// process likely died between claiming and filling it in) rather than just
-// slow. LLM calls normally finish in a few seconds, but a shorter threshold
-// here directly trades against the money rule: too short and a second
-// device/re-tap can reclaim (and re-spend on) a generation that was only
-// slow, not dead. 45s comfortably clears realistic latency for this
-// feature's model tier while still recovering a genuine crash in under a
-// minute.
-// ponytail: a timeout can't fully close this — an LLM call slower than 45s
-// would still trigger a real double-spend. Full fix needs the original
-// request to renew its own claim (a heartbeat) or be cancellable; not built
-// for v1 given how rarely a routine call should take that long.
-const STALE_CLAIM_MS = 45_000;
-
-type ReadyRow = { date: string; questions: DiagnosticQuestion[]; answers: DiagnosticAnswer[] | null; source: "generated" | "fallback" };
-
 // ponytail: UTC calendar day (see the longer note on getToday's own `date`
 // computation below) — the single definition, reused by getToday and
 // submitAnswers so there is only ever one notion of "today" in this module.
@@ -347,64 +391,65 @@ function todayKey(): string {
   return new Date().toISOString().slice(0, 10);
 }
 
+type ReadyRow = { date: string; questions: DiagnosticQuestion[]; answers: DiagnosticAnswer[] | null; source: string };
+
+function asReadyRow(row: { date: string; questions: unknown; answers: unknown; source: string }): ReadyRow {
+  return { date: row.date, questions: row.questions as DiagnosticQuestion[], answers: row.answers as DiagnosticAnswer[] | null, source: row.source };
+}
+
 /**
- * Calls the model, validates its output, falls back on any failure, and
- * persists the result into a claimed/reclaimed row. `date` is the day the
- * row was claimed UNDER — it must be passed in, not recomputed after the
- * (multi-second) LLM call, or a request straddling UTC midnight would report
- * a date the stored row was never actually saved under.
- *
- * A stale-claim reclaim (see STALE_CLAIM_MS) means the ORIGINAL claimant
- * might not actually be dead, just slow — both it and the reclaiming
- * request can end up here for the same row. fillDiagnosticCheckin only
- * writes while the row is still "pending", so whichever one finishes second
- * loses the write; when that happens this returns what's ACTUALLY
- * persisted (userId+date) rather than content that only exists locally and
- * can never be submitted.
+ * Today's row for this user — get-or-create. There is no model call on this
+ * path anymore (the question set is a pure function of date+gender+lang+
+ * hasPartner), so this no longer needs the claim/poll/reclaim dance a
+ * paid-generation race used to require: claimDiagnosticCheckin's
+ * duplicate-key handling still gives the one-row-per-user-per-day guarantee,
+ * and fillDiagnosticCheckin's "still pending" condition still resolves a
+ * same-instant double-create (whichever write lands first wins; the loser
+ * re-reads and trusts it) — both are still real races, just no longer
+ * expensive ones to lose.
  */
-async function generateAndFill(
-  userId: number,
-  claimedId: number,
-  date: string,
-  gender: Gender,
-  lang: Lang,
-  childrenAges: number[],
-): Promise<ReadyRow> {
-  let questions: DiagnosticQuestion[] | null = null;
-  try {
-    const { system, user } = buildGenerationPrompt({ gender, lang, childrenAges });
-    const result = await invokeLLM({ messages: [{ role: "system", content: system }, { role: "user", content: user }] });
-    const content = result.choices[0]?.message?.content;
-    const text = typeof content === "string" ? content : Array.isArray(content) ? content.map((c: any) => ("text" in c ? c.text : "")).join("") : "";
-    questions = parseGeneratedQuestions(text);
-  } catch {
-    questions = null;
-  }
+async function getOrCreateToday(userId: number, date: string, gender: Gender, lang: Lang): Promise<ReadyRow> {
+  const existing = await db.getDiagnosticCheckinForToday(userId, date);
+  if (existing && existing.source !== "pending") return asReadyRow(existing);
 
-  const source: "generated" | "fallback" = questions ? "generated" : "fallback";
-  if (!questions) questions = buildFallbackQuestions(gender, lang);
+  // Only looked up when we're about to actually build a new set (not on the
+  // fast path above, which is the common case on every day after the
+  // first) — an extra DB round-trip on every getToday call would be wasted
+  // once the day's row already exists.
+  //
+  // db.hasConfirmedPartner, not db.getPartnerOfUser: getToday is a tRPC
+  // `.query`, and getPartnerOfUser's legacy shared-children fallback can
+  // INSERT a partnership row as a side effect of merely being called —
+  // opening today's check-in must never create a partnership the user
+  // never agreed to (round-8 P2 fix). This also means hasPartner now
+  // requires an actually-confirmed partnership, not just a truthy lookup.
+  const hasPartner = await db.hasConfirmedPartner(userId);
+  const questions = buildQuestionsForToday(gender, lang, date, hasPartner);
 
-  const wrote = await db.fillDiagnosticCheckin(claimedId, questions, source);
-  if (!wrote) {
-    const actual = await db.getDiagnosticCheckinForToday(userId, date);
-    if (actual && actual.source !== "pending") {
-      return { date, questions: actual.questions as DiagnosticQuestion[], answers: actual.answers as DiagnosticAnswer[] | null, source: actual.source as "generated" | "fallback" };
-    }
-  }
-  return { date, questions, answers: null, source };
+  // Reuse a still-"pending" row (a leftover claimed-but-unfilled row, or a
+  // genuinely concurrent claim) rather than trying to insert a second one.
+  const pendingRow = existing ?? (await db.claimDiagnosticCheckin(userId, date));
+  const wrote = pendingRow && (await db.fillDiagnosticCheckin(pendingRow.id, questions, "curated"));
+  if (wrote) return { date, questions, answers: null, source: "curated" };
+
+  // Lost the race either way — to claim the row at all (a concurrent
+  // request's insert won, or the DB is unavailable) or to fill it (a
+  // concurrent request's fill beat ours to the still-"pending" row). Either
+  // way, a peer may already have a real (possibly already-answered) row —
+  // check before falling back to this request's own unpersisted attempt.
+  const persisted = await db.getDiagnosticCheckinForToday(userId, date);
+  if (persisted && persisted.source !== "pending") return asReadyRow(persisted);
+
+  // Still nothing usable (genuine DB outage, or a peer's claim that hasn't
+  // been filled in yet). The question set is pure and free to compute, so
+  // hand it back unpersisted rather than failing the request — submitAnswers
+  // will honestly reject a save against a day that was never actually
+  // written under this row.
+  return { date, questions, answers: null, source: "curated" };
 }
 
 export const dailyDiagnosticRouter = router({
-  /**
-   * Today's question set for the caller — generated once per user per day,
-   * always non-empty. Claims the day via db.claimDiagnosticCheckin BEFORE
-   * calling the paid LLM, so a losing concurrent request (two devices open
-   * at once, a retried request, or the DB being briefly unavailable) never
-   * reaches invokeLLM at all. It polls briefly for the winner's row so its
-   * response is always something the user can actually submit; if nothing
-   * shows up because the winner's process died mid-flight, it re-claims the
-   * now-stale row itself rather than leaving the day stuck for good.
-   */
+  /** Today's question set for the caller — curated, always non-empty, no model call. */
   getToday: protectedProcedure
     .input(z.object({ lang: z.enum(["nl", "en", "ar"]).optional() }).optional())
     .query(async ({ ctx, input }) => {
@@ -417,7 +462,15 @@ export const dailyDiagnosticRouter = router({
     // Upgrade path: store/derive the user's timezone and key on that instead.
     const date = todayKey();
     const profileData = ctx.user.profileData as any;
-    const gender: Gender = (profileData?.parentProfile?.gender as Gender) || "";
+    // Column-then-JSON precedence — the same gap resolveGender
+    // (server/routers.ts) exists to close for getPartnerProfile/
+    // syncWithPartner: a legacy row can have the users.gender COLUMN set
+    // with the profileData.parentProfile.gender JSON copy never backfilled,
+    // which used to fall through to the neutral fallback wording here even
+    // though the column already answers it. Duplicated rather than imported
+    // — routers.ts imports dailyDiagnosticRouter from this module, so
+    // importing resolveGender back from routers.ts would be a cycle.
+    const gender: Gender = ((ctx.user.gender || profileData?.parentProfile?.gender || "") as Gender);
     // The stored account language is not always the language the app is being
     // used in — an Arabic-UI user whose profile still says "nl" would be
     // handed Dutch questions, and Dutch leaking into an Arabic screen is a
@@ -425,55 +478,8 @@ export const dailyDiagnosticRouter = router({
     // current UI language when it sends one (the schema above constrains it
     // to the known set); fall back to the account, then Dutch.
     const lang: Lang = input?.lang ?? ((ctx.user.language as Lang) || "nl");
-    const childrenAges = childrenAgesFromProfile(profileData);
 
-    const existing = await db.getDiagnosticCheckinForToday(ctx.user.id, date);
-    if (existing && existing.source !== "pending") {
-      return { date, questions: existing.questions as DiagnosticQuestion[], answers: existing.answers as DiagnosticAnswer[] | null, source: existing.source as "generated" | "fallback" };
-    }
-
-    const claimed = existing ? null : await db.claimDiagnosticCheckin(ctx.user.id, date);
-    if (claimed) {
-      return generateAndFill(ctx.user.id, claimed.id, date, gender, lang, childrenAges);
-    }
-
-    // Another request already claimed (or finished) today's row, or the DB
-    // is unavailable to claim against. Never call the LLM here — there is
-    // nowhere reliable to cache the result, which is exactly what would turn
-    // a race, or an outage, into unbounded paid calls.
-    // Only wait when there is actually a row to wait for. A failed claim with
-    // no row visible means the DB is down, not that a winner is on its way,
-    // and polling the full window there makes every request during an outage
-    // hold a server slot for seconds to learn nothing.
-    const pending = existing ?? (await db.getDiagnosticCheckinForToday(ctx.user.id, date));
-    const winner = pending
-      ? pending.source !== "pending"
-        ? pending
-        : await pollForFinishedRow(ctx.user.id, date)
-      : null;
-    if (winner) {
-      return { date, questions: winner.questions as DiagnosticQuestion[], answers: winner.answers as DiagnosticAnswer[] | null, source: winner.source as "generated" | "fallback" };
-    }
-
-    // Still nothing — if a claim exists but looks abandoned (its owner
-    // crashed rather than just being slow), take it over instead of leaving
-    // the day permanently stuck.
-    const reclaimed = await db.reclaimStaleDiagnosticCheckin(ctx.user.id, date, STALE_CLAIM_MS);
-    if (reclaimed) {
-      return generateAndFill(ctx.user.id, reclaimed.id, date, gender, lang, childrenAges);
-    }
-
-    // The reclaim declines when the original claimant finished between our
-    // poll and now. Serve that persisted row rather than the fallback: the
-    // fallback's labels would not match what is stored, and submitAnswers
-    // rejects any answer whose label isn't one of the stored options — so
-    // falling back here would hand the user a check-in they cannot submit.
-    const finished = await db.getDiagnosticCheckinForToday(ctx.user.id, date);
-    if (finished && finished.source !== "pending") {
-      return { date, questions: finished.questions as DiagnosticQuestion[], answers: finished.answers as DiagnosticAnswer[] | null, source: finished.source as "generated" | "fallback" };
-    }
-
-    return { date, questions: buildFallbackQuestions(gender, lang), answers: null, source: "fallback" as const };
+    return getOrCreateToday(ctx.user.id, date, gender, lang);
   }),
 
   /** Save today's answers. Rejects anything that isn't one of the exact options shown. */

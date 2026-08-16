@@ -12,7 +12,10 @@ import {
   Keyboard,
 } from "react-native";
 import { DatePicker } from "@/components/date-picker";
-import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
+import {
+  TreatmentPlanRenderer,
+  useAutoTranslate,
+} from "@/components/treatment-plan-renderer";
 import { cachePlanProgress, withPlanStore } from "@/lib/plan-progress";
 import {
   ArchivableIssue,
@@ -2547,6 +2550,12 @@ function StructuredIssueCard({
 }) {
   // TreatmentPlanRenderer handles all internal state (checkboxes, progress)
 
+  // issue.description is the parent's own free text, not a title field (there is
+  // none — see Issue in lib/store.ts) — but it renders as the heading above the
+  // plan, so it has to follow the reader's language the same way the plan body
+  // already does. Same hook, same call path as the plan below, not a second one.
+  const { effectiveText: description } = useAutoTranslate(issue.description, lang, expanded);
+
   return (
     <View
       style={{
@@ -2581,7 +2590,7 @@ function StructuredIssueCard({
               }}
             >
               {tx(lang, "Oplossing: ", "Solution: ", "حل مشكلة ")}
-              {issue.description}
+              {description}
             </Text>
             <Text
               style={{

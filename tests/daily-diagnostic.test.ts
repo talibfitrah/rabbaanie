@@ -4,11 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const dbMocks = vi.hoisted(() => ({
   getDiagnosticCheckinForToday: vi.fn(),
   claimDiagnosticCheckin: vi.fn(),
-  reclaimStaleDiagnosticCheckin: vi.fn(),
   fillDiagnosticCheckin: vi.fn(),
   saveDiagnosticAnswers: vi.fn(),
   getRecentDiagnosticSignals: vi.fn(),
   getPartnerOfUser: vi.fn(),
+  hasConfirmedPartner: vi.fn(),
   getSpouseInteractionData: vi.fn(),
   createSpouseAdvice: vi.fn(),
 }));
@@ -19,21 +19,17 @@ vi.mock("../server/_core/llm", () => ({ invokeLLM: invokeLLMMock }));
 
 import {
   DIAGNOSTIC_CATEGORIES,
-  buildFallbackQuestions,
-  parseGeneratedQuestions,
-  buildGenerationPrompt,
+  buildQuestionsForToday,
+  allBankQuestions,
   summarizeSignals,
   buildPartnerSignalContext,
-  childrenAgesFromProfile,
   dailyDiagnosticRouter,
-  LOSER_POLL_ATTEMPTS,
-  LOSER_POLL_DELAY_MS,
 } from "../server/daily-diagnostic";
 import { adviceRouter } from "../server/advice";
 
-// submitAnswers now rejects any date that isn't "today" (server-computed),
-// so tests must use the real current date rather than a stale hardcoded
-// literal that would only pass by coincidence on one specific day.
+// submitAnswers rejects any date that isn't "today" (server-computed), so
+// tests must use the real current date rather than a stale hardcoded literal
+// that would only pass by coincidence on one specific day.
 const TODAY = new Date().toISOString().slice(0, 10);
 
 const context = (overrides: any = {}) => ({
@@ -48,158 +44,210 @@ const context = (overrides: any = {}) => ({
   },
 });
 
-function llmContent(payload: unknown) {
-  return { choices: [{ message: { content: JSON.stringify(payload) } }] };
-}
-
-function validGenerated(): import("../server/daily-diagnostic").DiagnosticQuestion[] {
-  return [
-    { category: "prayer", text: "كيف كانت صلاتك اليوم؟", options: [
-      { label: "أديتها كاملة في وقتها", tone: "positive" },
-      { label: "فاتتني صلاة أو أكثر", tone: "needs_support" },
-    ] },
-    { category: "psychological", text: "كيف كانت حالتك النفسية اليوم؟", options: [
-      { label: "مرتاح البال", tone: "positive" },
-      { label: "متوتر", tone: "needs_support" },
-    ] },
-    { category: "physical", text: "كيف كانت حالتك الجسدية اليوم؟", options: [
-      { label: "نشيط", tone: "positive" },
-      { label: "متعب", tone: "needs_support" },
-    ] },
-    { category: "children", text: "كيف كان تعاملك مع الأبناء اليوم؟", options: [
-      { label: "صبور معهم", tone: "positive" },
-      { label: "قصّرت معهم", tone: "needs_support" },
-    ] },
-  ];
+// hasPartner defaults to false, matching every pre-existing test in this
+// file: dbMocks.hasConfirmedPartner is never mocked true below unless a
+// test says so, so getToday's real (read-only) lookup resolves to the
+// file-level beforeEach default (false) — this keeps every pre-existing
+// call site's "expected" value equal to what the router actually produces.
+// getPartnerOfUser is a SEPARATE mock still used by getSpouseAdvice
+// (server/advice.ts) further down this file — getToday must never call it
+// (round-8 P2 fix: that function's legacy fallback can INSERT a
+// partnership row as a side effect of what tRPC declares a `.query`).
+function questionsFor(gender: "man" | "vrouw" | "" = "man", lang: "ar" | "nl" | "en" = "ar", date = TODAY, hasPartner = false) {
+  return buildQuestionsForToday(gender, lang, date, hasPartner);
 }
 
 beforeEach(() => {
   vi.clearAllMocks();
-  // Default to "the write actually happened" (the common case) — tests that
-  // specifically exercise the conditional-write race override these with
-  // `false` for that one call.
   dbMocks.fillDiagnosticCheckin.mockResolvedValue(true);
   dbMocks.saveDiagnosticAnswers.mockResolvedValue(true);
+  dbMocks.getPartnerOfUser.mockResolvedValue(null);
+  dbMocks.hasConfirmedPartner.mockResolvedValue(false);
 });
 
 // ============================================================
 // Pure functions — no mocking needed
 // ============================================================
 
-describe("buildFallbackQuestions", () => {
-  it("always returns exactly one question per required category", () => {
+describe("buildQuestionsForToday", () => {
+  it("always returns exactly one question per required category, for every rotated variant", () => {
+    // 30 consecutive dates, not just one — a single date only exercises
+    // whichever one variant per category the rotation happens to pick that
+    // day. A category-field typo on a non-selected variant would pass a
+    // single-date check silently; a month of dates is confirmed (see
+    // dateSeed's rolling-hash math) to cycle every variant index for every
+    // category in this bank at least once.
+    const dates = Array.from({ length: 30 }, (_, i) => {
+      const d = new Date("2026-08-01T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
     for (const gender of ["man", "vrouw", ""] as const) {
       for (const lang of ["ar", "nl", "en"] as const) {
-        const qs = buildFallbackQuestions(gender, lang);
-        expect(qs).toHaveLength(4);
-        expect(new Set(qs.map((q) => q.category))).toEqual(new Set(DIAGNOSTIC_CATEGORIES));
-        for (const q of qs) {
-          expect(q.text.length).toBeGreaterThan(0);
-          expect(q.options.length).toBeGreaterThanOrEqual(2);
-          expect(q.options.length).toBeLessThanOrEqual(4);
-          for (const o of q.options) {
-            expect(["positive", "neutral", "needs_support"]).toContain(o.tone);
-            expect(o.label.length).toBeGreaterThan(0);
+        for (const date of dates) {
+          const qs = buildQuestionsForToday(gender, lang, date);
+          expect(qs).toHaveLength(4);
+          expect(new Set(qs.map((q) => q.category))).toEqual(new Set(DIAGNOSTIC_CATEGORIES));
+          for (const q of qs) {
+            expect(q.text.length).toBeGreaterThan(0);
+            expect(q.options.length).toBeGreaterThanOrEqual(2);
+            expect(q.options.length).toBeLessThanOrEqual(4);
+            for (const o of q.options) {
+              expect(["positive", "neutral", "needs_support"]).toContain(o.tone);
+              expect(o.label.length).toBeGreaterThan(0);
+            }
           }
         }
       }
     }
   });
 
-  it("is pure/deterministic", () => {
-    expect(buildFallbackQuestions("man", "ar")).toEqual(buildFallbackQuestions("man", "ar"));
+  it("is deterministic: same gender+lang+date always produces the same set", () => {
+    expect(buildQuestionsForToday("man", "ar", "2026-08-16")).toEqual(buildQuestionsForToday("man", "ar", "2026-08-16"));
   });
 
-  it("writes Arabic fallback copy with no Latin letters (no nl/en leaking)", () => {
-    const qs = buildFallbackQuestions("vrouw", "ar");
+  it("varies across dates so a user doesn't see the same four every day", () => {
+    const dates = Array.from({ length: 14 }, (_, i) => {
+      const d = new Date("2026-08-01T00:00:00Z");
+      d.setUTCDate(d.getUTCDate() + i);
+      return d.toISOString().slice(0, 10);
+    });
+    const signatures = new Set(dates.map((d) => JSON.stringify(buildQuestionsForToday("man", "ar", d))));
+    expect(signatures.size).toBeGreaterThan(1);
+  });
+
+  it("writes Arabic copy with no Latin letters (no nl/en leaking)", () => {
+    const qs = buildQuestionsForToday("vrouw", "ar", TODAY);
     for (const q of qs) {
       expect(q.text).not.toMatch(/[a-zA-Z]/);
       for (const o of q.options) expect(o.label).not.toMatch(/[a-zA-Z]/);
     }
   });
 
-  it("genders the option wording for man vs vrouw", () => {
-    const manQs = buildFallbackQuestions("man", "ar");
-    const vrouwQs = buildFallbackQuestions("vrouw", "ar");
-    // At least one category's options must differ by gendered Arabic adjective endings (ة)
-    const manPhysical = manQs.find((q) => q.category === "physical")!.options.map((o) => o.label).join("|");
-    const vrouwPhysical = vrouwQs.find((q) => q.category === "physical")!.options.map((o) => o.label).join("|");
-    expect(manPhysical).not.toEqual(vrouwPhysical);
+});
+
+describe("buildQuestionsForToday — spouse-attentiveness gating (P2: a user with no confirmed partner must never be asked about one)", () => {
+  // Matches the نتعاهد variants' actual copy in every language: "did you ask
+  // your spouse..." (NL "uw partner gevraagd", EN "ask your spouse", AR
+  // "سألت زوجتك/زوجك/شريك حياتك"). A content-level scan, not an index-based
+  // check, so it also catches a future spousal variant that forgets to
+  // register itself as partner-only.
+  const SPOUSE_MENTION = /uw partner gevraagd|ask your spouse|سألت (زوجتك|زوجك|شريك حياتك)/;
+  const dates = Array.from({ length: 30 }, (_, i) => {
+    const d = new Date("2026-08-01T00:00:00Z");
+    d.setUTCDate(d.getUTCDate() + i);
+    return d.toISOString().slice(0, 10);
+  });
+
+  it("never asks about a spouse when hasPartner is false, in any gender/lang, across many dates", () => {
+    for (const gender of ["man", "vrouw", ""] as const) {
+      for (const lang of ["ar", "nl", "en"] as const) {
+        for (const date of dates) {
+          const qs = buildQuestionsForToday(gender, lang, date, false);
+          for (const q of qs) expect(q.text).not.toMatch(SPOUSE_MENTION);
+        }
+      }
+    }
+  });
+
+  it("does still ask about a spouse on some dates when hasPartner is true (proves the exclusion is conditional, not a permanent removal)", () => {
+    const sawSpouseQuestion = dates.some((date) =>
+      buildQuestionsForToday("man", "ar", date, true).some((q) => SPOUSE_MENTION.test(q.text)),
+    );
+    expect(sawSpouseQuestion).toBe(true);
+  });
+
+  it("still returns exactly one question per required category when hasPartner is false (dropping the spousal variants must not leave a short set)", () => {
+    for (const date of dates) {
+      const qs = buildQuestionsForToday("man", "ar", date, false);
+      expect(qs).toHaveLength(4);
+      expect(new Set(qs.map((q) => q.category))).toEqual(new Set(DIAGNOSTIC_CATEGORIES));
+    }
   });
 });
 
-describe("parseGeneratedQuestions", () => {
-  it("parses a well-formed model response", () => {
-    const parsed = parseGeneratedQuestions(JSON.stringify(validGenerated()));
-    expect(parsed).toHaveLength(4);
-    expect(parsed![0].category).toBe("prayer");
+describe("allBankQuestions — exhaustive content invariants over every phrasing", () => {
+  const genders = ["man", "vrouw", ""] as const;
+  const langs = ["ar", "nl", "en"] as const;
+
+  it("never mentions family planning / bearing children (إنجاب), in any gender or language", () => {
+    for (const gender of genders) {
+      for (const lang of langs) {
+        for (const q of allBankQuestions(gender, lang)) {
+          expect(q.text).not.toMatch(/إنجاب|الحمل|تنجب|family planning|planning to have (a )?child|kinderwens|zwanger/i);
+          for (const o of q.options) {
+            expect(o.label).not.toMatch(/إنجاب|الحمل|تنجب|family planning|planning to have (a )?child|kinderwens|zwanger/i);
+          }
+        }
+      }
+    }
   });
 
-  it("strips a markdown code fence around the JSON", () => {
-    const fenced = "```json\n" + JSON.stringify(validGenerated()) + "\n```";
-    expect(parseGeneratedQuestions(fenced)).toHaveLength(4);
+  it("never asks whether the prayer was performed on time, in any prayer-category variant (asked elsewhere on the same screen)", () => {
+    // Checked against every variant directly (not sampled dates through the
+    // rotation) — a hand-picked date list can miss a variant entirely; see
+    // the rotation-coverage test in buildQuestionsForToday for why.
+    for (const gender of genders) {
+      for (const lang of langs) {
+        const prayerQuestions = allBankQuestions(gender, lang).filter((q) => q.category === "prayer");
+        expect(prayerQuestions.length).toBeGreaterThan(0);
+        for (const q of prayerQuestions) {
+          expect(q.text).not.toMatch(/وقتها|فاتتني صلاة|قضاء الصلاة|on time|missed a prayer|op tijd|gemist/i);
+        }
+      }
+    }
   });
 
-  it("rejects unparseable JSON", () => {
-    expect(parseGeneratedQuestions("not json at all")).toBeNull();
+  it("gives every question 2-4 options, each with a valid tone, and no free-text field exists on the shape", () => {
+    for (const gender of genders) {
+      for (const lang of langs) {
+        for (const q of allBankQuestions(gender, lang)) {
+          expect(q.options.length).toBeGreaterThanOrEqual(2);
+          expect(q.options.length).toBeLessThanOrEqual(4);
+          for (const o of q.options) {
+            expect(["positive", "neutral", "needs_support"]).toContain(o.tone);
+            // The DiagnosticOption shape is {label, tone} only — asserting the
+            // exact key set is what would catch a free-text field being added.
+            expect(Object.keys(o).sort()).toEqual(["label", "tone"]);
+          }
+        }
+      }
+    }
   });
 
-  it("rejects a set missing a required category", () => {
-    const bad = validGenerated().filter((q) => q.category !== "children");
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
+  it("never has two options with the same label within one question (would collide as a React key)", () => {
+    for (const gender of genders) {
+      for (const lang of langs) {
+        for (const q of allBankQuestions(gender, lang)) {
+          const labels = q.options.map((o) => o.label);
+          expect(new Set(labels).size).toBe(labels.length);
+        }
+      }
+    }
   });
 
-  it("rejects a duplicate category even if length is 4", () => {
-    const bad = validGenerated().slice(0, 3);
-    bad.push({ ...bad[0] });
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
+  it("a man never sees his spouse referred to as though she were his husband (and the correct wording is present)", () => {
+    const manQuestions = allBankQuestions("man", "ar");
+    const allText = manQuestions.map((q) => q.text).join(" | ");
+    // "زوجك" (your husband) would misgender a man's own wife — the bug this
+    // change removes at the root. "زوجتك" (your wife) is the correct noun,
+    // and is not a substring of "زوجك" (nor vice versa), so both checks are
+    // unambiguous.
+    expect(allText).not.toContain("زوجك");
+    expect(allText).toContain("زوجتك");
   });
 
-  it("rejects an invalid tone value", () => {
-    const bad = validGenerated();
-    (bad[0].options[0] as any).tone = "bad_tone";
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
+  it("a woman never sees her spouse referred to as though he were her wife (and the correct wording is present)", () => {
+    const vrouwQuestions = allBankQuestions("vrouw", "ar");
+    const allText = vrouwQuestions.map((q) => q.text).join(" | ");
+    expect(allText).not.toContain("زوجتك");
+    expect(allText).toContain("زوجك");
   });
 
-  it("rejects an option label that reads like free text (too long)", () => {
-    const bad = validGenerated();
-    bad[0].options[0].label = "س".repeat(61);
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
-  });
-
-  it("rejects a question with fewer than 2 options", () => {
-    const bad = validGenerated();
-    bad[0].options = [bad[0].options[0]];
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
-  });
-
-  it("rejects duplicate option labels within a question (would collide as React keys)", () => {
-    const bad = validGenerated();
-    bad[0].options = [bad[0].options[0], { ...bad[0].options[0] }];
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
-  });
-
-  it("rejects an empty question text", () => {
-    const bad = validGenerated();
-    bad[0].text = "";
-    expect(parseGeneratedQuestions(JSON.stringify(bad))).toBeNull();
-  });
-});
-
-describe("buildGenerationPrompt", () => {
-  it("names every required category so the model can't drop one", () => {
-    const { system } = buildGenerationPrompt({ gender: "man", lang: "ar", childrenAges: [4, 7] });
-    for (const cat of DIAGNOSTIC_CATEGORIES) expect(system).toContain(cat);
-  });
-
-  it("instructs JSON-only output", () => {
-    const { system } = buildGenerationPrompt({ gender: "man", lang: "ar", childrenAges: [] });
-    expect(system.toUpperCase()).toContain("JSON");
-  });
-
-  it("carries only the answering user's own gender/children — never a partner field", () => {
-    const { user } = buildGenerationPrompt({ gender: "vrouw", lang: "en", childrenAges: [10] });
-    expect(user).not.toMatch(/partner/i);
+  it("genders the option wording for man vs vrouw somewhere in the bank", () => {
+    const manLabels = allBankQuestions("man", "ar").flatMap((q) => q.options.map((o) => o.label)).join("|");
+    const vrouwLabels = allBankQuestions("vrouw", "ar").flatMap((q) => q.options.map((o) => o.label)).join("|");
+    expect(manLabels).not.toEqual(vrouwLabels);
   });
 });
 
@@ -233,24 +281,6 @@ describe("summarizeSignals", () => {
   });
 });
 
-describe("childrenAgesFromProfile", () => {
-  it("returns no ages when there are no children", () => {
-    expect(childrenAgesFromProfile({ children: [] })).toEqual([]);
-    expect(childrenAgesFromProfile(null)).toEqual([]);
-  });
-
-  it("computes whole-year ages from birthDate", () => {
-    const tenYearsAgo = new Date();
-    tenYearsAgo.setFullYear(tenYearsAgo.getFullYear() - 10);
-    const ages = childrenAgesFromProfile({ children: [{ birthDate: tenYearsAgo.toISOString().slice(0, 10) }] });
-    expect(ages).toEqual([10]);
-  });
-
-  it("drops children with a missing or invalid birthDate rather than crashing", () => {
-    expect(childrenAgesFromProfile({ children: [{ name: "no birthdate" }, { birthDate: "not-a-date" }] })).toEqual([]);
-  });
-});
-
 describe("buildPartnerSignalContext", () => {
   it("returns an empty string when there is nothing to say", () => {
     expect(buildPartnerSignalContext({}, "ar")).toBe("");
@@ -264,228 +294,181 @@ describe("buildPartnerSignalContext", () => {
 });
 
 // ============================================================
-// Router — mocked db + mocked invokeLLM (never calls a real model)
+// Router — mocked db, no LLM involved at all for this module anymore
 // ============================================================
 
 describe("dailyDiagnosticRouter.getToday", () => {
-  it("falls back to the static question set when generation throws, and never leaves the check-in empty", async () => {
+  it("creates and persists today's row on first open, with no model call", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
     dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
-    invokeLLMMock.mockRejectedValue(new Error("network down"));
-
-    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
-
-    expect(result.source).toBe("fallback");
-    expect(result.questions).toHaveLength(4);
-    expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(1, expect.any(Array), "fallback");
-  });
-
-  it("falls back when the model returns malformed JSON", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
-    invokeLLMMock.mockResolvedValue(llmContent("not the shape we asked for"));
-
-    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
-
-    expect(result.source).toBe("fallback");
-    expect(result.questions).toHaveLength(4);
-  });
-
-  it("uses the generated questions when the model returns a valid set", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
-    invokeLLMMock.mockResolvedValue(llmContent(validGenerated()));
-
-    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
-
-    expect(result.source).toBe("generated");
-    expect(result.questions[0].category).toBe("prayer");
-    expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(1, validGenerated(), "generated");
-  });
-
-  it("never calls the model twice in one day — returns the cached row instead", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({
-      id: 5,
-      userId: 1,
-      date: TODAY,
-      questions: validGenerated(),
-      answers: null,
-      source: "generated",
-    });
 
     const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
 
     expect(invokeLLMMock).not.toHaveBeenCalled();
-    expect(dbMocks.claimDiagnosticCheckin).not.toHaveBeenCalled();
     expect(result.questions).toHaveLength(4);
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY));
+    expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(1, questionsFor("man", "ar", TODAY), "curated");
   });
 
-  it("never calls the paid model for the losing side of a concurrent race, and still gets nothing to submit only when the winner never shows up", async () => {
-    // Simulates two near-simultaneous getToday calls for the same fresh
-    // user+day: neither sees an existing row, but only one wins the claim.
-    // The winner's row never actually appears in this test (getDiagnosticCheckinForToday
-    // stays null throughout), so the loser's poll exhausts and it serves the
-    // last-resort unpersisted fallback — see the next test for the recovery path.
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    invokeLLMMock.mockResolvedValue(llmContent(validGenerated()));
-
-    dbMocks.claimDiagnosticCheckin.mockResolvedValueOnce({ id: 1, userId: 1, date: TODAY, source: "pending" }); // winner
-    dbMocks.claimDiagnosticCheckin.mockResolvedValueOnce(null); // loser: unique index rejected the second insert
-
-    const winnerResult = await dailyDiagnosticRouter.createCaller(context()).getToday();
-
-    vi.useFakeTimers();
-    try {
-      const loserPromise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS * LOSER_POLL_ATTEMPTS);
-      const loserResult = await loserPromise;
-
-      expect(invokeLLMMock).toHaveBeenCalledTimes(1); // NOT 2 — this is the money guarantee
-      expect(winnerResult.source).toBe("generated");
-      expect(loserResult.source).toBe("fallback");
-      expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledTimes(1); // loser never persists anything
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("polls briefly and picks up the winner's row once it lands, instead of serving an unsubmittable fallback", async () => {
-    const winningRow = { id: 9, userId: 1, date: TODAY, questions: validGenerated(), answers: null, source: "generated" };
-    // First read (before claiming) sees nothing; the row only appears once
-    // polling starts, simulating the winner finishing generation mid-poll.
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValueOnce(null).mockResolvedValue(winningRow);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null); // lost the claim race
-
-    vi.useFakeTimers();
-    try {
-      const promise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS);
-      const result = await promise;
-
-      expect(invokeLLMMock).not.toHaveBeenCalled();
-      expect(result.source).toBe("generated");
-      expect(result.questions).toEqual(validGenerated()); // the winner's real, submittable row
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("never calls the paid model when the DB is unavailable to claim against (would otherwise retry-storm during an outage)", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null); // db.ts: getDb() returned null
-
-    vi.useFakeTimers();
-    try {
-      const promise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS * LOSER_POLL_ATTEMPTS);
-      const result = await promise;
-
-      expect(invokeLLMMock).not.toHaveBeenCalled();
-      expect(result.source).toBe("fallback");
-      expect(result.questions).toHaveLength(4);
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("takes over a stale pending claim (crashed owner) after polling finds nothing, instead of leaving the day stuck all day", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null); // never completes -- the "crashed" claimant's row never fills in
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null); // lost the original claim
-    dbMocks.reclaimStaleDiagnosticCheckin.mockResolvedValue({ id: 7, userId: 1, date: TODAY, source: "pending" });
-    invokeLLMMock.mockResolvedValue(llmContent(validGenerated()));
-
-    vi.useFakeTimers();
-    try {
-      const promise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS * LOSER_POLL_ATTEMPTS);
-      const result = await promise;
-
-      expect(invokeLLMMock).toHaveBeenCalledTimes(1);
-      expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(7, validGenerated(), "generated");
-      expect(result.source).toBe("generated");
-      expect(result.questions).toEqual(validGenerated());
-    } finally {
-      vi.useRealTimers();
-    }
-  });
-
-  it("trusts the persisted row, not its own local generation, when its fillDiagnosticCheckin write loses a race (the original claimant was slow, not actually dead)", async () => {
+  it("P2 fix (round-7): builds with hasPartner=true when the user has a confirmed partner, instead of always false", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
     dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
-    invokeLLMMock.mockResolvedValue(llmContent(validGenerated()));
-    dbMocks.fillDiagnosticCheckin.mockResolvedValue(false); // someone else already filled this row first
-
-    const persisted = { id: 1, userId: 1, date: TODAY, questions: buildFallbackQuestions("man", "nl"), answers: null, source: "fallback" };
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValueOnce(null); // initial check
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValueOnce(persisted); // re-read after the lost write
+    dbMocks.hasConfirmedPartner.mockResolvedValue(true);
 
     const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
 
-    expect(result.source).toBe("fallback"); // what's actually stored, not this request's own "generated" attempt
-    expect(result.questions).toEqual(buildFallbackQuestions("man", "nl"));
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY, true));
+    expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(1, questionsFor("man", "ar", TODAY, true), "curated");
   });
 
-  it("still serves an unpersisted fallback, honestly, when neither a winner nor a stale claim is found", async () => {
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null);
-    dbMocks.reclaimStaleDiagnosticCheckin.mockResolvedValue(null); // not stale yet -- still within the generous window
+  it("never looks up the partner when today's row already exists (fast path — no wasted query on the common case)", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({
+      id: 5,
+      userId: 1,
+      date: TODAY,
+      questions: questionsFor("man", "ar", TODAY),
+      answers: null,
+      source: "curated",
+    });
 
-    vi.useFakeTimers();
-    try {
-      const promise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS * LOSER_POLL_ATTEMPTS);
-      const result = await promise;
+    await dailyDiagnosticRouter.createCaller(context()).getToday();
 
-      expect(invokeLLMMock).not.toHaveBeenCalled();
-      expect(result.source).toBe("fallback");
-
-      // Documented residual limitation: this specific unpersisted fallback
-      // cannot be submitted (its labels don't match any stored row) — the
-      // user must reopen once the real row is ready. Proven, not silent.
-      dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null); // still no row for that date
-      await expect(
-        dailyDiagnosticRouter.createCaller(context()).submitAnswers({
-          date: result.date,
-          answers: result.questions.map((q) => ({ category: q.category, ...q.options[0] })),
-        }),
-      ).rejects.toMatchObject({ code: "NOT_FOUND" });
-    } finally {
-      vi.useRealTimers();
-    }
+    expect(dbMocks.hasConfirmedPartner).not.toHaveBeenCalled();
   });
 
-  it("also fails honestly (BAD_REQUEST, not a silent corruption) when the loser's unpersisted fallback collides with a row the winner DID finish and persist", async () => {
-    // The more likely real-world variant of the limitation above: the
-    // winner's row exists by the time the user submits, just with different
-    // labels than the loser's client is showing (see server/db.ts:437's
-    // fillDiagnosticCheckin condition — the winner's write is what stands).
+  it("round-8 P2 fix: never calls db.getPartnerOfUser (its legacy fallback can INSERT a partnership row as a side effect) — only the read-only hasConfirmedPartner", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
-    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null);
-    dbMocks.reclaimStaleDiagnosticCheckin.mockResolvedValue(null);
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
+    dbMocks.hasConfirmedPartner.mockResolvedValue(true);
 
-    vi.useFakeTimers();
-    let result: any;
-    try {
-      const promise = dailyDiagnosticRouter.createCaller(context()).getToday();
-      await vi.advanceTimersByTimeAsync(LOSER_POLL_DELAY_MS * LOSER_POLL_ATTEMPTS);
-      result = await promise;
-    } finally {
-      vi.useRealTimers();
-    }
-    expect(result.source).toBe("fallback");
+    await dailyDiagnosticRouter.createCaller(context()).getToday();
 
-    // Now the winner's generation actually lands, persisted under the SAME
-    // date, with different question/option content than what this user saw.
-    const winnersRow = { id: 3, userId: 1, date: result.date, questions: validGenerated(), answers: null, source: "generated" };
-    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(winnersRow);
+    expect(dbMocks.getPartnerOfUser).not.toHaveBeenCalled();
+    expect(dbMocks.hasConfirmedPartner).toHaveBeenCalledWith(1);
+  });
 
+  it("never calls claimDiagnosticCheckin again once a row already exists for today", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({
+      id: 5,
+      userId: 1,
+      date: TODAY,
+      questions: questionsFor("man", "ar", TODAY),
+      answers: null,
+      source: "curated",
+    });
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+
+    expect(dbMocks.claimDiagnosticCheckin).not.toHaveBeenCalled();
+    expect(dbMocks.fillDiagnosticCheckin).not.toHaveBeenCalled();
+    expect(result.questions).toHaveLength(4);
+  });
+
+  it("returns a pre-existing row's source unchanged (backward compat with rows written before this change)", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({
+      id: 5,
+      userId: 1,
+      date: TODAY,
+      questions: questionsFor("man", "ar", TODAY),
+      answers: null,
+      source: "generated", // a legacy row from before this change
+    });
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+    expect(result.source).toBe("generated");
+  });
+
+  it("fills in a row still stuck in 'pending' (e.g. left over from before this change) instead of leaving the day stuck", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({ id: 7, userId: 1, date: TODAY, questions: [], answers: null, source: "pending" });
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+
+    expect(dbMocks.claimDiagnosticCheckin).not.toHaveBeenCalled(); // reused the existing pending row instead of inserting a new one
+    expect(dbMocks.fillDiagnosticCheckin).toHaveBeenCalledWith(7, questionsFor("man", "ar", TODAY), "curated");
+    expect(result.source).toBe("curated");
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY));
+  });
+
+  it("trusts the persisted row, not its own locally-built set, when its own fill loses a race", async () => {
+    dbMocks.getDiagnosticCheckinForToday
+      .mockResolvedValueOnce(null) // initial check
+      .mockResolvedValueOnce({ id: 1, userId: 1, date: TODAY, questions: questionsFor("man", "nl", TODAY), answers: null, source: "curated" }); // re-read after lost write
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
+    dbMocks.fillDiagnosticCheckin.mockResolvedValue(false); // someone else already filled this row first
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+
+    expect(result.questions).toEqual(questionsFor("man", "nl", TODAY)); // what's actually stored
+  });
+
+  it("still serves an honest, unpersisted question set when the DB can't be claimed against (outage), rather than failing the request", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null); // db.ts: getDb() returned null
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY));
+    expect(result.answers).toBeNull();
+
+    // Documented residual limitation: this specific unpersisted set cannot be
+    // submitted (no row exists in the DB under this date) — proven, not silent.
     await expect(
       dailyDiagnosticRouter.createCaller(context()).submitAnswers({
         date: result.date,
-        answers: result.questions.map((q: any) => ({ category: q.category, ...q.options[0] })),
+        answers: result.questions.map((q) => ({ category: q.category, ...q.options[0] })),
       }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    expect(dbMocks.saveDiagnosticAnswers).not.toHaveBeenCalled();
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  });
+
+  it("re-checks for a persisted row when it loses the race to even CLAIM today's row, not just the race to fill it", async () => {
+    // Distinct from the outage test above: here a concurrent peer's insert
+    // won AND that peer already finished filling in AND the user already
+    // answered on that other device — must surface the peer's real,
+    // already-answered row rather than silently reporting "unanswered".
+    const peerAnswers = questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, ...q.options[0] }));
+    dbMocks.getDiagnosticCheckinForToday
+      .mockResolvedValueOnce(null) // initial check
+      .mockResolvedValueOnce({ id: 9, userId: 1, date: TODAY, questions: questionsFor("man", "ar", TODAY), answers: peerAnswers, source: "curated" }); // re-read after losing the claim race
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue(null); // lost the claim race (a peer's insert won)
+
+    const result = await dailyDiagnosticRouter.createCaller(context()).getToday();
+
+    expect(dbMocks.fillDiagnosticCheckin).not.toHaveBeenCalled(); // never had a row of our own to fill
+    expect(result.answers).toEqual(peerAnswers); // the peer's actually-persisted, already-answered row — not null
+  });
+
+  it("respects the requested UI language over the account's stored language", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
+
+    const result = await dailyDiagnosticRouter.createCaller(context({ language: "nl" })).getToday({ lang: "ar" });
+
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY));
+  });
+
+  // P3 fix: gender used to be read from profileData.parentProfile.gender
+  // only, ignoring the users.gender COLUMN — same column-then-JSON gap
+  // resolveGender (server/routers.ts) exists to close elsewhere.
+  it("resolves gender from the users.gender COLUMN when the JSON copy is missing (legacy row)", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
+
+    const result = await dailyDiagnosticRouter
+      .createCaller(context({ gender: "vrouw", profileData: { children: [] } }))
+      .getToday();
+
+    expect(result.questions).toEqual(questionsFor("vrouw", "ar", TODAY));
+  });
+
+  it("prefers the users.gender COLUMN over a conflicting JSON copy", async () => {
+    dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(null);
+    dbMocks.claimDiagnosticCheckin.mockResolvedValue({ id: 1, userId: 1, date: TODAY, source: "pending" });
+
+    const result = await dailyDiagnosticRouter
+      .createCaller(context({ gender: "man", profileData: { parentProfile: { gender: "vrouw" }, children: [] } }))
+      .getToday();
+
+    expect(result.questions).toEqual(questionsFor("man", "ar", TODAY));
   });
 });
 
@@ -494,31 +477,31 @@ describe("dailyDiagnosticRouter.submitAnswers", () => {
     id: 5,
     userId: 1,
     date: TODAY,
-    questions: validGenerated(),
+    questions: questionsFor("man", "ar", TODAY),
     answers: null,
-    source: "generated",
+    source: "curated",
   };
 
-  it("rejects submitting against a still-pending (not yet generated) row", async () => {
+  it("rejects submitting against a still-pending (not yet filled) row", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue({ ...todayRow, questions: [], source: "pending" });
 
     await expect(
       dailyDiagnosticRouter.createCaller(context()).submitAnswers({
         date: TODAY,
-        answers: validGenerated().map((q) => ({ category: q.category, ...q.options[0] })),
+        answers: questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, ...q.options[0] })),
       }),
     ).rejects.toMatchObject({ code: "NOT_FOUND" });
     expect(dbMocks.saveDiagnosticAnswers).not.toHaveBeenCalled();
   });
 
   it("rejects re-submitting a day that was already answered (no rewriting history)", async () => {
-    const already = { ...todayRow, answers: validGenerated().map((q) => ({ category: q.category, ...q.options[0] })) };
+    const already = { ...todayRow, answers: questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, ...q.options[0] })) };
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(already);
 
     await expect(
       dailyDiagnosticRouter.createCaller(context()).submitAnswers({
         date: TODAY,
-        answers: validGenerated().map((q) => ({ category: q.category, ...q.options[1] })), // different answers this time
+        answers: questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, ...q.options[1] })), // different answers this time
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(dbMocks.saveDiagnosticAnswers).not.toHaveBeenCalled();
@@ -528,7 +511,7 @@ describe("dailyDiagnosticRouter.submitAnswers", () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(todayRow); // both requests see answers: null
     dbMocks.saveDiagnosticAnswers.mockResolvedValue(false); // the other request's write already landed first
 
-    const answers = validGenerated().map((q) => ({ category: q.category, ...q.options[0] }));
+    const answers = questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, ...q.options[0] }));
     await expect(
       dailyDiagnosticRouter.createCaller(context()).submitAnswers({ date: TODAY, answers }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
@@ -537,7 +520,7 @@ describe("dailyDiagnosticRouter.submitAnswers", () => {
   it("saves an answer set that matches the stored options exactly", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(todayRow);
 
-    const answers = validGenerated().map((q) => ({
+    const answers = questionsFor("man", "ar", TODAY).map((q) => ({
       category: q.category,
       label: q.options[0].label,
       tone: q.options[0].tone,
@@ -555,7 +538,7 @@ describe("dailyDiagnosticRouter.submitAnswers", () => {
 
     // All 4 categories present (so this fails on label-matching specifically,
     // not on the separate category-completeness check).
-    const answers = validGenerated().map((q) => ({ category: q.category, label: q.options[0].label, tone: q.options[0].tone }));
+    const answers = questionsFor("man", "ar", TODAY).map((q) => ({ category: q.category, label: q.options[0].label, tone: q.options[0].tone }));
     answers[0] = { category: "prayer", label: "إجابة مختلقة لم تُعرض قط", tone: "positive" as const };
     await expect(
       dailyDiagnosticRouter.createCaller(context()).submitAnswers({ date: TODAY, answers } as any),
@@ -566,7 +549,7 @@ describe("dailyDiagnosticRouter.submitAnswers", () => {
   it("rejects two answers for the same category with a category left out", async () => {
     dbMocks.getDiagnosticCheckinForToday.mockResolvedValue(todayRow);
 
-    const prayerQ = validGenerated().find((q) => q.category === "prayer")!;
+    const prayerQ = questionsFor("man", "ar", TODAY).find((q) => q.category === "prayer")!;
     const answers = [
       { category: "prayer" as const, label: prayerQ.options[0].label, tone: prayerQ.options[0].tone },
       { category: "prayer" as const, label: prayerQ.options[1].label, tone: prayerQ.options[1].tone },

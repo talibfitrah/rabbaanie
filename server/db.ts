@@ -26,7 +26,6 @@ import {
   inArray,
   gte,
   lte,
-  lt,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -262,7 +261,19 @@ export async function getUserById(id: number) {
   return result.length > 0 ? result[0] : undefined;
 }
 
-export async function updateUserProfile(userId: number, profileData: unknown) {
+/**
+ * `markOnboardingComplete` defaults to true (the historical behavior): most
+ * callers (profile.save, syncWithPartner) are genuine full-profile saves
+ * where "you saved a profile" already implies onboarding is done. Pass
+ * false for a narrow remediation write — e.g. setMyGender, reachable long
+ * after onboarding from the spouse-profile screen — that must not silently
+ * flip a user's onboarding status as a side effect of fixing one field.
+ */
+export async function updateUserProfile(
+  userId: number,
+  profileData: unknown,
+  opts: { markOnboardingComplete?: boolean } = {},
+) {
   const db = await getDb();
   if (!db) return;
   // Extract key fields into dedicated columns for querying
@@ -270,9 +281,9 @@ export async function updateUserProfile(userId: number, profileData: unknown) {
   const parentProfile = data?.parentProfile || {};
   const setFields: any = {
     profileData,
-    onboardingCompleted: true,
     lastActive: new Date(),
   };
+  if (opts.markOnboardingComplete ?? true) setFields.onboardingCompleted = true;
   if (parentProfile.gender) setFields.gender = parentProfile.gender;
   if (parentProfile.maritalStatus)
     setFields.maritalStatus = parentProfile.maritalStatus;
@@ -3424,9 +3435,9 @@ export function driverErrorCode(err: any): string | undefined {
 
 /**
  * How many rows an UPDATE actually touched, used by claimDiagnosticCheckin's
- * siblings below (fillDiagnosticCheckin, saveDiagnosticAnswers,
- * reclaimStaleDiagnosticCheckin) to detect a conditional write that matched
- * nothing. Reads both driver shapes rather than leaving the port to a
+ * siblings below (fillDiagnosticCheckin, saveDiagnosticAnswers) to detect a
+ * conditional write that matched nothing. Reads both driver shapes rather
+ * than leaving the port to a
  * comment: mysql2 gives `[ResultSetHeader]` with `affectedRows`, while
  * `drizzle-orm/node-postgres` gives pg's `QueryResult` (`{ rowCount, rows }`)
  * for an `.update()` without `.returning()`. Reading only the mysql2 shape on
@@ -3444,6 +3455,23 @@ export function affectedRows(result: any): number {
   return result?.[0]?.affectedRows ?? result?.rowCount ?? result?.affectedRows ?? 0;
 }
 
+/**
+ * PORTING HAZARD (same class as affectedRows() above, worse in one way):
+ * mysql2 gives [ResultSetHeader] (or the header directly, if the caller
+ * destructured `[result]` at the await) carrying `insertId`. node-postgres
+ * has NO equivalent field on a plain INSERT — unlike affectedRows()'s
+ * `rowCount`, which postgres always populates, a new row's id there is
+ * ONLY available via a `.returning()` clause, which this file's
+ * mysql2-typed insert() builder doesn't support. So this reader can only
+ * guard the mysql2 side (both ways a caller might read the result); a real
+ * port to Postgres needs `.returning({ id: ... })` added at the call site,
+ * not just a smarter reader here. Returns undefined (not 0) when neither
+ * shape matches, so a caller can tell "no id" from "id is legitimately 0".
+ */
+export function insertId(result: any): number | undefined {
+  return result?.[0]?.insertId ?? result?.insertId ?? undefined;
+}
+
 export async function claimDiagnosticCheckin(userId: number, date: string) {
   const db = await getDb();
   if (!db) return null;
@@ -3457,64 +3485,18 @@ export async function claimDiagnosticCheckin(userId: number, date: string) {
 }
 
 /**
- * Re-claims a "pending" row whose owner likely died between claiming and
- * filling it in (process restart mid-generation, etc.), so one crashed
- * request doesn't permanently strand that user's check-in for the rest of
- * the day. Renews the row's createdAt so a third concurrent caller sees it
- * as freshly claimed. Returns the row on success (caller must generate and
- * fill it); null if it isn't stale yet, or someone else just reclaimed or
- * finished it first, or the DB is unavailable.
- */
-export async function reclaimStaleDiagnosticCheckin(userId: number, date: string, staleAfterMs: number) {
-  const db = await getDb();
-  if (!db) return null;
-  // Both sides of the staleness check run through MySQL's NOW(), not the
-  // Node process clock — claimDiagnosticCheckin lets MySQL set createdAt via
-  // the column's own DEFAULT (now()), so comparing against a JS-computed
-  // Date.now() cutoff would silently drift with any DB/app clock skew: too
-  // far ahead and a genuinely-crashed claim never looks stale (permanently
-  // stuck); too far behind and every fresh claim looks stale immediately
-  // (each concurrent request re-fires the paid call, defeating the guard).
-  //
-  // PORTING NOTE (mysql2 syntax, like affectedRows above):
-  // `NOW() - INTERVAL n SECOND` is MySQL. Postgres rejects a bound parameter
-  // directly inside INTERVAL — use `NOW() - make_interval(secs => n)` or
-  // `NOW() - (n * INTERVAL '1 second')` on the hand-ported version, or this
-  // throws a syntax error on every call (getToday 500s instead of falling
-  // back, for exactly the requests whose poll already came up empty).
-  const staleSeconds = Math.max(1, Math.round(staleAfterMs / 1000));
-  const result: any = await db
-    .update(dailyDiagnosticCheckins)
-    .set({ createdAt: sql`NOW()` })
-    .where(
-      and(
-        eq(dailyDiagnosticCheckins.userId, userId),
-        eq(dailyDiagnosticCheckins.date, date),
-        eq(dailyDiagnosticCheckins.source, "pending"),
-        lt(dailyDiagnosticCheckins.createdAt, sql`(NOW() - INTERVAL ${staleSeconds} SECOND)`),
-      ),
-    );
-  if (affectedRows(result) === 0) return null;
-  const row = await getDiagnosticCheckinForToday(userId, date);
-  // The UPDATE matched, but the original claimant's fill can land between it
-  // and this read. Handing that finished row back would send the caller into
-  // a paid generation whose result fillDiagnosticCheckin then discards for
-  // no longer being "pending" — a spend on the path built to prevent spend.
-  // Only return a row that is actually ours to fill.
-  return row && row.source === "pending" ? row : null;
-}
-
-/**
- * Fills in a row claimed by claimDiagnosticCheckin with the real (generated
- * or fallback) questions. Conditioned on the row still being "pending" —
- * the stale-claim reclaim path means two generations can race for the same
- * row (the original was slow, not actually dead); without this guard
- * whichever write lands last would silently overwrite the other's already-
- * returned-to-a-client questions. Returns whether THIS call actually wrote;
- * the caller must re-read and use the persisted row when it didn't (see
- * generateAndFill in daily-diagnostic.ts). Throws rather than silently
- * no-opping when the DB is unavailable — a caller that awaits this and
- * reports success back to the user must know a write was attempted at all.
+ * Fills in a row claimed by claimDiagnosticCheckin with the curated
+ * question set. Conditioned on the row still being "pending" — guards
+ * against two requests racing to create the SAME user+day at once (one
+ * wins claimDiagnosticCheckin's insert; the other re-reads and reuses that
+ * same pending row instead of inserting a second one — see getOrCreateToday
+ * in daily-diagnostic.ts); without this guard whichever write lands last
+ * would silently overwrite the other's already-returned-to-a-client
+ * questions. Returns whether THIS call actually wrote; the caller must
+ * re-read and use the persisted row when it didn't (see getOrCreateToday in
+ * daily-diagnostic.ts). Throws rather than silently no-opping when the DB is
+ * unavailable — a caller that awaits this and reports success back to the
+ * user must know a write was attempted at all.
  */
 export async function fillDiagnosticCheckin(id: number, questions: unknown, source: string): Promise<boolean> {
   const db = await getDb();
@@ -3584,12 +3566,71 @@ export async function getRecentDiagnosticSignals(userId: number, days: number) {
 }
 
 /**
+ * Read-only confirmed-partner check — no writes, unlike getPartnerOfUser
+ * below, whose legacy shared-children fallback can INSERT a new
+ * partnerships row (via createPartnership) just from being called. That's
+ * fine for a mutation, but daily-diagnostic.ts's getToday is a tRPC
+ * `.query` — merely opening the daily check-in must never create a
+ * partnership the user never agreed to (round-8 P2 fix).
+ *
+ * Mirrors getPartnerOfUser's own first branch only (the partnerships
+ * table, status='active' AND confirmed=true, partner not soft-deleted) —
+ * never the auto-creating fallback. As a side effect this also means
+ * "hasPartner" here can never be true for a still-pending invite, unlike
+ * the old `!!(await getPartnerOfUser(...))` check it replaces (that only
+ * tested truthiness, not partnershipConfirmed). Fails closed (false) when
+ * the DB is unavailable, same as every other lookup in this file.
+ */
+export async function hasConfirmedPartner(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const partnershipRows = await db
+    .select()
+    .from(partnerships)
+    .where(
+      and(
+        or(eq(partnerships.userId1, userId), eq(partnerships.userId2, userId)),
+        eq(partnerships.status, "active"),
+        eq(partnerships.confirmed, true),
+      ),
+    )
+    .limit(1);
+  if (partnershipRows.length === 0) return false;
+  const p = partnershipRows[0];
+  const partnerId = p.userId1 === userId ? p.userId2 : p.userId1;
+  const partner = await db
+    .select()
+    .from(users)
+    .where(and(eq(users.id, partnerId), isNull(users.deletedAt)))
+    .limit(1);
+  return partner.length > 0;
+}
+
+/**
  * Get the partner (spouse) of a user by checking parent_child_links.
  * Two users are considered partners if they both have confirmed links to the same child.
  */
 export async function getPartnerOfUser(
   userId: number,
-): Promise<{ id: number; name: string | null; profileData: any } | null> {
+): Promise<{
+  id: number;
+  name: string | null;
+  /** The users.gender COLUMN — see hasFullPartnerAccess's callers in
+   * routers.ts, which fall back to this when profileData.parentProfile.gender
+   * (the JSON copy) is missing on a legacy row. */
+  gender: string | null;
+  profileData: any;
+  partnershipId: number;
+  /** Whether that partnershipId row is actually status='active' AND
+   * confirmed=true — the shared-children legacy fallback below can return a
+   * partner whose partnership is still a pending, unconfirmed invite.
+   * requestPartnerProfileAccess/grantPartnerProfileAccess/revokePartner-
+   * ProfileAccess all require active+confirmed, so callers must gate any
+   * affordance that leads to those mutations on this flag. */
+  partnershipConfirmed: boolean;
+  profileAccessRequestedAt: Date | null;
+  profileAccessGrantedAt: Date | null;
+} | null> {
   const db = await getDb();
   if (!db) return null;
 
@@ -3618,7 +3659,15 @@ export async function getPartnerOfUser(
       return {
         id: partner[0].id,
         name: partner[0].name,
+        gender: partner[0].gender,
         profileData: partner[0].profileData,
+        partnershipId: p.id,
+        // Guaranteed by the WHERE clause above (status='active' AND
+        // confirmed=true) — derived from the row itself rather than
+        // hardcoded true so it self-corrects if that filter ever changes.
+        partnershipConfirmed: p.status === "active" && p.confirmed === true,
+        profileAccessRequestedAt: p.profileAccessRequestedAt ?? null,
+        profileAccessGrantedAt: p.profileAccessGrantedAt ?? null,
       };
     }
   }
@@ -3654,11 +3703,41 @@ export async function getPartnerOfUser(
         .limit(1);
       if (partner.length > 0) {
         // Auto-create partnership record for persistence
-        await createPartnership(userId, partnerId, userId, true);
+        const created = await createPartnership(userId, partnerId, userId, true);
+        if (!created) {
+          // createPartnership's own getDb() came back empty (DB briefly
+          // unavailable between this function's top-level check and here) —
+          // fail closed as "no partner", matching this function's existing
+          // `if (!db) return null;` contract, instead of throwing on
+          // created.id.
+          return null;
+        }
+        if (typeof created.id !== "number") {
+          // insertId() is documented to return undefined when neither
+          // driver shape carries an id (e.g. a Postgres INSERT with no
+          // .returning() — see its own doc comment). Only the freshly-
+          // inserted branch of createPartnership can hit this: the
+          // existing-row branch above returns a real DB row, whose id
+          // always came back from a SELECT. Fail closed the same way the
+          // sibling !created check above does, instead of handing back a
+          // partnershipId no mutation could ever act on.
+          return null;
+        }
         return {
           id: partner[0].id,
           name: partner[0].name,
+          gender: partner[0].gender,
           profileData: partner[0].profileData,
+          partnershipId: created.id,
+          // createPartnership never promotes an existing row (see its own
+          // comment above) — it can hand back a still-pending invite here,
+          // so this must be derived from the row it actually returned, not
+          // assumed true just because we asked for confirmed=true.
+          partnershipConfirmed:
+            created.status === "active" && created.confirmed === true,
+          profileAccessRequestedAt:
+            (created as any)?.profileAccessRequestedAt ?? null,
+          profileAccessGrantedAt: (created as any)?.profileAccessGrantedAt ?? null,
         };
       }
     }
@@ -3695,7 +3774,28 @@ export async function createPartnership(
       ),
     )
     .limit(1);
-  if (existing.length > 0) return existing[0];
+  if (existing.length > 0) {
+    // Never promote an existing row to active/confirmed here, even when the
+    // caller passed confirmed=true. The only two callers of this function
+    // are linkPartnerByPublicId (always confirmed=false — creates a genuine,
+    // live invite the recipient must act on) and getPartnerOfUser's shared-
+    // children legacy fallback (confirmed=true). That fallback is not
+    // guaranteed to run only when no partnerships row exists for this pair —
+    // getPartnerOfUser's own lookup also falls through to it when a matching
+    // active+confirmed row DOES exist but its partner user is soft-deleted
+    // (that lookup filters on isNull(users.deletedAt)). Either way, every
+    // write to `partnerships` elsewhere in this file keeps status and
+    // confirmed in lockstep (pending+unconfirmed, active+confirmed, or
+    // dissolved), so any row landed on here that isn't already
+    // active+confirmed is still always a real pending invite awaiting the
+    // recipient's own confirmPartnershipRequest call — never a leftover this
+    // same auto-create path can safely finish on its own. Auto-confirming it
+    // from the INVITER's side (e.g. by them merely calling getPartnerProfile
+    // / getSpouseAdvice / syncWithPartner, which route through here) would
+    // accept the invite on the recipient's behalf, contradicting the "no
+    // data is shared until you confirm" message they were sent.
+    return existing[0];
+  }
   // Create new
   const [result] = await db
     .insert(partnerships)
@@ -3707,7 +3807,7 @@ export async function createPartnership(
       status: confirmed ? "active" : "pending",
     });
   return {
-    id: result.insertId,
+    id: insertId(result),
     userId1,
     userId2,
     status: confirmed ? "active" : "pending",
@@ -3802,6 +3902,143 @@ export async function rejectPartnershipRequest(
       ),
     );
   return Number((result as any)?.[0]?.affectedRows ?? 0) === 1;
+}
+
+/**
+ * Wife requests permission to read her husband's profile. Idempotent —
+ * re-stamps the request time. Gender ("wife only") is resolved from
+ * profileData.parentProfile.gender by the caller (linksRouter), not here;
+ * this WHERE clause guards only that requesterId is a genuine party of an
+ * active, confirmed partnership — same shape as confirmPartnershipRequest.
+ */
+export async function requestPartnerProfileAccess(
+  partnershipId: number,
+  requesterId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db
+    .update(partnerships)
+    .set({ profileAccessRequestedAt: new Date() })
+    .where(
+      and(
+        eq(partnerships.id, partnershipId),
+        or(
+          eq(partnerships.userId1, requesterId),
+          eq(partnerships.userId2, requesterId),
+        ),
+        eq(partnerships.status, "active"),
+        eq(partnerships.confirmed, true),
+        // Conditional on both timestamps still being unset (round-7 P3
+        // fix): the router's own idempotency check (routers.ts) reads
+        // partner state fetched BEFORE this call, so two near-simultaneous
+        // requests can both pass that check and both reach here. Without
+        // this, both writes would succeed and both notify the husband.
+        // With it, only the first writer's WHERE clause matches — the
+        // second gets affectedRows=0, and routers.ts re-fetches to tell
+        // "someone else's request already landed" (idempotent success)
+        // apart from a genuine FORBIDDEN.
+        isNull(partnerships.profileAccessRequestedAt),
+        isNull(partnerships.profileAccessGrantedAt),
+      ),
+    );
+  return affectedRows(result) === 1;
+}
+
+/** Husband grants his wife access to his profile. See requestPartnerProfileAccess re: gender. */
+export async function grantPartnerProfileAccess(
+  partnershipId: number,
+  granterId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db
+    .update(partnerships)
+    .set({ profileAccessGrantedAt: new Date() })
+    .where(
+      and(
+        eq(partnerships.id, partnershipId),
+        or(
+          eq(partnerships.userId1, granterId),
+          eq(partnerships.userId2, granterId),
+        ),
+        eq(partnerships.status, "active"),
+        eq(partnerships.confirmed, true),
+      ),
+    );
+  return affectedRows(result) === 1;
+}
+
+/**
+ * Husband revokes access (or declines a request he never granted — the app
+ * wires both actions to this same mutation). Works at any time. Also clears
+ * the request timestamp: leaving it set stranded the wife at
+ * requestPending=true forever with no way to ask again.
+ */
+export async function revokePartnerProfileAccess(
+  partnershipId: number,
+  granterId: number,
+): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  // Authorize with a plain existence check rather than deciding success
+  // from the UPDATE's own affectedRows: unlike grantPartnerProfileAccess
+  // (always stamps a fresh Date, so it always reads as "changed") or
+  // requestPartnerProfileAccess (WHERE-gated on the columns still being
+  // unset), this SET can legitimately match values already in place —
+  // declining a request that was never granted, or re-revoking an
+  // already-revoked grant, is an idempotent no-op this mutation is meant to
+  // handle (see its own doc comment above), not a race to reject. mysql2's
+  // default affected-rows semantics count only rows actually CHANGED (see
+  // affectedRows()'s own porting-hazard comment), so that no-op would read
+  // as affectedRows=0 — indistinguishable, at that point, from "no such
+  // authorized row" — and get reported as FORBIDDEN instead of success.
+  const owned = await db
+    .select({ id: partnerships.id })
+    .from(partnerships)
+    .where(
+      and(
+        eq(partnerships.id, partnershipId),
+        or(
+          eq(partnerships.userId1, granterId),
+          eq(partnerships.userId2, granterId),
+        ),
+        eq(partnerships.status, "active"),
+        eq(partnerships.confirmed, true),
+      ),
+    )
+    .limit(1);
+  if (owned.length === 0) return false;
+  await db
+    .update(partnerships)
+    .set({ profileAccessGrantedAt: null, profileAccessRequestedAt: null })
+    .where(eq(partnerships.id, partnershipId));
+  return true;
+}
+
+/**
+ * Clears profileAccessGrantedAt AND profileAccessRequestedAt on every
+ * partnership this user is a party to. Called from profileRouter.save
+ * (routers.ts) whenever a user's gender actually changes — this is what
+ * makes gender safe to change again after round-6 made it permanently
+ * immutable: self-granting via a temporary gender flip now gains an
+ * attacker nothing, because flipping back destroys the very grant it just
+ * created. Unconditional across ALL of the user's partnership rows (not
+ * just an active/confirmed one) and over both nullable columns even if
+ * only one was set — clearing an already-null column is a harmless no-op,
+ * and this must never leave a stale grant standing after a gender change.
+ */
+export async function revokeProfileAccessGrantsForUser(
+  userId: number,
+): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db
+    .update(partnerships)
+    .set({ profileAccessGrantedAt: null, profileAccessRequestedAt: null })
+    .where(
+      or(eq(partnerships.userId1, userId), eq(partnerships.userId2, userId)),
+    );
 }
 
 export async function areConfirmedCoParents(
