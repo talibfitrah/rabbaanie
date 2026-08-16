@@ -442,7 +442,12 @@ export function getFirstIncompleteOnboardingStep(
   // combined streetHouseNumber/address fields, unchanged from the check this
   // replaces, so no existing user is newly sent back through onboarding for
   // data the form never asked them for.
-  const hasDiscreteAddress = !!(p?.country && p?.city && p?.street && p?.houseNumber);
+  // Trimmed, so a field holding only spaces does not read as filled. Only the
+  // NEW branch trims: doing the same to the legacy one would fail a stored
+  // " " that passes today, which is precisely the lockout this OR exists to
+  // prevent — so it stays byte-identical to the check it replaces.
+  const filled = (v?: string) => typeof v === "string" && v.trim().length > 0;
+  const hasDiscreteAddress = filled(p?.country) && filled(p?.city) && filled(p?.street) && filled(p?.houseNumber);
   const hasLegacyAddress = !!(p?.streetHouseNumber || p?.address);
   if (!(p?.firstName && p?.lastName && p?.birthDate && (hasDiscreteAddress || hasLegacyAddress) && p?.phoneNumber)) {
     return "basic";

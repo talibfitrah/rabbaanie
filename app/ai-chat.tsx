@@ -1176,6 +1176,11 @@ function AIChatScreenInner() {
   }, [goBackOneStep]);
 
   const renderMessage = ({ item }: { item: ChatMessage }) => {
+    // Once per message, not twice. Both the renderer choice and the save button
+    // asked independently, and this list mounts every item up front
+    // (initialNumToRender is the full thread) and re-renders whole whenever the
+    // screen's state changes, so the scan was paid 2x per message per render.
+    const showsPlan = item.role !== "user" && (item.hasActionPlan || detectActionPlan(item.content));
     const isUser = item.role === "user";
     return (
       <View style={[
@@ -1220,7 +1225,7 @@ function AIChatScreenInner() {
           </Text>
         ) : (
           <View style={language === "ar" ? { direction: "rtl" } as any : undefined}>
-            {(item.hasActionPlan || detectActionPlan(item.content)) ? (
+            {showsPlan ? (
               <TreatmentPlanRenderer
                 planText={item.content}
                 issueId={item.id}
@@ -1236,7 +1241,7 @@ function AIChatScreenInner() {
                 began before the content ended. Laid out among the sections it
                 simply follows them, and the divider keeps it visibly its own
                 thing rather than part of the last fold. */}
-            {(item.hasActionPlan || detectActionPlan(item.content)) && (
+            {showsPlan && (
               <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
                 <Pressable
                   onPress={() => saveActionPlanToWeekly(item.content)}

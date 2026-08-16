@@ -49,6 +49,12 @@ export default function OnboardingScreen() {
   const [lastName, setLastName] = useState(state.parentProfile.lastName || "");
   const [birthDate, setBirthDate] = useState(state.parentProfile.birthDate || "");
   const [country, setCountry] = useState(state.parentProfile.country || "");
+  // Start in free-text mode when the stored country is not one the list knows,
+  // so a profile saved with "Netherlands" (or from the free-text editor in
+  // settings) edits as text instead of silently disagreeing with the picker.
+  const [countryFreeText, setCountryFreeText] = useState<boolean>(
+    !!state.parentProfile.country && !COUNTRIES[state.parentProfile.country],
+  );
   const [city, setCity] = useState(state.parentProfile.city || "");
   const [street, setStreet] = useState(state.parentProfile.street || "");
   const [houseNumber, setHouseNumber] = useState(state.parentProfile.houseNumber || "");
@@ -292,20 +298,57 @@ export default function OnboardingScreen() {
           <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
             {tx(lang, "Land", "Country", "البلد")} *
           </Text>
-          <Pressable
-            onPress={() => setAddressPicker("country")}
-            className="rounded-xl px-4 py-3 mb-4"
-            style={inputStyle}
-          >
-            <Text style={{ color: country ? colors.foreground : colors.muted, fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
-              {country ? (lang === "ar" ? getCountryAR(country) : country) : tx(lang, "Kies uw land", "Select your country", "اختر بلدك")}
-            </Text>
-          </Pressable>
+          {/* The list holds 14 countries. Making it the ONLY way to set a
+              country would bar everyone outside it from ever finishing
+              onboarding — and onboarding is now the gate on the whole app, so
+              that is a permanent lockout, not an inconvenience. The list stays
+              for the common case; "other" falls back to typing it. */}
+          {countryFreeText ? (
+            <TextInput
+              value={country}
+              onChangeText={setCountry}
+              maxLength={60}
+              placeholder={tx(lang, "Uw land", "Your country", "بلدك")}
+              placeholderTextColor={colors.muted}
+              returnKeyType="next"
+              className="rounded-xl px-4 py-3 mb-2"
+              style={inputStyle}
+            />
+          ) : (
+            <Pressable
+              onPress={() => setAddressPicker("country")}
+              className="rounded-xl px-4 py-3 mb-4"
+              style={inputStyle}
+            >
+              <Text style={{ color: country ? colors.foreground : colors.muted, fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
+                {country ? (lang === "ar" ? getCountryAR(country) : country) : tx(lang, "Kies uw land", "Select your country", "اختر بلدك")}
+              </Text>
+            </Pressable>
+          )}
+          {countryFreeText && (
+            <Pressable onPress={() => { setCountryFreeText(false); setCountry(""); setCity(""); }} className="mb-4">
+              <Text style={{ color: colors.primary, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Kies uit de lijst", "Choose from the list", "الاختيار من القائمة")}
+              </Text>
+            </Pressable>
+          )}
 
           {/* City (depends on the chosen country) */}
           <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
             {tx(lang, "Stad", "City", "المدينة")} *
           </Text>
+          {!COUNTRIES[country] ? (
+            <TextInput
+              value={city}
+              onChangeText={setCity}
+              maxLength={60}
+              placeholder={tx(lang, "Uw stad", "Your city", "مدينتك")}
+              placeholderTextColor={colors.muted}
+              returnKeyType="next"
+              className="rounded-xl px-4 py-3 mb-4"
+              style={inputStyle}
+            />
+          ) : (
           <Pressable
             onPress={() => { if (country) setAddressPicker("city"); }}
             className="rounded-xl px-4 py-3 mb-4"
@@ -319,6 +362,7 @@ export default function OnboardingScreen() {
                 : tx(lang, "Kies eerst een land", "Select a country first", "اختر البلد أولاً")}
             </Text>
           </Pressable>
+          )}
 
           {/* Street name.
               These three carry maxLength where the older fields in this form do
@@ -561,7 +605,26 @@ export default function OnboardingScreen() {
                 <Text style={{ color: colors.foreground, fontSize: 15 }}>{lang === "ar" ? getCountryAR(name) : name}</Text>
               </Pressable>
             ))}
-            {addressPicker === "city" && country && COUNTRIES[country].cities.map((c) => (
+            {addressPicker === "country" && (
+              <Pressable
+                onPress={() => { setCountryFreeText(true); setCountry(""); setCity(""); setAddressPicker(null); }}
+                style={({ pressed }) => [{
+                  padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+                  backgroundColor: pressed ? colors.primary + "15" : "transparent",
+                }]}
+              >
+                <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>
+                  {tx(lang, "Ander land — zelf invullen", "Other country — type it", "بلد آخر — اكتبه بنفسك")}
+                </Text>
+              </Pressable>
+            )}
+            {/* Optional chaining, not COUNTRIES[country].cities: `country` is
+                seeded from stored profile data and from a free-text editor in
+                settings, so it can hold a value this map has never heard of —
+                "Netherlands" instead of "Nederland" is enough. Unguarded, that
+                threw on open and the error boundary's "try again" remounted the
+                same broken state, so the picker could never be opened again. */}
+            {addressPicker === "city" && (COUNTRIES[country]?.cities ?? []).map((c) => (
               <Pressable
                 key={c.name}
                 onPress={() => { setCity(c.name); setAddressPicker(null); }}

@@ -84,3 +84,30 @@ describe("address fields in getFirstIncompleteOnboardingStep / isProfileComplete
     expect(isProfileComplete({ parentProfile: legacyProfile, children })).toBe(true);
   });
 });
+
+describe("whitespace is not an address", () => {
+  // Found by the adversarial pass: " " in every discrete field satisfied the
+  // gate. Not reachable through the form, which trims before saving, but the
+  // gate is the thing other writers rely on.
+  const base = { firstName: "A", lastName: "B", birthDate: "1990-01-01", phoneNumber: "06", gender: "male", maritalStatus: "married" };
+
+  it("rejects discrete fields holding only spaces", () => {
+    expect(
+      getFirstIncompleteOnboardingStep({
+        parentProfile: { ...base, country: " ", city: " ", street: " ", houseNumber: " " } as any,
+        children: [{ id: "c1" } as any],
+      }),
+    ).toBe("basic");
+  });
+
+  it("still accepts a legacy profile whose combined field is only spaces", () => {
+    // Deliberately NOT trimmed: this passed before, so trimming it would lock
+    // out an existing user — the exact failure the legacy branch guards.
+    expect(
+      getFirstIncompleteOnboardingStep({
+        parentProfile: { ...base, streetHouseNumber: " " } as any,
+        children: [{ id: "c1" } as any],
+      }),
+    ).toBe(null);
+  });
+});
