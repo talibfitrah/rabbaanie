@@ -646,19 +646,13 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // Two gates, not one: hiding only the trigger leaves the menu renderable if
     // showAttachMenu is ever set by another path, and the menu is what holds
     // the camera and library actions.
-    // Anchored to the elements, not counted. A bare count passes if someone
-    // later adds two unrelated channel gates to this screen and removes the
-    // attach one — the Play build would then ship the camera entry point while
-    // this test still went green.
-    const menuGate = chat.indexOf('DISTRIBUTION_CHANNEL === "github" && showAttachMenu');
-    expect(menuGate, "the attach MENU must be channel-gated").toBeGreaterThan(-1);
-    const triggerGate = chat.indexOf('{DISTRIBUTION_CHANNEL === "github" && (');
-    expect(triggerGate, "the attach TRIGGER must be channel-gated").toBeGreaterThan(-1);
-    // and that gate must be the one wrapping the attach button, not something
-    // else further down the file.
-    const attachButton = chat.indexOf("styles.attachButton");
-    expect(attachButton).toBeGreaterThan(triggerGate);
-    expect(attachButton - triggerGate, "the gate must wrap the attach button").toBeLessThan(1200);
+    // Asserted on a named symbol, not on how far apart two strings sit. The
+    // first version measured a byte distance between the gate and
+    // styles.attachButton, which is exactly the formatting-coupled assertion
+    // that breaks on a reformat and tempts someone to loosen it.
+    expect(chat).toMatch(/const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github"/);
+    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
+    expect(chat, "the attach TRIGGER must be gated").toMatch(/\{ATTACHMENTS_ENABLED && \(\s*\n\s*<Pressable/);
     expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
   });
 

@@ -42,7 +42,18 @@ import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
  * why. Change these only together with that server.
  */
 const MAX_ATTACHMENTS = 3;
-const MAX_ATTACHMENT_DATA_URL_LENGTH = 1_400_000;
+
+/**
+ * Whether this build offers photo attachments at all.
+ *
+ * A named constant rather than an inline channel check at each use, so the
+ * guard in tests/play-store-compliance.test.ts can assert on a symbol instead
+ * of on how far apart two strings sit in the file. Both the trigger and the
+ * menu must use it: hiding only the trigger leaves the menu renderable if
+ * showAttachMenu is ever set by another path.
+ */
+const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github";
+const MAX_ATTACHMENT_DATA_URL_LENGTH = 4_000_000;
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -976,15 +987,31 @@ function AIChatScreenInner() {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.8,
-        // The server accepts inline data: URLs only, so the bytes have to come
-        // back with the pick. quality 0.8 keeps a phone photo inside the
-        // ~1.4 MB base64 bound the server enforces.
+        // 0.4, not 0.8. A 12 MP photo at 0.8 is 2-4 MB, i.e. ~2.7-5.3 MB of
+        // base64, so the previous bound refused every real photo — a guard that
+        // rejects the typical input is an outage with a message. Downscaling
+        // would be the proper fix (vision models resize to ~1568px anyway) but
+        // needs expo-image-manipulator, a new NATIVE dependency, and a native
+        // addition has already broken this project's Gradle build once on a
+        // Kotlin metadata mismatch that no JS check could see.
+        quality: 0.4,
+        // The server accepts inline data: URLs only, so the bytes come back
+        // with the pick.
         base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
+        if (!asset.base64) {
+          // Without bytes this would fall back to the filename-only send that
+          // this whole change exists to remove — the model would be told a name
+          // and the parent would get advice about nothing. Say so instead.
+          Alert.alert(
+            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
+            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
+          );
+          return;
+        }
+        if (!acceptAttachment(asset.base64.length)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
@@ -995,7 +1022,9 @@ function AIChatScreenInner() {
           // labelled a picked PNG as PNG while the bytes were JPEG, which is a
           // corrupt input as far as the model provider is concerned.
           dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
-          mimeType: asset.mimeType || "image/jpeg",
+          // image/jpeg to match dataUrl: ImagePicker returns JPEG bytes whatever
+          // the source format, so asset.mimeType would contradict what we send.
+          mimeType: "image/jpeg",
         }]);
       }
     } catch (e) {
@@ -1017,12 +1046,22 @@ function AIChatScreenInner() {
       }
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.4, // see pickImage
         base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
+        if (!asset.base64) {
+          // Without bytes this would fall back to the filename-only send that
+          // this whole change exists to remove — the model would be told a name
+          // and the parent would get advice about nothing. Say so instead.
+          Alert.alert(
+            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
+            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
+          );
+          return;
+        }
+        if (!acceptAttachment(asset.base64.length)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: `photo_${Date.now()}.jpg`,
@@ -1051,7 +1090,17 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
+        if (!asset.base64) {
+          // Without bytes this would fall back to the filename-only send that
+          // this whole change exists to remove — the model would be told a name
+          // and the parent would get advice about nothing. Say so instead.
+          Alert.alert(
+            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
+            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
+          );
+          return;
+        }
+        if (!acceptAttachment(asset.base64.length)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.name || `file_${Date.now()}`,
@@ -1766,7 +1815,7 @@ function AIChatScreenInner() {
         {!showHistory && childSelectionPhase === "ready" && (
           <View style={{ paddingBottom: 120 }}>
             {/* Attach menu - shown above input */}
-            {DISTRIBUTION_CHANNEL === "github" && showAttachMenu && (
+            {ATTACHMENTS_ENABLED && showAttachMenu && (
               <View style={[styles.attachMenu, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                 <Pressable
                   onPress={pickImage}
@@ -1835,7 +1884,7 @@ function AIChatScreenInner() {
                   Nothing is lost by hiding it: until this release the button
                   sent the model a FILENAME, so it never worked on either
                   channel. */}
-              {DISTRIBUTION_CHANNEL === "github" && (
+              {ATTACHMENTS_ENABLED && (
               <Pressable
                 onPress={() => setShowAttachMenu(!showAttachMenu)}
                 style={({ pressed }) => [
