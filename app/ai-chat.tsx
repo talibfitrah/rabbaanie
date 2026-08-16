@@ -220,6 +220,25 @@ function AIChatScreenInner() {
   // Set while a resumed conversation is still laying out, so the list keeps
   // being pulled to the newest message as more of it renders.
   const pendingScrollToEnd = useRef(false);
+  // Bumped by startNewChat. A send captures it before awaiting and drops its
+  // result if it changed while the request was in flight — back no longer
+  // unmounts this screen, so an in-flight reply would otherwise be appended to
+  // (and saved into) whatever consultation the user moved on to.
+  const chatGeneration = useRef(0);
+  /**
+   * Call on every path that replaces the conversation on screen.
+   *
+   * The two halves belong together and have now come apart twice. Bumping the
+   * generation makes an in-flight reply drop its result — but that reply's own
+   * `finally` is generation-guarded too, so it will no longer release the send
+   * lock either, and `sendMessageWithText` refuses to start while isLoading is
+   * true. Bump without the release and the new thread is permanently unsendable;
+   * release without the bump and the stale reply lands in it.
+   */
+  const abandonInFlightReply = () => {
+    chatGeneration.current += 1;
+    setIsLoading(false);
+  };
   const inputRef = useRef<TextInput>(null);
   const insets = useSafeAreaInsets();
 
@@ -438,6 +457,15 @@ function AIChatScreenInner() {
   };
 
   const resumeConversation = async (convId: string, dbId?: number) => {
+    // Before either branch loads: opening a saved consultation replaces what
+    // is on screen just as startNewChat does, so a reply still in flight for
+    // the previous one must be dropped rather than appended to the thread the
+    // user just opened.
+    abandonInFlightReply();
+    // Its own awaits need the same treatment the send path gets. Two quick taps
+    // in the history panel start two loads; without this the slower one wins
+    // and paints its conversation over the one the user actually opened last.
+    const generation = chatGeneration.current;
     try {
       // Try loading from database first
       if (dbId) {
@@ -449,7 +477,7 @@ function AIChatScreenInner() {
           });
           const data = await res.json();
           const conv = data.result?.data?.json;
-          if (conv && conv.messages) {
+          if (conv && conv.messages && chatGeneration.current === generation) {
             setConversationId(convId);
             setCurrentDbId(dbId);
             setMessages(conv.messages || []);
@@ -475,7 +503,7 @@ function AIChatScreenInner() {
       }
       // Fallback to local storage
       const convData = await AsyncStorage.getItem(`ai_chat_conv_${convId}`);
-      if (convData) {
+      if (convData && chatGeneration.current === generation) {
         const conv = JSON.parse(convData);
         setConversationId(conv.id);
         setMessages(conv.messages || []);
@@ -524,6 +552,9 @@ function AIChatScreenInner() {
             setConversationHistory(prev => prev.filter(h => h.id !== convId));
             // If currently viewing this conversation, reset
             if (conversationId === convId) {
+              // Same reason as startNewChat: the conversation on screen is
+              // being replaced, so an in-flight reply for it must not land.
+              abandonInFlightReply();
               setMessages([]);
               setConversationId(null);
               setCurrentDbId(null);
@@ -702,6 +733,7 @@ function AIChatScreenInner() {
   const sendMessageWithText = useCallback(async (text: string) => {
     if ((!text.trim() && attachments.length === 0) || isLoading) return;
 
+    const generation = chatGeneration.current;
     const currentAttachments = [...attachments];
     // One definition, used for the bubble, the stored history and the message
     // actually sent — they were written twice and could drift apart.
@@ -800,7 +832,12 @@ function AIChatScreenInner() {
         gateStatus = res.ok ? 0 : res.status;
         const data = await res.json();
         response = data.result?.data?.json || data.result?.data;
-        if (response?.conversationId) {
+        // Generation-checked like the writes further down: this one lands as
+        // soon as the fetch resolves, so without it a user who backed out
+        // mid-request gets the abandoned conversation's id written over the
+        // null that startNewChat just set — and the next message is appended
+        // to the consultation they walked away from.
+        if (response?.conversationId && chatGeneration.current === generation) {
           setConversationId(response.conversationId);
         }
       } else {
@@ -835,6 +872,13 @@ function AIChatScreenInner() {
         accessDeniedMessage(gateStatus, language) ||
         getOfflineResponse(text, language);
       const hasActionPlan = detectActionPlan(aiContent);
+
+      // Checked here, ahead of every side effect below — not just before
+      // setMessages. The auto-save writes @advisor_action_plans and syncs the
+      // plan to the server against the child selected when this send started,
+      // so a guard placed after it drops the reply from the thread while still
+      // persisting its plan for a consultation the user walked away from.
+      if (chatGeneration.current !== generation) return;
 
       // Auto-save action plan when detected (so it persists even if user exits)
       if (hasActionPlan) {
@@ -876,6 +920,11 @@ function AIChatScreenInner() {
         hasActionPlan,
       };
 
+      // Checked again, not redundantly: the auto-save above awaits
+      // withPlanStore, and the user can back out during that await. Each await
+      // boundary needs its own check — the earlier one only proves the chat was
+      // still current before the plan was written, not after.
+      if (chatGeneration.current !== generation) return;
       const updatedMessages = [...newMessages, assistantMessage];
       setMessages(updatedMessages);
       const convId = conversationId || response?.conversationId || `local_${Date.now()}`;
@@ -888,11 +937,17 @@ function AIChatScreenInner() {
         content: getOfflineResponse(text, language),
         createdAt: new Date().toISOString(),
       };
+      if (chatGeneration.current !== generation) return;
       const updatedMessages = [...newMessages, assistantMessage];
       setMessages(updatedMessages);
       saveConversation(`local_${Date.now()}`, updatedMessages);
     } finally {
-      setIsLoading(false);
+      // Only the send that still owns the chat may clear the spinner. An
+      // abandoned request reaching here would otherwise unlock a LIVE one:
+      // send in A, back (startNewChat clears isLoading and bumps the
+      // generation), send in B, then A finishes and its finally turns B's
+      // spinner off mid-flight — leaving B sendable again and duplicable.
+      if (chatGeneration.current === generation) setIsLoading(false);
     }
   }, [messages, conversationId, language, selectedChild, isLoading, attachments]);
 
@@ -901,6 +956,9 @@ function AIChatScreenInner() {
   }, [inputText, sendMessageWithText]);
 
   const startNewChat = () => {
+    // Any reply still in flight belongs to the consultation being left, not to
+    // the next one; bumping this makes it drop its result instead of landing here.
+    abandonInFlightReply();
     setMessages([]);
     setConversationId(null);
     setCurrentDbId(null);
@@ -910,6 +968,12 @@ function AIChatScreenInner() {
     setChildSelectionPhase("select");
     setCustomChildAge("");
     setCustomChildName("");
+    // Back to the default mode, exactly as the "ready" branch of goBackOneStep
+    // already does. Before back was routed through here it called router.back()
+    // and unmounted the screen, which reset this for free; now the screen stays
+    // mounted, so a spouse/general consultation left "spouse" in place and the
+    // next child picked was consulted — and stored — in the wrong mode.
+    setConsultationType("child");
   };
 
   // Detect if AI response contains an action plan
@@ -1795,8 +1859,14 @@ function AIChatScreenInner() {
                   </View>
                   <Pressable
                     onPress={() => {
+                      // Changing the child clears the thread — same handling
+                      // as every other path that replaces it.
+                      abandonInFlightReply();
                       setMessages([]);
                       setConversationId(null);
+                      // Cleared with it, as startNewChat does: left set, the
+                      // next consultation saves over the previous child's row.
+                      setCurrentDbId(null);
                       setChildSelectionPhase("select");
                       setSelectedChild(null);
                       AsyncStorage.removeItem("ai_chat_last_conv").catch(() => {});

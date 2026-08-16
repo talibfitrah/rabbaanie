@@ -56,6 +56,18 @@ export default function OnboardingScreen() {
     !!state.parentProfile.country && !COUNTRIES[state.parentProfile.country],
   );
   const [city, setCity] = useState(state.parentProfile.city || "");
+  // Same escape hatch the country field has, and for the same reason stated
+  // above it: the per-country city lists come from the prayer-times data and
+  // hold ~20 entries each, so Nederland offers Amsterdam but not Delft. With
+  // onboarding gating the whole app and city mandatory, a list-only picker
+  // forces anyone outside those 20 to enter a city they do not live in.
+  // Starts on when the stored city is not one this country's list knows.
+  const [cityFreeText, setCityFreeText] = useState<boolean>(
+    !!state.parentProfile.city &&
+      !(COUNTRIES[state.parentProfile.country]?.cities ?? []).some(
+        (c) => c.name === state.parentProfile.city,
+      ),
+  );
   const [street, setStreet] = useState(state.parentProfile.street || "");
   const [houseNumber, setHouseNumber] = useState(state.parentProfile.houseNumber || "");
   const [postalCode, setPostalCode] = useState(state.parentProfile.postalCode || "");
@@ -325,8 +337,11 @@ export default function OnboardingScreen() {
               </Text>
             </Pressable>
           )}
+          {/* setCityFreeText too: going back to the country picker clears the
+              country, and a city left in free-text mode would then render a
+              text box where "choose a country first" belongs. */}
           {countryFreeText && (
-            <Pressable onPress={() => { setCountryFreeText(false); setCountry(""); setCity(""); }} className="mb-4">
+            <Pressable onPress={() => { setCountryFreeText(false); setCountry(""); setCity(""); setCityFreeText(false); }} className="mb-4">
               <Text style={{ color: colors.primary, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
                 {tx(lang, "Kies uit de lijst", "Choose from the list", "الاختيار من القائمة")}
               </Text>
@@ -337,7 +352,13 @@ export default function OnboardingScreen() {
           <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
             {tx(lang, "Stad", "City", "المدينة")} *
           </Text>
-          {!COUNTRIES[country] ? (
+          {/* `country &&` matters: COUNTRIES[""] is undefined, so without it a
+              brand-new user (country still "") got the free-text box instead of
+              the picker — and then choosing a country ran setCity("") and threw
+              away what they had typed. It also made the disabled branch below
+              ("Kies eerst een land") unreachable. Free text is for a country the
+              list does not know, not for no country yet. */}
+          {(country && !COUNTRIES[country]) || cityFreeText ? (
             <TextInput
               value={city}
               onChangeText={setCity}
@@ -362,6 +383,16 @@ export default function OnboardingScreen() {
                 : tx(lang, "Kies eerst een land", "Select a country first", "اختر البلد أولاً")}
             </Text>
           </Pressable>
+          )}
+          {/* Only when this country HAS a list to go back to — a country the
+              picker does not know has no city list, so offering "choose from
+              the list" there would lead to an empty one. */}
+          {cityFreeText && COUNTRIES[country] && (
+            <Pressable onPress={() => { setCityFreeText(false); setCity(""); }} className="mb-4">
+              <Text style={{ color: colors.primary, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Kies uit de lijst", "Choose from the list", "الاختيار من القائمة")}
+              </Text>
+            </Pressable>
           )}
 
           {/* Street name.
@@ -598,7 +629,10 @@ export default function OnboardingScreen() {
                 // city list is per-country, but re-picking the same country —
                 // or coming back from typing one by hand — should not silently
                 // discard a city already chosen.
-                onPress={() => { if (name !== country) setCity(""); setCountry(name); setCountryFreeText(false); setAddressPicker(null); }}
+                // A different country means a different city list, so drop back
+                // to the picker for it — otherwise a free-typed city from the
+                // previous country would sit in a box the new list never offers.
+                onPress={() => { if (name !== country) { setCity(""); setCityFreeText(false); } setCountry(name); setCountryFreeText(false); setAddressPicker(null); }}
                 style={({ pressed }) => [{
                   padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
                   backgroundColor: pressed ? colors.primary + "15" : "transparent",
@@ -642,6 +676,19 @@ export default function OnboardingScreen() {
                 </Text>
               </Pressable>
             ))}
+            {addressPicker === "city" && (
+              <Pressable
+                onPress={() => { setCityFreeText(true); setCity(""); setAddressPicker(null); }}
+                style={({ pressed }) => [{
+                  padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+                  backgroundColor: pressed ? colors.primary + "15" : "transparent",
+                }]}
+              >
+                <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>
+                  {tx(lang, "Andere stad — zelf invullen", "Other city — type it", "مدينة أخرى — اكتبها بنفسك")}
+                </Text>
+              </Pressable>
+            )}
           </ScrollView>
         </View>
       </View>

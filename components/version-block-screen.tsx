@@ -9,8 +9,18 @@ import React from "react";
 import { View, Text, TouchableOpacity, StyleSheet, Linking } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 
-const DOWNLOAD_URL = "https://rabbaanie.com/?p=app";
+// Google Play forbids an app distributed on Play from sending users to obtain
+// or update it anywhere but Play — the same policy that keeps the in-app APK
+// updater dark on this channel (UPDATER_ENABLED, hooks/use-updates.ts). This
+// screen is undismissable and its button is the only way out of it, so an
+// ungated APK link here is a sideload funnel shown to every Play user the
+// server refuses. Only the sideload build may point at the APK page.
+const DOWNLOAD_URL =
+  DISTRIBUTION_CHANNEL === "play"
+    ? "https://play.google.com/store/apps/details?id=com.rabbaanie.app"
+    : "https://rabbaanie.com/?p=app";
 
 export function VersionBlockScreen() {
   const colors = useColors();

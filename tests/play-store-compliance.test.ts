@@ -472,6 +472,35 @@ describe("Play policy surfaces", () => {
     expect(component.match(/disclosure:/g)?.length).toBe(3);
   });
 
+  it("offers AI reporting on the home tab's generated check-in", () => {
+    const card = read("components/daily-diagnostic-card.tsx");
+    // server/daily-diagnostic.ts puts these questions through the model
+    // whenever source is "generated", and this card renders q.text and every
+    // option label verbatim — on the home tab, the first screen a reviewer
+    // sees after login. Play's AI-Generated Content policy requires in-app
+    // reporting on AI output. The test above only proves the control CAN
+    // disclose in three languages; it never checked that a given surface
+    // actually mounts one, which is how this shipped without it.
+    expect(card).toContain("ReportAiContent");
+    expect(card).toContain('surface="daily-diagnostic"');
+    // Gated on the generated source on purpose: the fallback question set is
+    // ours, and inviting a report on our own copy as "AI output" is wrong.
+    expect(card).toMatch(/source === "generated"/);
+  });
+
+  it("discloses the partner sharing before the check-in is answered", () => {
+    const card = read("components/daily-diagnostic-card.tsx");
+    // These answers cover prayer, psychological and physical state, and they
+    // feed the advice the OTHER spouse receives. Play's User Data policy
+    // expects that secondary use disclosed in-app at the point of collection.
+    // It shipped stated only in a source comment, which no user ever reads.
+    expect(card).toContain("s.notice");
+    // In all three languages, like every other user-facing string in this card.
+    expect(card).toMatch(/uw partner/i);
+    expect(card).toMatch(/your partner/i);
+    expect(card).toContain("شريكك");
+  });
+
   it("reaches the privacy policy from inside the app", () => {
     const settings = read("app/(tabs)/settings.tsx");
     // Mandatory in-app, not only on the store listing, for any app collecting
@@ -542,6 +571,28 @@ describe("Play policy surfaces", () => {
     expect(gate).toContain("PACKAGE_USAGE_STATS");
     expect(gate).toContain("isMonitoringTool");
     expect(gate).toContain("usagestats");
+  });
+
+  it("never sends a Play user to an APK download outside Play", () => {
+    const screen = read("components/version-block-screen.tsx");
+    // AuthGate mounts this ahead of every other gate and it cannot be
+    // dismissed, so its single button is the only way out. Pointed at the APK
+    // page it is a sideload funnel shown to every Play user the server
+    // refuses — the same Device-and-Network-Abuse policy that keeps
+    // UPDATER_ENABLED off on this channel (hooks/use-updates.ts).
+    expect(screen).toContain('DISTRIBUTION_CHANNEL === "play"');
+    expect(screen).toContain("https://play.google.com/store/apps/details");
+    // Presence too, not only absence: the sideload build must KEEP its APK
+    // link. Deleting the URL would satisfy a Play-only check while stranding
+    // every github user with no way to update.
+    expect(screen).toContain("https://rabbaanie.com/?p=app");
+    // And the APK page must sit on the github side of the branch — never the
+    // value a Play build resolves to.
+    const playBranch = screen.slice(
+      screen.indexOf('DISTRIBUTION_CHANNEL === "play"'),
+      screen.indexOf("https://rabbaanie.com/?p=app"),
+    );
+    expect(playBranch).toContain("https://play.google.com/store/apps/details");
   });
 
   it("declares no location foreground service it never starts", () => {

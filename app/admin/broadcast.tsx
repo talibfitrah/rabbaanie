@@ -159,6 +159,15 @@ export default function BroadcastScreen() {
         <View style={{ marginTop: 22, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
           {audienceQuery.isLoading ? (
             <ActivityIndicator size="small" color={colors.muted} />
+          ) : audienceQuery.isError ? (
+            // Never print a count the query did not return. matchedCount falls
+            // back to 0, and isLoading is false once the query has errored, so
+            // without this branch a failure renders as a confident "will reach
+            // 0 users" over an enabled send button — while the send itself
+            // still goes out to everyone the roles match.
+            <Text style={{ fontSize: 12, fontWeight: "700", color: colors.error, textAlign: "center" }}>
+              {"تعذّر حساب عدد المستلمين — قد يصل الإشعار إلى جميع المستخدمين"}
+            </Text>
           ) : (
             <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
               {"سيصل الإشعار إلى " + matchedCount + " مستخدم"}

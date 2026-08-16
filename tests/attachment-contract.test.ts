@@ -23,12 +23,20 @@ import { join } from "node:path";
  * would have failed in CI and on any other developer's box, and a test that
  * cannot run anywhere else gets deleted rather than fixed.
  */
-// Two "..", not three: tests/ -> repo root -> Development/, where the API
-// checkout sits beside this one. Three took it to /home/msa/rabbaanie-api,
-// which exists nowhere, so existsSync was always false and skipIf skipped every
-// assertion — the guard written to catch a cross-repo drift asserted nothing on
-// any machine, including the one it was written on.
-const API = join(__dirname, "..", "..", "rabbaanie-api", "server", "chat-attachments.ts");
+// Both layouts, because counting ".." by hand has now been wrong twice and the
+// cost of being wrong is silent: existsSync goes false, skipIf skips every
+// assertion, and the guard reports success having checked nothing. Two ".."
+// assumed the repo sits directly in Development/; it does not — it is at
+// Development/rabbanieserver/repo, so tests/ -> repo -> rabbanieserver, and the
+// API checkout at Development/rabbaanie-api needs three. Trying both means a
+// checkout beside either the repo or its parent is found, and neither layout
+// silently disables the guard.
+const API =
+  [
+    join(__dirname, "..", "..", "rabbaanie-api", "server", "chat-attachments.ts"),
+    join(__dirname, "..", "..", "..", "rabbaanie-api", "server", "chat-attachments.ts"),
+  ].find(existsSync) ??
+  join(__dirname, "..", "..", "rabbaanie-api", "server", "chat-attachments.ts");
 const haveApi = existsSync(API);
 if (!haveApi) {
   // Loud, not silent. A skipped test reads as a passing one in CI output, and

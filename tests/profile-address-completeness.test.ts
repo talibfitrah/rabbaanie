@@ -1,5 +1,27 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import { isProfileComplete, getFirstIncompleteOnboardingStep, defaultParentProfile } from "../lib/store";
+
+describe("the onboarding city field", () => {
+  // Source-level for the same reason tests/play-store-compliance.test.ts is:
+  // mounting the screen needs native modules. Asserted as a regex so a
+  // reformat cannot silently drop the guard.
+  const screen = readFileSync(join(__dirname, "..", "app/onboarding/index.tsx"), "utf8");
+
+  it("falls back to a free-text city only when the country is set but unknown", () => {
+    // COUNTRIES[""] is undefined, so an unguarded !COUNTRIES[country] put every
+    // brand-new user in the free-text box; picking a country afterwards runs
+    // setCity("") and threw away whatever they had typed.
+    expect(screen).toMatch(/country\s*&&\s*!COUNTRIES\[country\]/);
+  });
+
+  it("keeps the 'choose a country first' state reachable", () => {
+    // Presence, not just absence: it is the only thing that explains to a new
+    // user why the city picker does nothing yet. The bug above made it dead.
+    expect(screen).toContain("Kies eerst een land");
+  });
+});
 
 // lib/store.ts only imports @react-native-async-storage/async-storage (no
 // "react-native" import), and that module has no side effects at import

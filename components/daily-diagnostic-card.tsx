@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
+import { ReportAiContent } from "@/components/report-ai-content";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
 type Lang = "nl" | "en" | "ar";
@@ -129,7 +130,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     );
   }
 
-  const { date, questions, answers } = data;
+  const { date, questions, answers, source } = data;
 
   if (answers) {
     return (
@@ -151,6 +152,21 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     <View style={s.section}>
       <Text style={[s.title, { textAlign: lang === "ar" ? "right" : "left" }]}>
         {tx(lang, "Hoe was uw dag vandaag?", "How was your day today?", "كيف كان يومك اليوم؟")}
+      </Text>
+      {/* Said before answering, not only in a source comment. These answers
+          cover prayer, psychological and physical state, and they feed the
+          advice the OTHER spouse receives — a secondary use of sensitive data
+          that Play's User Data policy expects to be disclosed in-app, at the
+          point of collection. Wording matches what actually leaves: a coarse
+          category+tone summary, never the typed text (see
+          server/daily-diagnostic.ts summarizeSignals). */}
+      <Text style={[s.notice, { textAlign: lang === "ar" ? "right" : "left" }]}>
+        {tx(
+          lang,
+          "Uw antwoorden helpen het advies voor uw partner — alleen als samenvatting, nooit uw eigen tekst.",
+          "Your answers help shape the advice your partner receives — as a summary only, never your own words.",
+          "تساعد إجاباتك في تشكيل النصيحة التي يتلقاها شريكك — كملخّص فقط، دون نصّك الخاص.",
+        )}
       </Text>
       {questions.map((q) => (
         <View key={q.category} style={s.card}>
@@ -179,6 +195,20 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
           </View>
         </View>
       ))}
+      {/* Required on AI output by Play's AI-Generated Content policy: an app
+          that generates content with AI must offer in-app reporting without
+          the user leaving the app. These questions and their option labels
+          come from the model whenever source is "generated" — the static
+          fallback set is ours, so it is not reported as AI output. This card
+          sits on the home tab, which is the first screen a reviewer sees. */}
+      {source === "generated" && (
+        <ReportAiContent
+          content={questions
+            .map((q) => `${q.text}\n${q.options.map((o) => o.label).join(" / ")}`)
+            .join("\n\n")}
+          surface="daily-diagnostic"
+        />
+      )}
       <Pressable
         disabled={!allAnswered || submitMutation.isPending}
         onPress={() =>
@@ -207,7 +237,8 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
 
 const s = StyleSheet.create({
   section: { marginHorizontal: 16, marginBottom: 16 },
-  title: { fontSize: 14, fontWeight: "700", color: "#1B4332", marginBottom: 10 },
+  title: { fontSize: 14, fontWeight: "700", color: "#1B4332", marginBottom: 4 },
+  notice: { fontSize: 11, lineHeight: 16, color: "#52796F", marginBottom: 10 },
   card: {
     backgroundColor: "#FFFFFF",
     borderRadius: 14,
