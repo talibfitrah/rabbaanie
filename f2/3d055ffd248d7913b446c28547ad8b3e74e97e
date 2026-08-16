@@ -1,0 +1,19 @@
+CLAUDE.md
+  s_cfc0f622637705::t_d393bc71c69bf4 107-112
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f23d055ffd248d7913b446c28547ad8b3e74e97e",
+  "prompts": {},
+  "sessions": {
+    "s_cfc0f622637705": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7c93da0-35f0-4c23-b0a3-1998d6ef0ff8",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

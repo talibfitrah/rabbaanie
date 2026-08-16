@@ -1,0 +1,21 @@
+lib/app-version.ts
+  s_cfc0f622637705::t_d672220ea8c776 27-49,57-58,62-63,66
+tests/min-app-version.test.ts
+  s_cfc0f622637705::t_da85923568447e 12,43-82
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9c72a2e4752b77e5dd7153758250d6772a12abb5",
+  "prompts": {},
+  "sessions": {
+    "s_cfc0f622637705": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7c93da0-35f0-4c23-b0a3-1998d6ef0ff8",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

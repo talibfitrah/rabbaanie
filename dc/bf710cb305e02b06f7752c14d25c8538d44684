@@ -1,0 +1,61 @@
+tests/google-pkce-signin.test.ts
+  s_834a18df15f160::t_e05ee4c5b8a43f 35-37
+tests/paid-endpoint-auth.test.ts
+  s_834a18df15f160::t_b40a7b77911198 25-27
+package.json
+  ai_agent 3
+tests/weekly-data-lazy.test.ts
+  s_834a18df15f160::t_6fd2023a98fa81 24-26
+hooks/use-updates.ts
+  s_834a18df15f160::t_d0d4a67b086642 22-24
+lib/authed-fetch.ts
+  s_834a18df15f160::t_93b9296d0bb566 28,33,39-40
+  s_834a18df15f160::t_9cc020b8b81121 84-93
+  s_834a18df15f160::t_ccb738f096a81f 3-4
+tests/min-app-version.test.ts
+  s_834a18df15f160::t_bf7316b1591bf9 1-73
+lib/_core/api.ts
+  s_834a18df15f160::t_beef0d6e87f1d7 4-5
+  s_834a18df15f160::t_494c6b65aa2e0c 135,138
+  s_834a18df15f160::t_0c1e713d2a542b 60
+  s_834a18df15f160::t_501a3a1f1dfdcd 19
+  s_834a18df15f160::t_2887f7f645688e 187,191
+lib/trpc.ts
+  s_834a18df15f160::t_883a882c4a1f41 7-8
+  s_834a18df15f160::t_4199070a910b84 32-35,38-39,43-44
+lib/app-version.ts
+  s_834a18df15f160::t_de4f37aad9ec26 27-44
+  s_834a18df15f160::t_d41b6763ef2c5b 1-2
+  s_834a18df15f160::t_4d920542898963 45-75
+tests/remote-config-safety.test.ts
+  s_834a18df15f160::t_f5db87d2b013f8 26-28
+app/_layout.tsx
+  s_834a18df15f160::t_b9f03833b74d5d 99-100
+  s_834a18df15f160::t_54846bbfa91a17 144
+  s_834a18df15f160::t_c3081df823df50 278-285
+tests/oauth-session-verification.test.ts
+  s_834a18df15f160::t_fc63bcb603d7a8 100
+  s_834a18df15f160::t_97667a266fe1f1 14-17
+app.config.ts
+  ai_agent 262
+components/version-block-screen.tsx
+  s_834a18df15f160::t_13ca2d34f1cf3c 1-83
+tests/subscription-auth.test.ts
+  s_834a18df15f160::t_db687c662a3161 23-26
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "dcbf710cb305e02b06f7752c14d25c8538d44684",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

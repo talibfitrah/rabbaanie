@@ -1,0 +1,21 @@
+components/treatment-plan-renderer.tsx
+  s_834a18df15f160::t_64f694c40dfa92 56-64,76,365-369
+app/ai-chat.tsx
+  s_834a18df15f160::t_67c415f5e87e58 1237-1251
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0e9cc08497b77e7c322780f19c6c70f79e2d471f",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
