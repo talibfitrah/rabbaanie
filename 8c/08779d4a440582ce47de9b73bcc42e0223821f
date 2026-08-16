@@ -1,0 +1,37 @@
+app/admin/broadcast.tsx
+  s_834a18df15f160::t_8c999f8f75c2fb 1,9,19-25,35-69,77,82-100,111-133,135-138,143-153,158-168
+app/onboarding/index.tsx
+  s_834a18df15f160::t_8c999f8f75c2fb 597-601
+server/ai-chat.ts
+  s_834a18df15f160::t_9491891b01bd3a 2-16
+server/broadcast-audience.ts
+  s_834a18df15f160::t_47bc2105fc6914 1-99
+server/db.ts
+  s_834a18df15f160::t_8c999f8f75c2fb 3248,3250,3253-3255,3264,3268-3270,3280-3284
+  s_834a18df15f160::t_9491891b01bd3a 1-16
+server/routers.ts
+  s_834a18df15f160::t_33a8bb1dae26cd 1182
+  s_834a18df15f160::t_9491891b01bd3a 1-16
+  s_834a18df15f160::t_8c999f8f75c2fb 901-911,1175-1181,1183-1196,1203,1207-1211,1216
+  s_834a18df15f160::t_4c8ba67f3399a0 48
+tests/broadcast-audience.test.ts
+  s_834a18df15f160::t_82938d87091e42 1-218
+app/ai-chat.tsx
+  s_834a18df15f160::t_8c999f8f75c2fb 392-397
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8c08779d4a440582ce47de9b73bcc42e0223821f",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
