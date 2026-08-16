@@ -1229,24 +1229,31 @@ function AIChatScreenInner() {
             ) : (
               <AdvisorBody content={item.content} colors={colors} isRTL={language === "ar"} />
             )}
-          </View>
-        )}
 
-        {/* Action plan save button */}
-        {!isUser && (item.hasActionPlan || detectActionPlan(item.content)) && (
-          <Pressable
-            onPress={() => saveActionPlanToWeekly(item.content)}
-            style={({ pressed }) => [
-              styles.actionPlanBtn,
-              { backgroundColor: colors.success + "20", borderColor: colors.success },
-              pressed && { opacity: 0.7 },
-            ]}
-          >
-            <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
-            <Text style={[styles.actionPlanText, { color: colors.success }]}>
-              {language === "ar" ? "نقل الخطة للنصائح الأسبوعية" : language === "en" ? "Save plan to weekly tips" : "Plan opslaan in wekelijkse tips"}
-            </Text>
-          </Pressable>
+            {/* Inside this wrapper, not after it. As a sibling it sat on top of
+                the last folded section: the wrapper carries direction:"rtl",
+                whose measured height Android reports short, so the next sibling
+                began before the content ended. Laid out among the sections it
+                simply follows them, and the divider keeps it visibly its own
+                thing rather than part of the last fold. */}
+            {(item.hasActionPlan || detectActionPlan(item.content)) && (
+              <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+                <Pressable
+                  onPress={() => saveActionPlanToWeekly(item.content)}
+                  style={({ pressed }) => [
+                    styles.actionPlanBtn,
+                    { alignSelf: "flex-start", backgroundColor: colors.success + "20", borderColor: colors.success },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+                  <Text style={[styles.actionPlanText, { color: colors.success }]}>
+                    {language === "ar" ? "نقل الخطة للنصائح الأسبوعية" : language === "en" ? "Save plan to weekly tips" : "Plan opslaan in wekelijkse tips"}
+                  </Text>
+                </Pressable>
+              </View>
+            )}
+          </View>
         )}
 
         {/* Required on AI output by Play's AI-Generated Content policy. */}
