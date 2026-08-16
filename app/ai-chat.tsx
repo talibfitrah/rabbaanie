@@ -31,6 +31,7 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { authedFetch, accessDeniedMessage } from "@/lib/authed-fetch";
 import * as ImagePicker from "expo-image-picker";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -50,6 +51,15 @@ interface Attachment {
   name: string;
   type: "image" | "file";
   mimeType?: string;
+  /**
+   * The picture itself, as a data: URL, for the one purpose that matters: the
+   * model can only look at an image that is actually sent. Before this the
+   * attachment was flattened to `[صورة مرفقة: <name>]` and the model received a
+   * FILENAME, so every answer about an attached photo was necessarily invented.
+   * Populated at pick time, since ImagePicker hands back base64 there and
+   * re-reading the uri later is another failure mode for nothing.
+   */
+  dataUrl?: string;
 }
 
 interface ChatMessage {
@@ -671,10 +681,17 @@ function AIChatScreenInner() {
     try {
       let response: any;
 
-      // Build message text with attachment descriptions
+      // Images travel as bytes, in `images` below — the model can only look at
+      // a picture that is actually sent. Anything WITHOUT bytes still gets a
+      // text description, because a named file the model cannot open is better
+      // acknowledged than silently dropped.
+      const imageDataUrls = currentAttachments
+        .map((a) => a.dataUrl)
+        .filter((u): u is string => typeof u === "string" && u.length > 0);
       let messageText = text.trim();
-      if (currentAttachments.length > 0) {
-        const attachDesc = currentAttachments.map(a => 
+      const undescribed = currentAttachments.filter((a) => !a.dataUrl);
+      if (undescribed.length > 0) {
+        const attachDesc = undescribed.map(a =>
           a.type === "image" ? `[صورة مرفقة: ${a.name}]` : `[ملف مرفق: ${a.name}]`
         ).join("\n");
         messageText = messageText ? `${messageText}\n\n${attachDesc}` : attachDesc;
@@ -709,6 +726,11 @@ function AIChatScreenInner() {
               parentContext: parentContext || undefined,
               consultationType,
               parentGender: appState.parentProfile?.gender || undefined,
+              // Omitted entirely when nothing is attached, so a text-only turn
+              // sends the exact body it always has. The server bounds count and
+              // size and drops anything it will not vouch for
+              // (server/chat-attachments.ts in rabbaanie-api).
+              images: imageDataUrls.length > 0 ? imageDataUrls : undefined,
             },
           }),
         });
@@ -732,6 +754,11 @@ function AIChatScreenInner() {
               parentContext: parentContext || undefined,
               consultationType,
               parentGender: appState.parentProfile?.gender || undefined,
+              // Omitted entirely when nothing is attached, so a text-only turn
+              // sends the exact body it always has. The server bounds count and
+              // size and drops anything it will not vouch for
+              // (server/chat-attachments.ts in rabbaanie-api).
+              images: imageDataUrls.length > 0 ? imageDataUrls : undefined,
             },
           }),
         });
@@ -899,6 +926,10 @@ function AIChatScreenInner() {
         mediaTypes: ['images'],
         allowsEditing: false,
         quality: 0.8,
+        // The server accepts inline data: URLs only, so the bytes have to come
+        // back with the pick. quality 0.8 keeps a phone photo inside the
+        // ~1.4 MB base64 bound the server enforces.
+        base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
@@ -906,6 +937,9 @@ function AIChatScreenInner() {
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
           type: "image",
+          dataUrl: asset.base64
+            ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+            : undefined,
           mimeType: asset.mimeType || "image/jpeg",
         }]);
       }
@@ -929,6 +963,7 @@ function AIChatScreenInner() {
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
         quality: 0.8,
+        base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
@@ -936,6 +971,9 @@ function AIChatScreenInner() {
           uri: asset.uri,
           name: `photo_${Date.now()}.jpg`,
           type: "image",
+          dataUrl: asset.base64
+            ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
+            : undefined,
           mimeType: "image/jpeg",
         }]);
       }
@@ -1668,7 +1706,7 @@ function AIChatScreenInner() {
         {!showHistory && childSelectionPhase === "ready" && (
           <View style={{ paddingBottom: 120 }}>
             {/* Attach menu - shown above input */}
-            {showAttachMenu && (
+            {DISTRIBUTION_CHANNEL === "github" && showAttachMenu && (
               <View style={[styles.attachMenu, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                 <Pressable
                   onPress={pickImage}
@@ -1725,7 +1763,19 @@ function AIChatScreenInner() {
 
             {/* Input row */}
             <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-              {/* Attach button */}
+              {/* Attach button.
+
+                  Sideload only. The Play build would have to ask for CAMERA and
+                  photo-library access to power it, and a parenting app sending
+                  photographs of children to a third-party model is a data flow
+                  worth keeping off the Play listing entirely rather than
+                  declaring. CAMERA still ships there for app/qr-scanner.tsx,
+                  which is a narrow, explainable use.
+
+                  Nothing is lost by hiding it: until this release the button
+                  sent the model a FILENAME, so it never worked on either
+                  channel. */}
+              {DISTRIBUTION_CHANNEL === "github" && (
               <Pressable
                 onPress={() => setShowAttachMenu(!showAttachMenu)}
                 style={({ pressed }) => [
@@ -1736,6 +1786,7 @@ function AIChatScreenInner() {
               >
                 <IconSymbol name="plus.circle.fill" size={22} color={showAttachMenu ? "#FFF" : colors.primary} />
               </Pressable>
+              )}
 
               {/* Text input */}
               <TextInput

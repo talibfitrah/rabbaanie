@@ -638,3 +638,27 @@ describe("Play policy surfaces", () => {
     expect(gate).toContain('if (!isAuthenticated && !inAuthGroup) return "/login";');
   });
 });
+
+describe("AI chat attachments are sideload-only and actually send the image", () => {
+  const chat = readFileSync("app/ai-chat.tsx", "utf8");
+
+  it("gates both the attach trigger and the attach menu on the channel", () => {
+    // Two gates, not one: hiding only the trigger leaves the menu renderable if
+    // showAttachMenu is ever set by another path, and the menu is what holds
+    // the camera and library actions.
+    const gates = chat.match(/DISTRIBUTION_CHANNEL === "github"/g) || [];
+    expect(gates.length, "attach trigger and menu must both be gated").toBeGreaterThanOrEqual(2);
+    expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
+  });
+
+  it("sends the picture, not its filename", () => {
+    // The defect this replaces: every attachment was flattened to
+    // `[صورة مرفقة: <name>]` and the model received a filename, so any answer
+    // about an attached photo was invented. Assert the real payload exists.
+    expect(chat).toMatch(/images:\s*imageDataUrls\.length > 0/);
+    expect(chat).toContain("base64: true");
+    // The filename text may still be produced, but only for attachments that
+    // carry no bytes — never as the sole representation of an image.
+    expect(chat).toMatch(/undescribed|!a\.dataUrl/);
+  });
+});
