@@ -24,6 +24,29 @@ export function isNewerVersion(latest: string, current: string): boolean {
   return false;
 }
 
+// Our own website (www.rabbaanie.com / rabbaanie.com / api.rabbaanie.com)
+// never sends X-App-Version — only the native app does — so without this
+// exemption, turning the gate on would block every browser visitor,
+// including the dashboard's own logged-in session checks. Browsers set
+// Origin/Referer themselves and page JS cannot forge them, so trusting a
+// matching one is safe; the failure direction is deliberately asymmetric
+// too — a false positive here just lets an old app slip through
+// (annoying), while a false negative breaks the live site for every
+// visitor (harmful). Host is parsed via the URL constructor and matched
+// exactly against the known set, never by substring, so
+// "www.rabbaanie.com.attacker.net" is still refused.
+const TRUSTED_WEB_HOSTS = new Set(["www.rabbaanie.com", "rabbaanie.com", "api.rabbaanie.com"]);
+
+/** True when an Origin or Referer header value names one of our own website hosts. */
+export function isTrustedWebOrigin(originOrReferer: string | undefined | null): boolean {
+  if (!originOrReferer) return false;
+  try {
+    return TRUSTED_WEB_HOSTS.has(new URL(originOrReferer).hostname);
+  } catch {
+    return false;
+  }
+}
+
 /**
  * The server's minimum-client-version gate, mirrored here so the decision is
  * unit-tested before being hand-ported to the deployed server (a separate
@@ -31,13 +54,16 @@ export function isNewerVersion(latest: string, current: string): boolean {
  * server/). minVersion "" (unset) means enforcement is off: nothing is ever
  * refused. Once a minimum is set, a missing or unparseable reported version
  * is treated the same as "too old" — that is exactly what a pre-rollout
- * build (one that never sends the header at all) looks like.
+ * build (one that never sends the header at all) looks like — UNLESS the
+ * request's Origin/Referer names our own website (see isTrustedWebOrigin).
  */
 export function isVersionRefused(
   reportedVersion: string | undefined | null,
-  minVersion: string
+  minVersion: string,
+  originOrReferer?: string | undefined | null
 ): boolean {
   if (!minVersion) return false;
+  if (isTrustedWebOrigin(originOrReferer)) return false;
   if (!reportedVersion || parseTag(`v${reportedVersion}`) === null) return true;
   return isNewerVersion(minVersion, reportedVersion);
 }

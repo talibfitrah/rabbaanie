@@ -9,7 +9,7 @@ import { describe, expect, it, vi, beforeEach, afterEach } from "vitest";
  * the VM) — plus proves the client actually sends the header, since the app
  * itself cannot be run here.
  */
-import { isVersionRefused } from "@/lib/app-version";
+import { isVersionRefused, isTrustedWebOrigin } from "@/lib/app-version";
 
 describe("isVersionRefused", () => {
   it("refuses a version below the configured minimum", () => {
@@ -37,6 +37,49 @@ describe("isVersionRefused", () => {
     expect(isVersionRefused("0.0.1", "")).toBe(false);
     expect(isVersionRefused("not-a-version", "")).toBe(false);
     expect(isVersionRefused("9.9.9", "")).toBe(false);
+  });
+});
+
+describe("isVersionRefused — browser exemption (Origin/Referer from our own website)", () => {
+  it("does not refuse a headerless request whose Origin is our website", () => {
+    expect(isVersionRefused(undefined, "1.5.2", "https://www.rabbaanie.com")).toBe(false);
+  });
+
+  it("does not refuse a headerless request whose Referer is the API host itself (the /dashboard case)", () => {
+    expect(isVersionRefused(undefined, "1.5.2", "https://api.rabbaanie.com/dashboard")).toBe(false);
+  });
+
+  it("does not refuse when Origin is the bare root domain", () => {
+    expect(isVersionRefused(undefined, "1.5.2", "https://rabbaanie.com")).toBe(false);
+  });
+
+  it("still refuses a spoofed lookalike Origin", () => {
+    expect(isVersionRefused(undefined, "1.5.2", "https://www.rabbaanie.com.attacker.net")).toBe(true);
+  });
+
+  it("still refuses when no Origin/Referer is given (the bare app-shaped request)", () => {
+    expect(isVersionRefused(undefined, "1.5.2", undefined)).toBe(true);
+  });
+});
+
+describe("isTrustedWebOrigin", () => {
+  it("trusts www.rabbaanie.com, the root domain, and api.rabbaanie.com", () => {
+    expect(isTrustedWebOrigin("https://www.rabbaanie.com")).toBe(true);
+    expect(isTrustedWebOrigin("https://rabbaanie.com")).toBe(true);
+    expect(isTrustedWebOrigin("https://api.rabbaanie.com")).toBe(true);
+  });
+
+  it("matches the host exactly, not by substring", () => {
+    expect(isTrustedWebOrigin("https://www.rabbaanie.com.attacker.net")).toBe(false);
+    expect(isTrustedWebOrigin("https://evil.com/?u=https://www.rabbaanie.com")).toBe(false);
+    expect(isTrustedWebOrigin("https://notrabbaanie.com")).toBe(false);
+  });
+
+  it("rejects malformed or absent input", () => {
+    expect(isTrustedWebOrigin("not a url")).toBe(false);
+    expect(isTrustedWebOrigin(undefined)).toBe(false);
+    expect(isTrustedWebOrigin(null)).toBe(false);
+    expect(isTrustedWebOrigin("")).toBe(false);
   });
 });
 
