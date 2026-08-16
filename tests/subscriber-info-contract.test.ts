@@ -166,3 +166,42 @@ describe("a refused purchase is visible where the user pressed", () => {
     expect(screen.slice(callAt, renewalAt)).toMatch(/\{!!purchaseRefusal &&/);
   });
 });
+
+describe("a redeemed coupon is answered where the user pressed", () => {
+  const screen = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
+
+  it("does not put the subscribe card between Redeem and its own outcome", () => {
+    // redeem() reports every verdict through the shared `msg`. When the coupon
+    // block moved above the subscribe card, that render stayed at the foot of
+    // the screen — the whole card below the button — so a refused code was off
+    // screen at the moment of the press and Redeem read as dead, the defect
+    // fe9cf3a fixed on the purchase path. Anchored on the card's own renewal
+    // notice rather than a line count: "the card is not between them" survives
+    // a reformat, which a distance assertion would not.
+    const msgAt = screen.indexOf("{!!msg &&");
+    const redeemAt = screen.indexOf("onPress={redeem}");
+    expect(msgAt, "shared msg render not found").toBeGreaterThan(-1);
+    expect(redeemAt, "Redeem button not found").toBeGreaterThan(-1);
+    const between = screen.slice(
+      Math.min(msgAt, redeemAt),
+      Math.max(msgAt, redeemAt),
+    );
+    expect(
+      between,
+      "the subscribe card sits between Redeem and its outcome",
+    ).not.toContain("Play requires the renewal terms");
+  });
+
+  it("keeps that outcome mounted when a successful redeem flips the card", () => {
+    // Success sets `msg` AND flips status.subscribed, which unmounts the
+    // not-subscribed block. Rendering the message inside it would delete the
+    // confirmation at the instant it becomes true.
+    const msgAt = screen.indexOf("{!!msg &&");
+    const gateAt = screen.indexOf("{!status?.subscribed && (");
+    expect(gateAt, "not-subscribed gate not found").toBeGreaterThan(-1);
+    expect(
+      msgAt,
+      "render msg outside the !subscribed block, or a successful redeem unmounts its own confirmation",
+    ).toBeLessThan(gateAt);
+  });
+});

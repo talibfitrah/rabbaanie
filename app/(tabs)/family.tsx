@@ -2229,6 +2229,24 @@ export default function FamilyScreen() {
                           "info",
                         );
                       }
+                    } else {
+                      // The access gate makes syncWithPartner return
+                      // success:false where it used to succeed (ungated wife,
+                      // unconfirmed partnership, unresolvable gender). Without
+                      // this branch that lands in the same silence as success
+                      // and the button reads as dead — the defect fe9cf3a fixed
+                      // on Subscribe. ponytail: one wording for every refusal;
+                      // res.message is English-only, and the specific
+                      // permission state already has a home on spouse-profile.
+                      showToast(
+                        tx(
+                          lang,
+                          "Synchroniseren is niet gelukt",
+                          "Could not sync",
+                          "تعذّرت المزامنة",
+                        ),
+                        "info",
+                      );
                     }
                   },
                 });
@@ -3071,6 +3089,17 @@ export default function FamilyScreen() {
                               "info",
                             );
                           }
+                        } else {
+                          // Second sync button, same refusal path as above.
+                          showToast(
+                            tx(
+                              lang,
+                              "Synchroniseren is niet gelukt",
+                              "Could not sync",
+                              "تعذّرت المزامنة",
+                            ),
+                            "info",
+                          );
                         }
                       },
                     });

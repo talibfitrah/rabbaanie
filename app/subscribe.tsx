@@ -438,6 +438,16 @@ export default function SubscribeScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Between Save above and the coupon field below, the two things
+                that report here. At the foot of the screen it sat ~110 lines of
+                JSX past the Redeem button once the coupon moved up, so a refused
+                code was reported off screen and Redeem read as dead — the defect
+                fe9cf3a fixed for the purchase path, reintroduced on this one.
+                Outside the !subscribed block on purpose: a successful redeem
+                flips that flag, which would unmount the very message announcing
+                it. */}
+            {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
+
             {/* Subscribe + coupon — only when not subscribed */}
             {!status?.subscribed && (
               <>
@@ -520,8 +530,13 @@ export default function SubscribeScreen() {
                       {play.loading
                         ? L3("جارٍ تحميل خيارات الاشتراك…", "Abonnementsopties laden…", "Loading subscription options…")
                         : play.error === "unavailable"
-                          ? L3("تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أدناه.", "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hieronder.", "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it below.")
-                          : L3("الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أدناه.", "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hieronder.", "In-app subscribing isn't available here right now. If you have a code, redeem it below.")}
+                          /* "above", not "below": the coupon field moved to the
+                             top of this screen. These two notices fire exactly
+                             when Play billing is unavailable, so the code box
+                             they point at is the only way in — sending the user
+                             the wrong way here costs them the purchase. */
+                          ? L3("تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.", "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.", "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it above.")
+                          : L3("الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أعلاه.", "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hierboven.", "In-app subscribing isn't available here right now. If you have a code, redeem it above.")}
                     </Text>
                   )}
                   {["verify_failed", "purchase_failed", "purchase_pending", "purchase_foreign", "verify_gone"].includes(play.error || "") ? (
@@ -556,7 +571,6 @@ export default function SubscribeScreen() {
             )}
           </>
         )}
-        {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
       </ScrollView>
     </View>
   );
