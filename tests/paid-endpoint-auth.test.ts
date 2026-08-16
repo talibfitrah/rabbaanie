@@ -22,6 +22,9 @@ vi.mock("@/constants/oauth", () => ({
 
 const getSessionToken = vi.fn();
 vi.mock("@/lib/_core/auth", () => ({ getSessionToken: () => getSessionToken() }));
+// authedFetch now reads the app's version for X-App-Version from here — same
+// stub the other transport-layer suites use, so this doesn't reach expo-*.
+vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
 
 describe("authedFetch", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

@@ -1,5 +1,7 @@
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import { INSTALLED_VERSION } from "@/hooks/use-updates";
+import { markIfVersionBlocked } from "@/lib/app-version";
 
 /**
  * fetch() against our API with the caller's session attached.
@@ -23,16 +25,19 @@ export async function authedFetch(path: string, init?: RequestInit): Promise<Res
     ? path
     : `${base}${path.startsWith("/") ? path : `/${path}`}`;
 
-  return fetch(url, {
+  const response = await fetch(url, {
     ...init,
     credentials: "include",
     headers: {
       ...(init?.headers as Record<string, string> | undefined),
+      "X-App-Version": INSTALLED_VERSION,
       // Omitted entirely when signed out — "Bearer null" reads as a malformed
       // credential, which the server rejects differently from no credential.
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
     },
   });
+  markIfVersionBlocked(response.status);
+  return response;
 }
 
 /**
@@ -76,5 +81,14 @@ export async function publicFetch(path: string, init?: RequestInit): Promise<Res
   const url = /^https?:\/\//.test(path)
     ? path
     : `${base}${path.startsWith("/") ? path : `/${path}`}`;
-  return fetch(url, { ...init, credentials: "include" });
+  const response = await fetch(url, {
+    ...init,
+    credentials: "include",
+    headers: {
+      ...(init?.headers as Record<string, string> | undefined),
+      "X-App-Version": INSTALLED_VERSION,
+    },
+  });
+  markIfVersionBlocked(response.status);
+  return response;
 }

@@ -4,6 +4,8 @@ import superjson from "superjson";
 import type { AppRouter } from "@/server/routers";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
+import { INSTALLED_VERSION } from "@/hooks/use-updates";
+import { markIfVersionBlocked } from "@/lib/app-version";
 
 /**
  * tRPC React client for type-safe API calls.
@@ -27,14 +29,19 @@ export function createTRPCClient() {
         transformer: superjson,
         async headers() {
           const token = await Auth.getSessionToken();
-          return token ? { Authorization: `Bearer ${token}` } : {};
+          return {
+            "X-App-Version": INSTALLED_VERSION,
+            ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          };
         },
         // Custom fetch to include credentials for cookie-based auth
-        fetch(url, options) {
-          return fetch(url, {
+        async fetch(url, options) {
+          const response = await fetch(url, {
             ...options,
             credentials: "include",
           });
+          markIfVersionBlocked(response.status);
+          return response;
         },
       }),
     ],

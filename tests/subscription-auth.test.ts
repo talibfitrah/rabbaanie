@@ -20,6 +20,10 @@ vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: null, loading: fals
 vi.mock("expo-constants", () => ({
   default: { expoConfig: { extra: { distribution: "play" } } },
 }));
+// subscriptionFetch routes through authedFetch, which now reads the app
+// version from here for X-App-Version — same stub the other transport-layer
+// suites use, so this doesn't reach expo-application.
+vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
 
 describe("subscriptionFetch", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

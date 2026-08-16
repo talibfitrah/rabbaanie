@@ -21,6 +21,9 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
     removeItem: vi.fn().mockResolvedValue(undefined),
   },
 }));
+// publicFetch also reads the app version from here for X-App-Version — same
+// stub the other transport-layer suites use, so this doesn't reach expo-*.
+vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
 
 vi.mock("@/lib/offline-cache", () => ({
   getCached: vi.fn().mockResolvedValue(null),

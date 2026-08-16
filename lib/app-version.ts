@@ -1,3 +1,5 @@
+import { useSyncExternalStore } from "react";
+
 const TAG_RE = /^v(\d+)\.(\d+)\.(\d+)$/;
 
 /** "v1.2.0" -> "1.2.0"; null for anything that is not exactly vMAJOR.MINOR.PATCH. */
@@ -20,6 +22,55 @@ export function isNewerVersion(latest: string, current: string): boolean {
     if (a[i] !== b[i]) return a[i] > b[i];
   }
   return false;
+}
+
+/**
+ * The server's minimum-client-version gate, mirrored here so the decision is
+ * unit-tested before being hand-ported to the deployed server (a separate
+ * codebase — see server/_core/index.ts on the VM, not this repo's unused
+ * server/). minVersion "" (unset) means enforcement is off: nothing is ever
+ * refused. Once a minimum is set, a missing or unparseable reported version
+ * is treated the same as "too old" — that is exactly what a pre-rollout
+ * build (one that never sends the header at all) looks like.
+ */
+export function isVersionRefused(
+  reportedVersion: string | undefined | null,
+  minVersion: string
+): boolean {
+  if (!minVersion) return false;
+  if (!reportedVersion || parseTag(`v${reportedVersion}`) === null) return true;
+  return isNewerVersion(minVersion, reportedVersion);
+}
+
+// --- Server-refusal detection ---
+//
+// The deployed server marks a build it refuses with HTTP 426 (see
+// server/_core/index.ts on the VM). Checked once here, after every transport
+// call, rather than at each of the ~30 call sites across authedFetch,
+// publicFetch, apiCall and the tRPC client — a missed call site would leave a
+// blocked build limping along on whichever routes forgot the check instead of
+// showing the one block screen. Status code only: it never reads the response
+// body, so callers still get to parse it exactly once.
+const TOO_OLD_STATUS = 426;
+let versionBlocked = false;
+const versionBlockListeners = new Set<() => void>();
+
+export function markIfVersionBlocked(status: number): void {
+  if (status !== TOO_OLD_STATUS || versionBlocked) return;
+  versionBlocked = true;
+  for (const listener of versionBlockListeners) listener();
+}
+
+function subscribeVersionBlocked(listener: () => void): () => void {
+  versionBlockListeners.add(listener);
+  return () => versionBlockListeners.delete(listener);
+}
+
+const getVersionBlocked = () => versionBlocked;
+
+/** True once the server has refused this build for being too old. */
+export function useVersionBlocked(): boolean {
+  return useSyncExternalStore(subscribeVersionBlocked, getVersionBlocked, getVersionBlocked);
 }
 
 export type PendingUpdate = { version: string; apkUrl: string };

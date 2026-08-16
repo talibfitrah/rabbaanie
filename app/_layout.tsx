@@ -96,6 +96,8 @@ import {
 } from "@/lib/age-gate";
 import { resolvePendingRedirect } from "@/lib/app-gate";
 import * as NativeAuth from "@/lib/_core/auth";
+import { useVersionBlocked } from "@/lib/app-version";
+import { VersionBlockScreen } from "@/components/version-block-screen";
 
 async function hasStoredNotificationEligibility(): Promise<boolean> {
   try {
@@ -139,6 +141,7 @@ export const unstable_settings = {
 };
 
 function AuthGate({ children }: { children: React.ReactNode }) {
+  const versionBlocked = useVersionBlocked();
   const { isAuthenticated, loading } = useAuthContext();
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
   const { state: appState, loading: appLoading } = useAppState();
@@ -271,6 +274,14 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     pendingRedirect,
     router,
   ]);
+
+  // Takes priority over every other state: a build the server has refused
+  // must not resolve auth, redirect, or render any other screen — there is
+  // no route for it to recover into.
+  if (versionBlocked) {
+    SplashScreen.hideAsync().catch(() => {});
+    return <VersionBlockScreen />;
+  }
 
   if (ageLoading || (loading && !timedOut)) {
     // Show beautiful loading screen while auth is resolving

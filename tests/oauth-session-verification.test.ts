@@ -11,6 +11,10 @@ vi.mock("../lib/_core/auth", () => ({}));
 vi.mock("react-native", () => ({
   Platform: { OS: "android" },
 }));
+// verifySessionToken now reads the app version from here for X-App-Version —
+// same stub the other transport-layer suites use, so this doesn't reach expo-*.
+vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
+vi.mock("../hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
 
 import { verifySessionToken } from "../lib/_core/api";
 
@@ -93,7 +97,7 @@ describe("OAuth session establishment", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/trpc/auth.me?input="),
-      { headers: { Authorization: "Bearer server-token" } },
+      { headers: { Authorization: "Bearer server-token", "X-App-Version": "1.5.1" } },
     );
   });
 

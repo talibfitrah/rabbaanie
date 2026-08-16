@@ -23,6 +23,9 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
     removeItem: vi.fn().mockResolvedValue(undefined),
   },
 }));
+// publicFetch also reads the app version from here for X-App-Version — same
+// stub the other transport-layer suites use, so this doesn't reach expo-*.
+vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
 
 const { safeHttpsUrl, safePhone } = await import("@/hooks/use-remote-config");
 

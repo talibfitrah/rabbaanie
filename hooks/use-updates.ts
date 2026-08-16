@@ -19,7 +19,9 @@ const APK_PREFIX = "rabbaanie-v";
 const FLAG_GRANT_READ_URI_PERMISSION = 1;
 // Android always sets versionName; on web/dev it is null, so fall back to the
 // configured app version (Settings displays this) rather than a bogus 0.0.0.
-const INSTALLED_VERSION =
+// Exported: lib/authed-fetch.ts, lib/_core/api.ts and lib/trpc.ts reuse this
+// exact value for the X-App-Version header rather than reading it a second way.
+export const INSTALLED_VERSION =
   Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "0.0.0";
 
 // Google Play forbids an app distributed on Play from updating itself by any
