@@ -1,0 +1,29 @@
+app/child/weekplan.tsx
+  s_834a18df15f160::t_be5e94d6fdee48 611-619,621
+lib/plan-heading.ts
+  s_834a18df15f160::t_be5e94d6fdee48 12-20,25-26
+tests/device-id-race.test.ts
+  s_834a18df15f160::t_be5e94d6fdee48 1-72
+lib/device-id.ts
+  s_834a18df15f160::t_be5e94d6fdee48 19-33,35-38,40,46-54
+tests/plan-heading.test.ts
+  s_834a18df15f160::t_be5e94d6fdee48 105-134
+lib/plan-progress.ts
+  s_834a18df15f160::t_be5e94d6fdee48 85-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "15586a8811a8784f84e1a184d09efe6059fa7d1f",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
