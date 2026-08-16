@@ -1,4 +1,6 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
+import { join } from "node:path";
 import {
   MARITAL_OPTIONS,
   REQUIRED_SUBSCRIBER_FIELDS,
@@ -123,5 +125,44 @@ describe("subscriber info contract", () => {
   it("rejects an absent stored status rather than treating it as chosen", () => {
     expect(isKnownMaritalStatus("")).toBe(false);
     expect(isKnownMaritalStatus(undefined)).toBe(false);
+  });
+});
+
+// The refusal these fields can produce has to be visible where the user acted.
+describe("a refused purchase is visible where the user pressed", () => {
+  const screen = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
+
+  /** The onPress that actually reaches play.purchase(), found from the call
+   *  outwards. Anchoring on the handler's opening characters is what let a
+   *  statement inserted before its first `if` silently empty this slice. */
+  function purchaseHandler(): string {
+    const end = screen.indexOf("play.purchase(); }}");
+    expect(end, "play.purchase() call moved - anchor is stale").toBeGreaterThan(-1);
+    const begin = screen.lastIndexOf("onPress={async () =>", end);
+    expect(begin, "no onPress handler encloses play.purchase()").toBeGreaterThan(-1);
+    return screen.slice(begin, end);
+  }
+
+  it("reports a refusal beside the button, never to the shared footer", () => {
+    // The shared `msg` renders once under the coupon block, ~60 lines of JSX
+    // past the Subscribe button, so a refusal reported there is off-screen at
+    // the moment of the press and the button reads as dead. Seen on a real
+    // device on the Play internal-testing build. Clearing that footer is still
+    // allowed — stripped below — so only REPORTING to it fails this.
+    const handler = purchaseHandler();
+    expect(handler).toContain("setPurchaseRefusal(L3(");
+    expect(
+      handler.replace(/setMsg\(""\);/g, ""),
+      "a refusal here must not be reported to the distant footer",
+    ).not.toContain("setMsg(");
+  });
+
+  it("renders it between the button and the renewal terms", () => {
+    // Placement is the whole point, so assert it rather than mere presence:
+    // state written and rendered somewhere far away is the same dead button.
+    const callAt = screen.indexOf("play.purchase(); }}");
+    const renewalAt = screen.indexOf("Play requires the renewal terms", callAt);
+    expect(renewalAt, "renewal-terms anchor moved").toBeGreaterThan(callAt);
+    expect(screen.slice(callAt, renewalAt)).toMatch(/\{!!purchaseRefusal &&/);
   });
 });
