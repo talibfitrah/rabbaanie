@@ -33,6 +33,7 @@ import {
   generatePersonId,
 } from "@/lib/network-store";
 import { DatePicker } from "@/components/date-picker";
+import { SpouseVisibilityNotice } from "@/components/form-field";
 import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 
@@ -961,6 +962,7 @@ function ParentsSection({
                 "أدخل رقم هوية شريكك أو امسح رمز QR."
               )}
             </Text>
+            {userGender === "vrouw" && <SpouseVisibilityNotice />}
             <View style={{ gap: 8 }}>
               <TextInput
                 value={partnerIdInput}

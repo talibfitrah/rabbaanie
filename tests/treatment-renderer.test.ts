@@ -1,10 +1,32 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
 import * as fs from "fs";
 
 // The block parser moved to lib/plan-blocks.ts so the renderer, the weekly card
 // and the daily reminder all count a plan's tasks the same way. It is plain TS
 // now, so these can assert what it does instead of what its source looks like.
 import { parsePlanText } from "@/lib/plan-blocks";
+
+// cubic round 3: components/treatment-plan-renderer.tsx CAN be imported here --
+// it just needs every module that fails to parse under vitest's esbuild
+// transform mocked out first: react-native itself (its entry point uses Flow's
+// `import typeof` syntax) and @expo/vector-icons/MaterialIcons (fails its own,
+// separate parse) both throw at collection time otherwise, verified directly.
+// Everything else the file imports (@/lib/plan-owner, @/lib/plan-blocks,
+// @/lib/plan-progress) is plain TS and needs nothing.
+vi.mock("react-native", () => ({
+  View: "View",
+  Text: "Text",
+  Pressable: "Pressable",
+  StyleSheet: { create: (styles: unknown) => styles },
+}));
+vi.mock("@react-native-async-storage/async-storage", () => ({
+  default: { getItem: vi.fn(async () => null), setItem: vi.fn(async () => {}) },
+}));
+vi.mock("@expo/vector-icons/MaterialIcons", () => ({ default: "MaterialIcons" }));
+vi.mock("@/lib/i18n", () => ({ useI18n: () => ({ language: "ar", isRTL: true }) }));
+vi.mock("@/lib/authed-fetch", () => ({ authedFetch: vi.fn() }));
+
+import { shouldFetchTranslation } from "@/components/treatment-plan-renderer";
 
 describe("TreatmentPlanRenderer", () => {
   const src = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf8");
@@ -94,16 +116,151 @@ describe("TreatmentPlanRenderer", () => {
       expect(parsePlanText(title)[0].type).toMatch(/^heading[12]$/);
     }
   });
-});
 
-describe("child/[id].tsx uses TreatmentPlanRenderer", () => {
-  const src = fs.readFileSync("app/child/[id].tsx", "utf8");
+  // cubic round 3: the two tests below used to assert the shape of the
+  // effect's guard in the source (an exact operator/whitespace regex, and a
+  // slice between two literal strings) rather than what it does. Rewriting
+  // the guard as `!text?.trim()` -- identical behaviour -- failed them, and
+  // the tempting fix was to loosen the regex, which would have removed the
+  // guard entirely. shouldFetchTranslation is the guard itself, pulled out
+  // of the effect as a plain function so these can invoke it directly and
+  // assert on what it returns.
+  describe("shouldFetchTranslation gates the network effect", () => {
+    // cubic P2 (Finding C): issue.description can be undefined at runtime
+    // (AsyncStorage / partner-synced records) even though its TS type says
+    // string. When the viewer's language is "ar", needsTranslation is true
+    // for undefined text too (isArabicText(undefined) is false, so the
+    // "not-Arabic text but Arabic viewer" branch fires) -- so undefined text
+    // must never reach a fetch, whatever the guard's exact wording.
+    it("does not need a fetch when the text is undefined, even for an Arabic viewer", () => {
+      expect(shouldFetchTranslation(undefined, "ar", true)).toBe(false);
+    });
 
-  it("should import TreatmentPlanRenderer", () => {
-    expect(src).toContain('import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer"');
+    // cubic P2 (Finding D): StructuredIssueCard called useAutoTranslate
+    // unconditionally, so a family with N issues in a non-matching language
+    // fired N POSTs to the paid /api/advice/translate endpoint on first
+    // render of the child screen, whether or not any card was ever opened.
+    it("does not need a fetch when disabled, even if the language genuinely mismatches", () => {
+      expect(shouldFetchTranslation("some plain English text", "ar", false)).toBe(false);
+    });
+
+    // The gate must not vanish into an always-false stub (only checking what
+    // must be ABSENT lets the capability disappear silently) -- a real
+    // mismatch, with text present and the caller enabled, must still fetch.
+    it("does need a fetch when enabled, text is present, and the language mismatches", () => {
+      expect(shouldFetchTranslation("some plain English text", "ar", true)).toBe(true);
+    });
   });
 
-  it("should use TreatmentPlanRenderer component", () => {
+  // cubic round 8 P2: `enabled` used to sit in the SAME effect as the
+  // `setTranslated(null)` reset, so collapsing a card (enabled -> false) and
+  // reopening it (enabled -> true) wiped the already-fetched translation and
+  // re-ran the fetch/cache path from scratch on every toggle -- a one-off
+  // cost turned into a per-toggle one. useAutoTranslate can't be mounted and
+  // toggled here (no React renderer is installed in this project -- see the
+  // docstring above shouldFetchTranslation), so this asserts the structural
+  // fix instead: the effect whose dependency array includes `enabled` must
+  // not also discard `translated`.
+  describe("useAutoTranslate retains a translation across enabled toggles", () => {
+    it("the effect that reads `enabled` does not reset `translated`", () => {
+      const start = src.indexOf("export function useAutoTranslate");
+      const end = src.indexOf("export function TreatmentPlanRenderer", start);
+      const hookSrc = src.slice(start, end);
+      // Split into per-effect chunks (lookahead keeps each "useEffect(" as
+      // the start of its own chunk) rather than one regex spanning "from an
+      // opening brace to a closing bracket that mentions enabled" -- that
+      // greedy span used to jump straight over an unrelated earlier effect's
+      // own closing `}, [...])` and swallow both effects as one match.
+      const effectBlocks = hookSrc
+        .split(/(?=useEffect\()/)
+        .filter((b) => b.startsWith("useEffect("));
+      const enabledEffects = effectBlocks.filter((b) => /\benabled\b/.test(b));
+      expect(enabledEffects.length).toBeGreaterThan(0);
+      for (const block of enabledEffects) {
+        expect(block).not.toMatch(/setTranslated\(null\)/);
+      }
+    });
+  });
+});
+
+describe("child/[id].tsx uses TreatmentPlanRenderer and useAutoTranslate", () => {
+  const src = fs.readFileSync("app/child/[id].tsx", "utf8");
+
+  // Checks that the SYMBOL is imported from the module, not the exact
+  // import-line text — a prior version of this asserted the single-name
+  // import line verbatim, which coupled app/child/[id].tsx to keeping
+  // TreatmentPlanRenderer and useAutoTranslate on two separate import lines
+  // even though both names come from the same module. `[^}]` matches
+  // newlines too, so this still finds the name if a merged import wraps
+  // across lines.
+  function importsSymbolFrom(symbol: string, modulePath: string): boolean {
+    const escapedModule = modulePath.replace(/\//g, "\\/");
+    const re = new RegExp(
+      `import\\s*\\{[^}]*\\b${symbol}\\b[^}]*\\}\\s*from\\s*["']${escapedModule}["']`,
+    );
+    return re.test(src);
+  }
+
+  it("imports TreatmentPlanRenderer from the renderer module", () => {
+    expect(
+      importsSymbolFrom("TreatmentPlanRenderer", "@/components/treatment-plan-renderer"),
+    ).toBe(true);
+  });
+
+  it("imports useAutoTranslate from the renderer module", () => {
+    expect(
+      importsSymbolFrom("useAutoTranslate", "@/components/treatment-plan-renderer"),
+    ).toBe(true);
+  });
+
+  it("uses the TreatmentPlanRenderer component", () => {
     expect(src).toContain("<TreatmentPlanRenderer");
+  });
+
+  it("calls useAutoTranslate", () => {
+    expect(/\buseAutoTranslate\s*\(/.test(src)).toBe(true);
+  });
+
+  // Finding D: the description heading is what's translated here, at the top
+  // of every StructuredIssueCard -- unlike the plan body (which only mounts
+  // once a card is expanded), so this call site is the one that must gate
+  // itself on the card actually being open, via useAutoTranslate's enabled flag.
+  it("only translates the issue description for expanded cards", () => {
+    expect(src).toMatch(/useAutoTranslate\(\s*issue\.description\s*,\s*lang\s*,\s*expanded\s*\)/);
+  });
+});
+
+// Finding E: getSpouseAdvice's prompt now emits "1. <heading>" lines with
+// "- " bullets (server/advice.ts:2876), so the flat <Text> this used to
+// render through would show that literal markup instead of clean prose.
+// The product owner asked for collapsible sections, one per advice type --
+// the same section/accordion path treatment plans already use.
+describe("family.tsx renders spouse advice as sections, not raw numbered markup", () => {
+  const familySrc = fs.readFileSync("app/(tabs)/family.tsx", "utf8");
+
+  it("imports the shared section parser from lib/plan-blocks", () => {
+    expect(familySrc).toMatch(/from\s*["']@\/lib\/plan-blocks["']/);
+  });
+
+  it("parses spouseAdvice.advice through parsePlanText + groupIntoSections", () => {
+    expect(familySrc).toMatch(/groupIntoSections\(\s*parsePlanText\(/);
+  });
+
+  // cubic round 3: this call omitted groupIntoSections' language argument, so
+  // the synthetic intro section fell back to the Arabic literal "مقدمة" even
+  // in the Dutch/English spouse-advice renderer -- TreatmentPlanRenderer:202
+  // passes it, this call site must too.
+  it("passes the viewer's language to groupIntoSections, so the synthetic intro title is not always Arabic", () => {
+    expect(familySrc).toMatch(/groupIntoSections\(\s*parsePlanText\([^)]*\)\s*,\s*language\s*\)/);
+  });
+
+  // The guard: SpouseAdviceSections' own `language` prop is required, not
+  // optional, so a future call site of this component fails to compile
+  // instead of silently falling back to Arabic the same way.
+  it("declares SpouseAdviceSections' language prop as required, not optional", () => {
+    const start = familySrc.indexOf("function SpouseAdviceSections");
+    const propsBlock = familySrc.slice(start, familySrc.indexOf("}) {", start));
+    expect(propsBlock).toMatch(/language:\s*string/);
+    expect(propsBlock).not.toMatch(/language\?:/);
   });
 });

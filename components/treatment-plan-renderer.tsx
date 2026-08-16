@@ -27,8 +27,87 @@ function textDir(text: string | undefined | null) {
 }
 
 /**
+ * Whether useAutoTranslate's effect should actually fetch a translation --
+ * pulled out of the effect as a plain function so it can be asserted on
+ * directly. The hook itself can't be exercised in tests/treatment-renderer.test.ts
+ * by rendering (a hook needs a real React renderer to run its effect, and
+ * none is installed in this project), but a plain function needs no renderer.
+ */
+export function shouldFetchTranslation(
+  text: string | undefined | null,
+  language: string,
+  enabled: boolean,
+): text is string {
+  const isArabic = isArabicText(text);
+  const needsTranslation = (isArabic && language !== "ar") || (!isArabic && language === "ar");
+  return !!(enabled && needsTranslation && text && text.trim());
+}
+
+/**
+ * Auto-translates `text` into `language` when it looks like it was authored in a
+ * different one, caching the result so the network call happens once per
+ * (text, language) pair. Shared by the plan body below and by the issue's own
+ * heading text (app/child/[id].tsx) above it — both must follow the reader's
+ * chosen language the same way, through the same call path, not two of them.
+ *
+ * `text` can be undefined/null at runtime despite its TS type (issue.description
+ * comes from AsyncStorage and partner-synced records, where the field can be
+ * absent) — guarded below rather than trusted, since a viewer whose own
+ * language is Arabic needs translation even of undefined text (isArabicText
+ * treats "not Arabic" the same whether that's because the text is Latin or
+ * because there's no text at all).
+ *
+ * `enabled` (default on) lets a caller that mounts unconditionally — unlike
+ * the plan body, which only mounts once its section is expanded — defer the
+ * network call until it actually needs the result, so N unopened cards don't
+ * fire N POSTs to this LLM-backed, paid endpoint on first render.
+ */
+export function useAutoTranslate(text: string | undefined | null, language: string, enabled: boolean = true) {
+  const [translated, setTranslated] = useState<string | null>(null);
+  const [showOriginal, setShowOriginal] = useState(false);
+  const [translating, setTranslating] = useState(false);
+  const isArabic = isArabicText(text);
+  const needsTranslation = (isArabic && language !== "ar") || (!isArabic && language === "ar");
+
+  // Resets only when the underlying content changes -- NOT when `enabled`
+  // merely toggles (a card collapsing/reopening), so a translation already
+  // fetched for this (text, language) survives the toggle instead of being
+  // thrown away and re-fetched every time the card is reopened.
+  useEffect(() => {
+    setTranslated(null);
+    setShowOriginal(false);
+  }, [text, language]);
+
+  useEffect(() => {
+    let alive = true;
+    if (!shouldFetchTranslation(text, language, enabled)) return;
+    const key = `@plan_tr_${language}_${hashStr(text)}`;
+    (async () => {
+      try {
+        const cached = await AsyncStorage.getItem(key);
+        if (cached) { if (alive) setTranslated(cached); return; }
+        if (alive) setTranslating(true);
+        const res = await authedFetch(`/api/advice/translate`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ text, targetLang: language }),
+        });
+        const data = await res.json();
+        const tr = (data?.translation || "").trim();
+        if (tr) { await AsyncStorage.setItem(key, tr); if (alive) setTranslated(tr); }
+      } catch { /* keep original on failure */ }
+      finally { if (alive) setTranslating(false); }
+    })();
+    return () => { alive = false; };
+  }, [text, language, needsTranslation, enabled]);
+
+  const effectiveText = (!showOriginal && translated) ? translated : (text || "");
+  return { effectiveText, translated, translating, showOriginal, setShowOriginal, needsTranslation };
+}
+
+/**
  * Treatment Plan Renderer
- * 
+ *
  * Renders treatment plan text with:
  * - Collapsible sections grouped by main headings
  * - Checkboxes on the RIGHT side (RTL)
@@ -74,38 +153,8 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
 
   // Auto-translate the plan into the VIEWER's language when it was authored in a
   // different one (e.g. a father's Arabic plan viewed by a Dutch-speaking mother).
-  const [translated, setTranslated] = useState<string | null>(null);
-  const [showOriginal, setShowOriginal] = useState(false);
-  const [translating, setTranslating] = useState(false);
-  const planIsArabic = isArabicText(planText);
-  const needsTranslation = (planIsArabic && language !== "ar") || (!planIsArabic && language === "ar");
-
-  useEffect(() => {
-    let alive = true;
-    setTranslated(null);
-    setShowOriginal(false);
-    if (!needsTranslation || !planText.trim()) return;
-    const key = `@plan_tr_${language}_${hashStr(planText)}`;
-    (async () => {
-      try {
-        const cached = await AsyncStorage.getItem(key);
-        if (cached) { if (alive) setTranslated(cached); return; }
-        if (alive) setTranslating(true);
-        const res = await authedFetch(`/api/advice/translate`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ text: planText, targetLang: language }),
-        });
-        const data = await res.json();
-        const tr = (data?.translation || "").trim();
-        if (tr) { await AsyncStorage.setItem(key, tr); if (alive) setTranslated(tr); }
-      } catch { /* keep original on failure */ }
-      finally { if (alive) setTranslating(false); }
-    })();
-    return () => { alive = false; };
-  }, [planText, language, needsTranslation]);
-
-  const effectiveText = (!showOriginal && translated) ? translated : planText;
+  const { effectiveText, translated, translating, showOriginal, setShowOriginal, needsTranslation } =
+    useAutoTranslate(planText, language);
 
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   // Folded by default, which is what Daa3iyah asked for once he could actually
@@ -174,7 +223,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   // fixes it is measuring against planText below while displaying effectiveText.
   const taskKeys = taskKeysOf(planText);
   const blocks = parsePlanText(effectiveText);
-  const sections = groupIntoSections(blocks);
+  const sections = groupIntoSections(blocks, language);
   const totalTasks = taskKeys.length;
   const completedCount = taskKeys.filter(k => completedTasks.has(k)).length;
   // ponytail: a translation that drops a task leaves the reader unable to tick
