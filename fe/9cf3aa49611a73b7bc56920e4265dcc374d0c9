@@ -1,0 +1,29 @@
+tests/subscriber-info-contract.test.ts
+  s_6849767083e9dc::t_ac723382051623 135-157,160-166
+  s_6849767083e9dc::t_8219683a7f68ce 2-3,130-134,158-159,167
+  s_6849767083e9dc::t_575f2e0a742cf8 168
+tests/play-store-compliance.test.ts
+  s_6849767083e9dc::t_afd7750f1c540d 355-364
+app/subscribe.tsx
+  s_6849767083e9dc::t_4210e2c9e17c00 236-240
+  s_6849767083e9dc::t_ac723382051623 485
+  s_6849767083e9dc::t_5066936738ff9f 39
+  s_6849767083e9dc::t_17581d5e9d638b 488-495
+  s_6849767083e9dc::t_392c0752eab52e 33-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "fe9cf3aa49611a73b7bc56920e4265dcc374d0c9",
+  "prompts": {},
+  "sessions": {
+    "s_6849767083e9dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc1ff81f-5071-40db-8a5d-da290ff9924f",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
