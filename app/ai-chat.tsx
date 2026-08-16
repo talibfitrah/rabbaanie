@@ -41,7 +41,7 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { getDeviceId } from "@/lib/device-id";
 import { parseActionPlanSteps } from "@/lib/plan-steps";
 import { parsePlanText } from "@/lib/plan-blocks";
-import { buildConsultationRtf } from "@/lib/consultation-rtf";
+import { buildConsultationDocx, toBase64 } from "@/lib/consultation-docx";
 import { withPlanStore } from "@/lib/plan-progress";
 
 // Types
@@ -615,11 +615,13 @@ function AIChatScreenInner() {
       const childName = conv?.childName || "";
       const date = conv ? new Date(conv.createdAt).toLocaleDateString(language === "ar" ? "ar-SA" : "en-US") : "";
 
-      // Built by lib/consultation-rtf.ts so the escaping is testable: RTF is
-      // 7-bit and Arabic is entirely non-ASCII, so a mistake there yields a file
-      // that opens to a blank page — invisible to a type check.
+      // A real .docx. Word-flavoured HTML named .doc and then RTF both failed
+      // to open on his phone; .docx is the format Word actually is, so no
+      // viewer has to guess. Built in lib/consultation-docx.ts, which is
+      // verified against a real unzip and an XML parser — the failure mode here
+      // is a corrupt archive, which no type check can see.
       const isAr = language === "ar";
-      const doc = buildConsultationRtf({
+      const docBytes = buildConsultationDocx({
         title,
         childName,
         date,
@@ -638,11 +640,15 @@ function AIChatScreenInner() {
         }
       } else {
         const safeName = (childName || title).replace(/[^\p{L}\p{N}]+/gu, "_").slice(0, 40) || "consultation";
-        const fileUri = FileSystem.documentDirectory + `${safeName}_${Date.now()}.rtf`;
-        await FileSystem.writeAsStringAsync(fileUri, doc, { encoding: FileSystem.EncodingType.UTF8 });
+        const fileUri = FileSystem.documentDirectory + `${safeName}_${Date.now()}.docx`;
+        // Binary, so base64 — Hermes has no Buffer.
+        await FileSystem.writeAsStringAsync(fileUri, toBase64(docBytes), { encoding: FileSystem.EncodingType.Base64 });
         const canShare = await Sharing.isAvailableAsync();
         if (canShare) {
-          await Sharing.shareAsync(fileUri, { mimeType: "application/rtf", dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation" });
+          await Sharing.shareAsync(fileUri, {
+            mimeType: "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            dialogTitle: language === "ar" ? "مشاركة الاستشارة" : "Share consultation",
+          });
         }
       }
     } catch (e) {
@@ -1632,6 +1638,16 @@ function AIChatScreenInner() {
                 contentContainerStyle={styles.messagesList}
                 showsVerticalScrollIndicator={false}
                 keyboardShouldPersistTaps="handled"
+                // Render the whole thread up front. FlatList defaults to
+                // initialNumToRender=10 and only mounts more as the user
+                // scrolls — so on a resumed 22-message consultation it laid out
+                // 10, scrollToEnd went to the end of THOSE, nothing scrolled
+                // further, items 11+ were never mounted and onContentSizeChange
+                // never fired again. That deadlock is why the view stopped at
+                // message 7 every single time, identically, across restarts and
+                // a clean reinstall — a race would have varied. Consultations
+                // run to a few dozen messages, so mounting them all is cheap.
+                initialNumToRender={Math.max(messages.length, 10)}
                 // Resuming a long consultation used to scroll on a 150ms timer,
                 // which raced FlatList's incremental layout: at that moment only
                 // the first handful of a 22-message thread existed, so it landed
