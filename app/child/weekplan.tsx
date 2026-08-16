@@ -608,17 +608,23 @@ export default function WeekplanScreen() {
           // the superseded plans instead of leaving one behind per consultation.
           try {
             const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
-            // Match on the prefix WITHOUT its trailing underscore, so the
-            // pre-issuesSig keys are swept too. The old format was
-            // `weekplan_<id>_<lang>_<year>_w<week>` with nothing after it, and
-            // "…_w33".startsWith("…_w33_") is false — so every existing user's
-            // old entries were neither read nor removed, and leaked in
-            // AsyncStorage for good. Trimming one character is enough because
-            // the untrimmed prefix is what cacheKey itself is built from, so
-            // this can only ever match this child/lang/week's own keys.
-            const sweep = prefix.endsWith("_") ? prefix.slice(0, -1) : prefix;
+            // Two shapes, matched exactly rather than by a shortened prefix.
+            //
+            // The new keys are `<prefix><issuesSig>`, and the pre-issuesSig ones
+            // were `weekplan_<id>_<lang>_<year>_w<week>` with nothing after —
+            // which does NOT start with the trailing-underscore prefix, so they
+            // were never swept and leaked in AsyncStorage.
+            //
+            // Trimming the underscore to catch them was worse than the leak:
+            // "…_w3" is a prefix of "…_w30".."…_w39", so generating week 3's
+            // plan deleted the cached plans for weeks 30-39 (and w1 wiped 10-19,
+            // w2 20-29, w5 50-52). A parent correcting a birth date moves
+            // weekInYear backwards inside the same year and pays for those plans
+            // again. An exact equality for the legacy key has no such overlap.
+            // weekPlanCachePrefix always ends in "_", so the guard was dead.
+            const legacyKey = prefix.slice(0, -1);
             const stale = (await AsyncStorage.getAllKeys()).filter(
-              (k) => k.startsWith(sweep) && k !== cacheKey,
+              (k) => (k === legacyKey || k.startsWith(prefix)) && k !== cacheKey,
             );
             if (stale.length > 0) await AsyncStorage.multiRemove(stale);
           } catch {

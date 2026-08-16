@@ -31,6 +31,29 @@ import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { authedFetch, accessDeniedMessage } from "@/lib/authed-fetch";
 import * as ImagePicker from "expo-image-picker";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
+
+/**
+ * The server's attachment bounds, duplicated because the two repos share no
+ * types (rabbaanie-api server/chat-attachments.ts). Checked HERE as well as
+ * there for one reason: the API answers a breach with a 400, and this screen
+ * maps any failed send to getOfflineResponse — so the parent got confident
+ * canned advice about a photo the model never received, with nothing saying
+ * why. Change these only together with that server.
+ */
+const MAX_IMAGE_ATTACHMENTS = 3;
+
+/**
+ * Whether this build offers photo attachments at all.
+ *
+ * A named constant rather than an inline channel check at each use, so the
+ * guard in tests/play-store-compliance.test.ts can assert on a symbol instead
+ * of on how far apart two strings sit in the file. Both the trigger and the
+ * menu must use it: hiding only the trigger leaves the menu renderable if
+ * showAttachMenu is ever set by another path.
+ */
+const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github";
+const MAX_ATTACHMENT_DATA_URL_LENGTH = 4_000_000;
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -50,6 +73,15 @@ interface Attachment {
   name: string;
   type: "image" | "file";
   mimeType?: string;
+  /**
+   * The picture itself, as a data: URL, for the one purpose that matters: the
+   * model can only look at an image that is actually sent. Before this the
+   * attachment was flattened to `[صورة مرفقة: <name>]` and the model received a
+   * FILENAME, so every answer about an attached photo was necessarily invented.
+   * Populated at pick time, since ImagePicker hands back base64 there and
+   * re-reading the uri later is another failure mode for nothing.
+   */
+  dataUrl?: string;
 }
 
 interface ChatMessage {
@@ -257,7 +289,14 @@ function AIChatScreenInner() {
       // Save messages without attachment URIs (files are temporary)
       const cleanMessages = msgs.map(m => ({
         ...m,
-        attachments: m.attachments?.map(a => ({ ...a, uri: "" })),
+        // dataUrl is stripped for the same reason as uri, and more urgently: it
+        // is the whole image. Persisting it wrote multi-MB base64 into
+        // AsyncStorage (6 MB cap for the entire app, shared with the weekplan
+        // caches and the device id) AND re-uploaded it to saveConversationToDb
+        // on every later message of the conversation. It is transient input to
+        // the model, not conversation history — and photographs of children are
+        // the last thing to retain by accident.
+        attachments: m.attachments?.map(a => ({ ...a, uri: "", dataUrl: undefined })),
       }));
 
       // Save to database (persistent).
@@ -660,11 +699,29 @@ function AIChatScreenInner() {
     if ((!text.trim() && attachments.length === 0) || isLoading) return;
 
     const currentAttachments = [...attachments];
+    // One definition, used for the bubble, the stored history and the message
+    // actually sent — they were written twice and could drift apart.
+    // Covers a DOCUMENT-only turn as well: that has no dataUrl, so keying on
+    // images alone still left an attachment-only turn rendering blank.
+    const attachmentOnlyPrompt =
+      language === "ar" ? "ما الذي تراه في هذا المرفق؟"
+      : language === "en" ? "What do you see in this attachment?"
+      : "Wat zie je in deze bijlage?";
+    const bubbleText =
+      text.trim() || (currentAttachments.length > 0 ? attachmentOnlyPrompt : "");
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_user`,
       role: "user",
-      content: text.trim(),
-      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+      content: bubbleText,
+      // Without dataUrl. Nothing reads it back — the thread renders from `uri`
+      // and the send path uses currentAttachments — so keeping it here pinned up
+      // to 3 x 4 MB of base64 in the JS heap for the life of the screen, per
+      // photo turn. cleanMessages strips it at persist time; this stops it
+      // being held in the first place.
+      attachments:
+        currentAttachments.length > 0
+          ? currentAttachments.map((a) => ({ ...a, dataUrl: undefined }))
+          : undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -677,10 +734,23 @@ function AIChatScreenInner() {
     try {
       let response: any;
 
-      // Build message text with attachment descriptions
+      // Images travel as bytes, in `images` below — the model can only look at
+      // a picture that is actually sent. Anything WITHOUT bytes still gets a
+      // text description, because a named file the model cannot open is better
+      // acknowledged than silently dropped.
+      const imageDataUrls = currentAttachments
+        .map((a) => a.dataUrl)
+        .filter((u): u is string => typeof u === "string" && u.length > 0);
       let messageText = text.trim();
-      if (currentAttachments.length > 0) {
-        const attachDesc = currentAttachments.map(a => 
+      // An image-only turn used to carry `[صورة مرفقة: name]` as its text; now
+      // that the picture travels properly, that text is gone and messageText
+      // would be "". The server titles a conversation from it, the history list
+      // renders that title, and both would be blank — so ask the obvious
+      // question instead of sending nothing.
+      if (!messageText && currentAttachments.length > 0) messageText = attachmentOnlyPrompt;
+      const undescribed = currentAttachments.filter((a) => !a.dataUrl);
+      if (undescribed.length > 0) {
+        const attachDesc = undescribed.map(a =>
           a.type === "image" ? `[صورة مرفقة: ${a.name}]` : `[ملف مرفق: ${a.name}]`
         ).join("\n");
         messageText = messageText ? `${messageText}\n\n${attachDesc}` : attachDesc;
@@ -715,6 +785,11 @@ function AIChatScreenInner() {
               parentContext: parentContext || undefined,
               consultationType,
               parentGender: appState.parentProfile?.gender || undefined,
+              // Omitted entirely when nothing is attached, so a text-only turn
+              // sends the exact body it always has. The server bounds count and
+              // size and drops anything it will not vouch for
+              // (server/chat-attachments.ts in rabbaanie-api).
+              images: imageDataUrls.length > 0 ? imageDataUrls : undefined,
             },
           }),
         });
@@ -738,6 +813,11 @@ function AIChatScreenInner() {
               parentContext: parentContext || undefined,
               consultationType,
               parentGender: appState.parentProfile?.gender || undefined,
+              // Omitted entirely when nothing is attached, so a text-only turn
+              // sends the exact body it always has. The server bounds count and
+              // size and drops anything it will not vouch for
+              // (server/chat-attachments.ts in rabbaanie-api).
+              images: imageDataUrls.length > 0 ? imageDataUrls : undefined,
             },
           }),
         });
@@ -898,21 +978,78 @@ function AIChatScreenInner() {
   };
 
   // Pick image from gallery
+  /**
+   * Whether one more attachment fits, telling the user plainly when it does
+   * not. Refusing at pick time is the point: the alternative is the send
+   * failing with a 400 that this screen renders as offline advice, so the
+   * parent believes the model looked at their photo.
+   */
+  const acceptAttachment = (base64Length: number, isImage: boolean): boolean => {
+    // Counted against IMAGES only, because that is what the server bounds.
+    // Counting documents in the same total made the client cap a different
+    // quantity from MAX_IMAGES while looking like it matched.
+    const imageCount = attachments.filter((a) => a.type === "image").length;
+    const tooMany = isImage && imageCount >= MAX_IMAGE_ATTACHMENTS;
+    // +32 covers the `data:image/jpeg;base64,` prefix the server also counts.
+    const tooBig = base64Length + 32 > MAX_ATTACHMENT_DATA_URL_LENGTH;
+    if (!tooMany && !tooBig) return true;
+    Alert.alert(
+      tooMany
+        ? (language === "ar" ? "٣ صور كحدٍّ أقصى" : language === "en" ? "Up to 3 images" : "Maximaal 3 afbeeldingen")
+        : (language === "ar" ? "الصورة كبيرة جدًا" : language === "en" ? "Image too large" : "Afbeelding te groot"),
+      tooMany
+        ? (language === "ar" ? "احذف واحدة قبل إضافة أخرى." : language === "en" ? "Remove one before adding another." : "Verwijder er eerst een voordat u een nieuwe toevoegt.")
+        : (language === "ar" ? "اختر صورة أصغر، أو التقط صورة جديدة بتفاصيل أقل." : language === "en" ? "Choose a smaller photo, or take a new one at lower detail." : "Kies een kleinere foto, of maak een nieuwe met minder detail."),
+    );
+    return false;
+  };
+
   const pickImage = async () => {
     setShowAttachMenu(false);
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ['images'],
         allowsEditing: false,
-        quality: 0.8,
+        // 0.4, not 0.8. A 12 MP photo at 0.8 is 2-4 MB, i.e. ~2.7-5.3 MB of
+        // base64, so the previous bound refused every real photo — a guard that
+        // rejects the typical input is an outage with a message. Downscaling
+        // would be the proper fix (vision models resize to ~1568px anyway) but
+        // needs expo-image-manipulator, a new NATIVE dependency, and a native
+        // addition has already broken this project's Gradle build once on a
+        // Kotlin metadata mismatch that no JS check could see.
+        quality: 0.4,
+        // The server accepts inline data: URLs only, so the bytes come back
+        // with the pick.
+        base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!asset.base64) {
+          // Without bytes this would fall back to the filename-only send that
+          // this whole change exists to remove — the model would be told a name
+          // and the parent would get advice about nothing. Say so instead.
+          Alert.alert(
+            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
+            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
+          );
+          return;
+        }
+        if (!acceptAttachment(asset.base64.length, true)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
           type: "image",
-          mimeType: asset.mimeType || "image/jpeg",
+          // Always image/jpeg: expo-image-picker's own type says `base64` is
+          // "a Base64-encoded string of the selected image's JPEG data" and
+          // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
+          // labelled a picked PNG as PNG while the bytes were JPEG, which is a
+          // corrupt input as far as the model provider is concerned.
+          // Unconditional: the !asset.base64 guard above already returned, so
+          // the ternary here could never take its false branch.
+          dataUrl: `data:image/jpeg;base64,${asset.base64}`,
+          // image/jpeg to match dataUrl: ImagePicker returns JPEG bytes whatever
+          // the source format, so asset.mimeType would contradict what we send.
+          mimeType: "image/jpeg",
         }]);
       }
     } catch (e) {
@@ -934,14 +1071,34 @@ function AIChatScreenInner() {
       }
       const result = await ImagePicker.launchCameraAsync({
         allowsEditing: false,
-        quality: 0.8,
+        quality: 0.4, // see pickImage
+        base64: true,
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!asset.base64) {
+          // Without bytes this would fall back to the filename-only send that
+          // this whole change exists to remove — the model would be told a name
+          // and the parent would get advice about nothing. Say so instead.
+          Alert.alert(
+            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
+            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
+          );
+          return;
+        }
+        if (!acceptAttachment(asset.base64.length, true)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: `photo_${Date.now()}.jpg`,
           type: "image",
+          // Always image/jpeg: expo-image-picker's own type says `base64` is
+          // "a Base64-encoded string of the selected image's JPEG data" and
+          // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
+          // labelled a picked PNG as PNG while the bytes were JPEG, which is a
+          // corrupt input as far as the model provider is concerned.
+          // Unconditional: the !asset.base64 guard above already returned, so
+          // the ternary here could never take its false branch.
+          dataUrl: `data:image/jpeg;base64,${asset.base64}`,
           mimeType: "image/jpeg",
         }]);
       }
@@ -960,6 +1117,13 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        // No base64 check here, and no size bound: a DocumentPicker asset never
+        // carries base64, and a PDF is not something the model can look at
+        // anyway. Documents keep the filename description they always had —
+        // which is honest for a file the model cannot open — so only the count
+        // applies. Applying the image guard here rejected every PDF, Word file
+        // and text file with "Could not read the image".
+        if (!acceptAttachment(0, false)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.name || `file_${Date.now()}`,
@@ -1684,7 +1848,7 @@ function AIChatScreenInner() {
         {!showHistory && childSelectionPhase === "ready" && (
           <View style={{ paddingBottom: 120 }}>
             {/* Attach menu - shown above input */}
-            {showAttachMenu && (
+            {ATTACHMENTS_ENABLED && showAttachMenu && (
               <View style={[styles.attachMenu, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                 <Pressable
                   onPress={pickImage}
@@ -1741,7 +1905,19 @@ function AIChatScreenInner() {
 
             {/* Input row */}
             <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
-              {/* Attach button */}
+              {/* Attach button.
+
+                  Sideload only. The Play build would have to ask for CAMERA and
+                  photo-library access to power it, and a parenting app sending
+                  photographs of children to a third-party model is a data flow
+                  worth keeping off the Play listing entirely rather than
+                  declaring. CAMERA still ships there for app/qr-scanner.tsx,
+                  which is a narrow, explainable use.
+
+                  Nothing is lost by hiding it: until this release the button
+                  sent the model a FILENAME, so it never worked on either
+                  channel. */}
+              {ATTACHMENTS_ENABLED && (
               <Pressable
                 onPress={() => setShowAttachMenu(!showAttachMenu)}
                 style={({ pressed }) => [
@@ -1752,6 +1928,7 @@ function AIChatScreenInner() {
               >
                 <IconSymbol name="plus.circle.fill" size={22} color={showAttachMenu ? "#FFF" : colors.primary} />
               </Pressable>
+              )}
 
               {/* Text input */}
               <TextInput

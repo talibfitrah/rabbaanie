@@ -638,3 +638,63 @@ describe("Play policy surfaces", () => {
     expect(gate).toContain('if (!isAuthenticated && !inAuthGroup) return "/login";');
   });
 });
+
+describe("AI chat attachments are sideload-only and actually send the image", () => {
+  const chat = readFileSync("app/ai-chat.tsx", "utf8");
+
+  it("gates both the attach trigger and the attach menu on the channel", () => {
+    // Two gates, not one: hiding only the trigger leaves the menu renderable if
+    // showAttachMenu is ever set by another path, and the menu is what holds
+    // the camera and library actions.
+    // Asserted on a named symbol, not on how far apart two strings sit. The
+    // first version measured a byte distance between the gate and
+    // styles.attachButton, which is exactly the formatting-coupled assertion
+    // that breaks on a reformat and tempts someone to loosen it.
+    expect(chat).toMatch(/const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github"/);
+    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
+    // Ordering, not layout. The previous regex required a newline and specific
+    // indentation between the gate and <Pressable>, so a reformat would have
+    // "failed" correct code — the coupled-to-formatting assertion this codebase
+    // keeps warning about. What must hold is that a gate opens before the
+    // attach button and there are exactly two gates, one per element.
+    // Both specific elements, not a count. toBe(2) failed the moment a third
+    // legitimately-gated element was added, which turns a guard into an
+    // obstacle and invites someone to relax it.
+    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
+    expect(chat, "the attach TRIGGER must be gated").toContain("{ATTACHMENTS_ENABLED && (");
+    expect(chat.indexOf("styles.attachButton")).toBeGreaterThan(
+      chat.indexOf("{ATTACHMENTS_ENABLED && ("),
+    );
+    expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
+  });
+
+  it("sends the picture, not its filename", () => {
+    // The defect this replaces: every attachment was flattened to
+    // `[صورة مرفقة: <name>]` and the model received a filename, so any answer
+    // about an attached photo was invented. Assert the real payload exists.
+    expect(chat).toMatch(/images:\s*imageDataUrls\.length > 0/);
+    expect(chat).toContain("base64: true");
+    // The filename text may still be produced, but only for attachments that
+    // carry no bytes — never as the sole representation of an image.
+    expect(chat).toMatch(/undescribed|!a\.dataUrl/);
+  });
+
+  it("never persists or re-uploads the image bytes", () => {
+    // The picture is transient input to the model, not conversation history.
+    // cleanMessages feeds BOTH the AsyncStorage write and the POST to
+    // saveConversationToDb, and it stripped `uri` but not the new `dataUrl` —
+    // so a multi-MB base64 image was written to a store capped at 6 MB for the
+    // whole app (shared with the weekplan caches and the device id) and
+    // re-uploaded on every later message of the conversation. Photographs of
+    // children are the last thing to retain by accident.
+    // Anchored on the mapping expression, not on a byte window from
+    // "const cleanMessages" — the explanatory comment above it is long enough
+    // to push the real line out of any fixed window, which is how the first
+    // version of this test failed on correct code.
+    const from = chat.indexOf("attachments: m.attachments?.map(");
+    expect(from, "the attachment sanitiser moved - anchor is stale").toBeGreaterThan(-1);
+    const mapping = chat.slice(from, chat.indexOf("\n", from));
+    expect(mapping, "must clear uri").toMatch(/uri:\s*""/);
+    expect(mapping, "must clear dataUrl as well as uri").toMatch(/dataUrl:\s*undefined/);
+  });
+});

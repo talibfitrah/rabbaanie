@@ -132,3 +132,19 @@ describe("an Arabic task line is never promoted to a heading", () => {
     expect(isLatinSectionHeading("teach him to pray on time")).toBe(false);
   });
 });
+
+describe("an invisible BOM does not demote a real heading", () => {
+  // The first fix used a hand-rolled range ending at U+FEFF — ZERO WIDTH
+  // NO-BREAK SPACE, not an Arabic letter — so an en/nl ALL-CAPS heading
+  // carrying one was treated as Arabic and demoted to a task, which is the
+  // "plan collapses into one section" failure the function exists to prevent.
+  // The fix shipped without this case; \p{Script=Arabic} is what makes it pass.
+  it("keeps a Latin heading that contains a zero-width no-break space", () => {
+    expect(isLatinSectionHeading("ADVIES VOOR DE OUDER﻿")).toBe(true);
+    expect(isLatinSectionHeading("WHAT MUST﻿ THE PARENT DO")).toBe(true);
+  });
+
+  it("still rejects a line that is genuinely Arabic", () => {
+    expect(isLatinSectionHeading("راقب استخدام TV يوميًا")).toBe(false);
+  });
+});
