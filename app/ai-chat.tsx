@@ -1228,7 +1228,14 @@ function AIChatScreenInner() {
             {item.content}
           </Text>
         ) : (
-          <View style={language === "ar" ? { direction: "rtl" } as any : undefined}>
+          // No direction:"rtl" on this View. Yoga under-measures a View
+          // carrying it on Android, so everything after it — the AI disclaimer,
+          // the report link — started before this content ended and drew over
+          // it. That is the real cause of the plan button appearing on top of
+          // things, which I chased three times by moving the button instead.
+          // Neither child needs it: TreatmentPlanRenderer takes isRTL from
+          // useI18n and sets its own row-reverse; AdvisorBody takes an isRTL prop.
+          <View>
             {showsPlan ? (
               <TreatmentPlanRenderer
                 planText={item.content}
