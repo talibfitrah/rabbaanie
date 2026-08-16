@@ -20,11 +20,13 @@ import {
   desc,
   sql,
   isNull,
+  isNotNull,
   or,
   like,
   inArray,
   gte,
   lte,
+  lt,
 } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/mysql2";
 import {
@@ -82,6 +84,7 @@ import {
   functionInvitationCodes,
   spouseAdvice,
   InsertSpouseAdvice,
+  dailyDiagnosticCheckins,
   translationCache as translationCacheTable,
   partnerships,
   environmentAnalysis,
@@ -3371,6 +3374,213 @@ export async function markSpouseAdviceHelpful(
     .update(spouseAdvice)
     .set({ isHelpful: helpful })
     .where(eq(spouseAdvice.id, adviceId));
+}
+
+// ============================================================
+// DAILY DIAGNOSTIC CHECKINS - self-reported, replaces guessed spouse advice
+// ============================================================
+
+/** The one row for this user today, if it already exists (cache — avoids re-generating). */
+export async function getDiagnosticCheckinForToday(userId: number, date: string) {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db
+    .select()
+    .from(dailyDiagnosticCheckins)
+    .where(and(eq(dailyDiagnosticCheckins.userId, userId), eq(dailyDiagnosticCheckins.date, date)))
+    .limit(1);
+  return rows[0] || null;
+}
+
+/**
+ * Claims today's row BEFORE the paid generation call runs, so a losing
+ * concurrent request (or a request that arrives while the DB is down) fails
+ * HERE — fast, free — instead of also spending an LLM call whose result then
+ * has nowhere to be saved. Returns the claimed (placeholder) row on success;
+ * null if someone else already claimed/finished this user's day, or if the
+ * DB is unavailable (in either case, the caller must not call the LLM: with
+ * nowhere to cache the result, calling it would just double-spend or leak
+ * spend into an outage with no record of it).
+ */
+// This repo's own DB is MySQL (mysql2 reports a unique violation as
+// ER_DUP_ENTRY) but the logic here is written to be hand-ported to the VM's
+// production Postgres (which reports the same condition as SQLSTATE 23505,
+// via the `pg` driver's `error.code`) — see CLAUDE.md on the repo/VM
+// divergence. Checking both keeps that port correct without anyone having to
+// remember to swap the code.
+const DUPLICATE_KEY_CODES = new Set<string | undefined>(["ER_DUP_ENTRY", "23505"]);
+
+/**
+ * drizzle-orm wraps every driver error in DrizzleQueryError (mysql-core and
+ * pg-core session layers both do `catch (e) { throw new DrizzleQueryError(...,
+ * e) }`), and that wrapper never copies `.code` onto itself — only `.cause`
+ * (the original mysql2/pg error, which DOES have `.code`) — verified directly
+ * against node_modules/drizzle-orm/errors.js. Checking err.code alone always
+ * reads undefined for a real driver error; this is what actually matches.
+ */
+export function driverErrorCode(err: any): string | undefined {
+  return err?.code ?? err?.cause?.code;
+}
+
+/**
+ * How many rows an UPDATE actually touched, used by claimDiagnosticCheckin's
+ * siblings below (fillDiagnosticCheckin, saveDiagnosticAnswers,
+ * reclaimStaleDiagnosticCheckin) to detect a conditional write that matched
+ * nothing. Reads both driver shapes rather than leaving the port to a
+ * comment: mysql2 gives `[ResultSetHeader]` with `affectedRows`, while
+ * `drizzle-orm/node-postgres` gives pg's `QueryResult` (`{ rowCount, rows }`)
+ * for an `.update()` without `.returning()`. Reading only the mysql2 shape on
+ * the Postgres server makes every call read 0, so all three writes look like
+ * they lost a race they never raced — every answer submission reports
+ * failure and no stale claim is ever reclaimed.
+ */
+// mysql2 returns [ResultSetHeader] carrying affectedRows; node-postgres
+// returns a Result carrying rowCount. This file is hand-ported to a Postgres
+// server, and there the mysql2-only shape silently reads 0 — which every
+// caller interprets as "my conditional write matched nothing", so answer
+// submissions all report failure and no stale claim is ever reclaimed.
+// Reading both shapes here costs one line and removes that porting trap.
+export function affectedRows(result: any): number {
+  return result?.[0]?.affectedRows ?? result?.rowCount ?? result?.affectedRows ?? 0;
+}
+
+export async function claimDiagnosticCheckin(userId: number, date: string) {
+  const db = await getDb();
+  if (!db) return null;
+  try {
+    await db.insert(dailyDiagnosticCheckins).values({ userId, date, questions: [], answers: null, source: "pending" });
+  } catch (err: any) {
+    if (!DUPLICATE_KEY_CODES.has(driverErrorCode(err))) throw err;
+    return null;
+  }
+  return getDiagnosticCheckinForToday(userId, date);
+}
+
+/**
+ * Re-claims a "pending" row whose owner likely died between claiming and
+ * filling it in (process restart mid-generation, etc.), so one crashed
+ * request doesn't permanently strand that user's check-in for the rest of
+ * the day. Renews the row's createdAt so a third concurrent caller sees it
+ * as freshly claimed. Returns the row on success (caller must generate and
+ * fill it); null if it isn't stale yet, or someone else just reclaimed or
+ * finished it first, or the DB is unavailable.
+ */
+export async function reclaimStaleDiagnosticCheckin(userId: number, date: string, staleAfterMs: number) {
+  const db = await getDb();
+  if (!db) return null;
+  // Both sides of the staleness check run through MySQL's NOW(), not the
+  // Node process clock — claimDiagnosticCheckin lets MySQL set createdAt via
+  // the column's own DEFAULT (now()), so comparing against a JS-computed
+  // Date.now() cutoff would silently drift with any DB/app clock skew: too
+  // far ahead and a genuinely-crashed claim never looks stale (permanently
+  // stuck); too far behind and every fresh claim looks stale immediately
+  // (each concurrent request re-fires the paid call, defeating the guard).
+  //
+  // PORTING NOTE (mysql2 syntax, like affectedRows above):
+  // `NOW() - INTERVAL n SECOND` is MySQL. Postgres rejects a bound parameter
+  // directly inside INTERVAL — use `NOW() - make_interval(secs => n)` or
+  // `NOW() - (n * INTERVAL '1 second')` on the hand-ported version, or this
+  // throws a syntax error on every call (getToday 500s instead of falling
+  // back, for exactly the requests whose poll already came up empty).
+  const staleSeconds = Math.max(1, Math.round(staleAfterMs / 1000));
+  const result: any = await db
+    .update(dailyDiagnosticCheckins)
+    .set({ createdAt: sql`NOW()` })
+    .where(
+      and(
+        eq(dailyDiagnosticCheckins.userId, userId),
+        eq(dailyDiagnosticCheckins.date, date),
+        eq(dailyDiagnosticCheckins.source, "pending"),
+        lt(dailyDiagnosticCheckins.createdAt, sql`(NOW() - INTERVAL ${staleSeconds} SECOND)`),
+      ),
+    );
+  if (affectedRows(result) === 0) return null;
+  const row = await getDiagnosticCheckinForToday(userId, date);
+  // The UPDATE matched, but the original claimant's fill can land between it
+  // and this read. Handing that finished row back would send the caller into
+  // a paid generation whose result fillDiagnosticCheckin then discards for
+  // no longer being "pending" — a spend on the path built to prevent spend.
+  // Only return a row that is actually ours to fill.
+  return row && row.source === "pending" ? row : null;
+}
+
+/**
+ * Fills in a row claimed by claimDiagnosticCheckin with the real (generated
+ * or fallback) questions. Conditioned on the row still being "pending" —
+ * the stale-claim reclaim path means two generations can race for the same
+ * row (the original was slow, not actually dead); without this guard
+ * whichever write lands last would silently overwrite the other's already-
+ * returned-to-a-client questions. Returns whether THIS call actually wrote;
+ * the caller must re-read and use the persisted row when it didn't (see
+ * generateAndFill in daily-diagnostic.ts). Throws rather than silently
+ * no-opping when the DB is unavailable — a caller that awaits this and
+ * reports success back to the user must know a write was attempted at all.
+ */
+export async function fillDiagnosticCheckin(id: number, questions: unknown, source: string): Promise<boolean> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result: any = await db
+    .update(dailyDiagnosticCheckins)
+    .set({ questions: questions as any, source })
+    .where(and(eq(dailyDiagnosticCheckins.id, id), eq(dailyDiagnosticCheckins.source, "pending")));
+  return affectedRows(result) > 0;
+}
+
+/**
+ * Records the day's answers — but only if nobody already has (conditioned on
+ * `answers IS NULL`), so two concurrent submitAnswers calls for the same day
+ * can't both pass the "not yet answered" check and have the second silently
+ * clobber the first. Returns whether THIS call actually wrote; the router
+ * must reject as already-answered when it didn't. Throws (rather than
+ * silently no-opping) when the DB is unavailable — otherwise the router
+ * would report a save that never happened.
+ */
+export async function saveDiagnosticAnswers(id: number, answers: unknown): Promise<boolean> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const result: any = await db
+    .update(dailyDiagnosticCheckins)
+    .set({ answers: answers as any, answeredAt: new Date() })
+    .where(and(eq(dailyDiagnosticCheckins.id, id), isNull(dailyDiagnosticCheckins.answers)));
+  return affectedRows(result) > 0;
+}
+
+/**
+ * Answered check-ins for a user from the last `days` CALENDAR days (not just
+ * "the last N answered rows, however old" — a user who last answered months
+ * ago must not have that stale day presented as a "this week" signal). Most
+ * recent first. Only ever used server-side to build the OTHER spouse's
+ * advice — never returned raw to any client (see daily-diagnostic.ts
+ * summarizeSignals).
+ */
+export async function getRecentDiagnosticSignals(userId: number, days: number) {
+  const db = await getDb();
+  if (!db) return [];
+  // Calendar-day arithmetic (UTC midnight, minus N-1 calendar days) — the
+  // same "day" concept daily-diagnostic.ts's getToday uses for its own
+  // `date` key (new Date().toISOString().slice(0,10)), not a raw N*24h
+  // millisecond window, which drifts against calendar days depending on
+  // time-of-day. `gte` is inclusive of the cutoff day itself, so subtracting
+  // N-1 (not N) is what makes `days: 7` mean today-plus-the-previous-6 — 7
+  // distinct calendar days total, not 8.
+  const cutoffDate = new Date();
+  cutoffDate.setUTCHours(0, 0, 0, 0);
+  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - (days - 1));
+  const cutoff = cutoffDate.toISOString().slice(0, 10);
+  // Only answers (summarizeSignals reads nothing else) — skip pulling the
+  // generated `questions` blob across the wire on every getSpouseAdvice call.
+  const rows = await db
+    .select({ answers: dailyDiagnosticCheckins.answers })
+    .from(dailyDiagnosticCheckins)
+    .where(
+      and(
+        eq(dailyDiagnosticCheckins.userId, userId),
+        isNotNull(dailyDiagnosticCheckins.answeredAt),
+        gte(dailyDiagnosticCheckins.date, cutoff),
+      ),
+    )
+    .orderBy(desc(dailyDiagnosticCheckins.date));
+  return rows;
 }
 
 /**

@@ -26,6 +26,7 @@ import {
   router,
 } from "./_core/trpc";
 import { adviceRouter } from "./advice";
+import { dailyDiagnosticRouter } from "./daily-diagnostic";
 import { aiChatRouter } from "./ai-chat";
 import { weeklyDataRouter } from "./weekly-data-api";
 import {
@@ -3278,6 +3279,7 @@ export const appRouter = router({
   // Existing routers
   advice: adviceRouter,
   aiChat: aiChatRouter,
+  dailyDiagnostic: dailyDiagnosticRouter,
   // New feature routers
   profile: profileRouter,
   family: familyRouter,

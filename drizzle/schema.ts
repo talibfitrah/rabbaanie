@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
 
 // ============================================================
 // 1. USERS TABLE (existing, extended with profile fields)
@@ -814,6 +814,41 @@ export const spouseAdvice = mysqlTable("spouse_advice", {
 
 export type SpouseAdvice = typeof spouseAdvice.$inferSelect;
 export type InsertSpouseAdvice = typeof spouseAdvice.$inferInsert;
+
+// ============================================================
+// DAILY DIAGNOSTIC CHECKINS - self-reported answers that replace guessed
+// spouse advice. One row per user per day. `questions`/`answers` only ever
+// carry short single-choice labels (never free text) so nothing here can
+// quote or paraphrase into the AI prompt that generates the PARTNER's advice
+// (see server/daily-diagnostic.ts). Never read by getPartnerProfile/
+// syncWithPartner or any other partner-facing endpoint.
+// ============================================================
+export const dailyDiagnosticCheckins = mysqlTable("daily_diagnostic_checkins", {
+  id: int("id").autoincrement().primaryKey(),
+  /** The user this check-in is about (and by — always self-reported) */
+  userId: int("userId").notNull(),
+  /** YYYY-MM-DD, one row per user per day */
+  date: varchar("date", { length: 10 }).notNull(),
+  /** Generated (or fallback) question set: [{category, text, options:[{label,tone}]}] — category is the natural key, one per required category */
+  questions: json("questions").notNull(),
+  /** Null until answered: [{category, label, tone}] */
+  answers: json("answers"),
+  /** "pending" (claimed, generation in flight) → "generated" (AI) or "fallback" (static, used when generation failed) */
+  source: varchar("source", { length: 16 }).notNull().default("generated"),
+  answeredAt: timestamp("answeredAt"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+}, (table) => ({
+  // Two racing requests can both see "no row yet" (the read+insert isn't in a
+  // transaction) and both call the LLM before either insert lands — on a
+  // paid-generation path that is a real double-spend, not just a data-quality
+  // nit. This index is the actual guard: the loser's insert fails fast
+  // instead of creating a duplicate row, and createDiagnosticCheckin (db.ts)
+  // recovers by returning whichever row won.
+  userDateUnique: uniqueIndex("daily_diagnostic_user_date_unique").on(table.userId, table.date),
+}));
+
+export type DailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferSelect;
+export type InsertDailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferInsert;
 
 // ============================================================
 // TRANSLATION CACHE - Persistent translation cache shared across all users

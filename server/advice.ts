@@ -2,6 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
+import { summarizeSignals, buildPartnerSignalContext } from "./daily-diagnostic";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -2776,6 +2777,22 @@ Neem de volledige gezinssituatie integraal mee.`;
           );
         }
       }
+
+      // === Self-reported daily diagnostic signals (replaces guessing): category
+      // + tone only, never the partner's actual answer text — see
+      // daily-diagnostic.ts summarizeSignals/buildPartnerSignalContext. ===
+      // Every other signal block above reads already-fetched profileData; this
+      // is the only one that hits a table, and it is a NEW table. If migration
+      // 0014 has not run on this server yet — a real hazard given that server
+      // code is hand-ported to the VM — spouse advice must degrade to what it
+      // produced before this feature existed, not 500.
+      try {
+        const partnerSignals = await db.getRecentDiagnosticSignals(partner.id, 7);
+        interactionContext += buildPartnerSignalContext(summarizeSignals(partnerSignals), isAr ? "ar" : isEn ? "en" : "nl");
+      } catch (err) {
+        console.error("[getSpouseAdvice] diagnostic signals unavailable, continuing without them:", err);
+      }
+
       // Build the prompt
       const myName = ctx.user.name || l("المستخدم", "User", "Gebruiker");
       const partnerName = partner.name || l("الشريك", "Partner", "Partner");

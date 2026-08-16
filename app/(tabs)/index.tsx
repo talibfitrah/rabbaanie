@@ -18,6 +18,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
+import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -686,6 +687,12 @@ export default function AlgemeenScreen() {
           </View>
         </View>
       )}
+
+      {/* ═══════════ DAILY DIAGNOSTIC (prayer/psychological/physical/children) ═══════════ */}
+      {/* Only after the existing prayer/mood check-in above is dismissed for
+          today — showing both at once puts two "how was your prayer today"
+          style prompts on screen together. */}
+      {isAuthenticated && checkinDismissed && <DailyDiagnosticCard lang={lang} isRTL={isRTL} />}
 
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
