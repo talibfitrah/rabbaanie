@@ -1241,21 +1241,6 @@ function AIChatScreenInner() {
                 planText={item.content}
                 issueId={item.id}
                 colors={colors as any}
-                footer={
-                  <Pressable
-                    onPress={() => saveActionPlanToWeekly(item.content)}
-                    style={({ pressed }) => [
-                      styles.actionPlanBtn,
-                      { alignSelf: "flex-start", backgroundColor: colors.success + "20", borderColor: colors.success },
-                      pressed && { opacity: 0.7 },
-                    ]}
-                  >
-                    <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
-                    <Text style={[styles.actionPlanText, { color: colors.success }]}>
-                      {language === "ar" ? "نقل الخطة للنصائح الأسبوعية" : language === "en" ? "Save plan to weekly tips" : "Plan opslaan in wekelijkse tips"}
-                    </Text>
-                  </Pressable>
-                }
               />
             ) : (
               <AdvisorBody content={item.content} colors={colors} isRTL={language === "ar"} />
@@ -1266,6 +1251,33 @@ function AIChatScreenInner() {
 
         {/* Required on AI output by Play's AI-Generated Content policy. */}
         {!isUser && <ReportAiContent content={item.content} surface="ai-chat" />}
+
+        {/* Last thing in the bubble, on purpose. It has been drawn over three
+            times — by the plan's sections, then by the AI disclaimer, then by
+            the report link — because a preceding container measures shorter
+            than its content and whatever follows starts too early. Nothing
+            follows it here, so nothing can land on top of it, whichever
+            container is at fault. */}
+        {showsPlan && (
+          <Pressable
+            onPress={() => saveActionPlanToWeekly(item.content)}
+            style={({ pressed }) => [
+              styles.actionPlanBtn,
+              {
+                alignSelf: language === "ar" ? "flex-end" : "flex-start",
+                marginTop: 18,
+                backgroundColor: colors.success + "20",
+                borderColor: colors.success,
+              },
+              pressed && { opacity: 0.7 },
+            ]}
+          >
+            <IconSymbol name="checkmark.circle.fill" size={16} color={colors.success} />
+            <Text style={[styles.actionPlanText, { color: colors.success }]}>
+              {language === "ar" ? "نقل الخطة للنصائح الأسبوعية" : language === "en" ? "Save plan to weekly tips" : "Plan opslaan in wekelijkse tips"}
+            </Text>
+          </Pressable>
+        )}
       </View>
     );
   };
