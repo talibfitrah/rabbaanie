@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from "react";
-import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from "react-native";
+import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
@@ -8,6 +8,7 @@ import { useI18n, Language } from "@/lib/i18n";
 import { ChildProfile, isProfileComplete, getFirstIncompleteOnboardingStep } from "@/lib/store";
 import { trpc } from "@/lib/trpc";
 import { DatePicker } from "@/components/date-picker";
+import { COUNTRIES, COUNTRY_NAMES, getCountryAR, getCityAR } from "@/lib/prayer-data";
 
 function tx(lang: Language, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
@@ -47,9 +48,12 @@ export default function OnboardingScreen() {
   const [firstName, setFirstName] = useState(state.parentProfile.firstName || "");
   const [lastName, setLastName] = useState(state.parentProfile.lastName || "");
   const [birthDate, setBirthDate] = useState(state.parentProfile.birthDate || "");
-  const [streetHouseNumber, setStreetHouseNumber] = useState(state.parentProfile.streetHouseNumber || "");
-  const [postalCodeCity, setPostalCodeCity] = useState(state.parentProfile.postalCodeCity || "");
   const [country, setCountry] = useState(state.parentProfile.country || "");
+  const [city, setCity] = useState(state.parentProfile.city || "");
+  const [street, setStreet] = useState(state.parentProfile.street || "");
+  const [houseNumber, setHouseNumber] = useState(state.parentProfile.houseNumber || "");
+  const [postalCode, setPostalCode] = useState(state.parentProfile.postalCode || "");
+  const [addressPicker, setAddressPicker] = useState<"country" | "city" | null>(null);
   const [phoneNumber, setPhoneNumber] = useState(state.parentProfile.phoneNumber || "");
   const [gender, setGender] = useState<"man" | "vrouw" | "">((state.parentProfile.gender as "man" | "vrouw" | "") || "")
   const [maritalStatus, setMaritalStatus] = useState(state.parentProfile.maritalStatus || "");
@@ -77,31 +81,45 @@ export default function OnboardingScreen() {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer een geldige geboortedatum in", "Enter a valid birth date", "أدخل تاريخ ميلاد صحيح"));
       return;
     }
-    if (!streetHouseNumber.trim()) {
-      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw straat en huisnummer in", "Enter your street and house number", "أدخل الشارع ورقم البيت"));
-      return;
-    }
-    if (!postalCodeCity.trim()) {
-      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw postcode en stad in", "Enter your postal code and city", "أدخل الرمز البريدي والمدينة"));
-      return;
-    }
     if (!country.trim()) {
-      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw land in", "Enter your country", "أدخل البلد"));
+      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw land", "Select your country", "اختر بلدك"));
       return;
     }
+    if (!city.trim()) {
+      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw stad", "Select your city", "اختر مدينتك"));
+      return;
+    }
+    if (!street.trim()) {
+      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw straatnaam in", "Enter your street name", "أدخل اسم الشارع"));
+      return;
+    }
+    if (!houseNumber.trim()) {
+      Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw huisnummer in", "Enter your house number", "أدخل رقم البيت"));
+      return;
+    }
+    // Postal code is intentionally not validated here — it is optional.
     if (!phoneNumber.trim() || phoneNumber.trim().length < 8) {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw telefoonnummer in", "Enter your phone number", "أدخل رقم هاتفك"));
       return;
     }
-    // Save partial progress
+    // Save partial progress. streetHouseNumber/postalCodeCity/address are the
+    // legacy combined fields, kept in sync from the new discrete ones so
+    // other screens that still read them (e.g. settings.tsx AddressEditor)
+    // keep working — see lib/store.ts for the completeness-gate fallback.
+    const streetHouseNumber = `${street.trim()} ${houseNumber.trim()}`.trim();
+    const postalCodeCity = `${postalCode.trim()} ${city.trim()}`.trim();
     await updateParentProfile({
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       birthDate,
-      address: `${streetHouseNumber.trim()}, ${postalCodeCity.trim()}, ${country.trim()}`,
-      streetHouseNumber: streetHouseNumber.trim(),
-      postalCodeCity: postalCodeCity.trim(),
       country: country.trim(),
+      city: city.trim(),
+      street: street.trim(),
+      houseNumber: houseNumber.trim(),
+      postalCode: postalCode.trim(),
+      address: `${streetHouseNumber}, ${postalCodeCity}, ${country.trim()}`,
+      streetHouseNumber,
+      postalCodeCity,
       phoneNumber: phoneNumber.trim(),
     });
     setStep("gender");
@@ -270,42 +288,75 @@ export default function OnboardingScreen() {
           />
           <View style={{ marginBottom: 16 }} />
 
-          {/* Street & House Number */}
-          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
-            {tx(lang, "Straat en huisnummer", "Street & House number", "الشارع ورقم البيت")} *
-          </Text>
-          <TextInput
-            value={streetHouseNumber}
-            onChangeText={setStreetHouseNumber}
-            placeholder={tx(lang, "Bijv: Kerkstraat 12", "E.g.: Main Street 12", "مثال: شارع الملك 12")}
-            placeholderTextColor={colors.muted}
-            returnKeyType="next"
-            className="rounded-xl px-4 py-3 text-base mb-4"
-            style={inputStyle}
-          />
-
-          {/* Postal Code & City */}
-          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
-            {tx(lang, "Postcode en stad", "Postal code & City", "الرمز البريدي والمدينة")} *
-          </Text>
-          <TextInput
-            value={postalCodeCity}
-            onChangeText={setPostalCodeCity}
-            placeholder={tx(lang, "Bijv: 1012 AB Amsterdam", "E.g.: 1012 AB Amsterdam", "مثال: 1012 AB أمستردام")}
-            placeholderTextColor={colors.muted}
-            returnKeyType="next"
-            className="rounded-xl px-4 py-3 text-base mb-4"
-            style={inputStyle}
-          />
-
           {/* Country */}
           <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
             {tx(lang, "Land", "Country", "البلد")} *
           </Text>
+          <Pressable
+            onPress={() => setAddressPicker("country")}
+            className="rounded-xl px-4 py-3 mb-4"
+            style={inputStyle}
+          >
+            <Text style={{ color: country ? colors.foreground : colors.muted, fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
+              {country ? (lang === "ar" ? getCountryAR(country) : country) : tx(lang, "Kies uw land", "Select your country", "اختر بلدك")}
+            </Text>
+          </Pressable>
+
+          {/* City (depends on the chosen country) */}
+          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
+            {tx(lang, "Stad", "City", "المدينة")} *
+          </Text>
+          <Pressable
+            onPress={() => { if (country) setAddressPicker("city"); }}
+            className="rounded-xl px-4 py-3 mb-4"
+            style={[inputStyle, !country && { opacity: 0.5 }]}
+          >
+            <Text style={{ color: city ? colors.foreground : colors.muted, fontSize: 16, textAlign: isRTL ? "right" : "left" }}>
+              {city
+                ? (lang === "ar" ? getCityAR(city) : city)
+                : country
+                ? tx(lang, "Kies uw stad", "Select your city", "اختر مدينتك")
+                : tx(lang, "Kies eerst een land", "Select a country first", "اختر البلد أولاً")}
+            </Text>
+          </Pressable>
+
+          {/* Street name */}
+          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
+            {tx(lang, "Straatnaam", "Street name", "اسم الشارع")} *
+          </Text>
           <TextInput
-            value={country}
-            onChangeText={setCountry}
-            placeholder={tx(lang, "Bijv: Nederland", "E.g.: Netherlands", "مثال: هولندا")}
+            value={street}
+            onChangeText={setStreet}
+            placeholder={tx(lang, "Bijv: Kerkstraat", "E.g.: Main Street", "مثال: شارع الملك")}
+            placeholderTextColor={colors.muted}
+            returnKeyType="next"
+            className="rounded-xl px-4 py-3 text-base mb-4"
+            style={inputStyle}
+          />
+
+          {/* House number */}
+          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
+            {tx(lang, "Huisnummer", "House number", "رقم البيت")} *
+          </Text>
+          <TextInput
+            value={houseNumber}
+            onChangeText={setHouseNumber}
+            placeholder={tx(lang, "Bijv: 12", "E.g.: 12", "مثال: 12")}
+            placeholderTextColor={colors.muted}
+            returnKeyType="next"
+            className="rounded-xl px-4 py-3 text-base mb-4"
+            style={inputStyle}
+          />
+
+          {/* Postal code (optional) */}
+          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
+            {tx(lang, "Postcode", "Postal code", "الرمز البريدي")}
+            <Text style={{ color: colors.muted, fontWeight: "400" }}> ({tx(lang, "optioneel", "optional", "اختياري")})</Text>
+          </Text>
+          <TextInput
+            value={postalCode}
+            onChangeText={setPostalCode}
+            placeholder={tx(lang, "Bijv: 1012 AB", "E.g.: 1012 AB", "مثال: 1012 AB")}
             placeholderTextColor={colors.muted}
             returnKeyType="next"
             className="rounded-xl px-4 py-3 text-base mb-4"
@@ -468,6 +519,59 @@ export default function OnboardingScreen() {
         </View>
       )}
     </ScrollView>
+
+    {/* Country / city picker, shared by the two address fields above */}
+    <Modal
+      visible={addressPicker !== null}
+      transparent
+      animationType="slide"
+      onRequestClose={() => setAddressPicker(null)}
+    >
+      <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
+        <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "75%", paddingBottom: insets.bottom + 16 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+            <Text style={{ fontSize: 17, fontWeight: "700", color: colors.foreground }}>
+              {addressPicker === "country"
+                ? tx(lang, "Kies uw land", "Select your country", "اختر البلد")
+                : tx(lang, "Kies uw stad", "Select your city", "اختر المدينة")}
+            </Text>
+            <Pressable onPress={() => setAddressPicker(null)}>
+              <Text style={{ color: colors.primary, fontSize: 15, fontWeight: "700" }}>{tx(lang, "Sluiten", "Close", "إغلاق")}</Text>
+            </Pressable>
+          </View>
+          <ScrollView style={{ maxHeight: 420 }}>
+            {addressPicker === "country" && COUNTRY_NAMES.map((name) => (
+              <Pressable
+                key={name}
+                onPress={() => { setCountry(name); setCity(""); setAddressPicker(null); }}
+                style={({ pressed }) => [{
+                  padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+                  backgroundColor: pressed ? colors.primary + "15" : "transparent",
+                  flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10,
+                }]}
+              >
+                <Text style={{ fontSize: 20 }}>{COUNTRIES[name].flag}</Text>
+                <Text style={{ color: colors.foreground, fontSize: 15 }}>{lang === "ar" ? getCountryAR(name) : name}</Text>
+              </Pressable>
+            ))}
+            {addressPicker === "city" && country && COUNTRIES[country].cities.map((c) => (
+              <Pressable
+                key={c.name}
+                onPress={() => { setCity(c.name); setAddressPicker(null); }}
+                style={({ pressed }) => [{
+                  padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
+                  backgroundColor: pressed ? colors.primary + "15" : "transparent",
+                }]}
+              >
+                <Text style={{ color: colors.foreground, fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
+                  {lang === "ar" ? getCityAR(c.name) : c.name}
+                </Text>
+              </Pressable>
+            ))}
+          </ScrollView>
+        </View>
+      </View>
+    </Modal>
     </KeyboardAvoidingView>
   );
 }

@@ -7,9 +7,13 @@ export interface ParentProfile {
   firstName: string;
   lastName: string;
   address: string; // Legacy single field (kept for backward compatibility)
-  streetHouseNumber: string; // الشارع ورقم البيت
-  postalCodeCity: string; // الرمز البريدي والمدينة
+  streetHouseNumber: string; // Legacy combined field (kept for backward compatibility) — الشارع ورقم البيت
+  postalCodeCity: string; // Legacy combined field (kept for backward compatibility) — الرمز البريدي والمدينة
   country: string; // البلد
+  city: string; // المدينة
+  street: string; // الشارع
+  houseNumber: string; // رقم البيت
+  postalCode: string; // الرمز البريدي (اختياري — غير إلزامي)
   phoneNumber: string; // رقم الهاتف (إلزامي)
   
   // Basis
@@ -248,6 +252,10 @@ export const defaultParentProfile: ParentProfile = {
   streetHouseNumber: "",
   postalCodeCity: "",
   country: "",
+  city: "",
+  street: "",
+  houseNumber: "",
+  postalCode: "",
   phoneNumber: "",
   gender: "",
   maritalStatus: "",
@@ -428,7 +436,15 @@ export function getFirstIncompleteOnboardingStep(
   state: { parentProfile?: ParentProfile; children?: ChildProfile[] }
 ): "basic" | "gender" | "children" | null {
   const p = state.parentProfile;
-  if (!(p?.firstName && p?.lastName && p?.birthDate && (p?.streetHouseNumber || p?.address) && p?.phoneNumber)) {
+  // Country, city, street and house number are required; postal code never
+  // is. A profile satisfies this either through the new discrete fields, or
+  // — for anyone who onboarded before those fields existed — through the old
+  // combined streetHouseNumber/address fields, unchanged from the check this
+  // replaces, so no existing user is newly sent back through onboarding for
+  // data the form never asked them for.
+  const hasDiscreteAddress = !!(p?.country && p?.city && p?.street && p?.houseNumber);
+  const hasLegacyAddress = !!(p?.streetHouseNumber || p?.address);
+  if (!(p?.firstName && p?.lastName && p?.birthDate && (hasDiscreteAddress || hasLegacyAddress) && p?.phoneNumber)) {
     return "basic";
   }
   if (!(p?.gender && p?.maritalStatus)) {
