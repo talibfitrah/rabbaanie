@@ -646,8 +646,19 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // Two gates, not one: hiding only the trigger leaves the menu renderable if
     // showAttachMenu is ever set by another path, and the menu is what holds
     // the camera and library actions.
-    const gates = chat.match(/DISTRIBUTION_CHANNEL === "github"/g) || [];
-    expect(gates.length, "attach trigger and menu must both be gated").toBeGreaterThanOrEqual(2);
+    // Anchored to the elements, not counted. A bare count passes if someone
+    // later adds two unrelated channel gates to this screen and removes the
+    // attach one — the Play build would then ship the camera entry point while
+    // this test still went green.
+    const menuGate = chat.indexOf('DISTRIBUTION_CHANNEL === "github" && showAttachMenu');
+    expect(menuGate, "the attach MENU must be channel-gated").toBeGreaterThan(-1);
+    const triggerGate = chat.indexOf('{DISTRIBUTION_CHANNEL === "github" && (');
+    expect(triggerGate, "the attach TRIGGER must be channel-gated").toBeGreaterThan(-1);
+    // and that gate must be the one wrapping the attach button, not something
+    // else further down the file.
+    const attachButton = chat.indexOf("styles.attachButton");
+    expect(attachButton).toBeGreaterThan(triggerGate);
+    expect(attachButton - triggerGate, "the gate must wrap the attach button").toBeLessThan(1200);
     expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
   });
 
@@ -660,5 +671,24 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // The filename text may still be produced, but only for attachments that
     // carry no bytes — never as the sole representation of an image.
     expect(chat).toMatch(/undescribed|!a\.dataUrl/);
+  });
+
+  it("never persists or re-uploads the image bytes", () => {
+    // The picture is transient input to the model, not conversation history.
+    // cleanMessages feeds BOTH the AsyncStorage write and the POST to
+    // saveConversationToDb, and it stripped `uri` but not the new `dataUrl` —
+    // so a multi-MB base64 image was written to a store capped at 6 MB for the
+    // whole app (shared with the weekplan caches and the device id) and
+    // re-uploaded on every later message of the conversation. Photographs of
+    // children are the last thing to retain by accident.
+    // Anchored on the mapping expression, not on a byte window from
+    // "const cleanMessages" — the explanatory comment above it is long enough
+    // to push the real line out of any fixed window, which is how the first
+    // version of this test failed on correct code.
+    const from = chat.indexOf("attachments: m.attachments?.map(");
+    expect(from, "the attachment sanitiser moved - anchor is stale").toBeGreaterThan(-1);
+    const mapping = chat.slice(from, chat.indexOf("\n", from));
+    expect(mapping, "must clear uri").toMatch(/uri:\s*""/);
+    expect(mapping, "must clear dataUrl as well as uri").toMatch(/dataUrl:\s*undefined/);
   });
 });

@@ -131,10 +131,13 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
       // switch once and shipped a build that could not monitor, and
       // assert-play-artifact.sh only asserts the Play side.
       app.service = (app.service ?? []).filter(
-        (item) =>
+        (item: any) =>
           !(
-            item.$["tools:node"] === "remove" &&
-            item.$["android:name"] ===
+            // Optional chaining like the uses-permission filter above: a merged
+            // manifest can carry a <service> with no attributes, and item.$ then
+            // being undefined would throw and fail prebuild on github only.
+            item.$?.["tools:node"] === "remove" &&
+            item.$?.["android:name"] ===
               "expo.modules.location.services.LocationTaskService"
           ),
       );

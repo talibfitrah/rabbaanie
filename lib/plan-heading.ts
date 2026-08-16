@@ -23,7 +23,12 @@ export function isLatinSectionHeading(cleaned: string): boolean {
   const head = cleaned.replace(/\(.*$/, "").trim();
   if (!/[A-Za-z]/.test(head)) return false;
   // Arabic block, including the presentation forms the advisor sometimes emits.
-  if (/[؀-ۿݐ-ݿﭐ-﷿ﹰ-﻿]/.test(head)) return false;
+  // Arabic script proper. Written as a Unicode property escape rather than a
+  // hand-rolled range: the first version ended at U+FEFF, which is ZERO WIDTH
+  // NO-BREAK SPACE / BOM and not an Arabic letter at all — so a genuine en/nl
+  // ALL-CAPS heading carrying an invisible ZWNBSP was demoted to a task, which
+  // is the exact "plan collapses into one section" failure this prevents.
+  if (/\p{Script=Arabic}/u.test(head)) return false;
   return head === head.toUpperCase();
 }
 

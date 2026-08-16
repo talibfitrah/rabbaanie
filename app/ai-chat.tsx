@@ -32,6 +32,17 @@ import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { authedFetch, accessDeniedMessage } from "@/lib/authed-fetch";
 import * as ImagePicker from "expo-image-picker";
 import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
+
+/**
+ * The server's attachment bounds, duplicated because the two repos share no
+ * types (rabbaanie-api server/chat-attachments.ts). Checked HERE as well as
+ * there for one reason: the API answers a breach with a 400, and this screen
+ * maps any failed send to getOfflineResponse — so the parent got confident
+ * canned advice about a photo the model never received, with nothing saying
+ * why. Change these only together with that server.
+ */
+const MAX_ATTACHMENTS = 3;
+const MAX_ATTACHMENT_DATA_URL_LENGTH = 1_400_000;
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -267,7 +278,14 @@ function AIChatScreenInner() {
       // Save messages without attachment URIs (files are temporary)
       const cleanMessages = msgs.map(m => ({
         ...m,
-        attachments: m.attachments?.map(a => ({ ...a, uri: "" })),
+        // dataUrl is stripped for the same reason as uri, and more urgently: it
+        // is the whole image. Persisting it wrote multi-MB base64 into
+        // AsyncStorage (6 MB cap for the entire app, shared with the weekplan
+        // caches and the device id) AND re-uploaded it to saveConversationToDb
+        // on every later message of the conversation. It is transient input to
+        // the model, not conversation history — and photographs of children are
+        // the last thing to retain by accident.
+        attachments: m.attachments?.map(a => ({ ...a, uri: "", dataUrl: undefined })),
       }));
 
       // Save to database (persistent).
@@ -689,6 +707,17 @@ function AIChatScreenInner() {
         .map((a) => a.dataUrl)
         .filter((u): u is string => typeof u === "string" && u.length > 0);
       let messageText = text.trim();
+      // An image-only turn used to carry `[صورة مرفقة: name]` as its text; now
+      // that the picture travels properly, that text is gone and messageText
+      // would be "". The server titles a conversation from it, the history list
+      // renders that title, and both would be blank — so ask the obvious
+      // question instead of sending nothing.
+      if (!messageText && currentAttachments.some((a) => a.dataUrl)) {
+        messageText =
+          language === "ar" ? "ما الذي تراه في هذه الصورة؟"
+          : language === "en" ? "What do you see in this photo?"
+          : "Wat zie je op deze foto?";
+      }
       const undescribed = currentAttachments.filter((a) => !a.dataUrl);
       if (undescribed.length > 0) {
         const attachDesc = undescribed.map(a =>
@@ -919,6 +948,28 @@ function AIChatScreenInner() {
   };
 
   // Pick image from gallery
+  /**
+   * Whether one more attachment fits, telling the user plainly when it does
+   * not. Refusing at pick time is the point: the alternative is the send
+   * failing with a 400 that this screen renders as offline advice, so the
+   * parent believes the model looked at their photo.
+   */
+  const acceptAttachment = (base64Length: number): boolean => {
+    const tooMany = attachments.length >= MAX_ATTACHMENTS;
+    // +32 covers the `data:image/jpeg;base64,` prefix the server also counts.
+    const tooBig = base64Length + 32 > MAX_ATTACHMENT_DATA_URL_LENGTH;
+    if (!tooMany && !tooBig) return true;
+    Alert.alert(
+      tooMany
+        ? (language === "ar" ? "٣ صور كحدٍّ أقصى" : language === "en" ? "Up to 3 images" : "Maximaal 3 afbeeldingen")
+        : (language === "ar" ? "الصورة كبيرة جدًا" : language === "en" ? "Image too large" : "Afbeelding te groot"),
+      tooMany
+        ? (language === "ar" ? "احذف واحدة قبل إضافة أخرى." : language === "en" ? "Remove one before adding another." : "Verwijder er eerst een voordat u een nieuwe toevoegt.")
+        : (language === "ar" ? "اختر صورة أصغر، أو التقط صورة جديدة بتفاصيل أقل." : language === "en" ? "Choose a smaller photo, or take a new one at lower detail." : "Kies een kleinere foto, of maak een nieuwe met minder detail."),
+    );
+    return false;
+  };
+
   const pickImage = async () => {
     setShowAttachMenu(false);
     try {
@@ -933,13 +984,17 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
           type: "image",
-          dataUrl: asset.base64
-            ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
-            : undefined,
+          // Always image/jpeg: expo-image-picker's own type says `base64` is
+          // "a Base64-encoded string of the selected image's JPEG data" and
+          // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
+          // labelled a picked PNG as PNG while the bytes were JPEG, which is a
+          // corrupt input as far as the model provider is concerned.
+          dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
           mimeType: asset.mimeType || "image/jpeg",
         }]);
       }
@@ -967,13 +1022,17 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: `photo_${Date.now()}.jpg`,
           type: "image",
-          dataUrl: asset.base64
-            ? `data:${asset.mimeType || "image/jpeg"};base64,${asset.base64}`
-            : undefined,
+          // Always image/jpeg: expo-image-picker's own type says `base64` is
+          // "a Base64-encoded string of the selected image's JPEG data" and
+          // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
+          // labelled a picked PNG as PNG while the bytes were JPEG, which is a
+          // corrupt input as far as the model provider is concerned.
+          dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
           mimeType: "image/jpeg",
         }]);
       }
@@ -992,6 +1051,7 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
+        if (!acceptAttachment(asset.base64 ? asset.base64.length : 0)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.name || `file_${Date.now()}`,
