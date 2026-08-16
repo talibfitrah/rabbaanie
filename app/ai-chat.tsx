@@ -41,7 +41,7 @@ import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
  * canned advice about a photo the model never received, with nothing saying
  * why. Change these only together with that server.
  */
-const MAX_ATTACHMENTS = 3;
+const MAX_IMAGE_ATTACHMENTS = 3;
 
 /**
  * Whether this build offers photo attachments at all.
@@ -693,20 +693,29 @@ function AIChatScreenInner() {
     if ((!text.trim() && attachments.length === 0) || isLoading) return;
 
     const currentAttachments = [...attachments];
-    // An image-only turn has no typed text. The message actually SENT gets a
-    // fallback question (see messageText below); without the same here the
-    // bubble in the thread and the stored history render blank.
-    const imageOnly = !text.trim() && currentAttachments.some((a) => a.dataUrl);
-    const bubbleText = imageOnly
-      ? (language === "ar" ? "ما الذي تراه في هذه الصورة؟"
-        : language === "en" ? "What do you see in this photo?"
-        : "Wat zie je op deze foto?")
-      : text.trim();
+    // One definition, used for the bubble, the stored history and the message
+    // actually sent — they were written twice and could drift apart.
+    // Covers a DOCUMENT-only turn as well: that has no dataUrl, so keying on
+    // images alone still left an attachment-only turn rendering blank.
+    const attachmentOnlyPrompt =
+      language === "ar" ? "ما الذي تراه في هذا المرفق؟"
+      : language === "en" ? "What do you see in this attachment?"
+      : "Wat zie je in deze bijlage?";
+    const bubbleText =
+      text.trim() || (currentAttachments.length > 0 ? attachmentOnlyPrompt : "");
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_user`,
       role: "user",
       content: bubbleText,
-      attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
+      // Without dataUrl. Nothing reads it back — the thread renders from `uri`
+      // and the send path uses currentAttachments — so keeping it here pinned up
+      // to 3 x 4 MB of base64 in the JS heap for the life of the screen, per
+      // photo turn. cleanMessages strips it at persist time; this stops it
+      // being held in the first place.
+      attachments:
+        currentAttachments.length > 0
+          ? currentAttachments.map((a) => ({ ...a, dataUrl: undefined }))
+          : undefined,
       createdAt: new Date().toISOString(),
     };
 
@@ -732,12 +741,7 @@ function AIChatScreenInner() {
       // would be "". The server titles a conversation from it, the history list
       // renders that title, and both would be blank — so ask the obvious
       // question instead of sending nothing.
-      if (!messageText && currentAttachments.some((a) => a.dataUrl)) {
-        messageText =
-          language === "ar" ? "ما الذي تراه في هذه الصورة؟"
-          : language === "en" ? "What do you see in this photo?"
-          : "Wat zie je op deze foto?";
-      }
+      if (!messageText && currentAttachments.length > 0) messageText = attachmentOnlyPrompt;
       const undescribed = currentAttachments.filter((a) => !a.dataUrl);
       if (undescribed.length > 0) {
         const attachDesc = undescribed.map(a =>
@@ -974,8 +978,12 @@ function AIChatScreenInner() {
    * failing with a 400 that this screen renders as offline advice, so the
    * parent believes the model looked at their photo.
    */
-  const acceptAttachment = (base64Length: number): boolean => {
-    const tooMany = attachments.length >= MAX_ATTACHMENTS;
+  const acceptAttachment = (base64Length: number, isImage: boolean): boolean => {
+    // Counted against IMAGES only, because that is what the server bounds.
+    // Counting documents in the same total made the client cap a different
+    // quantity from MAX_IMAGES while looking like it matched.
+    const imageCount = attachments.filter((a) => a.type === "image").length;
+    const tooMany = isImage && imageCount >= MAX_IMAGE_ATTACHMENTS;
     // +32 covers the `data:image/jpeg;base64,` prefix the server also counts.
     const tooBig = base64Length + 32 > MAX_ATTACHMENT_DATA_URL_LENGTH;
     if (!tooMany && !tooBig) return true;
@@ -1020,7 +1028,7 @@ function AIChatScreenInner() {
           );
           return;
         }
-        if (!acceptAttachment(asset.base64.length)) return;
+        if (!acceptAttachment(asset.base64.length, true)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.fileName || `image_${Date.now()}.jpg`,
@@ -1070,7 +1078,7 @@ function AIChatScreenInner() {
           );
           return;
         }
-        if (!acceptAttachment(asset.base64.length)) return;
+        if (!acceptAttachment(asset.base64.length, true)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: `photo_${Date.now()}.jpg`,
@@ -1105,7 +1113,7 @@ function AIChatScreenInner() {
         // which is honest for a file the model cannot open — so only the count
         // applies. Applying the image guard here rejected every PDF, Word file
         // and text file with "Could not read the image".
-        if (!acceptAttachment(0)) return;
+        if (!acceptAttachment(0, false)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.name || `file_${Date.now()}`,

@@ -52,11 +52,15 @@ describe.skipIf(!haveApi)("attachment bounds agree across the two repos", () => 
     // Self-check: if either lookup silently returned NaN, every comparison
     // below would be vacuous.
     expect(Number.isFinite(apiConstant("MAX_IMAGES"))).toBe(true);
-    expect(Number.isFinite(clientConstant("MAX_ATTACHMENTS"))).toBe(true);
+    expect(Number.isFinite(clientConstant("MAX_IMAGE_ATTACHMENTS"))).toBe(true);
   });
 
   it("caps the image count at the same number", () => {
-    expect(clientConstant("MAX_ATTACHMENTS")).toBe(apiConstant("MAX_IMAGES"));
+    // Like for like: the client constant counts IMAGES, matching the server's
+    // MAX_IMAGES. It previously capped all attachments — images plus documents
+    // — so the two sides bounded different quantities while this assertion made
+    // them look identical.
+    expect(clientConstant("MAX_IMAGE_ATTACHMENTS")).toBe(apiConstant("MAX_IMAGES"));
   });
 
   it("caps the image size at the same number", () => {

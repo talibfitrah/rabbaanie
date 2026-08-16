@@ -621,7 +621,8 @@ export default function WeekplanScreen() {
             // w2 20-29, w5 50-52). A parent correcting a birth date moves
             // weekInYear backwards inside the same year and pays for those plans
             // again. An exact equality for the legacy key has no such overlap.
-            const legacyKey = prefix.endsWith("_") ? prefix.slice(0, -1) : prefix;
+            // weekPlanCachePrefix always ends in "_", so the guard was dead.
+            const legacyKey = prefix.slice(0, -1);
             const stale = (await AsyncStorage.getAllKeys()).filter(
               (k) => (k === legacyKey || k.startsWith(prefix)) && k !== cacheKey,
             );

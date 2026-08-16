@@ -652,7 +652,16 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // that breaks on a reformat and tempts someone to loosen it.
     expect(chat).toMatch(/const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github"/);
     expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
-    expect(chat, "the attach TRIGGER must be gated").toMatch(/\{ATTACHMENTS_ENABLED && \(\s*\n\s*<Pressable/);
+    // Ordering, not layout. The previous regex required a newline and specific
+    // indentation between the gate and <Pressable>, so a reformat would have
+    // "failed" correct code — the coupled-to-formatting assertion this codebase
+    // keeps warning about. What must hold is that a gate opens before the
+    // attach button and there are exactly two gates, one per element.
+    const gateUses = (chat.match(/ATTACHMENTS_ENABLED &&/g) || []).length;
+    expect(gateUses, "one gate for the trigger, one for the menu").toBe(2);
+    expect(chat.indexOf("styles.attachButton")).toBeGreaterThan(
+      chat.indexOf("{ATTACHMENTS_ENABLED && ("),
+    );
     expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
   });
 
