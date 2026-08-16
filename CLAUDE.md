@@ -104,6 +104,12 @@ none of. So AST-only is the finished product here, not a degraded mode — and i
 
 - **`graphify path "<A>" "<B>"` — use it.** Real relationships between two named symbols or
   files. Reach for it to find blast radius before changing something shared.
+  **Add `--undirected` when a directed search comes back empty** — two symbols wired
+  together by a common caller (a router, a hub module) have no directed path between
+  them, and that is the usual shape here. Measured 2026-08-16: directed returned "no
+  path" for `getSpouseAdvice`→`buildPartnerSignalContext`; `--undirected` answered
+  in one line (both hang off `adviceRouter`). Pass a real symbol, not a file stem —
+  a stem like "daily-diagnostic" returns an ambiguous-match warning.
 - **`graphify update .` — after code changes.** Cheap, no API cost.
 - `graphify query "<question>"` — only when the question already names symbols you know. Given a
   natural-language question it returns a BFS neighbourhood truncated to a token budget, and says
