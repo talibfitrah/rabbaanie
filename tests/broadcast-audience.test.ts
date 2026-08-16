@@ -216,3 +216,33 @@ describe("selectAudience — the count is the recipients", () => {
     expect(selected.length).toBe(users.filter((u) => matchesAudience(u, filter)).length);
   });
 });
+
+// The deployed API carries a byte-identical copy of server/broadcast-audience.ts.
+// It has to: broadcastAudience previews the recipient count and sendBroadcast
+// selects the recipients, and if the two repos' predicates drift, the number an
+// admin is shown before sending stops being who actually gets messaged. Skipped
+// (loudly) rather than failed when the API checkout is not on this machine, so
+// CI and other developers' boxes are unaffected. Both layouts are tried because
+// counting ".." by hand has been wrong before, and being wrong is silent: a bad
+// path makes existsSync false and skips the whole check.
+describe("the API's copy of this module has not drifted", () => {
+  const { readFileSync, existsSync } = require("node:fs") as typeof import("node:fs");
+  const { join } = require("node:path") as typeof import("node:path");
+
+  const MINE = join(__dirname, "..", "server", "broadcast-audience.ts");
+  const THEIRS = [
+    join(__dirname, "..", "..", "rabbaanie-api", "server", "broadcast-audience.ts"),
+    join(__dirname, "..", "..", "..", "rabbaanie-api", "server", "broadcast-audience.ts"),
+  ].find(existsSync);
+
+  if (!THEIRS) {
+    console.warn(
+      "[broadcast-audience] SKIPPED: no rabbaanie-api checkout found beside this repo. " +
+        "The cross-repo drift check did not run.",
+    );
+  }
+
+  it.skipIf(!THEIRS)("is the same file in both repos, byte for byte", () => {
+    expect(readFileSync(THEIRS!, "utf8")).toBe(readFileSync(MINE, "utf8"));
+  });
+});
