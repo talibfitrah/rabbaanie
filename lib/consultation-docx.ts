@@ -128,7 +128,12 @@ export function buildConsultationDocx(opts: {
   isArabic: boolean;
 }): Uint8Array {
   const { title, childName, date, messages, isArabic } = opts;
-  const rtl = isArabic ? "<w:bidi/><w:jc w:val=\"right\"/>" : "";
+  // <w:bidi/> alone. Adding <w:jc w:val="right"/> looks right but is not: in a
+  // bidi paragraph Word resolves jc against the paragraph's own direction, so
+  // "right" means the logical END — which for RTL is the LEFT of the page. That
+  // is why the export came out left-aligned (Daa3iyah, 2026-08-16). With bidi
+  // and no jc, the paragraph starts at its natural start: the right.
+  const rtl = isArabic ? "<w:bidi/>" : "";
   const rtlRun = isArabic ? "<w:rtl/>" : "";
 
   const para = (text: string, o: { size?: number; bold?: boolean; colour?: string } = {}) =>

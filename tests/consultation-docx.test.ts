@@ -98,6 +98,15 @@ describe("the document Word will show", () => {
     expect(doc).toContain("<w:bidi/>");
     expect(doc).toContain("<w:rtl/>");
   });
+
+  it("does not override justification, which silently flips the side", () => {
+    // <w:jc w:val="right"/> reads as "align right" and is not: in a bidi
+    // paragraph Word resolves jc against the paragraph's own direction, so
+    // "right" is the logical END — the LEFT of the page for Arabic. Adding it
+    // is exactly how the export came out left-aligned. bidi alone starts the
+    // paragraph at its natural start, which is the right.
+    expect(doc).not.toContain("w:jc");
+  });
 });
 
 describe("base64 for expo-file-system", () => {
