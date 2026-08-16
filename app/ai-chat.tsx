@@ -63,7 +63,6 @@ import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { getDeviceId } from "@/lib/device-id";
 import { parseActionPlanSteps } from "@/lib/plan-steps";
-import { parsePlanText } from "@/lib/plan-blocks";
 import { buildConsultationDocx, toBase64 } from "@/lib/consultation-docx";
 import { withPlanStore } from "@/lib/plan-progress";
 

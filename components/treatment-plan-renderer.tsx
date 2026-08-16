@@ -52,12 +52,18 @@ interface TreatmentPlanRendererProps {
     error: string;
   };
   onProgressChange?: (completed: number, total: number) => void;
+  /**
+   * Bump to re-read the stored ticks without remounting. A screen that stays
+   * mounted while another writes progress needs the refresh; remounting for it
+   * would also reset which sections the parent had opened.
+   */
+  reloadTicks?: number;
 }
 
 /**
  * Group blocks into collapsible sections by heading1
  */
-export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange }: TreatmentPlanRendererProps) {
+export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange, reloadTicks }: TreatmentPlanRendererProps) {
   const { language, isRTL } = useI18n();
   const doneLabel = language === "ar" ? "مكتمل" : language === "en" ? "completed" : "voltooid";
   const trLabels = language === "ar"
@@ -124,7 +130,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
       setCompletedTasks(raw ? new Set<string>(JSON.parse(raw)) : new Set<string>());
       setTicksLoaded(true);
     }).catch(() => setTicksLoaded(true));
-  }, [issueId]);
+  }, [issueId, reloadTicks]);
 
   useEffect(() => {
     if (onProgressChange && ticksLoaded) {
