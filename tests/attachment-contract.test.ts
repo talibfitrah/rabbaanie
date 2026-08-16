@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 
 /**
@@ -17,7 +17,14 @@ import { join } from "node:path";
  * Read from the API source rather than duplicated as a literal here, so this
  * cannot pass by being updated in lockstep with only one side.
  */
-const API = "/home/farouq/Development/rabbaanie-api/server/chat-attachments.ts";
+/**
+ * Resolved relative to this repo, and SKIPPED rather than failed when the API
+ * checkout is not beside it. An absolute path pinned this to one machine — it
+ * would have failed in CI and on any other developer's box, and a test that
+ * cannot run anywhere else gets deleted rather than fixed.
+ */
+const API = join(__dirname, "..", "..", "..", "rabbaanie-api", "server", "chat-attachments.ts");
+const haveApi = existsSync(API);
 
 function apiConstant(name: string): number {
   const src = readFileSync(API, "utf8");
@@ -33,7 +40,14 @@ function clientConstant(name: string): number {
   return Number(m[1].replace(/_/g, ""));
 }
 
-describe("attachment bounds agree across the two repos", () => {
+describe.skipIf(!haveApi)("attachment bounds agree across the two repos", () => {
+  it("is reading the API source it claims to", () => {
+    // Guards the skip: if the path resolves but to the wrong file, every
+    // comparison below would throw rather than pass vacuously — but this says
+    // so directly.
+    expect(readFileSync(API, "utf8")).toContain("export const MAX_IMAGES");
+  });
+
   it("finds both sides at all", () => {
     // Self-check: if either lookup silently returned NaN, every comparison
     // below would be vacuous.

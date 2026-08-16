@@ -693,10 +693,19 @@ function AIChatScreenInner() {
     if ((!text.trim() && attachments.length === 0) || isLoading) return;
 
     const currentAttachments = [...attachments];
+    // An image-only turn has no typed text. The message actually SENT gets a
+    // fallback question (see messageText below); without the same here the
+    // bubble in the thread and the stored history render blank.
+    const imageOnly = !text.trim() && currentAttachments.some((a) => a.dataUrl);
+    const bubbleText = imageOnly
+      ? (language === "ar" ? "ما الذي تراه في هذه الصورة؟"
+        : language === "en" ? "What do you see in this photo?"
+        : "Wat zie je op deze foto?")
+      : text.trim();
     const userMessage: ChatMessage = {
       id: `msg_${Date.now()}_user`,
       role: "user",
-      content: text.trim(),
+      content: bubbleText,
       attachments: currentAttachments.length > 0 ? currentAttachments : undefined,
       createdAt: new Date().toISOString(),
     };
@@ -1090,17 +1099,13 @@ function AIChatScreenInner() {
       });
       if (!result.canceled && result.assets[0]) {
         const asset = result.assets[0];
-        if (!asset.base64) {
-          // Without bytes this would fall back to the filename-only send that
-          // this whole change exists to remove — the model would be told a name
-          // and the parent would get advice about nothing. Say so instead.
-          Alert.alert(
-            language === "ar" ? "تعذّر قراءة الصورة" : language === "en" ? "Could not read the image" : "Afbeelding niet leesbaar",
-            language === "ar" ? "جرّب صورة أخرى." : language === "en" ? "Try a different photo." : "Probeer een andere foto.",
-          );
-          return;
-        }
-        if (!acceptAttachment(asset.base64.length)) return;
+        // No base64 check here, and no size bound: a DocumentPicker asset never
+        // carries base64, and a PDF is not something the model can look at
+        // anyway. Documents keep the filename description they always had —
+        // which is honest for a file the model cannot open — so only the count
+        // applies. Applying the image guard here rejected every PDF, Word file
+        // and text file with "Could not read the image".
+        if (!acceptAttachment(0)) return;
         setAttachments(prev => [...prev, {
           uri: asset.uri,
           name: asset.name || `file_${Date.now()}`,
