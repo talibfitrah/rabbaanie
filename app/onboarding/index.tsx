@@ -320,13 +320,18 @@ export default function OnboardingScreen() {
             </Text>
           </Pressable>
 
-          {/* Street name */}
+          {/* Street name.
+              These three carry maxLength where the older fields in this form do
+              not: profile.save takes z.any() and the column is untyped JSON, so
+              nothing downstream bounds them. It costs a prop and stops an
+              accidental paste of a whole document becoming a stored profile. */}
           <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
             {tx(lang, "Straatnaam", "Street name", "اسم الشارع")} *
           </Text>
           <TextInput
             value={street}
             onChangeText={setStreet}
+            maxLength={100}
             placeholder={tx(lang, "Bijv: Kerkstraat", "E.g.: Main Street", "مثال: شارع الملك")}
             placeholderTextColor={colors.muted}
             returnKeyType="next"
@@ -341,6 +346,7 @@ export default function OnboardingScreen() {
           <TextInput
             value={houseNumber}
             onChangeText={setHouseNumber}
+            maxLength={20}
             placeholder={tx(lang, "Bijv: 12", "E.g.: 12", "مثال: 12")}
             placeholderTextColor={colors.muted}
             returnKeyType="next"
@@ -356,6 +362,7 @@ export default function OnboardingScreen() {
           <TextInput
             value={postalCode}
             onChangeText={setPostalCode}
+            maxLength={16}
             placeholder={tx(lang, "Bijv: 1012 AB", "E.g.: 1012 AB", "مثال: 1012 AB")}
             placeholderTextColor={colors.muted}
             returnKeyType="next"
