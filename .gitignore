@@ -102,3 +102,4 @@ package-lock.json
 
 # User-supplied bug-report media (voice notes, screenshots) — not project files
 bugs/
+reg-prompt.png
