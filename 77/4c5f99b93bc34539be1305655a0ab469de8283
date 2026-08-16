@@ -1,0 +1,25 @@
+app/ai-chat.tsx
+  s_4edd904afc89e5::t_0322046531937f 54-62,929-932,966
+  s_4edd904afc89e5::t_d6a12980dfa1b9 684-690,692-694
+  s_4edd904afc89e5::t_63c3702aa26dfb 34,1709,1766-1778,1789
+  s_4edd904afc89e5::t_db337c5a6b65ad 940-942,974-976
+  s_4edd904afc89e5::t_0c74a717d52141 729-733,757-761
+tests/play-store-compliance.test.ts
+  s_4edd904afc89e5::t_5f9290425a3022 641-664
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "774c5f99b93bc34539be1305655a0ab469de8283",
+  "prompts": {},
+  "sessions": {
+    "s_4edd904afc89e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8155add-e6fd-4484-a91b-e029dd3bf2a9",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

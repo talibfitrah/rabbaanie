@@ -1,0 +1,27 @@
+tests/weekplan-cache-sweep.test.ts
+  s_4edd904afc89e5::t_9e9038c5a77209 1-52
+tests/plan-heading.test.ts
+  s_4edd904afc89e5::t_8d5eafbdd503b7 135-150
+app/ai-chat.tsx
+  s_4edd904afc89e5::t_ab966966a8a358 1041-1043,1093-1095
+tests/play-store-compliance.test.ts
+  s_4edd904afc89e5::t_ab966966a8a358 660-664
+tests/attachment-contract.test.ts
+  s_4edd904afc89e5::t_13a2b89da3ff78 28-37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "8ca30b83dc5f10f76cbde2e58291916e38ea4e19",
+  "prompts": {},
+  "sessions": {
+    "s_4edd904afc89e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8155add-e6fd-4484-a91b-e029dd3bf2a9",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
