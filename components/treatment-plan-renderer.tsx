@@ -53,6 +53,16 @@ interface TreatmentPlanRendererProps {
   };
   onProgressChange?: (completed: number, total: number) => void;
   /**
+   * Rendered inside this component's own container, after the last section.
+   *
+   * The caller used to place it after <TreatmentPlanRenderer/> instead. Twice.
+   * As an outside sibling it depends on this component's measured height being
+   * right, and under the RTL wrapper it is not — so the button drew on top of
+   * the last folded section either way. Inside the same container it is laid
+   * out among the sections and cannot overlap them.
+   */
+  footer?: React.ReactNode;
+  /**
    * Bump to re-read the stored ticks without remounting. A screen that stays
    * mounted while another writes progress needs the refresh; remounting for it
    * would also reset which sections the parent had opened.
@@ -63,7 +73,7 @@ interface TreatmentPlanRendererProps {
 /**
  * Group blocks into collapsible sections by heading1
  */
-export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange, reloadTicks }: TreatmentPlanRendererProps) {
+export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressChange, reloadTicks, footer }: TreatmentPlanRendererProps) {
   const { language, isRTL } = useI18n();
   const doneLabel = language === "ar" ? "مكتمل" : language === "en" ? "completed" : "voltooid";
   const trLabels = language === "ar"
@@ -352,6 +362,11 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
           </View>
         );
       })}
+    {footer ? (
+        <View style={{ marginTop: 14, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+          {footer}
+        </View>
+      ) : null}
     </View>
   );
 }
