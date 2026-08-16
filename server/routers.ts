@@ -1,3 +1,19 @@
+/**
+ * ⚠ THIS FILE IS NOT DEPLOYED. It is a stale copy.
+ *
+ * The running API is a separate tree (rabbaanie-api, /home/murabbie/rabbaanie-api
+ * on the VM) and has diverged from this one in both directions. Conclusions
+ * drawn from THIS file about live behaviour have been wrong four times in one
+ * night — procedures that are publicProcedure here are protectedProcedure there;
+ * an `images` field absent here exists there; admin.users returns bare rows here
+ * and computed completeness there; broadcast targeting is ignored here and
+ * honoured there.
+ *
+ * Before reporting anything about how the server behaves — a bug, a security
+ * finding, a missing field — check the same symbol in rabbaanie-api, or curl
+ * api.rabbaanie.com. Reviewing this file alone produces confident false
+ * findings, including ones that look severe.
+ */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import { COOKIE_NAME } from "../shared/const.js";
@@ -29,6 +45,7 @@ import {
   parentAiConsultRouter,
 } from "./child-monitoring-router";
 import * as db from "./db";
+import { selectAudience, incompleteChildNames } from "./broadcast-audience";
 import {
   assertActiveSpecialistFamily,
   assertAvailableSpecialist,
@@ -881,6 +898,17 @@ const newsletterRouter = router({
 // ============================================================
 // ADMIN ROUTER (#6)
 // ============================================================
+
+/** Combinable broadcast-targeting filter: country, city, and the three
+ *  profile-incompleteness flags. See server/broadcast-audience.ts. */
+const audienceFilterSchema = z.object({
+  countries: z.array(z.string()).optional(),
+  cities: z.array(z.string()).optional(),
+  incompletePersonal: z.boolean().optional(),
+  incompleteAnalytical: z.boolean().optional(),
+  incompleteChildren: z.boolean().optional(),
+});
+
 const adminRouter = router({
   /** Get dashboard statistics */
   dashboard: adminProcedure.query(async () => {
@@ -1144,20 +1172,48 @@ Respond in JSON format:
     return db.getScheduledArticles();
   }),
 
-  /** Send broadcast notification to all users (admin/super_admin only) */
+  /** Preview who a broadcast audience filter matches, and how many — the
+   *  same selectAudience() call sendBroadcast uses, so the count shown here
+   *  is exactly who gets messaged. */
+  broadcastAudience: adminProcedure
+    .input(audienceFilterSchema.default({}))
+    .query(async ({ input }) => {
+      const allUsers = await db.getAllUsers();
+      const matched = selectAudience(allUsers, input);
+      return {
+        count: matched.length,
+        recipients: matched.map((u) => ({
+          id: u.id,
+          name: u.name,
+          incompleteChildren: incompleteChildNames(u),
+        })),
+      };
+    }),
+
+  /** Send broadcast notification to all users (admin/super_admin only).
+   *  audience, when given, restricts recipients to selectAudience()'s match —
+   *  the same predicate broadcastAudience previews above. Omitted, behaviour
+   *  is unchanged: every user with a push token, as before. */
   sendBroadcast: adminProcedure
     .input(
       z.object({
         subject: z.string().min(1),
         message: z.string().min(1),
         target: z.enum(["all", "parents", "admins"]).default("all"),
+        audience: audienceFilterSchema.optional(),
       }),
     )
     .mutation(async ({ input }) => {
+      let userIds: number[] | undefined;
+      if (input.audience) {
+        const allUsers = await db.getAllUsers();
+        userIds = selectAudience(allUsers, input.audience).map((u) => u.id);
+      }
       const result = await db.broadcastPushNotification(
         input.subject,
         input.message,
         { type: "admin_broadcast", target: input.target },
+        userIds,
       );
       return { success: true, sent: result.sent, target: input.target };
     }),

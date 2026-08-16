@@ -594,7 +594,11 @@ export default function OnboardingScreen() {
             {addressPicker === "country" && COUNTRY_NAMES.map((name) => (
               <Pressable
                 key={name}
-                onPress={() => { setCountry(name); setCity(""); setAddressPicker(null); }}
+                // Only clear the city when the country actually changes: the
+                // city list is per-country, but re-picking the same country —
+                // or coming back from typing one by hand — should not silently
+                // discard a city already chosen.
+                onPress={() => { if (name !== country) setCity(""); setCountry(name); setCountryFreeText(false); setAddressPicker(null); }}
                 style={({ pressed }) => [{
                   padding: 16, borderBottomWidth: 1, borderBottomColor: colors.border,
                   backgroundColor: pressed ? colors.primary + "15" : "transparent",

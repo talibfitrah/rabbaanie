@@ -389,8 +389,12 @@ function AIChatScreenInner() {
       if (deviceIdNow) {
         try {
           const res = await authedFetch(`/api/trpc/aiChat.listConversationsFromDb?input=${encodeURIComponent(JSON.stringify({ json: { deviceId: deviceIdNow } }))}`);
-          const data = await res.json();
-          const dbConversations = data.result?.data?.json || [];
+          // Defensive, for the same reason as the save path: a 401 or gateway
+          // error body is not JSON, so res.json() threw here and jumped past
+          // the res.ok check below — the warning added to stop this exact
+          // silence could never fire. Fixed there and missed here.
+          const data = await res.json().catch(() => null);
+          const dbConversations = data?.result?.data?.json || [];
           if (!res.ok && !listWarned.current) {
             // A refused read falls through to local storage below, and local is
             // usually empty for consultations that only ever lived on the

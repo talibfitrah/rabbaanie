@@ -1,4 +1,20 @@
 /**
+ * ⚠ THIS FILE IS NOT DEPLOYED. It is a stale copy.
+ *
+ * The running API is a separate tree (rabbaanie-api, /home/murabbie/rabbaanie-api
+ * on the VM) and has diverged from this one in both directions. Conclusions
+ * drawn from THIS file about live behaviour have been wrong four times in one
+ * night — procedures that are publicProcedure here are protectedProcedure there;
+ * an `images` field absent here exists there; admin.users returns bare rows here
+ * and computed completeness there; broadcast targeting is ignored here and
+ * honoured there.
+ *
+ * Before reporting anything about how the server behaves — a bug, a security
+ * finding, a missing field — check the same symbol in rabbaanie-api, or curl
+ * api.rabbaanie.com. Reviewing this file alone produces confident false
+ * findings, including ones that look severe.
+ */
+/**
  * AI Chat Router
  * 
  * Provides endpoints for:

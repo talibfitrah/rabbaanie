@@ -1,3 +1,19 @@
+/**
+ * ⚠ THIS FILE IS NOT DEPLOYED. It is a stale copy.
+ *
+ * The running API is a separate tree (rabbaanie-api, /home/murabbie/rabbaanie-api
+ * on the VM) and has diverged from this one in both directions. Conclusions
+ * drawn from THIS file about live behaviour have been wrong four times in one
+ * night — procedures that are publicProcedure here are protectedProcedure there;
+ * an `images` field absent here exists there; admin.users returns bare rows here
+ * and computed completeness there; broadcast targeting is ignored here and
+ * honoured there.
+ *
+ * Before reporting anything about how the server behaves — a bug, a security
+ * finding, a missing field — check the same symbol in rabbaanie-api, or curl
+ * api.rabbaanie.com. Reviewing this file alone produces confident false
+ * findings, including ones that look severe.
+ */
 import {
   eq,
   and,
@@ -3229,11 +3245,14 @@ export async function broadcastPushNotification(
   title: string,
   body: string,
   data?: Record<string, unknown>,
+  userIds?: number[],
 ): Promise<{ sent: number; failed: number }> {
-  return broadcastLocalizedPush(title, title, title, body, body, body, data);
+  return broadcastLocalizedPush(title, title, title, body, body, body, data, userIds);
 }
 
-/** Send localized push notification to all users - each user gets their preferred language */
+/** Send localized push notification to all users - each user gets their preferred language.
+ *  When userIds is given, only those users are messaged (the admin broadcast audience filter);
+ *  omitted, every user with a push token is messaged, unchanged from before. */
 export async function broadcastLocalizedPush(
   titleNl: string,
   titleEn: string,
@@ -3242,9 +3261,13 @@ export async function broadcastLocalizedPush(
   bodyEn: string,
   bodyAr: string,
   data?: Record<string, unknown>,
+  userIds?: number[],
 ): Promise<{ sent: number; failed: number }> {
   const db = await getDb();
   if (!db) return { sent: 0, failed: 0 };
+  // An audience filter that matched nobody must send to nobody, not silently
+  // fall back to everyone — only undefined (no filter given at all) does that.
+  if (userIds && userIds.length === 0) return { sent: 0, failed: 0 };
 
   // Get all users with push tokens AND their language
   const usersWithTokens = await db
@@ -3254,7 +3277,11 @@ export async function broadcastLocalizedPush(
       language: users.language,
     })
     .from(users)
-    .where(sql`pushToken IS NOT NULL AND pushToken != ''`);
+    .where(
+      userIds
+        ? and(sql`pushToken IS NOT NULL AND pushToken != ''`, inArray(users.id, userIds))
+        : sql`pushToken IS NOT NULL AND pushToken != ''`,
+    );
 
   let sent = 0;
   let failed = 0;
