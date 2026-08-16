@@ -1,0 +1,30 @@
+app/onboarding/index.tsx
+  s_834a18df15f160::t_758fb50f81b86b 52-56
+  s_834a18df15f160::t_34aaadd3c8f3ce 2,11
+  s_834a18df15f160::t_dac56bd3667034 291-323,325,328-330,337,339,342-344,351,353-354,357-359
+  s_834a18df15f160::t_78512e69ccf7eb 84-85,88-89,92-93,96-100,105-110,116-122
+  s_834a18df15f160::t_f60df0ad86c48d 522-574
+lib/store.ts
+  s_834a18df15f160::t_4aef296819dce0 445
+  s_834a18df15f160::t_5f298785c5a0fd 439-444,446-447
+  s_834a18df15f160::t_d95db1df14b04a 255-258
+  s_834a18df15f160::t_504db22f777cd9 10-11,13-16
+tests/profile-address-completeness.test.ts
+  s_834a18df15f160::t_3899ceb7f6c8bf 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0500017845a46f0497b47b9dc81f5194bab29c43",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
