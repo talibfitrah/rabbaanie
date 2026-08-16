@@ -1038,7 +1038,9 @@ function AIChatScreenInner() {
           // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
           // labelled a picked PNG as PNG while the bytes were JPEG, which is a
           // corrupt input as far as the model provider is concerned.
-          dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
+          // Unconditional: the !asset.base64 guard above already returned, so
+          // the ternary here could never take its false branch.
+          dataUrl: `data:image/jpeg;base64,${asset.base64}`,
           // image/jpeg to match dataUrl: ImagePicker returns JPEG bytes whatever
           // the source format, so asset.mimeType would contradict what we send.
           mimeType: "image/jpeg",
@@ -1088,7 +1090,9 @@ function AIChatScreenInner() {
           // documents prepending `data:image/jpeg;base64,`. Using asset.mimeType
           // labelled a picked PNG as PNG while the bytes were JPEG, which is a
           // corrupt input as far as the model provider is concerned.
-          dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : undefined,
+          // Unconditional: the !asset.base64 guard above already returned, so
+          // the ternary here could never take its false branch.
+          dataUrl: `data:image/jpeg;base64,${asset.base64}`,
           mimeType: "image/jpeg",
         }]);
       }

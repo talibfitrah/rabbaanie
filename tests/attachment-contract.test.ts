@@ -25,6 +25,16 @@ import { join } from "node:path";
  */
 const API = join(__dirname, "..", "..", "..", "rabbaanie-api", "server", "chat-attachments.ts");
 const haveApi = existsSync(API);
+if (!haveApi) {
+  // Loud, not silent. A skipped test reads as a passing one in CI output, and
+  // this is the only thing standing between the two repos' bounds and the
+  // drift that has already bitten /auth/register, the subscriber payload and
+  // the subscribe screen. If this line appears, the guard did NOT run.
+  console.warn(
+    `[attachment-contract] SKIPPED: ${API} not found. ` +
+      "The cross-repo bound check did not run — clone rabbaanie-api beside this repo to enable it.",
+  );
+}
 
 function apiConstant(name: string): number {
   const src = readFileSync(API, "utf8");

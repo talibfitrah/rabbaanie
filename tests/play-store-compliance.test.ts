@@ -657,8 +657,11 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // "failed" correct code — the coupled-to-formatting assertion this codebase
     // keeps warning about. What must hold is that a gate opens before the
     // attach button and there are exactly two gates, one per element.
-    const gateUses = (chat.match(/ATTACHMENTS_ENABLED &&/g) || []).length;
-    expect(gateUses, "one gate for the trigger, one for the menu").toBe(2);
+    // Both specific elements, not a count. toBe(2) failed the moment a third
+    // legitimately-gated element was added, which turns a guard into an
+    // obstacle and invites someone to relax it.
+    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
+    expect(chat, "the attach TRIGGER must be gated").toContain("{ATTACHMENTS_ENABLED && (");
     expect(chat.indexOf("styles.attachButton")).toBeGreaterThan(
       chat.indexOf("{ATTACHMENTS_ENABLED && ("),
     );
