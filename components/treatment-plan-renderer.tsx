@@ -102,12 +102,12 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   const effectiveText = (!showOriginal && translated) ? translated : planText;
 
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
-  // Collapsed-by-default hid the whole plan behind section headers, so a parent
-  // opening a consultation saw headings and concluded the advisor never gave one
-  // (Daa3iyah, 2026-08-16: "لم أر العلاج الذي أعطاه المستشار" — the server had
-  // sent all 22 messages, plan included). Tracking what is CLOSED rather than
-  // what is open makes everything readable on arrival and still foldable.
-  const [collapsedSections, setCollapsedSections] = useState<Set<number>>(new Set());
+  // Folded by default, which is what Daa3iyah asked for once he could actually
+  // reach the plan (2026-08-16): the headings ARE the organisation, and he wants
+  // to open the part he is working on. This was briefly expanded-by-default
+  // while the plan appeared to be missing entirely — but the real cause was that
+  // the message list never rendered past item 10, not the folding.
+  const [expandedSections, setExpandedSections] = useState<Set<number>>(new Set());
   
   // Callers persist what this component reports, so nothing may be reported
   // before the stored ticks are in: the first render would otherwise save a 0
@@ -145,10 +145,10 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   };
   
   const toggleSection = (idx: number) => {
-    const next = new Set(collapsedSections);
+    const next = new Set(expandedSections);
     if (next.has(idx)) next.delete(idx);
     else next.add(idx);
-    setCollapsedSections(next);
+    setExpandedSections(next);
   };
   
   // ONE key space for a plan's ticks: the original text's.
@@ -215,7 +215,7 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
       
       {/* Collapsible sections */}
       {sections.map((section, sIdx) => {
-        const isExpanded = !collapsedSections.has(sIdx);
+        const isExpanded = expandedSections.has(sIdx);
         const sectionCompleted = section.taskKeys.filter(k => completedTasks.has(k)).length;
         const sectionTotal = section.taskKeys.length;
         const owner = sectionOwner(section.title);
