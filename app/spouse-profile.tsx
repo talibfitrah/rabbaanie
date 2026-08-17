@@ -1,29 +1,14 @@
 import { useState, useEffect } from "react";
-import { Text, View, ScrollView, Pressable, ActivityIndicator, StyleSheet } from "react-native";
+import { Text, View, ScrollView, Pressable, ActivityIndicator, StyleSheet, Alert } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
 import { translateProfileValue } from "@/lib/profile-labels";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/routers";
-
-/**
- * links.getPartnerProfile returns a union: a restricted payload omits
- * parentProfile/children/issues/etc. entirely (the security boundary — see
- * server/routers.ts). Narrow through this guard before reading any
- * full-only field, so TypeScript enforces it instead of relying on the
- * order of the early returns below.
- */
-type PartnerProfileData = inferRouterOutputs<AppRouter>["links"]["getPartnerProfile"];
-type FullPartnerProfile = Extract<NonNullable<PartnerProfileData>, { access: "full" }>;
-function isFullPartnerProfile(
-  data: PartnerProfileData | undefined,
-): data is FullPartnerProfile {
-  return !!data && data.access === "full";
-}
+import { isFullPartnerProfile } from "@/lib/partner-types";
+import type { PartnerListEntry } from "@/lib/partner-types";
 
 function tx(lang: string, nl: string, en: string, ar: string) {
   return lang === "ar" ? ar : lang === "nl" ? nl : en;
@@ -49,24 +34,113 @@ export default function SpouseProfileScreen() {
   const colors = useColors();
   const { language: lang, isRTL } = useI18n();
   const router = useRouter();
+  const params = useLocalSearchParams<{ partnerId?: string }>();
+  const paramPartnerId = params.partnerId ? Number(params.partnerId) : null;
 
-  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(undefined, {
+  const listPartnersQuery = trpc.links.listPartners.useQuery(undefined, {
     refetchOnMount: "always",
     staleTime: 0,
   });
+  const partners: PartnerListEntry[] = listPartnersQuery.data ?? [];
+  const hasMultiplePartners = partners.length > 1;
+  const [manualPartnerId, setManualPartnerId] = useState<number | null>(null);
+  // Priority: an explicit tap on this screen's own selector, then whichever
+  // partner the caller navigated in with, then the first confirmed partner.
+  // Stays null (today's "let the server pick" default) until the partner
+  // list actually has more than one entry to choose between — so a
+  // single-partner user's query is byte-for-byte what it was before this
+  // change.
+  const selectedPartnerId: number | null = hasMultiplePartners
+    ? manualPartnerId != null && partners.some((p) => p.id === manualPartnerId)
+      ? manualPartnerId
+      : paramPartnerId != null && partners.some((p) => p.id === paramPartnerId)
+        ? paramPartnerId
+        : partners[0].id
+    : null;
+
+  // grant/revoke now REQUIRE an explicit partner when there is more than one
+  // (server throws BAD_REQUEST rather than silently picking the first — a
+  // write that hands out access must never guess). Undefined for a
+  // single-partner user, which the server treats exactly as before.
+  const partnerArg =
+    selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined;
+
+  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
+    selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,
+    {
+      refetchOnMount: "always",
+      staleTime: 0,
+    },
+  );
   const requestAccessMutation = trpc.links.requestPartnerProfileAccess.useMutation({
     onSuccess: () => partnerProfileQuery.refetch(),
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(
+            lang,
+            "Kon het verzoek niet worden verstuurd.",
+            "Could not send the request.",
+            "تعذّر إرسال الطلب.",
+          ),
+      );
+    },
   });
   const setGenderMutation = trpc.links.setMyGender.useMutation({
     onSuccess: () => partnerProfileQuery.refetch(),
   });
   const grantAccessMutation = trpc.links.grantPartnerProfileAccess.useMutation({
     onSuccess: () => partnerProfileQuery.refetch(),
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(
+            lang,
+            "Kon de toegang niet worden verleend.",
+            "Could not grant access.",
+            "تعذّر منح الإذن.",
+          ),
+      );
+    },
   });
   // Also used for "decline" — revoking a request that was never granted is a no-op
   // on the grant itself and simply clears the pending request.
   const revokeAccessMutation = trpc.links.revokePartnerProfileAccess.useMutation({
     onSuccess: () => partnerProfileQuery.refetch(),
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(
+            lang,
+            "Kon deze actie niet worden voltooid.",
+            "Could not complete this action.",
+            "تعذّر إتمام هذا الإجراء.",
+          ),
+      );
+    },
+  });
+  // Ends one specific partnership (owner's ruling: a man may have multiple
+  // wives, so separation must target a partnershipId, not "the" partner).
+  const dissolvePartnerMutation = trpc.links.dissolvePartner.useMutation({
+    onSuccess: () => {
+      listPartnersQuery.refetch();
+      router.back();
+    },
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(
+            lang,
+            "Kon de verbintenis niet verbreken.",
+            "Could not end the partnership.",
+            "تعذّر إنهاء هذه الشراكة.",
+          ),
+      );
+    },
   });
 
   const data = partnerProfileQuery.data;
@@ -87,6 +161,124 @@ export default function SpouseProfileScreen() {
   // as "my gender is missing", matching today's needsGender behavior.
   const needsMyGender = restrictedData?.needsMyGender ?? !!restrictedData?.needsGender;
   const needsPartnerGender = restrictedData?.needsPartnerGender ?? false;
+
+  // The partnership backing whichever profile is currently on screen —
+  // matched by user id (not selectedPartnerId) so this also resolves for
+  // the single-partner case, where selectedPartnerId stays null and the
+  // server picks the partner on its own.
+  const currentPartnership = partners.find((p) => p.id === data?.id);
+
+  function confirmDissolvePartnership() {
+    if (!currentPartnership) return;
+    const name = data?.name || partnerName;
+    Alert.alert(
+      tx(lang, "Verbintenis verbreken?", "End partnership?", "هل تريد إنهاء هذه الشراكة؟"),
+      tx(
+        lang,
+        `Dit beëindigt de verbintenis met ${name}. Deze persoon verliest toegang tot uw profiel en dit kan niet eenvoudig ongedaan worden gemaakt.`,
+        `This ends the partnership with ${name}. They will lose access to your profile, and this cannot be easily undone.`,
+        `سينهي هذا الشراكة مع ${name}. سيفقد هذا الشخص إمكانية الاطلاع على ملفك، ولا يمكن التراجع عن ذلك بسهولة.`,
+      ),
+      [
+        { text: tx(lang, "Annuleren", "Cancel", "إلغاء"), style: "cancel" },
+        {
+          text: tx(lang, "Verbreken", "End it", "إنهاء"),
+          style: "destructive",
+          onPress: () =>
+            dissolvePartnerMutation.mutate({ partnershipId: currentPartnership.partnershipId }),
+        },
+      ],
+    );
+  }
+
+  // Chip row for switching which spouse this screen shows. Renders nothing
+  // for the overwhelmingly common single-partner case — the screen must
+  // look exactly as it does today when there's no one to choose between.
+  function renderPartnerSelector() {
+    if (!hasMultiplePartners) return null;
+    return (
+      <View
+        style={{
+          paddingHorizontal: 16,
+          marginBottom: 12,
+          flexDirection: isRTL ? "row-reverse" : "row",
+          flexWrap: "wrap",
+          gap: 8,
+        }}
+      >
+        {partners.map((p) => {
+          const isSelected = p.id === selectedPartnerId;
+          const label =
+            p.name ||
+            (p.gender === "man"
+              ? tx(lang, "Man", "Husband", "الزوج")
+              : p.gender === "vrouw"
+                ? tx(lang, "Vrouw", "Wife", "الزوجة")
+                : tx(lang, "Partner", "Partner", "الشريك/ة"));
+          return (
+            <Pressable
+              key={p.partnershipId}
+              onPress={() => setManualPartnerId(p.id)}
+              style={({ pressed }) => [
+                {
+                  backgroundColor: isSelected ? colors.primary : colors.primary + "12",
+                  borderRadius: 20,
+                  paddingHorizontal: 14,
+                  paddingVertical: 8,
+                  opacity: pressed ? 0.8 : 1,
+                },
+              ]}
+            >
+              <Text
+                style={{
+                  color: isSelected ? "#fff" : colors.primary,
+                  fontSize: 12,
+                  fontWeight: "600",
+                }}
+              >
+                {label}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
+  // Destructive "end this partnership" action. Renders nothing until
+  // listPartners has resolved the current partner's partnershipId — so it
+  // silently stays absent (today's behaviour: no such control exists yet)
+  // rather than rendering a button it can't actually wire up.
+  function renderDissolveAction() {
+    if (!currentPartnership) return null;
+    return (
+      <Pressable
+        onPress={confirmDissolvePartnership}
+        disabled={dissolvePartnerMutation.isPending}
+        style={({ pressed }) => [
+          {
+            marginHorizontal: 16,
+            marginTop: 8,
+            marginBottom: 24,
+            alignItems: "center",
+            paddingVertical: 10,
+            opacity: pressed || dissolvePartnerMutation.isPending ? 0.6 : 1,
+          },
+        ]}
+      >
+        <Text style={{ color: colors.error, fontSize: 12, fontWeight: "600" }}>
+          {dissolvePartnerMutation.isPending
+            ? tx(lang, "Bezig...", "Working...", "جارٍ التنفيذ...")
+            : tx(
+                lang,
+                "Verbintenis met deze partner verbreken",
+                "End partnership with this spouse",
+                "إنهاء الشراكة مع هذا الشريك/ة",
+              )}
+        </Text>
+      </Pressable>
+    );
+  }
 
   const translateValue = (v: any, key: string) => {
     if (!v) return "-";
@@ -112,7 +304,7 @@ export default function SpouseProfileScreen() {
       </Text>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 12 }}>
         <Pressable
-          onPress={() => grantAccessMutation.mutate()}
+          onPress={() => grantAccessMutation.mutate(partnerArg)}
           disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
           style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
         >
@@ -121,7 +313,7 @@ export default function SpouseProfileScreen() {
           </Text>
         </Pressable>
         <Pressable
-          onPress={() => revokeAccessMutation.mutate()}
+          onPress={() => revokeAccessMutation.mutate(partnerArg)}
           disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
           style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
@@ -151,6 +343,7 @@ export default function SpouseProfileScreen() {
             <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </Pressable>
         </View>
+        {renderPartnerSelector()}
         {incomingRequestBanner}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
           <MaterialIcons name="lock-outline" size={48} color={colors.muted} />
@@ -219,6 +412,7 @@ export default function SpouseProfileScreen() {
             </Text>
           )}
         </View>
+        {renderDissolveAction()}
       </ScreenContainer>
     );
   }
@@ -226,6 +420,7 @@ export default function SpouseProfileScreen() {
   if (!partnerProfileQuery.data || !pp) {
     return (
       <ScreenContainer edges={["top", "bottom", "left", "right"]} className="p-4">
+        {renderPartnerSelector()}
         {incomingRequestBanner}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
           <MaterialIcons name="person-off" size={48} color={colors.muted} />
@@ -243,6 +438,7 @@ export default function SpouseProfileScreen() {
             <Text style={{ color: "#fff", fontWeight: "600" }}>{tx(lang, "Terug", "Back", "رجوع")}</Text>
           </Pressable>
         </View>
+        {renderDissolveAction()}
       </ScreenContainer>
     );
   }
@@ -283,6 +479,8 @@ export default function SpouseProfileScreen() {
           <View style={{ width: 40 }} />
         </View>
 
+        {renderPartnerSelector()}
+
         {/* Incoming request: partner is asking to view this user's profile */}
         {incomingRequestBanner}
 
@@ -298,7 +496,7 @@ export default function SpouseProfileScreen() {
               )}
             </Text>
             <Pressable
-              onPress={() => revokeAccessMutation.mutate()}
+              onPress={() => revokeAccessMutation.mutate(partnerArg)}
               disabled={revokeAccessMutation.isPending}
               style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
             >
@@ -423,6 +621,8 @@ export default function SpouseProfileScreen() {
             ))}
           </View>
         )}
+
+        {renderDissolveAction()}
       </ScrollView>
     </ScreenContainer>
   );

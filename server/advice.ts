@@ -2718,10 +2718,38 @@ Neem de volledige gezinssituatie integraal mee.`;
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const lang = input.language || ctx.user.language || "nl";
-      // Find the partner
+      // Find the partner. round-9 P2: not migrated to the multi-wife
+      // db.getPartnersOfUser — this endpoint's input (above) has no field
+      // to name WHICH wife the advice is about, so for a husband with 2+
+      // confirmed wives this silently operates on whichever partnership
+      // getPartnerOfUser's own unordered query returns first (the
+      // "primary" one) and stays silent about the others. Not fixed here:
+      // inventing a partner-selection field on this input is an API
+      // contract change (client + this procedure both), not something to
+      // slip in as a side effect of a review-pipeline pass — a follow-up
+      // task once the client has a concrete UI for "get advice about wife
+      // N" (this is the only db.getPartnerOfUser call site left in
+      // server/advice.ts — confirmed by grep; every other "partner"
+      // reference in this file is either a comment or a literal prompt
+      // label, and getSpouseAdviceHistory/markSpouseAdviceRead/
+      // markSpouseAdviceHelpful/getQuickTips resolve no partner at all).
       const partner = await db.getPartnerOfUser(userId);
       if (!partner) {
         return { advice: null, error: "no_partner" };
+      }
+      // VULNERABILITY (item 5) fix: confirmation is required. This is a
+      // DIFFERENT axis from the grant — see the comment further down, near
+      // getRecentDiagnosticSignals, for why this function is deliberately
+      // exempt from the gender/grant gate getPartnerProfile/syncWithPartner
+      // enforce. Confirmation is not exempt: db.getPartnerOfUser's
+      // shared-children legacy fallback can hand back a "partner" whose
+      // partnerships row is still a pending, unconfirmed invite (round-8
+      // P1), and without this check the function below would draw on that
+      // unconfirmed partner's full profileData, dailyCheckins, and
+      // environments before either side ever agreed to the link — closes
+      // the SECOND CAVEAT flagged in daily-diagnostic.ts's own file header.
+      if (!partner.partnershipConfirmed) {
+        return { advice: null, error: "not_confirmed" };
       }
       // Get interaction data for both spouses
       const myInteractions = await db.getSpouseInteractionData(userId, partner.id);
@@ -2861,7 +2889,10 @@ Neem de volledige gezinssituatie integraal mee.`;
       // product owner ruled spouse ADVICE may draw on the partner's data
       // with no permission grant — only direct verbatim reading of the
       // partner's profile (getPartnerProfile/syncWithPartner) requires one.
-      // Do not add a gender/grant check here to "fix" this.
+      // Do not add a gender/grant check here to "fix" this. Confirmation is
+      // a separate axis and IS required — see the partnershipConfirmed
+      // check right after db.getPartnerOfUser, near the top of this
+      // procedure (item 5 fix).
       try {
         const partnerSignals = await db.getRecentDiagnosticSignals(partner.id, 7);
         interactionContext += buildPartnerSignalContext(summarizeSignals(partnerSignals), isAr ? "ar" : isEn ? "en" : "nl");

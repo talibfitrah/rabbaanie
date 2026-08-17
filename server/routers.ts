@@ -1327,14 +1327,30 @@ export const profileRouter = router({
       // differs, so a save that omits parentProfile entirely can't drop
       // the anchor out of the blob, or have a genuine change mistaken for
       // a "never set" first-time set.
+      // profileData is z.any() — this debounced full-blob resync carries
+      // whatever the client's local cache happens to hold, which is not
+      // necessarily a deliberate choice (round-9 P2 fix). Only "man"/
+      // "vrouw" (the same two values setMyGender's own zod enum accepts,
+      // and the only two hasFullPartnerAccess ever branches on) count as a
+      // KNOWN gender; anything else — a stale/mistyped/garbage value the
+      // unvalidated blob happens to carry — must never be treated as a
+      // genuine change. Without this, a non-enum value both (a) revoked a
+      // grant the couple set up deliberately and (b) got force-stamped
+      // into the authoritative users.gender COLUMN below, corrupting it.
+      // A real flip between "man" and "vrouw" still revokes exactly as
+      // before — the exploit this guards against stays closed.
       let genderAccessRevoked = false;
       if (oldUser?.gender && newData && typeof newData === "object") {
         const incomingGender = newData.parentProfile?.gender;
-        if (incomingGender && incomingGender !== oldUser.gender) {
+        const isKnownGender = incomingGender === "man" || incomingGender === "vrouw";
+        if (isKnownGender && incomingGender !== oldUser.gender) {
           await db.revokeProfileAccessGrantsForUser(ctx.user.id);
           genderAccessRevoked = true;
         }
-        newData.parentProfile = { ...(newData.parentProfile || {}), gender: incomingGender || oldUser.gender };
+        newData.parentProfile = {
+          ...(newData.parentProfile || {}),
+          gender: isKnownGender ? incomingGender : oldUser.gender,
+        };
       }
 
       await db.updateUserProfile(ctx.user.id, newData);
@@ -1344,10 +1360,22 @@ export const profileRouter = router({
         await db.updateUserLanguage(ctx.user.id, lang);
       }
 
-      // Send precise notification to partner about what changed
+      // Send precise notification to every affected partner about what
+      // changed. Loops db.getPartnersOfUser rather than the single-partner
+      // db.getPartnerOfUser (round-9 P2 fix): db.revokeProfileAccessGrants-
+      // ForUser above revokes access on EVERY partnership this user is a
+      // party to, so with polygyny a husband's gender change silently
+      // revoked every wife's access while only the primary wife was ever
+      // told. `changes`/`partnerLang` are recomputed per iteration (not
+      // hoisted) because db.tx(partnerLang, ...) bakes in a specific
+      // language at push-time and different wives can have different
+      // preferred languages. Each partner's notification is isolated in
+      // its own try/catch so one partner's failure (e.g. a stale user row)
+      // can't stop the rest from being notified.
       try {
-        const partner = await db.getPartnerOfUser(ctx.user.id);
-        if (partner) {
+        const partners = await db.getPartnersOfUser(ctx.user.id);
+        for (const partner of partners) {
+          try {
           const changes: string[] = [];
           const senderName = ctx.user.name || "Partner";
           const partnerLang = await db.getUserLanguage(partner.id);
@@ -1468,6 +1496,12 @@ export const profileRouter = router({
               content: `${senderName}: ${changes.join(" | ")}`,
             });
           }
+          } catch (perPartnerErr) {
+            console.warn(
+              `[profile.save] Notification failed for partner ${partner.id}:`,
+              perPartnerErr,
+            );
+          }
         }
       } catch (notifyErr) {
         // Non-critical: don't fail the save if notification fails
@@ -1552,7 +1586,19 @@ export const profileRouter = router({
                 // Notify partner and auto-link new child to them
                 try {
                   const partner = await db.getPartnerOfUser(ctx.user.id);
-                  if (partner) {
+                  // VULNERABILITY (item 4) fix: this used to fire on any
+                  // truthy `partner`, including one found via an UNCONFIRMED
+                  // partnership (a pending invite the other side never
+                  // accepted, or the shared-children legacy fallback's
+                  // still-pending row — see PartnerRecord's own doc comment
+                  // in server/db.ts). That handed WRITE access (canEdit:
+                  // true) to a real child to whoever a mistyped/unaccepted
+                  // public ID happened to resolve to — a privilege
+                  // escalation, not just a read leak. Requiring
+                  // partnershipConfirmed here matches the same gate
+                  // getPartnerProfile/syncWithPartner already enforce for
+                  // READING a partner's profile (round-8 P1).
+                  if (partner && partner.partnershipConfirmed) {
                     // Auto-link partner to the new child
                     await db.linkParentToChild({
                       parentId: partner.id,
@@ -1837,6 +1883,46 @@ function resolveGender(
   jsonGender: string | null | undefined,
 ): string {
   return columnGender || jsonGender || "";
+}
+
+/**
+ * Resolve which of the caller's own confirmed partners a grant/revoke
+ * mutation should act on (round-9 P0 fix). grantPartnerProfileAccess and
+ * revokePartnerProfileAccess used to resolve via the single-partner
+ * db.getPartnerOfUser, which returns whichever partnership its own
+ * unordered query happens to return first (see getPartnerOfUser's own doc
+ * comment in server/db.ts). With polygyny, a husband targeting his SECOND
+ * wife's access actually acted on his FIRST wife's row instead — access
+ * handed to (or pulled from) the wrong person. Reuses getPartnerProfile's
+ * own "never trust a raw id, resolve only from the caller's own
+ * getPartnersOfUser list" pattern rather than inventing a second one.
+ *
+ * - No id, 0 partners: null (existing "no partner linked" error path,
+ *   unchanged).
+ * - No id, exactly 1 partner: that partner — byte-for-byte today's
+ *   behavior for the overwhelmingly common case.
+ * - No id, 2+ partners: THROWS. Silently defaulting to "whichever one
+ *   getPartnersOfUser returns first" is exactly the bug being fixed, so
+ *   defaulting is not an option here (unlike getPartnerProfile, a read —
+ *   showing the wrong wife's profile is a UX papercut; granting/revoking
+ *   the wrong wife's ACCESS is a privilege bug). The caller must
+ *   disambiguate.
+ * - An explicit id not among the caller's own confirmed partners: null,
+ *   same fail-closed behavior as getPartnerProfile.
+ */
+async function resolveTargetPartner(callerId: number, partnerId: number | undefined) {
+  const partners = await db.getPartnersOfUser(callerId);
+  if (partnerId !== undefined) {
+    return partners.find((p) => p.id === partnerId) ?? null;
+  }
+  if (partners.length > 1) {
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "Meerdere partners gevonden, geef aan om wie het gaat / Multiple partners found, please specify which one / تم العثور على عدة شركاء، يرجى تحديد المقصود",
+    });
+  }
+  return partners[0] ?? null;
 }
 
 export const linksRouter = router({
@@ -2297,6 +2383,24 @@ export const linksRouter = router({
     }),
 
   /**
+   * Every active, confirmed partnership of the caller (multi-wife
+   * foundation, item 1 + client contract) — a man with 2+ confirmed wives
+   * gets one entry per wife; a woman gets at most one (item 3 enforces this
+   * where partnerships are confirmed). Empty array, never null, when the
+   * caller has no partner.
+   */
+  listPartners: protectedProcedure.query(async ({ ctx }) => {
+    const partners = await db.getPartnersOfUser(ctx.user.id);
+    return partners.map((p) => ({
+      id: p.id,
+      name: p.name,
+      gender: p.gender,
+      partnershipId: p.partnershipId,
+      confirmed: p.partnershipConfirmed,
+    }));
+  }),
+
+  /**
    * Get partner's profile data. Owner-mandated gender gating: a husband
    * reads his wife's full profile unconditionally; a wife reads her
    * husband's full profile only with his active grant — and only once the
@@ -2304,9 +2408,22 @@ export const linksRouter = router({
    * hasFullPartnerAccess). Any other combination (missing/ambiguous/same
    * gender, or an unconfirmed partnership) fails closed to a restricted
    * payload that never serialises the private fields.
+   *
+   * Optional `partnerId` (multi-wife foundation, item 1): omitted, this
+   * behaves exactly as before (the sole/primary partner via
+   * db.getPartnerOfUser) — every existing client keeps working unchanged.
+   * With it, the SAME access rules below apply to that specific partner
+   * instead — but only if partnerId is actually one of the caller's own
+   * active, confirmed partners (db.getPartnersOfUser(ctx.user.id), never
+   * trusting the raw id directly), so a caller can't probe a stranger's
+   * profile by guessing their user id.
    */
-  getPartnerProfile: protectedProcedure.query(async ({ ctx }) => {
-    const partner = await db.getPartnerOfUser(ctx.user.id);
+  getPartnerProfile: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+    const partner = input?.partnerId !== undefined
+      ? ((await db.getPartnersOfUser(ctx.user.id)).find((p) => p.id === input.partnerId) ?? null)
+      : await db.getPartnerOfUser(ctx.user.id);
     if (!partner) return null;
     const profileData = partner.profileData as any;
     const myGender = resolveGender(
@@ -2461,7 +2578,9 @@ export const linksRouter = router({
   }),
 
   /** Husband-only: grant his wife access to his profile. */
-  grantPartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
+  grantPartnerProfileAccess: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
     const myGender = resolveGender(
       (ctx.user as any).gender,
       (ctx.user.profileData as any)?.parentProfile?.gender,
@@ -2473,7 +2592,7 @@ export const linksRouter = router({
           "Alleen de man kan dit toestaan / Only the husband can grant this / يمكن للزوج فقط منح هذا",
       });
     }
-    const partner = await db.getPartnerOfUser(ctx.user.id);
+    const partner = await resolveTargetPartner(ctx.user.id, input?.partnerId);
     if (!partner)
       throw new Error(
         "Geen partner gekoppeld / No linked partner / لا يوجد شريك مرتبط",
@@ -2520,7 +2639,9 @@ export const linksRouter = router({
   }),
 
   /** Husband-only: revoke a previously granted access. Works at any time. */
-  revokePartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
+  revokePartnerProfileAccess: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
     const myGender = resolveGender(
       (ctx.user as any).gender,
       (ctx.user.profileData as any)?.parentProfile?.gender,
@@ -2532,7 +2653,7 @@ export const linksRouter = router({
           "Alleen de man kan dit intrekken / Only the husband can revoke this / يمكن للزوج فقط سحب هذا",
       });
     }
-    const partner = await db.getPartnerOfUser(ctx.user.id);
+    const partner = await resolveTargetPartner(ctx.user.id, input?.partnerId);
     if (!partner)
       throw new Error(
         "Geen partner gekoppeld / No linked partner / لا يوجد شريك مرتبط",
@@ -2819,6 +2940,27 @@ export const linksRouter = router({
         content,
         { type: "progress_share", childName: input.childName },
       ).catch(() => {});
+      return { success: true };
+    }),
+
+  /**
+   * Item 2 + owner's ruling on separation: either spouse can mark
+   * themselves separated, and chooses WHICH partner they separated from —
+   * that's exactly what the required partnershipId does. Authorization
+   * (caller must be a party of that specific partnership) lives in
+   * db.dissolvePartnership's own SQL WHERE clause, not here.
+   */
+  dissolvePartner: protectedProcedure
+    .input(z.object({ partnershipId: z.number() }))
+    .mutation(async ({ ctx, input }) => {
+      const ok = await db.dissolvePartnership(input.partnershipId, ctx.user.id);
+      if (!ok) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Kon partnerschap niet beëindigen / Could not end partnership / تعذر إنهاء الشراكة",
+        });
+      }
       return { success: true };
     }),
 });
