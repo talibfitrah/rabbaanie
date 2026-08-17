@@ -19,6 +19,14 @@ import { join } from "path";
  * through one shared helper all leave the invariant intact and must not fail
  * this test — an earlier version broke on all three, and the tempting fix for
  * that is to loosen the assertion, which removes the guard.
+ *
+ * WHAT THIS DOES NOT CHECK, stated because it already missed one: reachability.
+ * It asserts the refusal is PRESENT somewhere in the call's enclosing block,
+ * not that it sits on the paths that can actually fail. A refusal put in the
+ * wrong catch passed this test while the throw path stayed silent and a
+ * successful sync reported failure — cubic found that, this did not. Verifying
+ * placement lexically needs heuristics brittle enough to cry wolf, and a test
+ * that cries wolf gets loosened. Read the handler when you touch one.
  */
 const APP = join(__dirname, "..", "app");
 const CALL = /sync\w*\.mutate(?:Async)?\(/g;

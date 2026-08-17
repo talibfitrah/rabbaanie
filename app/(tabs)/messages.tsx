@@ -550,12 +550,7 @@ function MessagesScreenInner() {
                       const reports = existing ? JSON.parse(existing) : [];
                       reports.unshift(report);
                       await AsyncStorage.setItem("sync_reports", JSON.stringify(reports.slice(0, 50)));
-                    } catch {
-                  // Was `catch {}`: a rejected mutation produced neither toast
-                  // nor haptic, so the throw path stayed silent even after the
-                  // success:false branch was added.
-                  showToast(syncRefusedMessage(lang), "info");
-                }
+                    } catch {}
                     // Show toast with details
                     if (total > 0) {
                       const parts: string[] = [];
@@ -577,7 +572,13 @@ function MessagesScreenInner() {
                     // unresolvable gender), and there was no branch for it.
                     showToast(syncRefusedMessage(lang), "info");
                   }
-                } catch {}
+                } catch {
+                  // The OUTER catch — the one a rejected mutateAsync reaches.
+                  // Not the inner AsyncStorage catch above: a failed local
+                  // report write follows a sync that DID succeed, and saying
+                  // "could not sync" there reports the wrong outcome.
+                  showToast(syncRefusedMessage(lang), "info");
+                }
               }}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
             >
