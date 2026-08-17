@@ -2246,8 +2246,28 @@ export const linksRouter = router({
           // observations, per access-control.ts — with the first wife never
           // consenting to, or being told of, any of it. Harmless while a man
           // had one wife; a disclosure the moment he has two.
+          // Two discriminators, because neither alone is sufficient:
+          //
+          // - relationship "partner" is written by THIS block, but the main way
+          //   a husband acquires his wife's child is profile.save's auto-link,
+          //   which writes relationship "parent" — byte-identical to a parent's
+          //   own child. Keying on relationship alone left that path wide open.
+          // - createdBy identifies who made the link: your own child is one YOU
+          //   created (parentId === createdBy), while a child another spouse's
+          //   save auto-linked you to carries HER id. But this block's second
+          //   loop writes parentId === createdBy === senderId, so createdBy
+          //   alone would wave those through.
+          //
+          // Together they cover every way a child reaches someone else's
+          // household. An earlier version of this filter, and the test that
+          // was supposed to guard it, both assumed relationship was enough —
+          // so the test passed while the real path leaked.
           const ownChildren = (kids: Awaited<ReturnType<typeof db.getLinkedChildren>>) =>
-            kids.filter((c) => c.link?.relationship !== "partner");
+            kids.filter(
+              (c) =>
+                c.link?.relationship !== "partner" &&
+                c.link?.createdBy === c.link?.parentId,
+            );
           const senderChildren = ownChildren(
             await db.getLinkedChildren(input.senderId),
           );

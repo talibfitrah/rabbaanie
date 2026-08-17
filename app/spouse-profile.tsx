@@ -64,6 +64,14 @@ export default function SpouseProfileScreen() {
   // single-partner user, which the server treats exactly as before.
   const partnerArg =
     selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined;
+  // The banners below render off partnerProfileQuery, which can resolve before
+  // listPartners (or be served from the persisted cache while listPartners is
+  // still in flight). In that window selectedPartnerId is still null, so a
+  // husband with several wives would send no partnerId and the server — which
+  // refuses to guess on a write that hands out access — answers BAD_REQUEST
+  // "Multiple partners found". Disable the controls until the partner list has
+  // actually landed; a single-partner user is unaffected either way.
+  const partnerChoiceReady = listPartnersQuery.isSuccess;
 
   const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
     selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,
@@ -305,7 +313,7 @@ export default function SpouseProfileScreen() {
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 12 }}>
         <Pressable
           onPress={() => grantAccessMutation.mutate(partnerArg)}
-          disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
+          disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
           style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>
@@ -314,7 +322,7 @@ export default function SpouseProfileScreen() {
         </Pressable>
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
-          disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
+          disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
           style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#374151", fontWeight: "600", fontSize: 13 }}>
@@ -344,7 +352,7 @@ export default function SpouseProfileScreen() {
         </Text>
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
-          disabled={revokeAccessMutation.isPending}
+          disabled={!partnerChoiceReady || revokeAccessMutation.isPending}
           style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#166534", fontWeight: "600", fontSize: 12 }}>

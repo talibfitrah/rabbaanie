@@ -2122,11 +2122,26 @@ describe("confirmLink: a second wife must not inherit the first wife's children"
     // Forwarding 200 would give her canEdit over the first wife's child:
     // read, update, delete and observations, per access-control.ts, with the
     // first wife never consenting to or being told of any of it.
+    // The REAL shapes, not the assumed one. An earlier version of this test
+    // fixtured the cross-household child as relationship "partner" — which is
+    // what the filter keyed on — so it passed while the actual leaking path
+    // stayed open: profile.save's auto-link writes relationship "parent",
+    // identical to a parent's own child. The discriminator that does hold is
+    // createdBy: your own child is one YOU created (parentId === createdBy),
+    // whereas a child another spouse's save auto-linked you to carries her id.
     dbMocks.getLinkedChildren.mockImplementation(async (parentId: number) =>
       parentId === 1
         ? [
-            { id: 100, link: { relationship: "parent" } },
-            { id: 200, link: { relationship: "partner" } },
+            // his own child: he created it
+            { id: 100, link: { relationship: "parent", parentId: 1, createdBy: 1 } },
+            // wife #1's child, auto-linked to him by HER profile.save
+            { id: 200, link: { relationship: "parent", parentId: 1, createdBy: 5 } },
+            // and two that came via the confirmLink partner path — the second
+            // loop there writes parentId === createdBy === senderId, so
+            // createdBy alone would wave 400 straight through; only the
+            // relationship half catches it. Both halves are load-bearing.
+            { id: 300, link: { relationship: "partner", parentId: 1, createdBy: 5 } },
+            { id: 400, link: { relationship: "partner", parentId: 1, createdBy: 1 } },
           ]
         : [],
     );
@@ -2140,6 +2155,8 @@ describe("confirmLink: a second wife must not inherit the first wife's children"
       .map((c: any[]) => c[0].childId);
     expect(sharedChildIds).toContain(100);
     expect(sharedChildIds).not.toContain(200);
+    expect(sharedChildIds).not.toContain(300);
+    expect(sharedChildIds).not.toContain(400);
   });
 });
 
