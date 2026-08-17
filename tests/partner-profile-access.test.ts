@@ -1837,108 +1837,76 @@ describe("insertId (mirrors affectedRows' dual-shape reading, round-7 P2 fix)", 
   });
 });
 
-describe("db.getPartnerOfUser: shared-children fallback and insertId() finding no id (round-8 P3; recovery added round-10 P2)", () => {
+describe("db.getPartnerOfUser: the shared-children fallback is a pure READ", () => {
   beforeEach(() => {
-    process.env.DATABASE_URL = "mysql://round8-test-only/db";
+    process.env.DATABASE_URL = "mysql://fallback-test-only/db";
     partnershipDb.insert.mockClear();
     partnershipDb.queue = undefined;
-    // Item 3's new one-husband-constraint checks inside createPartnership
-    // run AFTER this test's 5-entry queue is exhausted, so they fall back to
-    // the shared `.rows` snapshot — reset it explicitly rather than relying
-    // on whatever the previous describe block's last test happened to leave
-    // it as (both of those checks read as "not vrouw" against an empty
-    // array either way, so this is a hermeticity fix, not a behavior one).
     partnershipDb.rows = [];
   });
 
-  it("round-10 P2: recovers the partnership id via a natural-key re-select when insertId() finds none — production Postgres must not silently drop the co-parent link", async () => {
-    // Same 5-select walk as the sibling test below, but `.rows` (what every
-    // post-queue select falls back to: both womanAlreadyHasConfirmedHusband
-    // gender checks AND createPartnership's new re-select) now holds the row
-    // a real re-select would find on Postgres — proving the fallback
-    // recovers a usable id instead of just failing closed.
+  it("surfaces the co-parent without inserting a partnership", async () => {
+    // It used to INSERT here for persistence — first a confirmed row (which
+    // let a read manufacture the gate's own precondition), then a pending one,
+    // which was byte-identical to a deliberate invite and so could be confirmed
+    // later by a confirmLink the other party thought was about a child. The row
+    // bought nothing: every partnershipId mutation requires status='active'.
     partnershipDb.queue = [
-      [],
-      [{ childId: 10, parentId: 1, confirmed: true }],
-      [{ childId: 10, parentId: 2, confirmed: true }],
-      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
-      // The prior-dissolution check this fallback now makes before
-      // auto-creating: empty = never separated, so it proceeds as before.
-      [],
-      // createPartnership's own existing-row check. Explicit rather than
-      // falling through to `.rows`, which this test loads with the row the
-      // natural-key RE-SELECT must find — letting the existing-row check see
-      // it instead would return early and never reach the insert at all.
-      [],
-    ];
-    partnershipDb.rows = [{ id: 777 }];
-    partnershipDb.insert.mockResolvedValueOnce([{}]); // no insertId field (Postgres shape)
-
-    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
-    const result = await real.getPartnerOfUser(1);
-
-    expect(result).not.toBeNull();
-    expect(result?.id).toBe(2);
-    expect(result?.partnershipId).toBe(777);
-    // FALSE since this fallback stopped auto-confirming: sharing a child is
-    // consent to co-parent, not consent to hand over a profile. This test's
-    // subject is the id recovery above — the flag is derived from the row the
-    // re-select returned, which carries no active/confirmed status here.
-    expect(result?.partnershipConfirmed).toBe(false);
-  });
-
-  it("a DISSOLVED partnership is not resurrected by the shared-children fallback — separation survives a read", async () => {
-    // dissolvePartner sets status='dissolved', but createPartnership's own
-    // existing-row check only looks for pending/active, so the dissolved row
-    // was invisible to it and this fallback inserted a fresh active+confirmed
-    // one. listPartners refetches on mount, so ending a partnership that had
-    // shared children was undone the moment either screen reloaded — the
-    // separation could not be made to stick at all.
-    partnershipDb.queue = [
-      [], // path-1: no active+confirmed partnership (it was dissolved)
+      [], // no active+confirmed partnership -> fallback
       [{ childId: 10, parentId: 1, confirmed: true }], // myLinks
       [{ childId: 10, parentId: 2, confirmed: true }], // otherLinks
-      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
-      [{ id: 55 }], // the prior-dissolution check FINDS one
+      [{ id: 2, name: "CoParent", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [], // prior-dissolution check: none
     ];
 
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     const result = await real.getPartnerOfUser(1);
 
-    expect(result).toBeNull();
+    expect(result?.id).toBe(2);
+    expect(result?.partnershipId).toBe(0);
+    expect(result?.partnershipConfirmed).toBe(false);
     expect(partnershipDb.insert).not.toHaveBeenCalled();
   });
 
-  it("still returns null (not a partnershipId: undefined object) in the genuinely exceptional case where the re-select ALSO finds no row", async () => {
-    // Walks getPartnerOfUser's actual select sequence: (1) the
-    // partnerships path-1 check [empty, forcing the fallback], (2)
-    // myLinks, (3) otherLinks, (4) the partner user row, (5)
-    // createPartnership's own existing-row check [empty, forcing its
-    // insert branch] — then an INSERT whose result carries no insertId,
-    // mirroring a Postgres INSERT with no .returning() (see insertId()'s
-    // own doc comment). `.rows` stays empty (this block's beforeEach), so
-    // the re-select this fallback now attempts finds nothing either — this
-    // is the backstop for a true anomaly, not the routine Postgres case
-    // (see the sibling test above for that).
+  it("an explicitly dissolved partnership still suppresses the co-parent entirely", async () => {
     partnershipDb.queue = [
       [],
       [{ childId: 10, parentId: 1, confirmed: true }],
       [{ childId: 10, parentId: 2, confirmed: true }],
-      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
-      [],
+      [{ id: 2, name: "CoParent", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [{ id: 55 }], // a dissolved row exists
     ];
-    partnershipDb.insert.mockResolvedValueOnce([{}]); // no insertId field
-
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
-    const result = await real.getPartnerOfUser(1);
-
-    expect(result).toBeNull();
+    expect(await real.getPartnerOfUser(1)).toBeNull();
+    expect(partnershipDb.insert).not.toHaveBeenCalled();
   });
 });
 
-// ============================================================
-// Multi-wife (polygyny) foundation — db layer (item 1)
-// ============================================================
+describe("db.createPartnership still recovers an id when insertId() finds none (round-10 P2)", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "mysql://create-partnership-test/db";
+    partnershipDb.insert.mockClear();
+    partnershipDb.queue = undefined;
+    partnershipDb.rows = [];
+  });
+
+  it("re-selects by natural key on a driver that returns no insertId", async () => {
+    // Tested directly now that the read-path fallback no longer inserts.
+    // linkPartnerByPublicId still routes through here, and production is a
+    // hand-ported Postgres server where a plain INSERT carries no insertId.
+    partnershipDb.queue = [
+      [], // no existing pending/active row for the pair
+    ];
+    partnershipDb.rows = [{ id: 777 }]; // what the natural-key re-select finds
+    partnershipDb.insert.mockResolvedValueOnce([{}]); // Postgres shape: no insertId
+
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    const created = await real.createPartnership(1, 2, 1, false);
+
+    expect(created?.id).toBe(777);
+  });
+});
+
 describe("db.getPartnersOfUser / db.getPartnerOfUser (item 1 — multi-partner reads)", () => {
   beforeEach(() => {
     process.env.DATABASE_URL = "mysql://item1-test-only/db";
@@ -2303,5 +2271,53 @@ describe("a full profile does not carry another household's synced data", () => 
     expect(result.actionPlans).toEqual([]);
     expect(result.environments).toEqual([]);
     expect(JSON.stringify(result)).not.toContain("wife #1's private issue");
+  });
+});
+
+describe("syncWithPartner does not carry another household's records", () => {
+  it("wife #2 syncing with her husband does not pull in what he synced from wife #1", async () => {
+    // The second read path over the same blob. The merge dedupes on
+    // name/birthDate/id — none of which wife #2 has ever seen — so without a
+    // filter every one of wife #1's records is treated as new and written
+    // into wife #2's own profile.
+    dbMocks.getPartnerOfUser.mockResolvedValue({
+      id: 1,
+      name: "Husband",
+      gender: "man",
+      partnershipId: 55,
+      partnershipConfirmed: true,
+      profileAccessRequestedAt: null,
+      profileAccessGrantedAt: new Date("2026-01-01"),
+      profileData: {
+        parentProfile: { gender: "man" },
+        children: [
+          { id: 10, name: "His own child", birthDate: "2015-01-01" },
+          { id: 11, name: "Wife 1 child", birthDate: "2016-01-01", syncedFromPartner: true },
+        ],
+        issues: [{ id: 2, description: "wife 1 private issue", syncedFromPartner: true }],
+        actionPlans: [{ id: 3, syncedFromPartner: true }],
+        environments: [{ id: 4, childId: 11, syncedFromPartner: true }],
+      },
+    });
+    dbMocks.getUserById.mockResolvedValue({
+      id: 2,
+      profileData: { parentProfile: { gender: "vrouw" }, children: [], issues: [], actionPlans: [], environments: [] },
+    });
+
+    const result: any = await linksRouter
+      .createCaller(ctxFor(2, "vrouw"))
+      .syncWithPartner();
+
+    expect(result.success).toBe(true);
+    // Only his own child crosses over.
+    expect(result.merged.children).toBe(1);
+    expect(result.merged.issues).toBe(0);
+    expect(result.merged.actionPlans).toBe(0);
+    const written = dbMocks.updateUserProfile.mock.calls.at(-1)?.[1];
+    expect(JSON.stringify(written)).not.toContain("Wife 1 child");
+    expect(JSON.stringify(written)).not.toContain("wife 1 private issue");
+    // ...and the echoed-back partnerData is filtered too.
+    expect(JSON.stringify(result.partnerData)).not.toContain("wife 1 private issue");
+    expect(result.partnerData.actionPlans).toEqual([]);
   });
 });

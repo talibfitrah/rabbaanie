@@ -3742,70 +3742,38 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           )
           .limit(1);
         if (priorDissolved.length > 0) continue;
-        // Auto-create partnership record for persistence
-        // confirmed: FALSE. This is a READ auto-creating a partnership, and
-        // `confirmed` is the exact signal hasFullPartnerAccess treats as "both
-        // people consented" — the round-8 fix added it because an unconfirmed
-        // invite was yielding the wife's whole profile while the invite told
-        // her nothing is shared until she confirms. Passing true here let this
-        // path manufacture its own precondition: a man who merely opened the
-        // spouse-profile screen while sharing one confirmed CHILD link with a
-        // woman was handed her full profile — parentProfile, children, issues,
-        // actionPlans, dailyCheckins — with no partnership either of them ever
-        // agreed to. Sharing a child is consent to co-parent, not consent to
-        // hand over a psychological profile.
+        // NO WRITE. This is a query — listPartners and getPartnerProfile are
+        // both called with refetchOnMount:"always" — and it used to INSERT a
+        // partnership here for persistence.
         //
-        // The row is still created, so the relationship stays discoverable and
-        // either party can confirm it through the normal invite flow; until one
-        // of them does, the gate reports restricted. Nothing is deleted and no
-        // existing confirmed partnership is affected.
-        const created = await createPartnership(userId, partnerId, userId, false);
-        if (!created) {
-          // createPartnership returns null/falsy for two different reasons:
-          // its own getDb() came back empty (DB briefly unavailable between
-          // this function's top-level check and here). NOT the one-husband
-          // constraint: this call passes confirmed:false and that check only
-          // runs under `if (confirmed && ...)`, so it cannot fire from here.
-          // Either way this PAIR yields no partner, instead of throwing on
-          // created.id.
-          //
-          // `continue`, not `return []`, and for the same reason the
-          // prior-dissolution check above continues: one blocked pair must not
-          // abandon the remaining children. A man co-parenting child A with a
-          // woman who already has a confirmed husband and child B with an
-          // unattached co-parent was losing the link to BOTH, because the loop
-          // never reached B. A transient getDb() failure had the same
-          // all-or-nothing effect.
-          continue;
-        }
-        if (typeof created.id !== "number") {
-          // round-8 P3 backstop, narrowed by round-10 P2: createPartnership
-          // now re-selects by natural key when insertId() finds nothing
-          // (e.g. a Postgres INSERT with no .returning() — see insertId()'s
-          // own doc comment), so on production this branch should no longer
-          // be the routine path — it only remains reachable if that
-          // re-select ALSO turns up no row (a genuine anomaly: the pair was
-          // deleted between the insert and the re-select, or a driver gives
-          // a still-different empty shape). Skip this pair the same way the
-          // sibling !created check above does, instead of handing back a
-          // partnershipId no mutation could ever act on.
-          continue;
-        }
+        // First it inserted a CONFIRMED one, which let a read manufacture the
+        // very consent hasFullPartnerAccess checks. That was changed to
+        // pending, which closed the direct leak but left a subtler door: the
+        // pending row is byte-identical to a deliberate invite, so
+        // getPendingPartnershipFromSender finds it, and when the co-parent
+        // later taps accept on an unrelated pending CHILD link from the same
+        // person, confirmLink silently confirms the marriage too — cross-
+        // linking every child with canEdit and, if the genders line up,
+        // handing over full profile access. Consent obtained through a door
+        // the other party thought was about a child.
+        //
+        // The row bought nothing to offset that: every mutation that takes a
+        // partnershipId (request/grant/revokePartnerProfileAccess,
+        // dissolvePartnership) requires status='active', which a pending row
+        // never satisfies. So the co-parent is still surfaced here — name,
+        // gender, profile — but with no partnership row and no partnershipId
+        // any mutation can act on, until the two of them link deliberately
+        // through linkPartnerByPublicId. partnershipId 0 is that "there is no
+        // partnership": it matches no row, so every mutation fails closed.
         return [{
           id: partner[0].id,
           name: partner[0].name,
           gender: partner[0].gender,
           profileData: partner[0].profileData,
-          partnershipId: created.id,
-          // createPartnership never promotes an existing row (see its own
-          // comment above) — it can hand back a still-pending invite here,
-          // so this must be derived from the row it actually returned, not
-          // assumed true just because we asked for confirmed=true.
-          partnershipConfirmed:
-            created.status === "active" && created.confirmed === true,
-          profileAccessRequestedAt:
-            (created as any)?.profileAccessRequestedAt ?? null,
-          profileAccessGrantedAt: (created as any)?.profileAccessGrantedAt ?? null,
+          partnershipId: 0,
+          partnershipConfirmed: false,
+          profileAccessRequestedAt: null,
+          profileAccessGrantedAt: null,
         }];
       }
     }

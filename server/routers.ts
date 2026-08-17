@@ -2820,7 +2820,7 @@ export const linksRouter = router({
       ? (myPartners.find((p) => p.id === input.partnerId) ?? null)
       : (myPartners[0] ?? null);
     if (!partner) return { success: false, message: "No partner linked" };
-    const partnerData = partner.profileData as any;
+    let partnerData = partner.profileData as any;
     // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without
     // it, an ungranted wife could tap "sync" and get everything
     // getPartnerProfile withholds merged straight into her own profile.
@@ -2855,6 +2855,25 @@ export const linksRouter = router({
     const myData = myUser?.profileData as any;
     if (!myData || !partnerData)
       return { success: false, message: "No data to sync" };
+
+    // The SECOND read path over this blob, behind the same gate as
+    // getPartnerProfile — and it needs the same filter. Items this partner had
+    // themselves SYNCED from someone else are another household's records: a
+    // husband who syncs with wife A carries A's children, issues and treatment
+    // plans in his own profile, and without this wife B pulls them straight
+    // into hers (the dedupe below matches on name/birthDate/id, none of which
+    // B has ever seen, so every one of them is treated as new). Filtered once
+    // here so both the merge loops and the partnerData echoed back in the
+    // response are covered.
+    const notSyncedFromElsewhere = (rows: any) =>
+      Array.isArray(rows) ? rows.filter((r: any) => !r?.syncedFromPartner) : [];
+    partnerData = {
+      ...partnerData,
+      children: notSyncedFromElsewhere(partnerData.children),
+      environments: notSyncedFromElsewhere(partnerData.environments),
+      issues: notSyncedFromElsewhere(partnerData.issues),
+      actionPlans: notSyncedFromElsewhere(partnerData.actionPlans),
+    };
 
     // Merge children: add partner's children that I don't have
     const myChildren: any[] = myData.children || [];
