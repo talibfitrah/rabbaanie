@@ -1621,7 +1621,14 @@ export default function FamilyScreen() {
   // wives would send no partnerId and syncWithPartner — which refuses to guess
   // on a write — answers success:false, surfacing the generic "could not sync"
   // toast for a sync that would have worked a moment later.
-  const partnerChoiceReady = listPartnersQuery.isSuccess;
+  // !isLoading, NOT isSuccess: on an error (offline, 500) isSuccess never
+  // becomes true, which left these controls permanently inert AND silent —
+  // the exact dead-control defect the rest of this release exists to remove.
+  // If the list failed we simply do not know the partner count, so the tap
+  // goes through and the server decides: a single-partner user syncs as
+  // always, and a multi-partner one gets the refusal toast, which is a real
+  // answer rather than a button that does nothing.
+  const partnerChoiceReady = !listPartnersQuery.isLoading;
   const hasMultiplePartners = partners.length > 1;
   const [manualPartnerId, setManualPartnerId] = useState<number | null>(null);
   // Stays null (today's "let the server pick" default) until there's
@@ -2181,7 +2188,10 @@ export default function FamilyScreen() {
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Pressable
               onPress={() => {
-                if (!partnerChoiceReady) return;
+                if (!partnerChoiceReady) {
+                  showToast(tx(lang, "Even geduld, partnergegevens laden nog.", "One moment, partner details are still loading.", "لحظة من فضلك، ما زالت بيانات الشريك قيد التحميل."), "info");
+                  return;
+                }
                 syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                   onSuccess: async (res: any) => {
                     if (res?.success) {
@@ -3036,7 +3046,10 @@ export default function FamilyScreen() {
                 {/* Sync button */}
                 <Pressable
                   onPress={() => {
-                    if (!partnerChoiceReady) return;
+                    if (!partnerChoiceReady) {
+                      showToast(tx(lang, "Even geduld, partnergegevens laden nog.", "One moment, partner details are still loading.", "لحظة من فضلك، ما زالت بيانات الشريك قيد التحميل."), "info");
+                      return;
+                    }
                     syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                       onSuccess: async (res: any) => {
                         if (res?.success) {

@@ -71,7 +71,14 @@ export default function SpouseProfileScreen() {
   // refuses to guess on a write that hands out access — answers BAD_REQUEST
   // "Multiple partners found". Disable the controls until the partner list has
   // actually landed; a single-partner user is unaffected either way.
-  const partnerChoiceReady = listPartnersQuery.isSuccess;
+  // !isLoading, NOT isSuccess: on an error (offline, 500) isSuccess never
+  // becomes true, which left these controls permanently inert AND silent —
+  // the exact dead-control defect the rest of this release exists to remove.
+  // If the list failed we simply do not know the partner count, so the tap
+  // goes through and the server decides: a single-partner user syncs as
+  // always, and a multi-partner one gets the refusal toast, which is a real
+  // answer rather than a button that does nothing.
+  const partnerChoiceReady = !listPartnersQuery.isLoading;
 
   const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
     selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,

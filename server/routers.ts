@@ -2184,11 +2184,26 @@ export const linksRouter = router({
     )
     .mutation(async ({ ctx, input }) => {
       let changed = 0;
+      // Declared here because the tail reads it: a partnership refusal is
+      // reported rather than thrown whenever the child links succeeded.
+      let partnershipBlocked: "already_has_partner" | "not_found" | undefined;
       if (input.senderId) {
-        // The partnership is settled FIRST, before any child link is written.
-        // Confirming links and then throwing left those writes durable while
-        // the client saw a hard failure — it was told it already had a partner
-        // even though the child links had in fact been confirmed.
+        // Child links are confirmed FIRST, and are never gated on the
+        // partnership: they are two separate consents. Gating them meant a
+        // woman who already has a confirmed husband could NEVER accept a
+        // pending child link from a co-parent — every retry re-threw before
+        // reaching them. Nothing is committed-then-thrown either, because the
+        // throw at the end only fires when nothing at all succeeded.
+        const links = await db.getPendingLinksFromSender(input.senderId);
+        for (const link of links) {
+          try {
+            await assertMayConfirmLink(ctx.user, link.id);
+            await db.confirmParentChildLink(link.id);
+            changed += 1;
+          } catch {
+            // Ignore requests for children the current user does not control.
+          }
+        }
         const partnership = await db.getPendingPartnershipFromSender(
           input.senderId,
           ctx.user.id,
@@ -2211,28 +2226,11 @@ export const linksRouter = router({
             // Someone (or a duplicate tap) already confirmed it. Idempotent
             // success, not an error.
             partnershipConfirmed = true;
-          } else if (!current) {
-            throw new TRPCError({
-              code: "NOT_FOUND",
-              message:
-                "Dit koppelverzoek bestaat niet meer / This link request no longer exists / لم يعد طلب الربط هذا موجودًا",
-            });
           } else {
-            throw new TRPCError({
-              code: "CONFLICT",
-              message:
-                "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
-            });
-          }
-        }
-        const links = await db.getPendingLinksFromSender(input.senderId);
-        for (const link of links) {
-          try {
-            await assertMayConfirmLink(ctx.user, link.id);
-            await db.confirmParentChildLink(link.id);
-            changed += 1;
-          } catch {
-            // Ignore requests for children the current user does not control.
+            // Recorded, not thrown: the child links above may already have
+            // succeeded, and throwing would discard that outcome AND surface
+            // nothing (the client registers no onError).
+            partnershipBlocked = current ? "already_has_partner" : "not_found";
           }
         }
         if (partnership && partnershipConfirmed) {
@@ -2299,13 +2297,27 @@ export const linksRouter = router({
         await db.confirmParentChildLink(input.linkId);
         changed += 1;
       }
+      if (changed === 0 && partnershipBlocked) {
+        // Nothing was committed, so this discards no work — and it is the only
+        // way the caller learns WHY. "Nothing to confirm" would be false here:
+        // the request existed and was deliberately refused.
+        throw new TRPCError({
+          code: partnershipBlocked === "not_found" ? "NOT_FOUND" : "CONFLICT",
+          message:
+            partnershipBlocked === "not_found"
+              ? "Dit koppelverzoek bestaat niet meer / This link request no longer exists / لم يعد طلب الربط هذا موجودًا"
+              : "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
+        });
+      }
       if (changed === 0) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Geen koppelverzoeken om te bevestigen",
         });
       }
-      return { success: true, changed };
+      // Rides along when the child links DID succeed, so a partnership refusal
+      // is still reported rather than silently dropped.
+      return { success: true, changed, partnershipBlocked };
     }),
 
   /** Remove a parent-child link (by linkId or by senderId for bulk reject) */

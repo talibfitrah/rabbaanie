@@ -28,6 +28,7 @@ const dbMocks = vi.hoisted(() => ({
   confirmParentChildLink: vi.fn(),
   getPendingPartnershipFromSender: vi.fn(),
   confirmPartnershipRequest: vi.fn(),
+  getPartnershipById: vi.fn(),
   tx: (lang: string, nl: string, en: string, ar: string) =>
     lang === "ar" ? ar : lang === "en" ? en : nl,
 }));
@@ -2336,5 +2337,49 @@ describe("syncWithPartner does not carry another household's records", () => {
     // ...and the echoed-back partnerData is filtered too.
     expect(JSON.stringify(result.partnerData)).not.toContain("wife 1 private issue");
     expect(result.partnerData.actionPlans).toEqual([]);
+  });
+});
+
+describe("confirmLink: a partnership refusal must not block child links", () => {
+  beforeEach(() => {
+    dbMocks.getPendingLinksFromSender.mockResolvedValue([{ id: 77 }]);
+    dbMocks.confirmParentChildLink.mockResolvedValue(undefined);
+    dbMocks.getPendingPartnershipFromSender.mockResolvedValue({ id: 55 });
+    // Refused: she already has a confirmed husband.
+    dbMocks.confirmPartnershipRequest.mockResolvedValue(false);
+    dbMocks.getPartnershipById.mockResolvedValue({ id: 55, status: "pending", confirmed: false });
+    dbMocks.getLinkedChildren.mockResolvedValue([]);
+    dbMocks.linkParentToChild.mockResolvedValue(undefined);
+    dbMocks.confirmParentChildLink.mockClear();
+  });
+
+  it("still reaches the child-link path when the partnership is refused", async () => {
+    // Settling the partnership first and throwing on refusal meant a woman who
+    // already has a confirmed husband could never accept a pending CHILD link
+    // from a co-parent — every retry re-threw BEFORE the links were even
+    // looked up. That lookup being reached is the invariant; whether each
+    // individual link then passes assertMayConfirmLink (real, unmocked here)
+    // is a separate concern this test deliberately does not assert.
+    await linksRouter
+      .createCaller(ctxFor(2, "vrouw"))
+      .confirmLink({ senderId: 1 })
+      .catch(() => {});
+
+    expect(dbMocks.getPendingLinksFromSender).toHaveBeenCalledWith(1);
+    // The ordering IS the invariant: the child links must be looked up and
+    // confirmed BEFORE the partnership is settled, so a partnership refusal
+    // can never short-circuit them.
+    const linksAt = dbMocks.getPendingLinksFromSender.mock.invocationCallOrder[0];
+    const partnershipAt = dbMocks.confirmPartnershipRequest.mock.invocationCallOrder[0];
+    expect(linksAt).toBeLessThan(partnershipAt);
+  });
+
+  it("still throws when the refusal is the ONLY thing that happened", async () => {
+    // Nothing committed, so the throw discards no work — and it is the only
+    // way the caller learns why.
+    dbMocks.getPendingLinksFromSender.mockResolvedValue([]);
+    await expect(
+      linksRouter.createCaller(ctxFor(2, "vrouw")).confirmLink({ senderId: 1 }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
   });
 });

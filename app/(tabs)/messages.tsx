@@ -982,7 +982,14 @@ function ParentsSection({
                 "أدخل رقم هوية شريكك أو امسح رمز QR."
               )}
             </Text>
-            {userGender === "vrouw" && <SpouseVisibilityNotice />}
+            {/* Shown unless the user is KNOWN to be a man. userGender defaults
+                to "man" when the local JSON copy is empty, which is exactly the
+                legacy case resolveGender exists to handle server-side — a wife
+                whose gender lives only in the users.gender column would never
+                have seen this owner-mandated disclosure before writing her
+                profile. Failing open costs a man an irrelevant notice; failing
+                closed costs a woman the disclosure itself. */}
+            {userGender !== "man" && <SpouseVisibilityNotice />}
             <View style={{ gap: 8 }}>
               <TextInput
                 value={partnerIdInput}
