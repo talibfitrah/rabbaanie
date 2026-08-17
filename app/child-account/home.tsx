@@ -206,8 +206,9 @@ const FITNA_WARNINGS: Record<
   },
 };
 
-// Salaf stories (trilingual)
-const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
+// Salaf stories (trilingual). Exported so tests can assert real content
+// instead of grepping source.
+export const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
   ar: [
     {
       title: "عمر بن الخطاب في شبابه",
@@ -217,7 +218,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     {
       title: "أسامة بن زيد - قائد الجيش وهو شاب",
       story:
-        "أمّر النبي ﷺ أسامة بن زيد على جيش فيه أبو بكر وعمر وهو ابن 18 سنة.",
+        "أمّر النبي ﷺ أسامة بن زيد قائدًا على جيش وهو ابن 16 سنة، وكان عمر بن الخطاب من جنوده.",
     },
     {
       title: "فاطمة الزهراء - قدوة البنات",
@@ -226,7 +227,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     },
     {
       title: "أسماء بنت أبي بكر - ذات النطاقين",
-      story: "حملت الطعام للنبي ﷺ وأبيها في الهجرة وهي حامل. شجاعة وإيمان.",
+      story: "حملت الطعام للنبي ﷺ وأبيها في الهجرة. شجاعة وإيمان.",
     },
   ],
   nl: [
@@ -238,7 +239,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     {
       title: "Usaamah ibn Zayd - legerleider als jongere",
       story:
-        "De Profeet ﷺ stelde Usaamah aan als leider van een leger met Abu Bakr en 'Umar erin, op 18-jarige leeftijd.",
+        "De Profeet ﷺ stelde Usaamah aan als leider van een leger toen hij 16 jaar oud was; 'Umar ibn al-Khattaab was een van zijn soldaten.",
     },
     {
       title: "Faatimah az-Zahraa - rolmodel voor meisjes",
@@ -248,7 +249,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     {
       title: "Asmaa bint Abi Bakr - Dhaat an-Nitaaqayn",
       story:
-        "Zij droeg voedsel naar de Profeet ﷺ en haar vader tijdens de hijrah terwijl ze zwanger was. Moed en imaan.",
+        "Zij droeg voedsel naar de Profeet ﷺ en haar vader tijdens de hijrah. Moed en imaan.",
     },
   ],
   en: [
@@ -260,7 +261,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     {
       title: "Usaamah ibn Zayd - army leader as a youth",
       story:
-        "The Prophet ﷺ appointed Usaamah as leader of an army with Abu Bakr and 'Umar in it, at age 18.",
+        "The Prophet ﷺ appointed Usaamah as leader of an army when he was 16 years old; 'Umar ibn al-Khattaab was one of his soldiers.",
     },
     {
       title: "Faatimah az-Zahraa - role model for girls",
@@ -270,7 +271,7 @@ const SALAF_STORIES: Record<string, { title: string; story: string }[]> = {
     {
       title: "Asmaa bint Abi Bakr - Dhaat an-Nitaaqayn",
       story:
-        "She carried food to the Prophet ﷺ and her father during hijrah while pregnant. Courage and faith.",
+        "She carried food to the Prophet ﷺ and her father during hijrah. Courage and faith.",
     },
   ],
 };

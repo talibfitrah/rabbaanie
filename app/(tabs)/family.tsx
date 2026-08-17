@@ -152,7 +152,8 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-function getParentDayInfo(
+// Exported so tests can assert real evidence-text output instead of grepping source.
+export function getParentDayInfo(
   hijriMonth: number,
   hijriDay: number,
   dayOfWeek: number,
@@ -500,9 +501,9 @@ function getParentDayInfo(
       ),
       evidence: tx(
         lang,
-        "«Qad abdala-kumaa Allaahu khayran: yawm al-Adhaa wa yawm al-Fitr» — Abu Daawoed",
-        "«Qad abdala-kumaa Allaahu khayran: yawm al-Adhaa wa yawm al-Fitr» — Abu Daawoed",
-        "«قد أبدلكما الله خيرًا: يوم الأضحى ويوم الفطر» — أبو داود",
+        "«Qad abdalakum Allaahu bihimaa khayran minhumaa: yawm al-Fitr wa yawm al-Adhaa» — Nasaa'i & Ahmad",
+        "«Qad abdalakum Allaahu bihimaa khayran minhumaa: yawm al-Fitr wa yawm al-Adhaa» — Nasaa'i & Ahmad",
+        "«قد أبدلكم الله بهما خيرا منهما: يوم الفطر ويوم الأضحى» — النسائي وأحمد",
       ),
       fasting: "prohibited",
       parentAction: tx(
@@ -567,9 +568,9 @@ function getParentDayInfo(
       ),
       evidence: tx(
         lang,
-        "«Maa min ayyaamin al-'amalu as-saalihu ahabbu ilaa Allaah min haadhihi al-'ashr» — Bukhaari",
-        "«Maa min ayyaamin al-'amalu as-saalihu ahabbu ilaa Allaah min haadhihi al-'ashr» — Bukhaari",
-        "«ما من أيام العمل الصالح أحب إلى الله من هذه العشر» — البخاري",
+        "«Maa min ayyaamin al-'amalu as-saalihu feehinna ahabbu ilaa Allaah min haadhihi al-ayyaam al-'ashr» — Tirmidhi",
+        "«Maa min ayyaamin al-'amalu as-saalihu feehinna ahabbu ilaa Allaah min haadhihi al-ayyaam al-'ashr» — Tirmidhi",
+        "«ما من أيام العمل الصالح فيهن أحب إلى الله من هذه الأيام العشر» — الترمذي",
       ),
       fasting: "recommended",
       parentAction: tx(
@@ -859,9 +860,9 @@ function getParentDayInfo(
       ),
       evidence: tx(
         lang,
-        "«Shahrun mubaarakun farada Allaahu 'alaykum siyaamahu» — Nasaa'i",
-        "«Shahrun mubaarakun farada Allaahu 'alaykum siyaamahu» — Nasaa'i",
-        "«شهر مبارك فرض الله عليكم صيامه» — النسائي",
+        "«Shahrun mubaarakun farada Allaahu 'alaykum siyaamahu» — Bayhaqi",
+        "«Shahrun mubaarakun farada Allaahu 'alaykum siyaamahu» — Bayhaqi",
+        "«شهر مبارك فرض الله عليكم صيامه» — البيهقي",
       ),
       parentAction: tx(
         lang,

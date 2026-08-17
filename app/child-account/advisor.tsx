@@ -7,8 +7,9 @@ import { useI18n } from "@/lib/i18n";
 
 type Message = { id: string; role: "user" | "advisor"; text: string };
 
-// Trilingual advisor responses
-const RESPONSES: Record<string, Record<string, string[]>> = {
+// Trilingual advisor responses. Exported so tests can assert real content
+// instead of grepping source.
+export const RESPONSES: Record<string, Record<string, string[]>> = {
   default: {
     ar: ["أحسنت أنك تسأل. قال النبي ﷺ: \"من سلك طريقاً يلتمس فيه علماً سهّل الله له به طريقاً إلى الجنة\"", "تذكّر أن الله يحبك ويريد لك الخير. استعن بالله ولا تعجز.", "هل تريد أن نتحدث أكثر عن هذا الموضوع؟"],
     nl: ["Goed dat je vraagt. De Profeet ﷺ zei: \"Wie een pad bewandelt op zoek naar kennis, Allaah maakt voor hem een pad naar het Paradijs\"", "Onthoud dat Allaah van je houdt en het goede voor je wil.", "Wil je hier meer over praten?"],
@@ -25,14 +26,14 @@ const RESPONSES: Record<string, Record<string, string[]>> = {
     en: ["The phone is a tool - it can be a blessing or a curse. Use it for good.", "Tip: set a time limit and stick to it. Open a Qur'aan app first.", "If you find yourself spending too much time, replace it with a useful activity."],
   },
   friends: {
-    ar: ["قال النبي ﷺ: \"المرء على دين خليله فلينظر أحدكم من يخالل\"", "الصديق الصالح يعينك على طاعة الله.", "إذا كان أصدقاؤك يفعلون أشياء خاطئة، انصحهم بلطف. وإن لم يستجيبوا، ابتعد عنهم."],
+    ar: ["قال النبي ﷺ: \"الرجل على دين خليله فلينظر أحدكم من يخالل\"", "الصديق الصالح يعينك على طاعة الله.", "إذا كان أصدقاؤك يفعلون أشياء خاطئة، انصحهم بلطف. وإن لم يستجيبوا، ابتعد عنهم."],
     nl: ["De Profeet ﷺ zei: \"Een persoon volgt de religie van zijn vriend, dus laat ieder van jullie kijken wie hij bevriend\"", "Een goede vriend helpt je bij gehoorzaamheid aan Allaah.", "Als je vrienden verkeerde dingen doen, adviseer ze vriendelijk. Als ze niet luisteren, neem afstand."],
     en: ["The Prophet ﷺ said: \"A person follows the religion of his friend, so let each of you look at whom he befriends\"", "A good friend helps you obey Allaah.", "If your friends do wrong things, advise them kindly. If they don't listen, distance yourself."],
   },
   prayer: {
-    ar: ["الصلاة عمود الدين. من حافظ عليها فقد أقام الدين.", "نصيحة: صلِّ في أول الوقت. واجعل لنفسك مكاناً هادئاً للصلاة.", "إذا فاتتك صلاة، اقضها فوراً واستغفر الله."],
-    nl: ["Het gebed is de pilaar van de religie. Wie het bewaart, heeft de religie opgericht.", "Tip: bid aan het begin van de tijd. Maak een rustige plek voor je gebed.", "Als je een gebed mist, haal het direct in en vraag Allaah om vergiffenis."],
-    en: ["Prayer is the pillar of the religion. Whoever maintains it has established the religion.", "Tip: pray at the beginning of the time. Make a quiet place for your prayer.", "If you miss a prayer, make it up immediately and seek Allaah's forgiveness."],
+    ar: ["قال النبي ﷺ: \"رأس الأمر الإسلام، وعموده الصلاة، وذروة سنامه الجهاد\"", "نصيحة: صلِّ في أول الوقت. واجعل لنفسك مكاناً هادئاً للصلاة.", "إذا فاتتك صلاة، اقضها فوراً واستغفر الله."],
+    nl: ["De Profeet ﷺ zei: \"Het hoofd van de zaak is de Islam, de pilaar ervan is het gebed, en de top van zijn bult is de jihaad\"", "Tip: bid aan het begin van de tijd. Maak een rustige plek voor je gebed.", "Als je een gebed mist, haal het direct in en vraag Allaah om vergiffenis."],
+    en: ["The Prophet ﷺ said: \"The head of the matter is Islam, its pillar is prayer, and the peak of its hump is jihaad\"", "Tip: pray at the beginning of the time. Make a quiet place for your prayer.", "If you miss a prayer, make it up immediately and seek Allaah's forgiveness."],
   },
 };
 

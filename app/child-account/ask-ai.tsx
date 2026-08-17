@@ -24,6 +24,28 @@ interface Message {
   content: string;
 }
 
+// Decides which conversationId the next message should use, minting one via
+// createConversation when none exists yet. Exported so tests can drive this
+// real orchestration -- including against the real server procedure -- instead
+// of grepping the source for it. Swallows a createConversation failure so the
+// caller falls back to sendMessage's own error handling rather than throwing
+// mid-send.
+export async function resolveConversationId(
+  currentId: number | null,
+  childAccountId: number,
+  createConversation: (input: {
+    childAccountId: number;
+  }) => Promise<{ id?: number }>,
+): Promise<number | null> {
+  if (currentId) return currentId;
+  try {
+    const created = await createConversation({ childAccountId });
+    return created.id ?? null;
+  } catch {
+    return null;
+  }
+}
+
 export default function ChildAskAIScreen() {
   const colors = useColors();
   const router = useRouter();
@@ -53,12 +75,19 @@ export default function ChildAskAIScreen() {
   const textAlign = isRTL ? ("right" as const) : ("left" as const);
   const flexDir = isRTL ? ("row-reverse" as const) : ("row" as const);
 
+  // Mints a real conversation row before the first message. Without this,
+  // every sendMessage call used to carry conversationId 0 -- a row that can
+  // never exist -- so the server's ownership guard rejected it before ever
+  // reaching the LLM or the database, and nothing was ever saved.
+  const createConversationMutation = trpc.childAiChat.createConversation.useMutation();
+
   const sendMutation = trpc.childAiChat.sendMessage.useMutation({
     onSuccess: (data: any) => {
-      if (data.conversationId) setConversationId(data.conversationId);
+      // The procedure returns { response, messageCount } -- not "reply", and
+      // not a conversationId (the caller already knows which id it sent).
       setMessages((prev) => [
         ...prev,
-        { role: "assistant", content: data.reply },
+        { role: "assistant", content: data.response },
       ]);
       setIsLoading(false);
       setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
@@ -78,7 +107,7 @@ export default function ChildAskAIScreen() {
     },
   });
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!input.trim() || isLoading) return;
     const userMsg = input.trim();
     setInput("");
@@ -86,10 +115,19 @@ export default function ChildAskAIScreen() {
     setIsLoading(true);
     setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
+    const activeConversationId = await resolveConversationId(
+      conversationId,
+      accountId,
+      createConversationMutation.mutateAsync,
+    );
+    if (activeConversationId && activeConversationId !== conversationId) {
+      setConversationId(activeConversationId);
+    }
+
     sendMutation.mutate({
       childAccountId: accountId,
       message: userMsg,
-      conversationId: conversationId || 0,
+      conversationId: activeConversationId || 0,
       childAge:
         typeof ageGroup === "string" ? parseInt(ageGroup) || 0 : ageGroup || 0,
       childGender: gender === "female" ? "meisje" : "jongen",
