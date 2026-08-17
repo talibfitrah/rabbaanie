@@ -1433,10 +1433,37 @@ function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; la
   const [handled, setHandled] = useState(false);
   const [action, setAction] = useState<"accepted" | "rejected" | null>(null);
   const confirmMutation = trpc.links.confirmLink.useMutation({
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       setHandled(true);
       setAction("accepted");
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // The child links succeeded, but the partnership half was refused. The
+      // server reports that rather than throwing, precisely so this outcome is
+      // not lost — reporting only "accepted" would leave the person believing
+      // they are now linked as partners when they are not.
+      if (res?.partnershipBlocked) {
+        Alert.alert(
+          tx(lang, "Gedeeltelijk bevestigd", "Partly confirmed", "تم التأكيد جزئيًا"),
+          res.partnershipBlocked === "not_found"
+            ? tx(lang,
+                "De kinderkoppeling is bevestigd, maar het partnerverzoek bestaat niet meer.",
+                "The child link was confirmed, but the partner request no longer exists.",
+                "تم تأكيد ارتباط الطفل، لكن طلب الشريك لم يعد موجودًا.")
+            : tx(lang,
+                "De kinderkoppeling is bevestigd. Het partnerverzoek niet: een van u beiden heeft al een bevestigde partner.",
+                "The child link was confirmed. The partner request was not: one of you already has a confirmed partner.",
+                "تم تأكيد ارتباط الطفل. أما طلب الشريك فلا: أحدكما لديه شريك مؤكَّد بالفعل."),
+        );
+      }
+    },
+    // Without this a thrown CONFLICT/NOT_FOUND — the case where NOTHING could
+    // be confirmed — showed the user nothing at all.
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(lang, "Kon het verzoek niet bevestigen.", "Could not confirm the request.", "تعذّر تأكيد الطلب."),
+      );
     },
   });
   const removeMutation = trpc.links.removeLink.useMutation({

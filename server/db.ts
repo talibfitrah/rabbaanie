@@ -3907,6 +3907,13 @@ export async function createPartnership(
   // poses no risk here and is never blocked by this.
   if (
     confirmed &&
+    // Currently unreachable: the only caller left passes confirmed:false
+    // (linkPartnerByPublicId), since the shared-children fallback stopped
+    // writing. Kept deliberately rather than deleted as dead code — it is a
+    // backstop on an invariant, and the cost is one unexecuted branch, while
+    // removing it would let a future confirmed:true caller activate a second
+    // husband with nothing to stop it. confirmPartnershipRequest carries the
+    // same check for the path that IS live.
     ((await womanAlreadyHasConfirmedHusband(userId1)) ||
       (await womanAlreadyHasConfirmedHusband(userId2)))
   ) {

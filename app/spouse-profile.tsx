@@ -330,7 +330,7 @@ export default function SpouseProfileScreen() {
         <Pressable
           onPress={() => grantAccessMutation.mutate(partnerArg)}
           disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
+          style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: !partnerChoiceReady || pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>
             {tx(lang, "Toestaan", "Allow", "السماح")}
@@ -339,7 +339,7 @@ export default function SpouseProfileScreen() {
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
           disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
+          style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: !partnerChoiceReady || pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#374151", fontWeight: "600", fontSize: 13 }}>
             {tx(lang, "Weigeren", "Decline", "رفض")}
@@ -369,7 +369,7 @@ export default function SpouseProfileScreen() {
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
           disabled={!partnerChoiceReady || revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
+          style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: !partnerChoiceReady || pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#166534", fontWeight: "600", fontSize: 12 }}>
             {tx(lang, "Intrekken", "Revoke", "سحب")}
