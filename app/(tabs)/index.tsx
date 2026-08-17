@@ -173,7 +173,12 @@ export default function AlgemeenScreen() {
           setSyncResult(msg);
         }
       } else {
-        const msg = tx(lang, "Geen partner gekoppeld", "No partner linked", "لا يوجد شريك مرتبط");
+        // This branch predates the access gate and named the only cause there
+        // used to be. success:false now also means the husband has not granted
+        // access, or the partnership is unconfirmed, so telling a wife with a
+        // linked, confirmed husband "no partner linked" contradicts what the
+        // partner screens tell her and sends her to fix the wrong thing.
+        const msg = tx(lang, "Synchroniseren is niet gelukt", "Could not sync", "تعذّرت المزامنة");
         showToast(msg, "error");
         setSyncResult(msg);
       }

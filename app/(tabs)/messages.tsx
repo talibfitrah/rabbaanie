@@ -562,8 +562,15 @@ function MessagesScreenInner() {
                     } else {
                       showToast(lang === "ar" ? "\u0643\u0644 \u0634\u064a\u0621 \u0645\u062d\u062f\u0651\u062b" : lang === "en" ? "Everything is up-to-date" : "Alles is up-to-date", "info");
                     }
+                    // Inside the success branch now. It fired unconditionally,
+                    // so a refusal buzzed "success" and showed nothing at all.
+                    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } else {
+                    // The access gate returns success:false where this used to
+                    // succeed (ungated wife, unconfirmed partnership,
+                    // unresolvable gender), and there was no branch for it.
+                    showToast(lang === "ar" ? "\u062a\u0639\u0630\u0651\u0631\u062a \u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629" : lang === "en" ? "Could not sync" : "Synchroniseren is niet gelukt", "info");
                   }
-                  if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
                 } catch {}
               }}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
