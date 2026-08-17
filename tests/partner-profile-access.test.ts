@@ -28,6 +28,11 @@ const dbMocks = vi.hoisted(() => ({
   getSpouseInteractionData: vi.fn(),
   getRecentDiagnosticSignals: vi.fn(),
   createSpouseAdvice: vi.fn(),
+  // confirmLink's partnership branch — see the "second wife" describe below.
+  getPendingLinksFromSender: vi.fn(),
+  confirmParentChildLink: vi.fn(),
+  getPendingPartnershipFromSender: vi.fn(),
+  confirmPartnershipRequest: vi.fn(),
   tx: (lang: string, nl: string, en: string, ar: string) =>
     lang === "ar" ? ar : lang === "en" ? en : nl,
 }));
@@ -194,6 +199,17 @@ beforeEach(() => {
   dbMocks.sendMessage.mockResolvedValue(1);
   dbMocks.sendLocalizedPush.mockResolvedValue(true);
   dbMocks.getUserLanguage.mockResolvedValue("nl");
+  // In server/db.ts the two accessors are ONE query: getPartnerOfUser is
+  // literally getPartnersOfUser(id)[0]. Mocking the module wholesale severs
+  // that, so a test setting only getPartnerOfUser would leave getPartnersOfUser
+  // returning undefined — and any code consulting the list (syncWithPartner's
+  // ambiguity refusal) would see something that cannot occur in production.
+  // Derive one from the other so "I mocked a single partner" means exactly
+  // that on both. Tests that set getPartnersOfUser explicitly override this.
+  dbMocks.getPartnersOfUser.mockImplementation(async () => {
+    const primary = await dbMocks.getPartnerOfUser();
+    return primary ? [primary] : [];
+  });
 });
 
 describe("links.getPartnerProfile gender gating", () => {
@@ -1590,6 +1606,196 @@ describe("SECURITY: a gender change revokes every profile-access grant it's part
     expect(dbMocks.revokeProfileAccessGrantsForUser).not.toHaveBeenCalled();
   });
 
+  it("a legacy row whose gender lives only in the JSON copy still revokes on a change", async () => {
+    // Pre-migration-0012 rows can carry users.gender NULL with
+    // profileData.parentProfile.gender set — resolveGender's own doc names the
+    // case, and every authorization here (getPartnerProfile, syncWithPartner,
+    // request/grantPartnerProfileAccess) resolves through it, so those rows CAN
+    // hold and grant access. The revocation protecting those same
+    // authorizations was anchored on the column alone, so for exactly these
+    // rows a gender flip was invisible to it: grant as "man", save "vrouw",
+    // keep the grant. Column stays the preferred anchor (the JSON copy is
+    // erasable by save({profileData:{}})); the JSON is consulted only when the
+    // column has nothing to say.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const partnership = {
+      requestedAt: null as Date | null,
+      grantedAt: new Date("2026-01-01") as Date | null,
+    };
+    dbMocks.getPartnerOfUser.mockImplementation(async () => ({
+      id: 2,
+      name: "Wife",
+      profileData: {},
+      partnershipId: 55,
+      profileAccessRequestedAt: partnership.requestedAt,
+      profileAccessGrantedAt: partnership.grantedAt,
+    }));
+    dbMocks.revokeProfileAccessGrantsForUser.mockImplementation(async () => {
+      partnership.grantedAt = null;
+      partnership.requestedAt = null;
+    });
+
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "vrouw" } } });
+
+    expect(dbMocks.revokeProfileAccessGrantsForUser).toHaveBeenCalledWith(1);
+    expect(partnership.grantedAt).toBeNull();
+  });
+
+  it("a legacy row re-saving the SAME gender is not a change — no revoke, and the JSON anchor survives", async () => {
+    // The merge case: the revocation compares against resolveGender's result,
+    // not the raw column. On a legacy NULL-column row the two only diverge
+    // here — a no-op re-save of "man" reads as "man" !== null against the
+    // column and would revoke a grant the couple set up deliberately. The
+    // same divergence decides the re-stamp: falling back to the column would
+    // write null and drop the anchor the block exists to protect.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    dbMocks.getPartnerOfUser.mockImplementation(async () => ({
+      id: 2,
+      name: "Wife",
+      profileData: {},
+      partnershipId: 55,
+      profileAccessRequestedAt: null,
+      profileAccessGrantedAt: new Date("2026-01-01"),
+    }));
+
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "man" } } });
+
+    expect(dbMocks.revokeProfileAccessGrantsForUser).not.toHaveBeenCalled();
+    expect(husband.profileData.parentProfile.gender).toBe("man");
+  });
+
+  it("a non-object profileData save cannot erase a legacy JSON-only gender anchor", async () => {
+    // profileData is z.any(), so null reaches updateUserProfile, which
+    // REPLACES the column wholesale. On a legacy row (users.gender NULL,
+    // gender only in the JSON) that erased the anchor from both places at
+    // once; the NEXT save then read as a first-ever gender, so no revocation
+    // fired and the grant issued while she was "man" survived the flip back.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter.createCaller(ctx).save({ profileData: null });
+
+    // The anchor survived the wipe...
+    expect(husband.profileData?.parentProfile?.gender).toBe("man");
+    // ...so the flip that follows is still seen as a change and revokes.
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "vrouw" } } });
+    expect(dbMocks.revokeProfileAccessGrantsForUser).toHaveBeenCalledWith(1);
+  });
+
+  it("a FIRST-EVER gender save is validated too — garbage never reaches the authoritative column", async () => {
+    // The known-gender check used to sit inside `if (oldGender && ...)`, so a
+    // user with no gender anywhere skipped it entirely and updateUserProfile
+    // stamped whatever arrived into users.gender. A cached "male" then locks
+    // the account out for good: hasFullPartnerAccess branches only on
+    // man/vrouw, setMyGender refuses because a gender is now on record, and
+    // the gender buttons never render because needsMyGender is !myGender.
+    const fresh = wireStatefulUserRow({ id: 1, gender: null, profileData: {} });
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: { id: fresh.id, name: "New", language: "nl", gender: null, profileData: {} } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "male" } } });
+
+    // The invariant is that nothing unknown is retained anywhere, not which
+    // particular empty value represents "no gender" (resolveGender yields "").
+    expect(fresh.gender).toBeNull();
+    expect(fresh.profileData.parentProfile?.gender).toBeFalsy();
+
+    // A valid first-ever gender still lands normally.
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "man" } } });
+    expect(fresh.gender).toBe("man");
+  });
+
+  it("garbage arriving on a legacy NULL-column row re-stamps the resolved gender, so revocation stays alive afterwards", async () => {
+    // Where the two guards meet. Falling back to the raw column here writes
+    // null into the blob, and the anchor is then gone from BOTH places: the
+    // next save's `if (oldGender && ...)` sees nothing, and this user's
+    // revocation is dead permanently — silently, on a save they never made
+    // deliberately.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "unknown" } } });
+
+    expect(dbMocks.revokeProfileAccessGrantsForUser).not.toHaveBeenCalled();
+    expect(husband.profileData.parentProfile.gender).toBe("man");
+
+    // The anchor survived, so a genuine flip afterwards still revokes.
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "vrouw" } } });
+    expect(dbMocks.revokeProfileAccessGrantsForUser).toHaveBeenCalledWith(1);
+  });
+
   it("a stale/garbage gender value (not 'man' or 'vrouw') is not a known value — no revoke, no column corruption (round-9 P2 fix)", async () => {
     // profileData is z.any(): a debounced full-blob resync from AsyncStorage
     // carries whatever the client's local cache happens to hold, not
@@ -2002,6 +2208,13 @@ describe("db.getPartnerOfUser: shared-children fallback and insertId() finding n
       [{ childId: 10, parentId: 1, confirmed: true }],
       [{ childId: 10, parentId: 2, confirmed: true }],
       [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
+      // The prior-dissolution check this fallback now makes before
+      // auto-creating: empty = never separated, so it proceeds as before.
+      [],
+      // createPartnership's own existing-row check. Explicit rather than
+      // falling through to `.rows`, which this test loads with the row the
+      // natural-key RE-SELECT must find — letting the existing-row check see
+      // it instead would return early and never reach the insert at all.
       [],
     ];
     partnershipDb.rows = [{ id: 777 }];
@@ -2014,6 +2227,28 @@ describe("db.getPartnerOfUser: shared-children fallback and insertId() finding n
     expect(result?.id).toBe(2);
     expect(result?.partnershipId).toBe(777);
     expect(result?.partnershipConfirmed).toBe(true);
+  });
+
+  it("a DISSOLVED partnership is not resurrected by the shared-children fallback — separation survives a read", async () => {
+    // dissolvePartner sets status='dissolved', but createPartnership's own
+    // existing-row check only looks for pending/active, so the dissolved row
+    // was invisible to it and this fallback inserted a fresh active+confirmed
+    // one. listPartners refetches on mount, so ending a partnership that had
+    // shared children was undone the moment either screen reloaded — the
+    // separation could not be made to stick at all.
+    partnershipDb.queue = [
+      [], // path-1: no active+confirmed partnership (it was dissolved)
+      [{ childId: 10, parentId: 1, confirmed: true }], // myLinks
+      [{ childId: 10, parentId: 2, confirmed: true }], // otherLinks
+      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [{ id: 55 }], // the prior-dissolution check FINDS one
+    ];
+
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    const result = await real.getPartnerOfUser(1);
+
+    expect(result).toBeNull();
+    expect(partnershipDb.insert).not.toHaveBeenCalled();
   });
 
   it("still returns null (not a partnershipId: undefined object) in the genuinely exceptional case where the re-select ALSO finds no row", async () => {
@@ -2369,5 +2604,100 @@ describe("db.confirmPartnershipRequest / db.rejectPartnershipRequest — Postgre
     const result = await real.rejectPartnershipRequest(55, 1);
 
     expect(result).toBe(false);
+  });
+});
+
+describe("confirmLink: a second wife must not inherit the first wife's children", () => {
+  beforeEach(() => {
+    dbMocks.getPendingLinksFromSender.mockResolvedValue([]);
+    dbMocks.confirmParentChildLink.mockResolvedValue(undefined);
+    dbMocks.getPendingPartnershipFromSender.mockResolvedValue({ id: 55 });
+    dbMocks.confirmPartnershipRequest.mockResolvedValue(true);
+    dbMocks.linkParentToChild.mockClear();
+    dbMocks.linkParentToChild.mockResolvedValue(undefined);
+  });
+
+  it("shares only the husband's OWN children, not ones he holds via another partner", async () => {
+    // H (id 1) is linked to child 100 as a parent in his own right, and to
+    // child 200 only through his FIRST wife (relationship "partner" — the
+    // link this same block writes). W2 (id 3) now confirms his invitation.
+    // Forwarding 200 would give her canEdit over the first wife's child:
+    // read, update, delete and observations, per access-control.ts, with the
+    // first wife never consenting to or being told of any of it.
+    dbMocks.getLinkedChildren.mockImplementation(async (parentId: number) =>
+      parentId === 1
+        ? [
+            { id: 100, link: { relationship: "parent" } },
+            { id: 200, link: { relationship: "partner" } },
+          ]
+        : [],
+    );
+
+    await linksRouter
+      .createCaller(ctxFor(3, "vrouw", "Second wife"))
+      .confirmLink({ senderId: 1 });
+
+    const sharedChildIds = dbMocks.linkParentToChild.mock.calls
+      .filter((c: any[]) => c[0].parentId === 3)
+      .map((c: any[]) => c[0].childId);
+    expect(sharedChildIds).toContain(100);
+    expect(sharedChildIds).not.toContain(200);
+  });
+});
+
+describe("syncWithPartner refuses to guess which wife when there are several", () => {
+  it("no partnerId + 2 confirmed partners = refused, nothing merged", async () => {
+    // Only family.tsx has a selector to pass an id. The Home tab, the Messages
+    // tab and app-context's silent auto-sync have none, and defaulting merged
+    // whichever partnership came back first — writing wife #1's household into
+    // his own profile, which wife #2 then reads once he grants her access.
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, gender: "vrouw", partnershipId: 56 }),
+    ]);
+    // Everything else set up so the sync WOULD succeed. Without this the call
+    // bails at "No data to sync" and the test passes with the guard removed —
+    // it did exactly that once, which is why the message is asserted below
+    // rather than just `success === false`.
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner();
+
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/multiple partners/i);
+    expect(dbMocks.updateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it("naming the partner explicitly still syncs, and a single-partner user is unaffected", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, gender: "vrouw", partnershipId: 56 }),
+    ]);
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const named: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner({ partnerId: 3 });
+    expect(named.success).toBe(true);
+
+    vi.clearAllMocks();
+    dbMocks.getUserLanguage.mockResolvedValue("nl");
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const solo: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner();
+    expect(solo.success).toBe(true);
   });
 });

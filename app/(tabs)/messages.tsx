@@ -36,6 +36,7 @@ import { DatePicker } from "@/components/date-picker";
 import { SpouseVisibilityNotice } from "@/components/form-field";
 import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
+import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -538,7 +539,13 @@ function MessagesScreenInner() {
                 try {
                   const result = await syncMut.mutateAsync();
                   if (result?.success) {
-                    await rehydrateFromServer();
+                    // Own catch, for the same reason the AsyncStorage write
+                    // below has one: this runs AFTER a sync that succeeded, so
+                    // letting a throw reach the outer catch would report
+                    // "could not sync" for a merge the server already did.
+                    try {
+                      await rehydrateFromServer();
+                    } catch {}
                     // Save sync report
                     const m = result.merged;
                     const total = (m?.children || 0) + (m?.environments || 0) + (m?.issues || 0) + (m?.actionPlans || 0);
@@ -562,9 +569,22 @@ function MessagesScreenInner() {
                     } else {
                       showToast(lang === "ar" ? "\u0643\u0644 \u0634\u064a\u0621 \u0645\u062d\u062f\u0651\u062b" : lang === "en" ? "Everything is up-to-date" : "Alles is up-to-date", "info");
                     }
+                    // Inside the success branch now. It fired unconditionally,
+                    // so a refusal buzzed "success" and showed nothing at all.
+                    if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+                  } else {
+                    // The access gate returns success:false where this used to
+                    // succeed (ungated wife, unconfirmed partnership,
+                    // unresolvable gender), and there was no branch for it.
+                    showToast(syncRefusedMessage(lang), "info");
                   }
-                  if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-                } catch {}
+                } catch {
+                  // The OUTER catch — the one a rejected mutateAsync reaches.
+                  // Not the inner AsyncStorage catch above: a failed local
+                  // report write follows a sync that DID succeed, and saying
+                  // "could not sync" there reports the wrong outcome.
+                  showToast(syncRefusedMessage(lang), "info");
+                }
               }}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}
             >

@@ -31,6 +31,7 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { authedFetch } from "@/lib/authed-fetch";
 import { translateProfileValue } from "@/lib/profile-labels";
 import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
+import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { isFullPartnerProfile } from "@/lib/partner-types";
 import type { PartnerListEntry } from "@/lib/partner-types";
 
@@ -2162,7 +2163,7 @@ export default function FamilyScreen() {
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Pressable
               onPress={() => {
-                syncMutation.mutate(undefined, {
+                syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                   onSuccess: async (res: any) => {
                     if (res?.success) {
                       const m = res.merged;
@@ -2242,8 +2243,22 @@ export default function FamilyScreen() {
                           "info",
                         );
                       }
+                    } else {
+                      // The access gate makes syncWithPartner return
+                      // success:false where it used to succeed (ungated wife,
+                      // unconfirmed partnership, unresolvable gender). Without
+                      // this branch that lands in the same silence as success
+                      // and the button reads as dead — the defect fe9cf3a fixed
+                      // on Subscribe. ponytail: one wording for every refusal;
+                      // res.message is English-only, and the specific
+                      // permission state already has a home on spouse-profile.
+                      showToast(syncRefusedMessage(lang), "info");
                     }
                   },
+                  // A thrown mutation — transport, auth, a server rejection —
+                  // never reaches onSuccess at all, so the success:false branch
+                  // above does not cover it and the button is silent again.
+                  onError: () => showToast(syncRefusedMessage(lang), "info"),
                 });
               }}
               style={({ pressed }) => [
@@ -3002,7 +3017,7 @@ export default function FamilyScreen() {
                 {/* Sync button */}
                 <Pressable
                   onPress={() => {
-                    syncMutation.mutate(undefined, {
+                    syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                       onSuccess: async (res: any) => {
                         if (res?.success) {
                           const m = res.merged;
@@ -3084,8 +3099,12 @@ export default function FamilyScreen() {
                               "info",
                             );
                           }
+                        } else {
+                          // Second sync button, same refusal path as above.
+                          showToast(syncRefusedMessage(lang), "info");
                         }
                       },
+                      onError: () => showToast(syncRefusedMessage(lang), "info"),
                     });
                   }}
                   style={({ pressed }) => [

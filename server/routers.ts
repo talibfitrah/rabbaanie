@@ -1356,7 +1356,7 @@ export const profileRouter = router({
       // Detect what changed for precise notifications
       const oldUser = await db.getUserById(ctx.user.id);
       const oldData = (oldUser?.profileData as any) || {};
-      const newData = input.profileData;
+      let newData = input.profileData;
 
       // Gender drives an authorization decision (hasFullPartnerAccess): a
       // husband reads his wife's full profile unconditionally; a wife
@@ -1395,29 +1395,69 @@ export const profileRouter = router({
       // differs, so a save that omits parentProfile entirely can't drop
       // the anchor out of the blob, or have a genuine change mistaken for
       // a "never set" first-time set.
-      // profileData is z.any() — this debounced full-blob resync carries
-      // whatever the client's local cache happens to hold, which is not
-      // necessarily a deliberate choice (round-9 P2 fix). Only "man"/
-      // "vrouw" (the same two values setMyGender's own zod enum accepts,
-      // and the only two hasFullPartnerAccess ever branches on) count as a
-      // KNOWN gender; anything else — a stale/mistyped/garbage value the
-      // unvalidated blob happens to carry — must never be treated as a
-      // genuine change. Without this, a non-enum value both (a) revoked a
-      // grant the couple set up deliberately and (b) got force-stamped
-      // into the authoritative users.gender COLUMN below, corrupting it.
-      // A real flip between "man" and "vrouw" still revokes exactly as
-      // before — the exploit this guards against stays closed.
+      //
+      // Resolved through resolveGender rather than read off the column
+      // directly, because the column is not the only place a gender can
+      // legitimately live. A pre-migration-0012 row can have users.gender NULL
+      // with the JSON copy set, and resolveGender is what every authorization
+      // this revocation protects already uses — getPartnerProfile,
+      // syncWithPartner, requestPartnerProfileAccess, grantPartnerProfileAccess
+      // (see resolveGender). Anchored on the column alone, those exact rows
+      // could grant as "man" and then save "vrouw" with no revocation firing:
+      // the guard could not see a gender the authorization had just honoured.
+      // The column still wins whenever it holds anything, so the erasability
+      // argument above is untouched; the JSON is consulted only when the column
+      // has nothing to say, and the re-stamp below then repairs the anchor.
+      //
+      // The INCOMING side is validated separately: profileData is z.any(), and
+      // this debounced full-blob resync carries whatever the client's local
+      // cache happens to hold, which is not necessarily a deliberate choice
+      // (round-9 P2 fix). Only "man"/"vrouw" (the same two values setMyGender's
+      // own zod enum accepts, and the only two hasFullPartnerAccess ever
+      // branches on) count as a KNOWN gender; anything else — a
+      // stale/mistyped/garbage value the unvalidated blob happens to carry —
+      // must never be treated as a genuine change. Without this, a non-enum
+      // value both (a) revoked a grant the couple set up deliberately and
+      // (b) got force-stamped into the authoritative users.gender COLUMN below,
+      // corrupting it. A real flip between "man" and "vrouw" still revokes
+      // exactly as before — the exploit this guards against stays closed.
       let genderAccessRevoked = false;
-      if (oldUser?.gender && newData && typeof newData === "object") {
+      const oldGender = resolveGender(
+        oldUser?.gender,
+        (oldUser?.profileData as any)?.parentProfile?.gender,
+      );
+      // Runs on a FIRST-EVER gender too (oldGender falsy, but the save carries
+      // a parentProfile): updateUserProfile stamps parentProfile.gender into
+      // the authoritative users.gender column unconditionally, so gating the
+      // known-gender check on oldGender let the very first save write anything
+      // — and a column holding e.g. "male" locks the account out permanently,
+      // since setMyGender then refuses to correct what is already on record.
+      // Still skipped when there is neither an old gender nor an incoming
+      // parentProfile, so a save that touches neither cannot grow the key.
+      // profileData is z.any(), so null (or a string, or a number) reaches
+      // updateUserProfile, which REPLACES the column wholesale. On a legacy row
+      // whose gender lives only in the JSON copy that erased the anchor from
+      // both places at once, and the NEXT save then read as a first-ever gender
+      // — no revocation, so a grant issued while "man" survived the flip back
+      // to "vrouw". Normalised to the same shape a `{}` save already took, so
+      // the re-stamp below is what preserves it, exactly as for `{}`.
+      if (oldGender && (!newData || typeof newData !== "object")) {
+        newData = {};
+      }
+      if (newData && typeof newData === "object" && (oldGender || newData.parentProfile)) {
         const incomingGender = newData.parentProfile?.gender;
         const isKnownGender = incomingGender === "man" || incomingGender === "vrouw";
-        if (isKnownGender && incomingGender !== oldUser.gender) {
+        if (oldGender && isKnownGender && incomingGender !== oldGender) {
           await db.revokeProfileAccessGrantsForUser(ctx.user.id);
           genderAccessRevoked = true;
         }
+        // Falls back to oldGender, not oldUser.gender: on a legacy NULL-column
+        // row the column has nothing to re-stamp, and stamping undefined would
+        // drop the anchor out of the blob entirely — the erasure this whole
+        // block exists to prevent.
         newData.parentProfile = {
           ...(newData.parentProfile || {}),
-          gender: isKnownGender ? incomingGender : oldUser.gender,
+          gender: isKnownGender ? incomingGender : oldGender,
         };
       }
 
@@ -2237,14 +2277,43 @@ export const linksRouter = router({
           input.senderId,
           ctx.user.id,
         );
-        if (
-          partnership &&
-          (await db.confirmPartnershipRequest(partnership.id, ctx.user.id))
-        ) {
+        // Split from the confirm below rather than &&-ed with it: since the
+        // one-husband constraint landed, a `false` here means "refused", not
+        // "there was nothing to confirm", and collapsing the two left the
+        // refusal with no user-visible path at all. A woman who already has a
+        // confirmed husband was told either that the link succeeded (whenever
+        // the same sender also sent child-link requests, so changed > 0) or
+        // that there were no requests to confirm — while the row sat pending
+        // forever and she had no way to learn why.
+        const partnershipConfirmed = partnership
+          ? await db.confirmPartnershipRequest(partnership.id, ctx.user.id)
+          : false;
+        if (partnership && !partnershipConfirmed) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
+          });
+        }
+        if (partnership && partnershipConfirmed) {
           // Both people have now consented. Only at this point share their
           // currently confirmed children in both directions.
-          const senderChildren = await db.getLinkedChildren(input.senderId);
-          const recipientChildren = await db.getLinkedChildren(ctx.user.id);
+          //
+          // Own children only. A child held via a "partner" link came from a
+          // DIFFERENT spouse's household (that is the relationship this very
+          // block writes), and forwarding it on would hand a second wife
+          // canEdit over the FIRST wife's child — read, update, delete and
+          // observations, per access-control.ts — with the first wife never
+          // consenting to, or being told of, any of it. Harmless while a man
+          // had one wife; a disclosure the moment he has two.
+          const ownChildren = (kids: Awaited<ReturnType<typeof db.getLinkedChildren>>) =>
+            kids.filter((c) => c.link?.relationship !== "partner");
+          const senderChildren = ownChildren(
+            await db.getLinkedChildren(input.senderId),
+          );
+          const recipientChildren = ownChildren(
+            await db.getLinkedChildren(ctx.user.id),
+          );
           for (const child of senderChildren) {
             await db.linkParentToChild({
               parentId: ctx.user.id,
@@ -2785,29 +2854,36 @@ export const linksRouter = router({
   }),
 
   /** Full sync: pull all partner data and merge with local (called explicitly by user) */
+  // Takes the same optional partnerId as getPartnerProfile, resolved the same
+  // way. Without it this merged whichever partnership the unordered query
+  // returned first (see getPartnerOfUser), so a husband who selected his
+  // second wife and tapped sync wrote his FIRST wife's children/issues/plans
+  // into his own profile — a write, reported as success, naming counts from a
+  // household he never chose. getSpouseAdvice's per-wife gap is deferred
+  // because scoping it is an API change; this one is a write, so it is not.
   syncWithPartner: protectedProcedure
     .input(z.object({ partnerId: z.number().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
-    // Polygyny (item 1 review pass): mirrors getPartnerProfile's optional-
-    // partnerId shape, resolved only from the caller's own
-    // getPartnersOfUser list (never a raw id — same "never trust a raw id"
-    // rule getPartnerProfile follows). Unlike grantPartnerProfileAccess/
-    // revokePartnerProfileAccess's resolveTargetPartner, ambiguity (2+
-    // confirmed partners, no partnerId) does NOT throw here — it returns
-    // success:false like every other early-out below. Deliberate, not an
-    // oversight: this procedure has an existing, documented never-throw
-    // contract (see the comment further down) because app-context.tsx calls
-    // it silently in the background on app open, so a thrown error here
-    // would be a regression this pass must not introduce.
-    const partners = await db.getPartnersOfUser(ctx.user.id);
-    let partner: (typeof partners)[number] | null;
-    if (input?.partnerId !== undefined) {
-      partner = partners.find((p) => p.id === input.partnerId) ?? null;
-    } else if (partners.length > 1) {
-      return { success: false, message: "Multiple partners linked, specify partnerId" };
-    } else {
-      partner = partners[0] ?? null;
+    const myPartners = await db.getPartnersOfUser(ctx.user.id);
+    // Ambiguity is refused, not guessed. Only family.tsx has a partner
+    // selector to pass an id; the Home tab, the Messages tab and
+    // app-context's silent auto-sync on app open have none, and left to
+    // default they merged whichever partnership the unordered query returned
+    // first — writing wife #1's children/issues/plans into a husband's own
+    // profile and reporting counts from a household he never chose. That copy
+    // then leaks: once he grants wife #2 access, she reads it.
+    //
+    // Refused as success:false rather than a throw, matching the access gate
+    // below: every client call site already branches on .success and shows the
+    // refusal toast (tests/sync-refusal-visible.test.ts guards that), whereas a
+    // throw would surprise the background sync. A user with 0 or 1 partners is
+    // completely unaffected.
+    if (input?.partnerId === undefined && myPartners.length > 1) {
+      return { success: false, message: "Multiple partners linked, specify which one" };
     }
+    const partner = input?.partnerId !== undefined
+      ? (myPartners.find((p) => p.id === input.partnerId) ?? null)
+      : (myPartners[0] ?? null);
     if (!partner) return { success: false, message: "No partner linked" };
     const partnerData = partner.profileData as any;
     // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without

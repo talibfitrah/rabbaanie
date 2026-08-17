@@ -325,6 +325,35 @@ export default function SpouseProfileScreen() {
     </View>
   ) : null;
 
+  // Hoisted above the early returns for the same reason incomingRequestBanner
+  // is: this is the ONLY revoke affordance in the app. Left inline in the full
+  // branch, a husband whose wife never filled her parentProfile fell into the
+  // "no profile found" return, and a husband whose own view is restricted fell
+  // into that return — both with no way to withdraw an access he had granted,
+  // even though the server ships grantedToPartner in those payloads too.
+  const grantedRevokeBanner =
+    data?.grantedToPartner && !data?.incomingRequestPending ? (
+      <View style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: "#F0FDF4", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#86EFAC", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+        <Text style={{ fontSize: 12, color: "#166534", flex: 1, textAlign: isRTL ? "right" : "left" }}>
+          {tx(
+            lang,
+            `${partnerName} heeft toegang tot uw profiel.`,
+            `${partnerName} has access to your profile.`,
+            `لدى ${partnerName} إذن للاطلاع على ملفك الشخصي.`,
+          )}
+        </Text>
+        <Pressable
+          onPress={() => revokeAccessMutation.mutate(partnerArg)}
+          disabled={revokeAccessMutation.isPending}
+          style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
+        >
+          <Text style={{ color: "#166534", fontWeight: "600", fontSize: 12 }}>
+            {tx(lang, "Intrekken", "Revoke", "سحب")}
+          </Text>
+        </Pressable>
+      </View>
+    ) : null;
+
   if (partnerProfileQuery.isLoading) {
     return (
       <ScreenContainer edges={["top", "bottom", "left", "right"]} className="p-4">
@@ -345,6 +374,7 @@ export default function SpouseProfileScreen() {
         </View>
         {renderPartnerSelector()}
         {incomingRequestBanner}
+        {grantedRevokeBanner}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
           <MaterialIcons name="lock-outline" size={48} color={colors.muted} />
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: "center", marginTop: 12 }}>
@@ -432,6 +462,7 @@ export default function SpouseProfileScreen() {
       <ScreenContainer edges={["top", "bottom", "left", "right"]} className="p-4">
         {renderPartnerSelector()}
         {incomingRequestBanner}
+        {grantedRevokeBanner}
         <View style={{ flex: 1, justifyContent: "center", alignItems: "center", paddingHorizontal: 20 }}>
           <MaterialIcons name="person-off" size={48} color={colors.muted} />
           <Text style={{ fontSize: 16, color: colors.muted, textAlign: "center", marginTop: 12 }}>
@@ -493,29 +524,7 @@ export default function SpouseProfileScreen() {
 
         {/* Incoming request: partner is asking to view this user's profile */}
         {incomingRequestBanner}
-
-        {/* Already granted: offer revoke */}
-        {data?.grantedToPartner && !data?.incomingRequestPending && (
-          <View style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: "#F0FDF4", borderRadius: 14, padding: 16, borderWidth: 1, borderColor: "#86EFAC", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
-            <Text style={{ fontSize: 12, color: "#166534", flex: 1, textAlign: isRTL ? "right" : "left" }}>
-              {tx(
-                lang,
-                `${partnerName} heeft toegang tot uw profiel.`,
-                `${partnerName} has access to your profile.`,
-                `لدى ${partnerName} إذن للاطلاع على ملفك الشخصي.`,
-              )}
-            </Text>
-            <Pressable
-              onPress={() => revokeAccessMutation.mutate(partnerArg)}
-              disabled={revokeAccessMutation.isPending}
-              style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
-            >
-              <Text style={{ color: "#166534", fontWeight: "600", fontSize: 12 }}>
-                {tx(lang, "Intrekken", "Revoke", "سحب")}
-              </Text>
-            </Pressable>
-          </View>
-        )}
+        {grantedRevokeBanner}
 
         {/* Partner name card */}
         <View style={{ marginHorizontal: 16, marginBottom: 16, backgroundColor: "#FFF0F5", borderRadius: 14, padding: 16, alignItems: "center", borderWidth: 1, borderColor: "#F9A8D4" }}>

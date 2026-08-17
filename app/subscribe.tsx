@@ -30,6 +30,13 @@ export default function SubscribeScreen() {
   const [coupon, setCoupon] = useState("");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState("");
+  // Not the shared `msg` below: that renders once under the coupon block, ~60
+  // lines of JSX past the Subscribe button, so a refusal reported there is off
+  // screen at the moment of the press and the button reads as dead (seen on a
+  // real device, Play internal-testing build). Beside the button it also stays
+  // visible across a retry, which scrolling to that footer would not: React
+  // bails on setting the identical string, so a second press would move nothing.
+  const [purchaseRefusal, setPurchaseRefusal] = useState("");
   // Required subscriber info (msg 636)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -226,6 +233,11 @@ export default function SubscribeScreen() {
   }
 
   async function saveInfo() {
+    // Saving the details is the fix for whatever the purchase refused them for,
+    // so its verdict replaces that refusal rather than sitting under it — the
+    // alternative is "saved ✓" in the footer above a stale complaint about the
+    // same fields, still beside the Subscribe button.
+    setPurchaseRefusal("");
     if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
     if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
     setBusy(true); setMsg("");
@@ -426,6 +438,16 @@ export default function SubscribeScreen() {
               </TouchableOpacity>
             </View>
 
+            {/* Between Save above and the coupon field below, the two things
+                that report here. At the foot of the screen it sat ~110 lines of
+                JSX past the Redeem button once the coupon moved up, so a refused
+                code was reported off screen and Redeem read as dead — the defect
+                fe9cf3a fixed for the purchase path, reintroduced on this one.
+                Outside the !subscribed block on purpose: a successful redeem
+                flips that flag, which would unmount the very message announcing
+                it. */}
+            {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
+
             {/* Subscribe + coupon — only when not subscribed */}
             {!status?.subscribed && (
               <>
@@ -481,9 +503,17 @@ export default function SubscribeScreen() {
                           play.purchase() was never reached, so no re-verification
                           ever happened. Their money is already with Google; the
                           details are not what is missing. */}
-                      <TouchableOpacity onPress={async () => { if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved.ok) { setMsg(saved.message || L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
+                      <TouchableOpacity onPress={async () => { setPurchaseRefusal(""); setMsg(""); if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setPurchaseRefusal(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved.ok) { setPurchaseRefusal(saved.message || L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
                         {play.busy || busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
                       </TouchableOpacity>
+                      {/* Beside the button that produced it. Same red as the
+                          post-purchase errors below, so a refusal before the
+                          purchase starts and one after it look alike. */}
+                      {!!purchaseRefusal && (
+                        <Text style={{ fontSize: 12.5, color: "#B3261E", marginTop: 10, textAlign: align, lineHeight: 19 }}>
+                          {purchaseRefusal}
+                        </Text>
+                      )}
                       {/* Play requires the renewal terms to be visible before
                           purchase, and users must be told where to cancel. */}
                       <Text style={{ fontSize: 11.5, color: colors.muted, marginTop: 10, textAlign: align, lineHeight: 18 }}>
@@ -500,8 +530,13 @@ export default function SubscribeScreen() {
                       {play.loading
                         ? L3("جارٍ تحميل خيارات الاشتراك…", "Abonnementsopties laden…", "Loading subscription options…")
                         : play.error === "unavailable"
-                          ? L3("تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أدناه.", "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hieronder.", "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it below.")
-                          : L3("الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أدناه.", "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hieronder.", "In-app subscribing isn't available here right now. If you have a code, redeem it below.")}
+                          /* "above", not "below": the coupon field moved to the
+                             top of this screen. These two notices fire exactly
+                             when Play billing is unavailable, so the code box
+                             they point at is the only way in — sending the user
+                             the wrong way here costs them the purchase. */
+                          ? L3("تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.", "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.", "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it above.")
+                          : L3("الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أعلاه.", "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hierboven.", "In-app subscribing isn't available here right now. If you have a code, redeem it above.")}
                     </Text>
                   )}
                   {["verify_failed", "purchase_failed", "purchase_pending", "purchase_foreign", "verify_gone"].includes(play.error || "") ? (
@@ -536,7 +571,6 @@ export default function SubscribeScreen() {
             )}
           </>
         )}
-        {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
       </ScrollView>
     </View>
   );

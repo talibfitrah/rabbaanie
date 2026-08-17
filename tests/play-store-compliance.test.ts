@@ -352,10 +352,16 @@ describe("payment channel separation", () => {
     // POST there strands the user whose network is the reason verification
     // failed in the first place. Anything else reaching play.purchase() without
     // the details is the bug this test exists for.
-    const press = subscribeSrc.slice(
-      subscribeSrc.indexOf("onPress={async () => { if (play.error !== "),
-      subscribeSrc.indexOf("play.purchase(); }}"),
-    );
+    // Anchored from the call outwards, not on the handler's opening characters.
+    // Pinning "onPress={async () => { if (play.error !== " meant any statement
+    // added before that `if` silently emptied this slice, and every assertion
+    // below then passed against "" — the guard reporting success having checked
+    // nothing. Found when a refusal message was routed to a different state.
+    const pressEnd = subscribeSrc.indexOf("play.purchase(); }}");
+    expect(pressEnd, "play.purchase() call moved - anchor is stale").toBeGreaterThan(-1);
+    const pressStart = subscribeSrc.lastIndexOf("onPress={async () =>", pressEnd);
+    expect(pressStart, "no onPress handler encloses play.purchase()").toBeGreaterThan(-1);
+    const press = subscribeSrc.slice(pressStart, pressEnd);
     expect(press.length).toBeGreaterThan(0);
     // Inside the guarded block: a failed POST must return, never fall through.
     // persistInfo returns { ok, message } rather than a bare boolean, so that
