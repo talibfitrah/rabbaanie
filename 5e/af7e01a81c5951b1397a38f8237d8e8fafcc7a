@@ -1,0 +1,23 @@
+app/(tabs)/index.tsx
+  s_6e45a795419267::t_f5e9d4544c3b4a 176-181
+tests/sync-refusal-visible.test.ts
+  s_6e45a795419267::t_ca3a60e4a4de6d 1-56
+app/(tabs)/messages.tsx
+  s_6e45a795419267::t_cce670f15072e1 565-572
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5eaf7e01a81c5951b1397a38f8237d8e8fafcc7a",
+  "prompts": {},
+  "sessions": {
+    "s_6e45a795419267": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "894776a6-4c51-438f-a809-c0273351f6d5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
