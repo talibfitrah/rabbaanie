@@ -1288,7 +1288,7 @@ export const profileRouter = router({
       // Detect what changed for precise notifications
       const oldUser = await db.getUserById(ctx.user.id);
       const oldData = (oldUser?.profileData as any) || {};
-      const newData = input.profileData;
+      let newData = input.profileData;
 
       // Gender drives an authorization decision (hasFullPartnerAccess): a
       // husband reads his wife's full profile unconditionally; a wife
@@ -1366,6 +1366,16 @@ export const profileRouter = router({
       // since setMyGender then refuses to correct what is already on record.
       // Still skipped when there is neither an old gender nor an incoming
       // parentProfile, so a save that touches neither cannot grow the key.
+      // profileData is z.any(), so null (or a string, or a number) reaches
+      // updateUserProfile, which REPLACES the column wholesale. On a legacy row
+      // whose gender lives only in the JSON copy that erased the anchor from
+      // both places at once, and the NEXT save then read as a first-ever gender
+      // — no revocation, so a grant issued while "man" survived the flip back
+      // to "vrouw". Normalised to the same shape a `{}` save already took, so
+      // the re-stamp below is what preserves it, exactly as for `{}`.
+      if (oldGender && (!newData || typeof newData !== "object")) {
+        newData = {};
+      }
       if (newData && typeof newData === "object" && (oldGender || newData.parentProfile)) {
         const incomingGender = newData.parentProfile?.gender;
         const isKnownGender = incomingGender === "man" || incomingGender === "vrouw";

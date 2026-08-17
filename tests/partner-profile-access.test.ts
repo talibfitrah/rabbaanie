@@ -1336,6 +1336,39 @@ describe("SECURITY: a gender change revokes every profile-access grant it's part
     expect(husband.profileData.parentProfile.gender).toBe("man");
   });
 
+  it("a non-object profileData save cannot erase a legacy JSON-only gender anchor", async () => {
+    // profileData is z.any(), so null reaches updateUserProfile, which
+    // REPLACES the column wholesale. On a legacy row (users.gender NULL,
+    // gender only in the JSON) that erased the anchor from both places at
+    // once; the NEXT save then read as a first-ever gender, so no revocation
+    // fired and the grant issued while she was "man" survived the flip back.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter.createCaller(ctx).save({ profileData: null });
+
+    // The anchor survived the wipe...
+    expect(husband.profileData?.parentProfile?.gender).toBe("man");
+    // ...so the flip that follows is still seen as a change and revokes.
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "vrouw" } } });
+    expect(dbMocks.revokeProfileAccessGrantsForUser).toHaveBeenCalledWith(1);
+  });
+
   it("a FIRST-EVER gender save is validated too — garbage never reaches the authoritative column", async () => {
     // The known-gender check used to sit inside `if (oldGender && ...)`, so a
     // user with no gender anywhere skipped it entirely and updateUserProfile
@@ -1813,6 +1846,13 @@ describe("db.getPartnerOfUser: shared-children fallback and insertId() finding n
       [{ childId: 10, parentId: 1, confirmed: true }],
       [{ childId: 10, parentId: 2, confirmed: true }],
       [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
+      // The prior-dissolution check this fallback now makes before
+      // auto-creating: empty = never separated, so it proceeds as before.
+      [],
+      // createPartnership's own existing-row check. Explicit rather than
+      // falling through to `.rows`, which this test loads with the row the
+      // natural-key RE-SELECT must find — letting the existing-row check see
+      // it instead would return early and never reach the insert at all.
       [],
     ];
     partnershipDb.rows = [{ id: 777 }];
@@ -1825,6 +1865,28 @@ describe("db.getPartnerOfUser: shared-children fallback and insertId() finding n
     expect(result?.id).toBe(2);
     expect(result?.partnershipId).toBe(777);
     expect(result?.partnershipConfirmed).toBe(true);
+  });
+
+  it("a DISSOLVED partnership is not resurrected by the shared-children fallback — separation survives a read", async () => {
+    // dissolvePartner sets status='dissolved', but createPartnership's own
+    // existing-row check only looks for pending/active, so the dissolved row
+    // was invisible to it and this fallback inserted a fresh active+confirmed
+    // one. listPartners refetches on mount, so ending a partnership that had
+    // shared children was undone the moment either screen reloaded — the
+    // separation could not be made to stick at all.
+    partnershipDb.queue = [
+      [], // path-1: no active+confirmed partnership (it was dissolved)
+      [{ childId: 10, parentId: 1, confirmed: true }], // myLinks
+      [{ childId: 10, parentId: 2, confirmed: true }], // otherLinks
+      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [{ id: 55 }], // the prior-dissolution check FINDS one
+    ];
+
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    const result = await real.getPartnerOfUser(1);
+
+    expect(result).toBeNull();
+    expect(partnershipDb.insert).not.toHaveBeenCalled();
   });
 
   it("still returns null (not a partnershipId: undefined object) in the genuinely exceptional case where the re-select ALSO finds no row", async () => {

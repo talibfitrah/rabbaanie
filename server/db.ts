@@ -3714,6 +3714,29 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
         .where(and(eq(users.id, partnerId), isNull(users.deletedAt)))
         .limit(1);
       if (partner.length > 0) {
+        // An explicit dissolution must survive a READ. createPartnership's
+        // own existing-row check only looks for pending/active, so a
+        // dissolved row is invisible to it and this fallback would insert a
+        // fresh active+confirmed one — and because listPartners refetches on
+        // mount, dissolving a partnership with shared children was undone the
+        // moment either screen reloaded. Checked here rather than inside
+        // createPartnership because a DELIBERATE re-invite must still be able
+        // to create a partnership after a separation; only this automatic,
+        // read-triggered path has to respect the dissolution.
+        const priorDissolved = await db
+          .select({ id: partnerships.id })
+          .from(partnerships)
+          .where(
+            and(
+              or(
+                and(eq(partnerships.userId1, userId), eq(partnerships.userId2, partnerId)),
+                and(eq(partnerships.userId1, partnerId), eq(partnerships.userId2, userId)),
+              ),
+              eq(partnerships.status, "dissolved"),
+            ),
+          )
+          .limit(1);
+        if (priorDissolved.length > 0) continue;
         // Auto-create partnership record for persistence
         const created = await createPartnership(userId, partnerId, userId, true);
         if (!created) {

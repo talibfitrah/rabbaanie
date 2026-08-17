@@ -7,8 +7,10 @@ import React, {
   useState,
 } from "react";
 import { Platform } from "react-native";
+import { useQueryClient } from "@tanstack/react-query";
 import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
+import { clearPersistedQueryCache } from "@/lib/query-persistence";
 
 type AuthContextType = {
   user: Auth.User | null;
@@ -24,6 +26,7 @@ type AuthContextType = {
 const AuthContext = createContext<AuthContextType | null>(null);
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
+  const queryClient = useQueryClient();
   const [user, setUser] = useState<Auth.User | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
@@ -104,6 +107,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
       await Auth.clearLogoutPending();
+      // Cached query results are device-global (one "rq_offline_cache" key,
+      // no account scoping) and outlive the session by up to 7 days, and
+      // restoreQueryCache reloads them into whoever opens the app next. The
+      // next account on this device would otherwise render the previous
+      // one's data — now including full partner profiles behind the access
+      // gate: psychologist notes, children, issues. In-memory first, then
+      // the persisted copy, so a re-persist triggered by the clear can only
+      // ever write an already-empty cache.
+      queryClient.clear();
+      await clearPersistedQueryCache();
       setUser(null);
       setError(null);
     } catch (err) {
@@ -112,7 +125,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setError(cleanupError);
       throw cleanupError;
     }
-  }, []);
+  }, [queryClient]);
 
   const completeTokenSignIn = useCallback(async (token: string) => {
     const userInfo = await Api.verifySessionToken(token);
@@ -147,6 +160,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           await Auth.removeSessionToken();
           await Auth.clearUserInfo();
           await Auth.clearLogoutPending();
+          // The same wipe logout() does, for the logout that never finished
+          // it. restoreQueryCache has already reloaded the previous account's
+          // data by the time this runs, so skipping it here would leak by the
+          // crash path exactly what logout() closes by the normal one.
+          queryClient.clear();
+          await clearPersistedQueryCache();
         } catch (err) {
           if (!cancelled) {
             setError(
@@ -197,7 +216,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     return () => {
       cancelled = true;
     };
-  }, [fetchUser]);
+  }, [fetchUser, queryClient]);
 
   const value = useMemo(
     () => ({
