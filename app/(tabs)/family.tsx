@@ -2157,7 +2157,7 @@ export default function FamilyScreen() {
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Pressable
               onPress={() => {
-                syncMutation.mutate(undefined, {
+                syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                   onSuccess: async (res: any) => {
                     if (res?.success) {
                       const m = res.merged;
@@ -3011,7 +3011,7 @@ export default function FamilyScreen() {
                 {/* Sync button */}
                 <Pressable
                   onPress={() => {
-                    syncMutation.mutate(undefined, {
+                    syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                       onSuccess: async (res: any) => {
                         if (res?.success) {
                           const m = res.merged;

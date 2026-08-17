@@ -1336,6 +1336,35 @@ describe("SECURITY: a gender change revokes every profile-access grant it's part
     expect(husband.profileData.parentProfile.gender).toBe("man");
   });
 
+  it("a FIRST-EVER gender save is validated too — garbage never reaches the authoritative column", async () => {
+    // The known-gender check used to sit inside `if (oldGender && ...)`, so a
+    // user with no gender anywhere skipped it entirely and updateUserProfile
+    // stamped whatever arrived into users.gender. A cached "male" then locks
+    // the account out for good: hasFullPartnerAccess branches only on
+    // man/vrouw, setMyGender refuses because a gender is now on record, and
+    // the gender buttons never render because needsMyGender is !myGender.
+    const fresh = wireStatefulUserRow({ id: 1, gender: null, profileData: {} });
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: { id: fresh.id, name: "New", language: "nl", gender: null, profileData: {} } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "male" } } });
+
+    // The invariant is that nothing unknown is retained anywhere, not which
+    // particular empty value represents "no gender" (resolveGender yields "").
+    expect(fresh.gender).toBeNull();
+    expect(fresh.profileData.parentProfile?.gender).toBeFalsy();
+
+    // A valid first-ever gender still lands normally.
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "man" } } });
+    expect(fresh.gender).toBe("man");
+  });
+
   it("garbage arriving on a legacy NULL-column row re-stamps the resolved gender, so revocation stays alive afterwards", async () => {
     // Where the two guards meet. Falling back to the raw column here writes
     // null into the blob, and the anchor is then gone from BOTH places: the

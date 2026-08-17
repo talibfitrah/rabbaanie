@@ -1358,10 +1358,18 @@ export const profileRouter = router({
         oldUser?.gender,
         (oldUser?.profileData as any)?.parentProfile?.gender,
       );
-      if (oldGender && newData && typeof newData === "object") {
+      // Runs on a FIRST-EVER gender too (oldGender falsy, but the save carries
+      // a parentProfile): updateUserProfile stamps parentProfile.gender into
+      // the authoritative users.gender column unconditionally, so gating the
+      // known-gender check on oldGender let the very first save write anything
+      // — and a column holding e.g. "male" locks the account out permanently,
+      // since setMyGender then refuses to correct what is already on record.
+      // Still skipped when there is neither an old gender nor an incoming
+      // parentProfile, so a save that touches neither cannot grow the key.
+      if (newData && typeof newData === "object" && (oldGender || newData.parentProfile)) {
         const incomingGender = newData.parentProfile?.gender;
         const isKnownGender = incomingGender === "man" || incomingGender === "vrouw";
-        if (isKnownGender && incomingGender !== oldGender) {
+        if (oldGender && isKnownGender && incomingGender !== oldGender) {
           await db.revokeProfileAccessGrantsForUser(ctx.user.id);
           genderAccessRevoked = true;
         }
@@ -2710,8 +2718,19 @@ export const linksRouter = router({
   }),
 
   /** Full sync: pull all partner data and merge with local (called explicitly by user) */
-  syncWithPartner: protectedProcedure.mutation(async ({ ctx }) => {
-    const partner = await db.getPartnerOfUser(ctx.user.id);
+  // Takes the same optional partnerId as getPartnerProfile, resolved the same
+  // way. Without it this merged whichever partnership the unordered query
+  // returned first (see getPartnerOfUser), so a husband who selected his
+  // second wife and tapped sync wrote his FIRST wife's children/issues/plans
+  // into his own profile — a write, reported as success, naming counts from a
+  // household he never chose. getSpouseAdvice's per-wife gap is deferred
+  // because scoping it is an API change; this one is a write, so it is not.
+  syncWithPartner: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+    const partner = input?.partnerId !== undefined
+      ? ((await db.getPartnersOfUser(ctx.user.id)).find((p) => p.id === input.partnerId) ?? null)
+      : await db.getPartnerOfUser(ctx.user.id);
     if (!partner) return { success: false, message: "No partner linked" };
     const partnerData = partner.profileData as any;
     // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without

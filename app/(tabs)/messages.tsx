@@ -539,7 +539,13 @@ function MessagesScreenInner() {
                 try {
                   const result = await syncMut.mutateAsync();
                   if (result?.success) {
-                    await rehydrateFromServer();
+                    // Own catch, for the same reason the AsyncStorage write
+                    // below has one: this runs AFTER a sync that succeeded, so
+                    // letting a throw reach the outer catch would report
+                    // "could not sync" for a merge the server already did.
+                    try {
+                      await rehydrateFromServer();
+                    } catch {}
                     // Save sync report
                     const m = result.merged;
                     const total = (m?.children || 0) + (m?.environments || 0) + (m?.issues || 0) + (m?.actionPlans || 0);
