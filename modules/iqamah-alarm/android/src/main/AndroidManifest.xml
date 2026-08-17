@@ -1,0 +1,21 @@
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+
+  <!--
+    Needed only to re-arm alarms after reboot (AlarmManager alarms do not
+    survive a reboot). SCHEDULE_EXACT_ALARM itself is declared once, app-wide,
+    in app.config.ts (already required for prayer-time notifications), so it
+    is not repeated here.
+  -->
+  <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+  <application>
+    <receiver
+      android:name="expo.modules.iqamahalarm.IqamahAlarmReceiver"
+      android:exported="false">
+      <intent-filter>
+        <action android:name="android.intent.action.BOOT_COMPLETED" />
+      </intent-filter>
+    </receiver>
+  </application>
+
+</manifest>

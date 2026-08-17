@@ -18,6 +18,11 @@ import {
   CALC_METHODS,
   type SavedPrayerLocation,
 } from "./prayer-data";
+// Safe import — returns fallbacks on iOS/web, or when this module isn't
+// linked (e.g. a dev client built before it existed). See modules/iqamah-alarm
+// for why the killed-app case needs a native AlarmManager + BroadcastReceiver
+// instead of the expo-notifications listeners below.
+import * as IqamahAlarmNative from "../modules/iqamah-alarm/src";
 
 // ============ STORAGE KEYS ============
 
@@ -115,7 +120,16 @@ export async function scheduleIqamahSilence(
   }
 
   const prefs = await loadIqamahSilencePrefs();
-  if (!prefs.enabled) return 0;
+  if (!prefs.enabled) {
+    // Empty list clears every previously-armed native alarm too — the
+    // native module has no separate "cancel" call (see modules/iqamah-alarm).
+    if (Platform.OS === "android") {
+      try {
+        await IqamahAlarmNative.scheduleSilenceAlarms([]);
+      } catch {}
+    }
+    return 0;
+  }
 
   // Load prayer location and method
   const locationRaw = await AsyncStorage.getItem(PRAYER_LOCATION_KEY);
@@ -138,6 +152,12 @@ export async function scheduleIqamahSilence(
   let scheduledCount = 0;
   const now = new Date();
   const prayerKeys = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
+  // Handed to the native AlarmManager scheduler alongside (not instead of)
+  // the notifications below — see modules/iqamah-alarm. requestCode must be
+  // unique and stable per (dayOffset, prayer); IqamahAlarmModule cancels a
+  // fixed 0..34 range (7 days x 5 prayers) on every call, so this formula
+  // must stay in that range.
+  const alarmEntries: IqamahAlarmNative.IqamahAlarmEntry[] = [];
 
   const PRAYER_NAMES = {
     ar: { fajr: "الفجر", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" },
@@ -164,6 +184,12 @@ export async function scheduleIqamahSilence(
 
       // Skip if in the past
       if (iqamahDate.getTime() <= now.getTime()) continue;
+
+      alarmEntries.push({
+        requestCode: dayOffset * 5 + prayerKeys.indexOf(prayer),
+        triggerAtMs: iqamahDate.getTime(),
+        durationMinutes: prefs.silenceDurationMinutes,
+      });
 
       const prayerName = PRAYER_NAMES[language][prayer];
 
@@ -250,12 +276,30 @@ export async function scheduleIqamahSilence(
     }
   }
 
+  if (Platform.OS === "android") {
+    try {
+      await IqamahAlarmNative.scheduleSilenceAlarms(alarmEntries);
+    } catch (err) {
+      console.warn("Failed to schedule native iqamah alarms:", err);
+    }
+  }
+
   return scheduledCount;
 }
 
 /**
- * Handle the iqamah silence action when the notification fires.
- * Called from the notification response handler.
+ * Handle the iqamah silence action when the notification fires (foreground,
+ * or the user tapped it). Called from the notification response handler.
+ *
+ * This is the fallback path: it only runs while JS is running (foreground,
+ * or the OS spins up the app to deliver a tap). The killed-app case is
+ * covered by modules/iqamah-alarm's BroadcastReceiver instead, which is why
+ * both this function AND the receiver funnel through the SAME native state
+ * store (IqamahAlarmNative.captureRingerModeIfNeeded /
+ * consumePriorRingerMode) rather than each keeping their own — two owners
+ * of "what to restore to" is exactly how a mute survives with its restore
+ * lost, leaving the phone stuck silent.
+ *
  */
 export async function handleIqamahSilenceAction(action: "silence" | "restore"): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -271,36 +315,54 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
         await VolumeManager.requestDndAccess();
         return;
       }
-      // Capture the ringer mode from BEFORE this silence period, exactly once,
-      // so restore returns it precisely (vibrate stays vibrate). The silence
-      // action can fire twice for one prayer — once when the notification is
-      // received, once if the user taps it — so we must NOT re-capture our own
-      // "silent" state over the real prior mode: store only when no prior is
-      // already saved AND the phone isn't already silent.
-      try {
-        const alreadyCaptured = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
-        if (alreadyCaptured === null) {
-          const current = await VolumeManager.getRingerMode();
-          if (current !== undefined && current !== null && current !== RINGER_MODE.silent) {
-            await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+      // Capture the ringer mode from BEFORE this silence period, exactly
+      // once, so restore returns it precisely (vibrate stays vibrate). The
+      // silence action can fire twice for one prayer — once when the
+      // notification is received, once if the user taps it — AND the native
+      // BroadcastReceiver (modules/iqamah-alarm) can independently fire the
+      // same prayer's mute when the app is killed. All of that funnels
+      // through IqamahAlarmNative's single SharedPreferences record when the
+      // module is available, so whichever path fires first "wins" the
+      // capture and none of them can re-capture our own "silent" over it.
+      // AsyncStorage is only a fallback for when the native module isn't
+      // linked at all (e.g. a dev client built before this module existed).
+      if (IqamahAlarmNative.isAvailable()) {
+        const { silenceDurationMinutes } = await loadIqamahSilencePrefs();
+        await IqamahAlarmNative.captureRingerModeIfNeeded(silenceDurationMinutes);
+      } else {
+        try {
+          const alreadyCaptured = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+          if (alreadyCaptured === null) {
+            const current = await VolumeManager.getRingerMode();
+            if (current !== undefined && current !== null && current !== RINGER_MODE.silent) {
+              await AsyncStorage.setItem(IQAMAH_PRIOR_RINGER_KEY, String(current));
+            }
           }
-        }
-      } catch {}
+        } catch {}
+      }
       // Mute the ringer for the iqamah period.
       await VolumeManager.setRingerMode(RINGER_MODE.silent);
     } else if (action === "restore") {
       const hasAccess = await VolumeManager.checkDndAccess();
       if (!hasAccess) return;
       // Restore to the exact mode from before we silenced. If nothing was
-      // captured (silence never ran, DND wasn't granted, or the phone was
-      // already silent), do NOTHING — never force "normal", which would raise a
-      // phone the user had deliberately left on vibrate/silent. Read-and-clear
-      // so a second restore (received + tapped) is a harmless no-op.
-      const stored = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
-      if (stored === null) return;
-      const priorMode = Number(stored) as typeof RINGER_MODE.normal;
-      await VolumeManager.setRingerMode(priorMode);
-      await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+      // captured (silence never ran, DND wasn't granted, the phone was
+      // already silent, or another path already consumed it), do NOTHING —
+      // never force "normal", which would raise a phone the user had
+      // deliberately left on vibrate/silent. Read-and-clear so a second
+      // restore (received + tapped, or JS + native) is a harmless no-op.
+      let priorMode: number | null = null;
+      if (IqamahAlarmNative.isAvailable()) {
+        priorMode = await IqamahAlarmNative.consumePriorRingerMode();
+      } else {
+        const stored = await AsyncStorage.getItem(IQAMAH_PRIOR_RINGER_KEY);
+        if (stored !== null) {
+          priorMode = Number(stored);
+          await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+        }
+      }
+      if (priorMode === null) return;
+      await VolumeManager.setRingerMode(priorMode as typeof RINGER_MODE.normal);
     }
   } catch (err) {
     console.warn("Failed to change ringer mode:", err);
@@ -325,7 +387,13 @@ export async function restorePhoneSound(): Promise<boolean> {
       return false;
     }
     await VolumeManager.setRingerMode(RINGER_MODE.normal);
-    await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+    // Clear whichever store might hold a (now moot) captured mode, so a
+    // later auto-restore can't re-apply a stale value on top of this.
+    if (IqamahAlarmNative.isAvailable()) {
+      await IqamahAlarmNative.consumePriorRingerMode();
+    } else {
+      await AsyncStorage.removeItem(IQAMAH_PRIOR_RINGER_KEY);
+    }
     return true;
   } catch (err) {
     console.warn("Failed to restore phone sound:", err);

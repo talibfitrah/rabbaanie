@@ -1,0 +1,9 @@
+{
+  "name": "expo-iqamah-alarm",
+  "version": "0.1.0",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "description": "Android AlarmManager + BroadcastReceiver native module for hands-free iqamah auto-silence (fires with the app killed)",
+  "keywords": ["expo", "android", "alarm-manager", "iqamah"],
+  "license": "MIT"
+}

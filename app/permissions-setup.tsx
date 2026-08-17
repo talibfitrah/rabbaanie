@@ -5,6 +5,8 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
+import { mapExactAlarmPermissionStatus } from "@/lib/alarm-permission-status";
+import { openAlarmPermission } from "@/lib/fullscreen-notif";
 
 type PermissionStatus = "granted" | "denied" | "undetermined" | "unavailable";
 
@@ -129,6 +131,37 @@ export default function PermissionsSetupScreen() {
       status: dndStatus,
     });
 
+    // 4a. Exact alarms ("Alarms & reminders", Android 12+) — the phone-silence
+    // toggle above only reaches the notification-listener fallback; hands-free
+    // auto-mute with the app fully closed needs this too (modules/iqamah-alarm's
+    // AlarmManager scheduling). @notifee/react-native already exposes this
+    // check (also used by lib/fullscreen-notif.ts's exact-alarm prayer path),
+    // so it's reused here rather than adding a second native permission check.
+    let exactAlarmStatus: PermissionStatus = "undetermined";
+    if (Platform.OS === "android") {
+      try {
+        const notifee = require("@notifee/react-native").default;
+        const settings = await notifee.getNotificationSettings();
+        exactAlarmStatus = mapExactAlarmPermissionStatus(settings?.android?.alarm);
+      } catch {
+        exactAlarmStatus = "undetermined";
+      }
+    } else {
+      exactAlarmStatus = "unavailable";
+    }
+    items.push({
+      id: "exact_alarm",
+      icon: "alarm-on",
+      iconColor: "#EF4444",
+      titleAr: "المنبهات الدقيقة (لإسكات الهاتف تلقائياً)",
+      titleEn: "Alarms & Reminders (for hands-free auto-silence)",
+      titleNl: "Alarmen & herinneringen (voor automatisch dempen)",
+      descAr: "لإسكات الهاتف عند الإقامة حتى لو كان التطبيق مغلقاً تماماً",
+      descEn: "So the phone silences at Iqamah time even while the app is fully closed",
+      descNl: "Zodat de telefoon dempt bij Iqamah, zelfs als de app volledig gesloten is",
+      status: exactAlarmStatus,
+    });
+
     // 4b. Battery optimization exemption (Android) — so notifications keep
     // firing while the app is closed (Doze/OEM battery managers cancel alarms).
     items.push({
@@ -192,6 +225,8 @@ export default function PermissionsSetupScreen() {
         await IntentLauncher.startActivityAsync("android.settings.IGNORE_BATTERY_OPTIMIZATION_SETTINGS");
       } else if (id === "dnd") {
         await IntentLauncher.startActivityAsync("android.settings.NOTIFICATION_POLICY_ACCESS_SETTINGS");
+      } else if (id === "exact_alarm") {
+        await openAlarmPermission();
       } else if (id === "notifications" || id === "audio_notifications") {
         await IntentLauncher.startActivityAsync("android.settings.APP_NOTIFICATION_SETTINGS", {
           extra: { "android.provider.extra.APP_PACKAGE": pkg },
@@ -209,10 +244,11 @@ export default function PermissionsSetupScreen() {
   const requestPermission = async (id: string, status?: PermissionStatus) => {
     if (Platform.OS === "web") return;
 
-    // Battery & DND have no in-app prompt (the battery direct-request silently
-    // did nothing on some devices). Already-granted permissions also jump straight
-    // to their settings so the user can review or toggle them off.
-    if (id === "battery" || id === "dnd" || status === "granted") {
+    // Battery, DND & exact-alarm have no in-app prompt (the battery direct-request
+    // silently did nothing on some devices; the other two are Settings-only, same
+    // as Usage Access). Already-granted permissions also jump straight to their
+    // settings so the user can review or toggle them off.
+    if (id === "battery" || id === "dnd" || id === "exact_alarm" || status === "granted") {
       await openPermissionSettings(id);
       setTimeout(() => checkAllPermissions(), 500);
       return;
