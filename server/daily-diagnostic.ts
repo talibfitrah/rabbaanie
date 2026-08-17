@@ -49,17 +49,18 @@
  * extend, not one this module fixes — flagged to the product owner, not
  * silently patched.
  *
- * SECOND CAVEAT (round-8 P1 audit): getSpouseAdvice's own db.getPartnerOfUser
- * lookup is never gated on partnershipConfirmed — unlike getPartnerProfile/
- * syncWithPartner (server/routers.ts, round-8 P1 fix), it draws on the
+ * SECOND CAVEAT, NOW CLOSED (round-8 P1 audit; fixed item 5 of the
+ * multi-wife/vulnerability task): getSpouseAdvice's own db.getPartnerOfUser
+ * lookup USED TO be ungated on partnershipConfirmed — unlike getPartnerProfile/
+ * syncWithPartner (server/routers.ts, round-8 P1 fix), it drew on the
  * partner's full profileData (parentProfile fields, dailyCheckins,
- * environments, ...) regardless of whether the partnership is confirmed.
- * That is deliberate on the gender/grant axis (see server/advice.ts's own
+ * environments, ...) regardless of whether the partnership was confirmed.
+ * That was deliberate on the gender/grant axis (see server/advice.ts's own
  * comment: spouse advice may draw on the partner's data with no grant), but
  * confirmation is a different axis — an unconfirmed "partner" found via the
  * shared-children legacy fallback is not the same thing as an ungranted but
- * agreed-upon one. Also flagged to the product owner, not silently patched
- * here — server/advice.ts is out of this task's file scope.
+ * agreed-upon one. server/advice.ts now checks partner.partnershipConfirmed
+ * right after the db.getPartnerOfUser call in getSpouseAdvice, closing this.
  */
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";

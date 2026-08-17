@@ -589,7 +589,15 @@ describe("getSpouseAdvice never lets the partner's raw answer text reach the pro
   const SECRET = "MARKER_SECRET_TEXT_ZZZ_do_not_leak";
 
   beforeEach(() => {
-    dbMocks.getPartnerOfUser.mockResolvedValue({ id: 2, name: "Partner", profileData: {} });
+    // partnershipConfirmed: true — item 5's new confirmation gate (see the
+    // describe block below) must not reject the confirmed-partner case
+    // these tests exist to cover.
+    dbMocks.getPartnerOfUser.mockResolvedValue({
+      id: 2,
+      name: "Partner",
+      profileData: {},
+      partnershipConfirmed: true,
+    });
     dbMocks.getSpouseInteractionData.mockResolvedValue({
       goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
     });
@@ -620,5 +628,51 @@ describe("getSpouseAdvice never lets the partner's raw answer text reach the pro
   it("never puts the raw label in what goes back to the requesting spouse either", async () => {
     const result = await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
     expect(JSON.stringify(result)).not.toContain(SECRET);
+  });
+});
+
+// ============================================================
+// VULNERABILITY (item 5): getSpouseAdvice drew on partner.profileData,
+// dailyCheckins, and environments with zero partnershipConfirmed check —
+// an unconfirmed "partner" (a pending invite the shared-children legacy
+// fallback can hand back, per round-8 P1) got the full treatment. The
+// owner's "no grant required" ruling is a SEPARATE axis (see server/
+// advice.ts's own comment) and is untouched by this fix.
+// ============================================================
+describe("getSpouseAdvice requires a CONFIRMED partnership (item 5 fix)", () => {
+  it("refuses to generate advice when the partner is not confirmed, and never calls the model", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue({
+      id: 2,
+      name: "Partner",
+      profileData: {},
+      partnershipConfirmed: false,
+    });
+
+    const result: any = await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
+
+    expect(result.advice).toBeNull();
+    expect(result.error).toBe("not_confirmed");
+    expect(invokeLLMMock).not.toHaveBeenCalled();
+    expect(dbMocks.getSpouseInteractionData).not.toHaveBeenCalled();
+  });
+
+  it("still proceeds normally once the partnership IS confirmed (no regression)", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue({
+      id: 2,
+      name: "Partner",
+      profileData: {},
+      partnershipConfirmed: true,
+    });
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "نصيحة تجريبية" } }] });
+
+    const result: any = await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
+
+    expect(result.error).toBeUndefined();
+    expect(invokeLLMMock).toHaveBeenCalledTimes(1);
   });
 });

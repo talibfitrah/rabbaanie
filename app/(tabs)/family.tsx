@@ -31,26 +31,9 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { authedFetch } from "@/lib/authed-fetch";
 import { translateProfileValue } from "@/lib/profile-labels";
 import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
-import type { inferRouterOutputs } from "@trpc/server";
-import type { AppRouter } from "@/server/routers";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
-
-/**
- * links.getPartnerProfile returns a union: a restricted payload omits
- * parentProfile/children/issues/dailyCheckins/etc. entirely (the security
- * boundary — see server/routers.ts). TypeScript's control-flow narrowing on
- * `.access === "full"` doesn't reach into nested closures (the IIFEs below
- * read partner data inside their own callback scope), so re-checking access
- * inline at each read site doesn't actually protect them. Narrow once
- * through this guard instead and read full-only fields off its result.
- */
-type PartnerProfileData = inferRouterOutputs<AppRouter>["links"]["getPartnerProfile"];
-type FullPartnerProfile = Extract<NonNullable<PartnerProfileData>, { access: "full" }>;
-function isFullPartnerProfile(
-  data: PartnerProfileData | undefined,
-): data is FullPartnerProfile {
-  return !!data && data.access === "full";
-}
+import { isFullPartnerProfile } from "@/lib/partner-types";
+import type { PartnerListEntry } from "@/lib/partner-types";
 
 if (
   Platform.OS === "android" &&
@@ -1624,11 +1607,34 @@ export default function FamilyScreen() {
     refetchOnMount: "always",
     staleTime: 0,
   });
-  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(undefined, {
+  // Polygyny support: full confirmed-partnership list, used to (a) offer a
+  // spouse selector when there's more than one, and (b) scope
+  // getPartnerProfile below.
+  const listPartnersQuery = trpc.links.listPartners.useQuery(undefined, {
     enabled: isAuthenticated,
     refetchOnMount: "always",
     staleTime: 0,
   });
+  const partners: PartnerListEntry[] = listPartnersQuery.data ?? [];
+  const hasMultiplePartners = partners.length > 1;
+  const [manualPartnerId, setManualPartnerId] = useState<number | null>(null);
+  // Stays null (today's "let the server pick" default) until there's
+  // actually more than one partner to choose between — a single-partner
+  // user's getPartnerProfile call below is byte-for-byte what it was
+  // before this change.
+  const selectedPartnerId: number | null = hasMultiplePartners
+    ? manualPartnerId != null && partners.some((p) => p.id === manualPartnerId)
+      ? manualPartnerId
+      : partners[0].id
+    : null;
+  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
+    selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,
+    {
+      enabled: isAuthenticated,
+      refetchOnMount: "always",
+      staleTime: 0,
+    },
+  );
   // Narrowed once here so every full-only-field read below (including
   // inside IIFE callbacks, where control-flow narrowing on `.access`
   // doesn't reach) goes through a properly typed value instead of the raw
@@ -1645,6 +1651,7 @@ export default function FamilyScreen() {
       coParentsQuery.refetch();
       partnerProfileQuery.refetch();
       myIdQuery.refetch();
+      listPartnersQuery.refetch();
     }
   }, [isAuthenticated]);
 
@@ -3142,10 +3149,67 @@ export default function FamilyScreen() {
           </View>
         )}
 
+        {/* ═══════ SPOUSE SELECTOR (polygyny) ═══════ */}
+        {/* Only ever rendered once there's an actual choice — a
+            single-partner user sees nothing here, matching today's UI
+            exactly. */}
+        {isAuthenticated && hasMultiplePartners && (
+          <View
+            style={{
+              marginBottom: 10,
+              flexDirection: isRTL ? "row-reverse" : "row",
+              flexWrap: "wrap",
+              gap: 8,
+            }}
+          >
+            {partners.map((p) => {
+              const isSelected = p.id === selectedPartnerId;
+              const label =
+                p.name ||
+                (p.gender === "man"
+                  ? tx(lang, "Man", "Husband", "الزوج")
+                  : p.gender === "vrouw"
+                    ? tx(lang, "Vrouw", "Wife", "الزوجة")
+                    : tx(lang, "Partner", "Partner", "الشريك/ة"));
+              return (
+                <Pressable
+                  key={p.partnershipId}
+                  onPress={() => setManualPartnerId(p.id)}
+                  style={({ pressed }) => [
+                    {
+                      backgroundColor: isSelected ? colors.primary : colors.primary + "12",
+                      borderRadius: 20,
+                      paddingHorizontal: 14,
+                      paddingVertical: 8,
+                      opacity: pressed ? 0.8 : 1,
+                    },
+                  ]}
+                >
+                  <Text
+                    style={{
+                      color: isSelected ? "#fff" : colors.primary,
+                      fontSize: 12,
+                      fontWeight: "600",
+                    }}
+                  >
+                    {label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+        )}
+
         {/* ═══════ WIFE PROFILE BUTTON ═══════ */}
         {isAuthenticated && partnerProfileQuery.data && (
           <Pressable
-            onPress={() => router.push("/spouse-profile" as any)}
+            onPress={() =>
+              router.push(
+                (selectedPartnerId != null
+                  ? { pathname: "/spouse-profile", params: { partnerId: String(selectedPartnerId) } }
+                  : "/spouse-profile") as any,
+              )
+            }
             style={({ pressed }) => [
               {
                 backgroundColor: "#FFF0F5",

@@ -45,10 +45,15 @@ describe("getPartnerProfile union narrowing (cubic round-6 P1 fix)", () => {
   for (const file of Object.keys(FULL_ONLY_FIELDS_BY_FILE)) {
     const guardVar = GUARD_VAR_BY_FILE[file];
 
-    it(`${file}: defines isFullPartnerProfile narrowing on access === "full"`, () => {
+    // Asserts the screen NARROWS through the guard — not that it defines the
+    // guard itself. The guard was deliberately de-duplicated into
+    // lib/partner-types.ts; a test pinned to a local definition would have
+    // forced that duplication to stay, which is the tail wagging the dog.
+    // The guard's own logic is asserted once, below, where it now lives.
+    it(`${file}: narrows through the shared isFullPartnerProfile guard`, () => {
       const src = normalizedSource(file);
-      expect(src).toContain("function isFullPartnerProfile(");
-      expect(src).toContain('data.access === "full"');
+      expect(src).toContain("isFullPartnerProfile");
+      expect(src).toContain("@/lib/partner-types");
     });
 
     for (const field of FULL_ONLY_FIELDS_BY_FILE[file]) {
@@ -70,5 +75,15 @@ describe("getPartnerProfile union narrowing (cubic round-6 P1 fix)", () => {
   it("spouse-profile.tsx: no longer erases the whole union to `any`", () => {
     const src = normalizedSource("app/spouse-profile.tsx");
     expect(src).not.toContain("const data: any = partnerProfileQuery.data");
+  });
+
+  // The guard's own logic, asserted once where it now lives. The per-screen
+  // tests above check that each screen narrows THROUGH it; this checks the
+  // narrowing is real. Both halves are needed: a screen importing a guard
+  // that doesn't discriminate would pass the tests above and still leak.
+  it("lib/partner-types.ts: the shared guard discriminates on access === \"full\"", () => {
+    const src = normalizedSource("lib/partner-types.ts");
+    expect(src).toContain("function isFullPartnerProfile(");
+    expect(src).toContain('access === "full"');
   });
 });

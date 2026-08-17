@@ -3606,13 +3606,8 @@ export async function hasConfirmedPartner(userId: number): Promise<boolean> {
   return partner.length > 0;
 }
 
-/**
- * Get the partner (spouse) of a user by checking parent_child_links.
- * Two users are considered partners if they both have confirmed links to the same child.
- */
-export async function getPartnerOfUser(
-  userId: number,
-): Promise<{
+/** Shared shape returned per-partner by getPartnersOfUser/getPartnerOfUser. */
+type PartnerRecord = {
   id: number;
   name: string | null;
   /** The users.gender COLUMN — see hasFullPartnerAccess's callers in
@@ -3630,11 +3625,24 @@ export async function getPartnerOfUser(
   partnershipConfirmed: boolean;
   profileAccessRequestedAt: Date | null;
   profileAccessGrantedAt: Date | null;
-} | null> {
-  const db = await getDb();
-  if (!db) return null;
+};
 
-  // 1. First check partnerships table (persists across reinstalls)
+/**
+ * Every partner (spouse) of a user. Plural because the owner's ruling
+ * allows a man multiple confirmed wives — a woman can still only ever have
+ * one entry here, enforced where partnerships are created/confirmed (see
+ * createPartnership/confirmPartnershipRequest's own comments), not by this
+ * read. getPartnerOfUser below is a thin wrapper around this (partners[0] ??
+ * null), so every existing single-partner call site is unaffected: a user
+ * with 0 or 1 confirmed partnerships gets the exact same result from either
+ * function.
+ */
+export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]> {
+  const db = await getDb();
+  if (!db) return [];
+
+  // 1. First check partnerships table (persists across reinstalls) — EVERY
+  // active, confirmed row this user is a party to, not just one.
   const partnershipRows = await db
     .select()
     .from(partnerships)
@@ -3644,35 +3652,39 @@ export async function getPartnerOfUser(
         eq(partnerships.status, "active"),
         eq(partnerships.confirmed, true),
       ),
-    )
-    .limit(1);
+    );
 
   if (partnershipRows.length > 0) {
-    const p = partnershipRows[0];
-    const partnerId = p.userId1 === userId ? p.userId2 : p.userId1;
-    const partner = await db
-      .select()
-      .from(users)
-      .where(and(eq(users.id, partnerId), isNull(users.deletedAt)))
-      .limit(1);
-    if (partner.length > 0) {
-      return {
-        id: partner[0].id,
-        name: partner[0].name,
-        gender: partner[0].gender,
-        profileData: partner[0].profileData,
-        partnershipId: p.id,
-        // Guaranteed by the WHERE clause above (status='active' AND
-        // confirmed=true) — derived from the row itself rather than
-        // hardcoded true so it self-corrects if that filter ever changes.
-        partnershipConfirmed: p.status === "active" && p.confirmed === true,
-        profileAccessRequestedAt: p.profileAccessRequestedAt ?? null,
-        profileAccessGrantedAt: p.profileAccessGrantedAt ?? null,
-      };
+    const result: PartnerRecord[] = [];
+    for (const p of partnershipRows) {
+      const partnerId = p.userId1 === userId ? p.userId2 : p.userId1;
+      const partner = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.id, partnerId), isNull(users.deletedAt)))
+        .limit(1);
+      if (partner.length > 0) {
+        result.push({
+          id: partner[0].id,
+          name: partner[0].name,
+          gender: partner[0].gender,
+          profileData: partner[0].profileData,
+          partnershipId: p.id,
+          // Guaranteed by the WHERE clause above (status='active' AND
+          // confirmed=true) — derived from the row itself rather than
+          // hardcoded true so it self-corrects if that filter ever changes.
+          partnershipConfirmed: p.status === "active" && p.confirmed === true,
+          profileAccessRequestedAt: p.profileAccessRequestedAt ?? null,
+          profileAccessGrantedAt: p.profileAccessGrantedAt ?? null,
+        });
+      }
     }
+    return result;
   }
 
-  // 2. Fallback: detect via shared children (legacy)
+  // 2. Fallback: detect via shared children (legacy). Structurally can only
+  // ever surface ONE co-parent (the loop below returns on the first match),
+  // so this branch never needs array treatment the way branch 1 now does.
   const myLinks = await db
     .select()
     .from(parentChildLinks)
@@ -3682,7 +3694,7 @@ export async function getPartnerOfUser(
         eq(parentChildLinks.confirmed, true),
       ),
     );
-  if (myLinks.length === 0) return null;
+  if (myLinks.length === 0) return [];
   const myChildIds = myLinks.map((l) => l.childId);
   for (const childId of myChildIds) {
     const otherLinks = await db
@@ -3705,25 +3717,29 @@ export async function getPartnerOfUser(
         // Auto-create partnership record for persistence
         const created = await createPartnership(userId, partnerId, userId, true);
         if (!created) {
-          // createPartnership's own getDb() came back empty (DB briefly
-          // unavailable between this function's top-level check and here) —
-          // fail closed as "no partner", matching this function's existing
-          // `if (!db) return null;` contract, instead of throwing on
-          // created.id.
-          return null;
+          // createPartnership returns null/falsy for two different reasons:
+          // its own getDb() came back empty (DB briefly unavailable between
+          // this function's top-level check and here), or (item 3) the
+          // one-husband constraint refused to confirm it. Either way fail
+          // closed as "no partner", matching this function's existing
+          // `if (!db) return [];` contract, instead of throwing on
+          // created.id or silently promoting a blocked marriage.
+          return [];
         }
         if (typeof created.id !== "number") {
-          // insertId() is documented to return undefined when neither
-          // driver shape carries an id (e.g. a Postgres INSERT with no
-          // .returning() — see its own doc comment). Only the freshly-
-          // inserted branch of createPartnership can hit this: the
-          // existing-row branch above returns a real DB row, whose id
-          // always came back from a SELECT. Fail closed the same way the
+          // round-8 P3 backstop, narrowed by round-10 P2: createPartnership
+          // now re-selects by natural key when insertId() finds nothing
+          // (e.g. a Postgres INSERT with no .returning() — see insertId()'s
+          // own doc comment), so on production this branch should no longer
+          // be the routine path — it only remains reachable if that
+          // re-select ALSO turns up no row (a genuine anomaly: the pair was
+          // deleted between the insert and the re-select, or a driver gives
+          // a still-different empty shape). Fail closed the same way the
           // sibling !created check above does, instead of handing back a
           // partnershipId no mutation could ever act on.
-          return null;
+          return [];
         }
-        return {
+        return [{
           id: partner[0].id,
           name: partner[0].name,
           gender: partner[0].gender,
@@ -3738,11 +3754,70 @@ export async function getPartnerOfUser(
           profileAccessRequestedAt:
             (created as any)?.profileAccessRequestedAt ?? null,
           profileAccessGrantedAt: (created as any)?.profileAccessGrantedAt ?? null,
-        };
+        }];
       }
     }
   }
-  return null;
+  return [];
+}
+
+/**
+ * The sole/primary partner of a user — first entry of getPartnersOfUser.
+ * Kept working, unchanged, for every existing single-partner call site
+ * (profile.get/save, syncWithPartner, getSpouseAdvice, request/grant/
+ * revokePartnerProfileAccess, shareWeeklyProgress, ...): a user with 0 or 1
+ * confirmed partnerships gets bit-for-bit the same result this function
+ * always returned. A man with 2+ confirmed wives gets whichever partnership
+ * getPartnersOfUser's branch-1 query happens to return first (no ORDER BY —
+ * this was already an unordered `.limit(1)` before this refactor, so this
+ * preserves rather than changes that). Callers that must see every partner
+ * use getPartnersOfUser directly (links.listPartners/getPartnerProfile).
+ */
+export async function getPartnerOfUser(userId: number): Promise<PartnerRecord | null> {
+  const partners = await getPartnersOfUser(userId);
+  return partners[0] ?? null;
+}
+
+/**
+ * Item 3 — owner's ruling: a man may have multiple wives; a woman at most
+ * one husband at a time. True when `userId` is on record as female
+ * (users.gender COLUMN — this file's own convention, see PartnerRecord's
+ * `gender` doc comment above; a legacy row whose gender lives ONLY in the
+ * JSON parentProfile copy is not caught here, same ceiling this file's
+ * other gender reads already have) AND already has a DIFFERENT active,
+ * confirmed partnership on record. Checked at both places a partnership can
+ * become active+confirmed: createPartnership's confirmed=true insert branch
+ * below, and confirmPartnershipRequest's UPDATE further down.
+ *
+ * ponytail: a pre-check (two selects) then a guarded write, matching this
+ * file's existing idiom (see revokePartnerProfileAccess/createPartnership's
+ * own existing-row check) rather than one correlated-subquery WHERE — this
+ * leaves a narrow TOCTOU window if the same woman is confirmed into two
+ * partnerships in the same instant. Upgrade path: a DB-level partial unique
+ * index, if that race ever proves reachable in practice (this app has no
+ * realistic concurrent-marriage-confirmation load today).
+ */
+async function womanAlreadyHasConfirmedHusband(userId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const [user] = await db
+    .select({ gender: users.gender })
+    .from(users)
+    .where(eq(users.id, userId))
+    .limit(1);
+  if (user?.gender !== "vrouw") return false;
+  const [existing] = await db
+    .select({ id: partnerships.id })
+    .from(partnerships)
+    .where(
+      and(
+        or(eq(partnerships.userId1, userId), eq(partnerships.userId2, userId)),
+        eq(partnerships.status, "active"),
+        eq(partnerships.confirmed, true),
+      ),
+    )
+    .limit(1);
+  return !!existing;
 }
 
 /** Create a partnership record (idempotent) */
@@ -3796,6 +3871,16 @@ export async function createPartnership(
     // data is shared until you confirm" message they were sent.
     return existing[0];
   }
+  // Item 3: only the confirmed=true branch can land an ALREADY-active
+  // partnership — the ordinary confirmed=false invite (linkPartnerByPublicId)
+  // poses no risk here and is never blocked by this.
+  if (
+    confirmed &&
+    ((await womanAlreadyHasConfirmedHusband(userId1)) ||
+      (await womanAlreadyHasConfirmedHusband(userId2)))
+  ) {
+    return null;
+  }
   // Create new
   const [result] = await db
     .insert(partnerships)
@@ -3806,8 +3891,40 @@ export async function createPartnership(
       confirmed,
       status: confirmed ? "active" : "pending",
     });
+  // PORTING HAZARD (round-10 P2): insertId(result) only ever recovers
+  // mysql2's [ResultSetHeader] shape (see its own doc comment) — production
+  // is a hand-ported Postgres server, where a plain INSERT carries no id
+  // without `.returning()`, which this mysql2-typed insert() builder can't
+  // call. Left as insertId()-only, every production call here silently
+  // returned { id: undefined }, which getPartnersOfUser's caller then had to
+  // fail closed on (round-8 P3) — a correct backstop, but on Postgres it
+  // fired on EVERY first-ever detection of a shared-children co-parent, so
+  // that legacy fallback never actually worked in production. Fixed by
+  // re-selecting the row via its natural key (userId1/userId2, unordered)
+  // instead of trusting the insert result: the "already exists" check above
+  // already proved no pending/active row existed for this pair before this
+  // insert, so this SELECT can only find the row just written, on either
+  // driver. mysql2 is unaffected (insertId already resolves it, no extra
+  // query); Postgres now gets a real, usable id instead of losing the link.
+  let id = insertId(result);
+  if (typeof id !== "number") {
+    const [row] = await db
+      .select({ id: partnerships.id })
+      .from(partnerships)
+      .where(
+        and(
+          or(
+            and(eq(partnerships.userId1, userId1), eq(partnerships.userId2, userId2)),
+            and(eq(partnerships.userId1, userId2), eq(partnerships.userId2, userId1)),
+          ),
+          eq(partnerships.status, confirmed ? "active" : "pending"),
+        ),
+      )
+      .limit(1);
+    id = row?.id;
+  }
   return {
-    id: insertId(result),
+    id,
     userId1,
     userId2,
     status: confirmed ? "active" : "pending",
@@ -3863,6 +3980,23 @@ export async function confirmPartnershipRequest(
 ): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
+  // Item 3 — this is the real-world chokepoint for the one-husband
+  // constraint: every ordinary marriage link goes invite
+  // (linkPartnerByPublicId, always confirmed=false) then confirm (here).
+  // Must check BOTH parties, not just recipientId — either side of the pair
+  // could be the wife, and confirmation is mutual regardless of who
+  // initiated. See womanAlreadyHasConfirmedHusband's own doc comment for
+  // what "checked" means here (raw gender column, pre-check-then-write).
+  const partnership = await getPartnershipById(partnershipId);
+  if (!partnership) return false;
+  const otherId =
+    partnership.userId1 === recipientId ? partnership.userId2 : partnership.userId1;
+  if (
+    (await womanAlreadyHasConfirmedHusband(recipientId)) ||
+    (await womanAlreadyHasConfirmedHusband(otherId))
+  ) {
+    return false;
+  }
   const result = await db
     .update(partnerships)
     .set({ status: "active", confirmed: true })
@@ -4122,19 +4256,39 @@ export async function hasActiveSpecialistParentRelationship(
   return false;
 }
 
-/** Dissolve a partnership */
-export async function dissolvePartnership(userId: number) {
+/**
+ * Item 2 — dissolve ONE specific partnership, not every partnership of a
+ * user (a man with 2+ wives must be able to separate from one without
+ * touching the others; the owner's ruling also requires either spouse to
+ * choose WHICH partner they separated from). Authorized to a party of that
+ * partnership in the SQL WHERE clause, matching this file's existing idiom
+ * (see confirmPartnershipRequest/grantPartnerProfileAccess above). Had no
+ * callers under its old (userId)-only signature (grep confirmed), so this
+ * is a signature change with zero existing blast radius.
+ *
+ * No extra revocation step needed on top of the status flip: every read in
+ * this file (getPartnersOfUser, hasConfirmedPartner, ...) already filters
+ * on status='active', so a dissolved row simply stops being returned —
+ * access ends as a side effect of that filter, not something this function
+ * has to do itself.
+ */
+export async function dissolvePartnership(
+  partnershipId: number,
+  userId: number,
+): Promise<boolean> {
   const db = await getDb();
-  if (!db) return;
-  await db
+  if (!db) return false;
+  const result = await db
     .update(partnerships)
     .set({ status: "dissolved", dissolvedAt: new Date() })
     .where(
       and(
+        eq(partnerships.id, partnershipId),
         or(eq(partnerships.userId1, userId), eq(partnerships.userId2, userId)),
         eq(partnerships.status, "active"),
       ),
     );
+  return affectedRows(result) === 1;
 }
 
 /**
