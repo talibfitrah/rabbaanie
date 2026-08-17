@@ -192,6 +192,21 @@ describe("a redeemed coupon is answered where the user pressed", () => {
     ).not.toContain("Play requires the renewal terms");
   });
 
+  it("keeps it below the details form, not adrift at the top of the page", () => {
+    // "Not inside the card" alone is satisfied by hoisting msg to the very top
+    // of the ScrollView, above the status card, the tier cards and the whole
+    // details form — off screen again, in the other direction. Both controls
+    // that report through msg (Save, and Redeem) live after the form, so the
+    // render has to as well.
+    const msgAt = screen.indexOf("{!!msg &&");
+    const saveAt = screen.indexOf("onPress={saveInfo}");
+    expect(saveAt, "Save button not found").toBeGreaterThan(-1);
+    expect(
+      msgAt,
+      "msg renders above the details form, far from both controls that write it",
+    ).toBeGreaterThan(saveAt);
+  });
+
   it("keeps that outcome mounted when a successful redeem flips the card", () => {
     // Success sets `msg` AND flips status.subscribed, which unmounts the
     // not-subscribed block. Rendering the message inside it would delete the

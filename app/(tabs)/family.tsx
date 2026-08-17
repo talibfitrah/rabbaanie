@@ -2242,6 +2242,10 @@ export default function FamilyScreen() {
                       showToast(syncRefusedMessage(lang), "info");
                     }
                   },
+                  // A thrown mutation — transport, auth, a server rejection —
+                  // never reaches onSuccess at all, so the success:false branch
+                  // above does not cover it and the button is silent again.
+                  onError: () => showToast(syncRefusedMessage(lang), "info"),
                 });
               }}
               style={({ pressed }) => [
@@ -3087,6 +3091,7 @@ export default function FamilyScreen() {
                           showToast(syncRefusedMessage(lang), "info");
                         }
                       },
+                      onError: () => showToast(syncRefusedMessage(lang), "info"),
                     });
                   }}
                   style={({ pressed }) => [

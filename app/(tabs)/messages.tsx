@@ -550,7 +550,12 @@ function MessagesScreenInner() {
                       const reports = existing ? JSON.parse(existing) : [];
                       reports.unshift(report);
                       await AsyncStorage.setItem("sync_reports", JSON.stringify(reports.slice(0, 50)));
-                    } catch {}
+                    } catch {
+                  // Was `catch {}`: a rejected mutation produced neither toast
+                  // nor haptic, so the throw path stayed silent even after the
+                  // success:false branch was added.
+                  showToast(syncRefusedMessage(lang), "info");
+                }
                     // Show toast with details
                     if (total > 0) {
                       const parts: string[] = [];
