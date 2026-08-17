@@ -1,0 +1,32 @@
+tests/partner-profile-access.test.ts
+  s_835671c30cfc16::t_dd1ba60bcfbf97 31,2342-2355,2357-2358,2364,2367,2375-2384
+  s_835671c30cfc16::t_73aa10e1ab9ecf 2369-2374
+  s_835671c30cfc16::t_d1e157031b64c0 2356,2359-2363,2365-2366,2368
+  s_835671c30cfc16::t_5f3de0c8c7c9a3 2385
+app/(tabs)/messages.tsx
+  s_835671c30cfc16::t_de3f67057e41d3 985-992
+app/(tabs)/family.tsx
+  s_835671c30cfc16::t_87630d5c779103 2191-2194,3049-3052
+  s_835671c30cfc16::t_d2579d1c613d0b 1624-1631
+app/spouse-profile.tsx
+  s_835671c30cfc16::t_d2579d1c613d0b 74-81
+server/routers.ts
+  s_835671c30cfc16::t_808294544bc0ec 2191-2206,2230-2233,2300-2311,2318-2320
+  s_835671c30cfc16::t_258e1b8d6e7fde 2187-2189
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "3e686582e51cf67b10d326019525d2a88c9edd92",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
