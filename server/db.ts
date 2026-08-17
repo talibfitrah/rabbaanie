@@ -3743,11 +3743,18 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           // createPartnership returns null/falsy for two different reasons:
           // its own getDb() came back empty (DB briefly unavailable between
           // this function's top-level check and here), or (item 3) the
-          // one-husband constraint refused to confirm it. Either way fail
-          // closed as "no partner", matching this function's existing
-          // `if (!db) return [];` contract, instead of throwing on
-          // created.id or silently promoting a blocked marriage.
-          return [];
+          // one-husband constraint refused to confirm it. Either way this
+          // PAIR yields no partner, instead of throwing on created.id or
+          // silently promoting a blocked marriage.
+          //
+          // `continue`, not `return []`, and for the same reason the
+          // prior-dissolution check above continues: one blocked pair must not
+          // abandon the remaining children. A man co-parenting child A with a
+          // woman who already has a confirmed husband and child B with an
+          // unattached co-parent was losing the link to BOTH, because the loop
+          // never reached B. A transient getDb() failure had the same
+          // all-or-nothing effect.
+          continue;
         }
         if (typeof created.id !== "number") {
           // round-8 P3 backstop, narrowed by round-10 P2: createPartnership
@@ -3757,10 +3764,10 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           // be the routine path — it only remains reachable if that
           // re-select ALSO turns up no row (a genuine anomaly: the pair was
           // deleted between the insert and the re-select, or a driver gives
-          // a still-different empty shape). Fail closed the same way the
+          // a still-different empty shape). Skip this pair the same way the
           // sibling !created check above does, instead of handing back a
           // partnershipId no mutation could ever act on.
-          return [];
+          continue;
         }
         return [{
           id: partner[0].id,

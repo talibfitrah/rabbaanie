@@ -2199,10 +2199,25 @@ export const linksRouter = router({
           input.senderId,
           ctx.user.id,
         );
-        if (
-          partnership &&
-          (await db.confirmPartnershipRequest(partnership.id, ctx.user.id))
-        ) {
+        // Split from the confirm below rather than &&-ed with it: since the
+        // one-husband constraint landed, a `false` here means "refused", not
+        // "there was nothing to confirm", and collapsing the two left the
+        // refusal with no user-visible path at all. A woman who already has a
+        // confirmed husband was told either that the link succeeded (whenever
+        // the same sender also sent child-link requests, so changed > 0) or
+        // that there were no requests to confirm — while the row sat pending
+        // forever and she had no way to learn why.
+        const partnershipConfirmed = partnership
+          ? await db.confirmPartnershipRequest(partnership.id, ctx.user.id)
+          : false;
+        if (partnership && !partnershipConfirmed) {
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
+          });
+        }
+        if (partnership && partnershipConfirmed) {
           // Both people have now consented. Only at this point share their
           // currently confirmed children in both directions.
           //
@@ -2752,9 +2767,26 @@ export const linksRouter = router({
   syncWithPartner: protectedProcedure
     .input(z.object({ partnerId: z.number().optional() }).optional())
     .mutation(async ({ ctx, input }) => {
+    const myPartners = await db.getPartnersOfUser(ctx.user.id);
+    // Ambiguity is refused, not guessed. Only family.tsx has a partner
+    // selector to pass an id; the Home tab, the Messages tab and
+    // app-context's silent auto-sync on app open have none, and left to
+    // default they merged whichever partnership the unordered query returned
+    // first — writing wife #1's children/issues/plans into a husband's own
+    // profile and reporting counts from a household he never chose. That copy
+    // then leaks: once he grants wife #2 access, she reads it.
+    //
+    // Refused as success:false rather than a throw, matching the access gate
+    // below: every client call site already branches on .success and shows the
+    // refusal toast (tests/sync-refusal-visible.test.ts guards that), whereas a
+    // throw would surprise the background sync. A user with 0 or 1 partners is
+    // completely unaffected.
+    if (input?.partnerId === undefined && myPartners.length > 1) {
+      return { success: false, message: "Multiple partners linked, specify which one" };
+    }
     const partner = input?.partnerId !== undefined
-      ? ((await db.getPartnersOfUser(ctx.user.id)).find((p) => p.id === input.partnerId) ?? null)
-      : await db.getPartnerOfUser(ctx.user.id);
+      ? (myPartners.find((p) => p.id === input.partnerId) ?? null)
+      : (myPartners[0] ?? null);
     if (!partner) return { success: false, message: "No partner linked" };
     const partnerData = partner.profileData as any;
     // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without

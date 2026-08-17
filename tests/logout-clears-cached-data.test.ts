@@ -16,10 +16,18 @@ import { join } from "path";
  * normal logout(), and the isLogoutPending() recovery on the next app start
  * for a logout that crashed part-way.
  *
- * Anchored on the identifiers, not on copy or call order, so extracting the
- * pair into a shared helper or reordering the wipe still passes — as long as
- * both paths still perform it. Asserts PRESENCE: a gate that only checked
- * these were absent would let the whole capability vanish silently.
+ * Anchored on the identifiers rather than on copy or call order, so renaming a
+ * local or reordering the two wipes still passes. Asserts PRESENCE: a gate that
+ * only checked these were absent would let the whole capability vanish
+ * silently.
+ *
+ * WHAT THIS DOES NOT CHECK, stated because the obvious refactor defeats it:
+ * it is lexical. Extracting the pair into a shared `wipeSession()` helper and
+ * calling that from both paths preserves the invariant but fails this test,
+ * and the tempting fix then is to loosen the regex, which removes the guard.
+ * If you do extract it, re-point these two assertions at the helper's own body
+ * and assert both paths call it — do not soften them into a whole-file search,
+ * which would pass even if one path stopped wiping.
  */
 const AUTH = readFileSync(
   join(__dirname, "..", "lib", "auth-context.tsx"),

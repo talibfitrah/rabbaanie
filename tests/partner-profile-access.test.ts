@@ -167,6 +167,17 @@ beforeEach(() => {
   dbMocks.sendMessage.mockResolvedValue(1);
   dbMocks.sendLocalizedPush.mockResolvedValue(true);
   dbMocks.getUserLanguage.mockResolvedValue("nl");
+  // In server/db.ts the two accessors are ONE query: getPartnerOfUser is
+  // literally getPartnersOfUser(id)[0]. Mocking the module wholesale severs
+  // that, so a test setting only getPartnerOfUser would leave getPartnersOfUser
+  // returning undefined — and any code consulting the list (syncWithPartner's
+  // ambiguity refusal) would see something that cannot occur in production.
+  // Derive one from the other so "I mocked a single partner" means exactly
+  // that on both. Tests that set getPartnersOfUser explicitly override this.
+  dbMocks.getPartnersOfUser.mockImplementation(async () => {
+    const primary = await dbMocks.getPartnerOfUser();
+    return primary ? [primary] : [];
+  });
 });
 
 describe("links.getPartnerProfile gender gating", () => {
@@ -2157,5 +2168,62 @@ describe("confirmLink: a second wife must not inherit the first wife's children"
       .map((c: any[]) => c[0].childId);
     expect(sharedChildIds).toContain(100);
     expect(sharedChildIds).not.toContain(200);
+  });
+});
+
+describe("syncWithPartner refuses to guess which wife when there are several", () => {
+  it("no partnerId + 2 confirmed partners = refused, nothing merged", async () => {
+    // Only family.tsx has a selector to pass an id. The Home tab, the Messages
+    // tab and app-context's silent auto-sync have none, and defaulting merged
+    // whichever partnership came back first — writing wife #1's household into
+    // his own profile, which wife #2 then reads once he grants her access.
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, gender: "vrouw", partnershipId: 56 }),
+    ]);
+    // Everything else set up so the sync WOULD succeed. Without this the call
+    // bails at "No data to sync" and the test passes with the guard removed —
+    // it did exactly that once, which is why the message is asserted below
+    // rather than just `success === false`.
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner();
+
+    expect(result.success).toBe(false);
+    expect(result.message).toMatch(/multiple partners/i);
+    expect(dbMocks.updateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it("naming the partner explicitly still syncs, and a single-partner user is unaffected", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, gender: "vrouw", partnershipId: 56 }),
+    ]);
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const named: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner({ partnerId: 3 });
+    expect(named.success).toBe(true);
+
+    vi.clearAllMocks();
+    dbMocks.getUserLanguage.mockResolvedValue("nl");
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+    dbMocks.getUserById.mockResolvedValue({
+      id: 1,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const solo: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner();
+    expect(solo.success).toBe(true);
   });
 });
