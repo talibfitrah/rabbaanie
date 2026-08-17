@@ -1,0 +1,28 @@
+tests/partner-profile-access.test.ts
+  s_6dae7f056761ac::t_c8b6fbee81874b 1369-1371,1375
+  s_6dae7f056761ac::t_1e9726aab6c244 1407-1412
+  s_6dae7f056761ac::t_065ab3a22d8873 1341-1349,1379,1381,1393,1395-1406,1415-1433,1437-1438
+  s_6dae7f056761ac::t_439a05e9498979 1634,1648-1673,1680-1683
+  s_6dae7f056761ac::t_b8e6d926d95fb5 1372-1374
+server/routers.ts
+  s_6dae7f056761ac::t_e5793f50691480 1600-1617
+server/db.ts
+  s_6dae7f056761ac::t_ea590d84b82875 3730-3737
+  s_6dae7f056761ac::t_41c470e0ebc9db 3894-3925,3927
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "336b547eb91f5c0ee9b035ecbdc2fd4c8897039f",
+  "prompts": {},
+  "sessions": {
+    "s_6dae7f056761ac": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7bd75d6-4e90-4686-a906-e4bc022c7fad",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
