@@ -174,7 +174,16 @@ export default function SpouseProfileScreen() {
   // matched by user id (not selectedPartnerId) so this also resolves for
   // the single-partner case, where selectedPartnerId stays null and the
   // server picks the partner on its own.
-  const currentPartnership = partners.find((p) => p.id === data?.id);
+  // partnershipId 0 means the shared-children fallback surfaced this co-parent
+  // without any partnerships row existing (it deliberately writes nothing —
+  // see getPartnersOfUser). There is nothing to dissolve, and dissolvePartner
+  // would match no row and throw FORBIDDEN, so the destructive control must not
+  // be offered at all: an alarming "cannot be easily undone" dialog followed by
+  // a failure alert, every time. Fails closed the same way canRequest already
+  // does for this case.
+  const currentPartnership = partners.find(
+    (p) => p.id === data?.id && p.partnershipId > 0,
+  );
 
   function confirmDissolvePartnership() {
     if (!currentPartnership) return;

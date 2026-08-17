@@ -1616,6 +1616,12 @@ export default function FamilyScreen() {
     staleTime: 0,
   });
   const partners: PartnerListEntry[] = listPartnersQuery.data ?? [];
+  // Same guard spouse-profile.tsx uses for grant/revoke: until the partner list
+  // has landed, selectedPartnerId is still null, so a husband with several
+  // wives would send no partnerId and syncWithPartner — which refuses to guess
+  // on a write — answers success:false, surfacing the generic "could not sync"
+  // toast for a sync that would have worked a moment later.
+  const partnerChoiceReady = listPartnersQuery.isSuccess;
   const hasMultiplePartners = partners.length > 1;
   const [manualPartnerId, setManualPartnerId] = useState<number | null>(null);
   // Stays null (today's "let the server pick" default) until there's
@@ -1890,6 +1896,24 @@ export default function FamilyScreen() {
       const data = await response.json();
       if (data?.result?.data) {
         const result = data.result.data;
+        // A refusal carries no advice — getSpouseAdvice now returns
+        // { advice: null, error: "not_confirmed" } when the partnership was
+        // never confirmed. Rendering that as empty made the "Advies" button
+        // read as dead (the same defect this release fixed for the sync
+        // buttons), and the cache write below then destroyed a previously good
+        // advice that would otherwise still be restorable on the next mount.
+        if (result.error) {
+          showToast(
+            tx(
+              lang,
+              "Advies is beschikbaar zodra de koppeling met uw partner is bevestigd.",
+              "Advice becomes available once the link with your partner is confirmed.",
+              "تصبح النصيحة متاحة بعد تأكيد الارتباط مع شريكك.",
+            ),
+            "info",
+          );
+          return;
+        }
         setSpouseAdvice({
           advice: result.advice || "",
           tips: result.tips || [],
@@ -2157,6 +2181,7 @@ export default function FamilyScreen() {
           <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
             <Pressable
               onPress={() => {
+                if (!partnerChoiceReady) return;
                 syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                   onSuccess: async (res: any) => {
                     if (res?.success) {
@@ -3011,6 +3036,7 @@ export default function FamilyScreen() {
                 {/* Sync button */}
                 <Pressable
                   onPress={() => {
+                    if (!partnerChoiceReady) return;
                     syncMutation.mutate(selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined, {
                       onSuccess: async (res: any) => {
                         if (res?.success) {
