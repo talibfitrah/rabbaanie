@@ -33,6 +33,7 @@ import { translateProfileValue } from "@/lib/profile-labels";
 import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
 import type { inferRouterOutputs } from "@trpc/server";
 import type { AppRouter } from "@/server/routers";
+import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 /**
  * links.getPartnerProfile returns a union: a restricted payload omits
@@ -2238,15 +2239,7 @@ export default function FamilyScreen() {
                       // on Subscribe. ponytail: one wording for every refusal;
                       // res.message is English-only, and the specific
                       // permission state already has a home on spouse-profile.
-                      showToast(
-                        tx(
-                          lang,
-                          "Synchroniseren is niet gelukt",
-                          "Could not sync",
-                          "تعذّرت المزامنة",
-                        ),
-                        "info",
-                      );
+                      showToast(syncRefusedMessage(lang), "info");
                     }
                   },
                 });
@@ -3091,15 +3084,7 @@ export default function FamilyScreen() {
                           }
                         } else {
                           // Second sync button, same refusal path as above.
-                          showToast(
-                            tx(
-                              lang,
-                              "Synchroniseren is niet gelukt",
-                              "Could not sync",
-                              "تعذّرت المزامنة",
-                            ),
-                            "info",
-                          );
+                          showToast(syncRefusedMessage(lang), "info");
                         }
                       },
                     });

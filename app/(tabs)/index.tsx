@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
+import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
   UIManager.setLayoutAnimationEnabledExperimental(true);
@@ -178,7 +179,7 @@ export default function AlgemeenScreen() {
         // access, or the partnership is unconfirmed, so telling a wife with a
         // linked, confirmed husband "no partner linked" contradicts what the
         // partner screens tell her and sends her to fix the wrong thing.
-        const msg = tx(lang, "Synchroniseren is niet gelukt", "Could not sync", "تعذّرت المزامنة");
+        const msg = syncRefusedMessage(lang);
         showToast(msg, "error");
         setSyncResult(msg);
       }

@@ -36,6 +36,7 @@ import { DatePicker } from "@/components/date-picker";
 import { SpouseVisibilityNotice } from "@/components/form-field";
 import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
+import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -569,7 +570,7 @@ function MessagesScreenInner() {
                     // The access gate returns success:false where this used to
                     // succeed (ungated wife, unconfirmed partnership,
                     // unresolvable gender), and there was no branch for it.
-                    showToast(lang === "ar" ? "\u062a\u0639\u0630\u0651\u0631\u062a \u0627\u0644\u0645\u0632\u0627\u0645\u0646\u0629" : lang === "en" ? "Could not sync" : "Synchroniseren is niet gelukt", "info");
+                    showToast(syncRefusedMessage(lang), "info");
                   }
                 } catch {}
               }}
