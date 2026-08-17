@@ -3727,12 +3727,14 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           return [];
         }
         if (typeof created.id !== "number") {
-          // insertId() is documented to return undefined when neither
-          // driver shape carries an id (e.g. a Postgres INSERT with no
-          // .returning() — see its own doc comment). Only the freshly-
-          // inserted branch of createPartnership can hit this: the
-          // existing-row branch above returns a real DB row, whose id
-          // always came back from a SELECT. Fail closed the same way the
+          // round-8 P3 backstop, narrowed by round-10 P2: createPartnership
+          // now re-selects by natural key when insertId() finds nothing
+          // (e.g. a Postgres INSERT with no .returning() — see insertId()'s
+          // own doc comment), so on production this branch should no longer
+          // be the routine path — it only remains reachable if that
+          // re-select ALSO turns up no row (a genuine anomaly: the pair was
+          // deleted between the insert and the re-select, or a driver gives
+          // a still-different empty shape). Fail closed the same way the
           // sibling !created check above does, instead of handing back a
           // partnershipId no mutation could ever act on.
           return [];
@@ -3889,8 +3891,40 @@ export async function createPartnership(
       confirmed,
       status: confirmed ? "active" : "pending",
     });
+  // PORTING HAZARD (round-10 P2): insertId(result) only ever recovers
+  // mysql2's [ResultSetHeader] shape (see its own doc comment) — production
+  // is a hand-ported Postgres server, where a plain INSERT carries no id
+  // without `.returning()`, which this mysql2-typed insert() builder can't
+  // call. Left as insertId()-only, every production call here silently
+  // returned { id: undefined }, which getPartnersOfUser's caller then had to
+  // fail closed on (round-8 P3) — a correct backstop, but on Postgres it
+  // fired on EVERY first-ever detection of a shared-children co-parent, so
+  // that legacy fallback never actually worked in production. Fixed by
+  // re-selecting the row via its natural key (userId1/userId2, unordered)
+  // instead of trusting the insert result: the "already exists" check above
+  // already proved no pending/active row existed for this pair before this
+  // insert, so this SELECT can only find the row just written, on either
+  // driver. mysql2 is unaffected (insertId already resolves it, no extra
+  // query); Postgres now gets a real, usable id instead of losing the link.
+  let id = insertId(result);
+  if (typeof id !== "number") {
+    const [row] = await db
+      .select({ id: partnerships.id })
+      .from(partnerships)
+      .where(
+        and(
+          or(
+            and(eq(partnerships.userId1, userId1), eq(partnerships.userId2, userId2)),
+            and(eq(partnerships.userId1, userId2), eq(partnerships.userId2, userId1)),
+          ),
+          eq(partnerships.status, confirmed ? "active" : "pending"),
+        ),
+      )
+      .limit(1);
+    id = row?.id;
+  }
   return {
-    id: insertId(result),
+    id,
     userId1,
     userId2,
     status: confirmed ? "active" : "pending",

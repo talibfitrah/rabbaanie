@@ -1338,6 +1338,15 @@ describe("profile.save reports the effective gender after a save (round-3 fix; u
 // the auto-link. server/routers.ts's own self-link (parentId: ctx.user.id)
 // a few lines above is unaffected — a user always controls a child they
 // just created themselves — so these tests only cover the partner branch.
+//
+// round-10 P1 fix: db.getPartnerOfUser returns "whichever partnership the
+// unordered query happens to return first" (its own doc comment) — with
+// polygyny, a man can have 2+ confirmed wives, and `child` carries no field
+// saying which one is this child's mother. Auto-linking is a WRITE grant
+// (canEdit: true), so guessing is not an option. profile.save now reads
+// db.getPartnersOfUser and only auto-links when exactly one CONFIRMED
+// partner exists — bit-for-bit the old behavior for 0 or 1 confirmed
+// partners, fails closed (no auto-link, no silent grant) for 2+.
 // ============================================================
 describe("profile.save: auto-linking a NEW child to the caller's partner requires a CONFIRMED partnership (item 4 — write privilege escalation fix)", () => {
   const ctx = {
@@ -1357,12 +1366,19 @@ describe("profile.save: auto-linking a NEW child to the caller's partner require
     dbMocks.addChild.mockResolvedValue(42);
     dbMocks.generateChildPublicId.mockResolvedValue("C_42");
     dbMocks.linkParentToChild.mockResolvedValue(undefined);
+    // vi.clearAllMocks() (global beforeEach) clears call history, not
+    // implementations — reset explicitly so no test in this block can
+    // silently inherit another test's getPartnerOfUser value depending on
+    // run order (the round-10 P1 test below false-passed against unfixed
+    // code without this — it inherited a leftover mock value instead of
+    // exercising its own logic).
+    dbMocks.getPartnerOfUser.mockResolvedValue(null);
   });
 
   it("does NOT grant an unconfirmed 'partner' edit rights on the new child", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({ id: 99, partnershipConfirmed: false }),
-    );
+    ]);
     await profileRouter.createCaller(ctx).save(inputWithNewChild);
     expect(dbMocks.linkParentToChild).not.toHaveBeenCalledWith(
       expect.objectContaining({ parentId: 99 }),
@@ -1374,12 +1390,52 @@ describe("profile.save: auto-linking a NEW child to the caller's partner require
   });
 
   it("still grants a genuinely CONFIRMED partner edit rights on the new child", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({ id: 99, partnershipConfirmed: true }),
-    );
+    ]);
     await profileRouter.createCaller(ctx).save(inputWithNewChild);
     expect(dbMocks.linkParentToChild).toHaveBeenCalledWith(
       expect.objectContaining({ parentId: 99, childId: 42, canEdit: true }),
+    );
+  });
+
+  it("round-10 P1: does NOT auto-link ANY wife when the caller has 2+ CONFIRMED partners — which one is this child's mother can't be derived, so picking one (even the 'first') is a write-privilege escalation", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 99, name: "Wife A", partnershipConfirmed: true }),
+      partnerRow({ id: 98, name: "Wife B", partnershipConfirmed: true }),
+    ]);
+    // Mirrors what db.getPartnerOfUser's own doc comment says it does —
+    // "whichever partnership the unordered query happens to return first"
+    // (Wife A here). The fix must ignore this primary accessor entirely for
+    // this write grant, not merely get lucky on which wife it names.
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({ id: 99, name: "Wife A", partnershipConfirmed: true }),
+    );
+    await profileRouter.createCaller(ctx).save(inputWithNewChild);
+    expect(dbMocks.linkParentToChild).not.toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 99 }),
+    );
+    expect(dbMocks.linkParentToChild).not.toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 98 }),
+    );
+    // The caller's own self-link must still go through — only the
+    // ambiguous PARTNER auto-link is skipped.
+    expect(dbMocks.linkParentToChild).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 1, childId: 42 }),
+    );
+  });
+
+  it("round-10 P1: a 2nd, still-PENDING partnership does not block auto-linking the one partner who IS confirmed — only 2+ CONFIRMED partners is ambiguous", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 99, partnershipConfirmed: true }),
+      partnerRow({ id: 97, partnershipConfirmed: false }),
+    ]);
+    await profileRouter.createCaller(ctx).save(inputWithNewChild);
+    expect(dbMocks.linkParentToChild).toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 99, childId: 42, canEdit: true }),
+    );
+    expect(dbMocks.linkParentToChild).not.toHaveBeenCalledWith(
+      expect.objectContaining({ parentId: 97 }),
     );
   });
 });
@@ -1575,7 +1631,7 @@ describe("insertId (mirrors affectedRows' dual-shape reading, round-7 P2 fix)", 
   });
 });
 
-describe("db.getPartnerOfUser: shared-children fallback fails closed when insertId() finds no id (round-8 P3 fix)", () => {
+describe("db.getPartnerOfUser: shared-children fallback and insertId() finding no id (round-8 P3; recovery added round-10 P2)", () => {
   beforeEach(() => {
     process.env.DATABASE_URL = "mysql://round8-test-only/db";
     partnershipDb.insert.mockClear();
@@ -1589,14 +1645,42 @@ describe("db.getPartnerOfUser: shared-children fallback fails closed when insert
     partnershipDb.rows = [];
   });
 
-  it("returns null instead of a partner object with partnershipId: undefined (e.g. a Postgres insert with no .returning())", async () => {
+  it("round-10 P2: recovers the partnership id via a natural-key re-select when insertId() finds none — production Postgres must not silently drop the co-parent link", async () => {
+    // Same 5-select walk as the sibling test below, but `.rows` (what every
+    // post-queue select falls back to: both womanAlreadyHasConfirmedHusband
+    // gender checks AND createPartnership's new re-select) now holds the row
+    // a real re-select would find on Postgres — proving the fallback
+    // recovers a usable id instead of just failing closed.
+    partnershipDb.queue = [
+      [],
+      [{ childId: 10, parentId: 1, confirmed: true }],
+      [{ childId: 10, parentId: 2, confirmed: true }],
+      [{ id: 2, name: "Partner", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [],
+    ];
+    partnershipDb.rows = [{ id: 777 }];
+    partnershipDb.insert.mockResolvedValueOnce([{}]); // no insertId field (Postgres shape)
+
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    const result = await real.getPartnerOfUser(1);
+
+    expect(result).not.toBeNull();
+    expect(result?.id).toBe(2);
+    expect(result?.partnershipId).toBe(777);
+    expect(result?.partnershipConfirmed).toBe(true);
+  });
+
+  it("still returns null (not a partnershipId: undefined object) in the genuinely exceptional case where the re-select ALSO finds no row", async () => {
     // Walks getPartnerOfUser's actual select sequence: (1) the
     // partnerships path-1 check [empty, forcing the fallback], (2)
     // myLinks, (3) otherLinks, (4) the partner user row, (5)
     // createPartnership's own existing-row check [empty, forcing its
     // insert branch] — then an INSERT whose result carries no insertId,
     // mirroring a Postgres INSERT with no .returning() (see insertId()'s
-    // own doc comment).
+    // own doc comment). `.rows` stays empty (this block's beforeEach), so
+    // the re-select this fallback now attempts finds nothing either — this
+    // is the backstop for a true anomaly, not the routine Postgres case
+    // (see the sibling test above for that).
     partnershipDb.queue = [
       [],
       [{ childId: 10, parentId: 1, confirmed: true }],

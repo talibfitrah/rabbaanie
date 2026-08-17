@@ -1585,7 +1585,6 @@ export const profileRouter = router({
                 });
                 // Notify partner and auto-link new child to them
                 try {
-                  const partner = await db.getPartnerOfUser(ctx.user.id);
                   // VULNERABILITY (item 4) fix: this used to fire on any
                   // truthy `partner`, including one found via an UNCONFIRMED
                   // partnership (a pending invite the other side never
@@ -1598,7 +1597,24 @@ export const profileRouter = router({
                   // partnershipConfirmed here matches the same gate
                   // getPartnerProfile/syncWithPartner already enforce for
                   // READING a partner's profile (round-8 P1).
-                  if (partner && partner.partnershipConfirmed) {
+                  //
+                  // round-10 P1 fix: this used db.getPartnerOfUser, which by
+                  // its own doc comment returns "whichever partnership the
+                  // unordered query happens to return first" — with
+                  // polygyny, a man can have 2+ confirmed wives, and `child`
+                  // carries no field saying which one is this child's
+                  // mother. Auto-linking is a WRITE grant over the child's
+                  // record, so guessing is not an option. Read every
+                  // confirmed partner and only auto-link when there is
+                  // exactly one: unambiguous, and bit-for-bit the prior
+                  // behavior for 0 or 1 confirmed partners. 2+ confirmed
+                  // partners fails closed — no auto-link, no silent grant to
+                  // an arbitrary wife.
+                  const confirmedPartners = (
+                    await db.getPartnersOfUser(ctx.user.id)
+                  ).filter((p) => p.partnershipConfirmed);
+                  if (confirmedPartners.length === 1) {
+                    const partner = confirmedPartners[0];
                     // Auto-link partner to the new child
                     await db.linkParentToChild({
                       parentId: partner.id,
