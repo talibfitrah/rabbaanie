@@ -1,0 +1,28 @@
+tests/logout-clears-cached-data.test.ts
+  s_835671c30cfc16::t_f969f1fac6e7b9 19-30
+server/routers.ts
+  s_835671c30cfc16::t_a80f2c9bc6d628 2202-2220
+  s_835671c30cfc16::t_9884ee8b9e0dd6 2770-2786,2788-2789
+tests/partner-profile-access.test.ts
+  s_835671c30cfc16::t_f52c13e85c0a90 170-180
+  s_835671c30cfc16::t_13acb33d73faa0 2173-2183,2192-2196,2198-2229
+  s_835671c30cfc16::t_0bb6b1f968956a 2184-2191,2197
+server/db.ts
+  s_835671c30cfc16::t_8bbc04b59b7dc0 3746-3757,3767,3770
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "247e1b0dfdcf2af1b70e61e861f573738be459ad",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
