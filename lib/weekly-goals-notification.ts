@@ -2,7 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
-import { parsePlanText } from "@/lib/plan-blocks";
+import { parsePlanText, migrateLegacyTaskKeys } from "@/lib/plan-blocks";
 import { cleanTreatmentText } from "@/lib/plan-text";
 import { planProgressKey } from "@/lib/plan-progress";
 
@@ -143,16 +143,19 @@ export async function cancelWeeklyGoalsNotification(): Promise<void> {
  * anywhere in the app, offered by the reminder every single day forever.
  */
 async function remainingPlanTasks(plan: any, language: string): Promise<string[]> {
-  // Cleaned exactly the way the two screens clean it before parsing. The task
-  // keys are positional, and cleaning can decide whether a line is a task at all
-  // (it strips the "**" that keeps "**1. …" from reading as a numbered step), so
-  // parsing the raw text here would key the ticks to different tasks.
-  const tasks = plan?.content
-    ? parsePlanText(cleanTreatmentText(plan.content, language)).filter((b) => b.type === "task")
+  // Cleaned exactly the way the two screens clean it before parsing. Cleaning
+  // can decide whether a line is a task at all (it strips the "**" that keeps
+  // "**1. …" from reading as a numbered step), and task keys are derived from
+  // the cleaned text, so parsing the raw text here would key the ticks to
+  // different tasks.
+  const cleanedText = plan?.content ? cleanTreatmentText(plan.content, language) : "";
+  const tasks = cleanedText
+    ? parsePlanText(cleanedText).filter((b) => b.type === "task")
     : [];
   if (tasks.length === 0) return [];
   const raw = await AsyncStorage.getItem(planProgressKey(plan.id));
-  const done = new Set<string>(raw ? JSON.parse(raw) : []);
+  const stored: string[] = raw ? JSON.parse(raw) : [];
+  const done = new Set<string>(migrateLegacyTaskKeys(stored, cleanedText));
   return tasks
     .filter((t) => !done.has((t as { key: string }).key))
     .map((t) => (t as { text: string }).text);

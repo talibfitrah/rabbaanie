@@ -3,6 +3,8 @@ import {
   matchesAudience,
   selectAudience,
   incompleteChildNames,
+  recipientGender,
+  attachLinkedSpouse,
   type AudienceUser,
 } from "../server/broadcast-audience";
 import { isProfileComplete } from "../lib/store";
@@ -17,15 +19,21 @@ function user(id: number, overrides: {
   parentProfile?: Record<string, unknown>;
   children?: Array<{ id: string; name: string; profileCompleted: boolean }>;
   parentProfileCompleted?: boolean;
+  hasLinkedSpouse?: boolean;
   profileDataOverride?: unknown; // when set, bypasses the defaults entirely
 } = {}): AudienceUser {
+  const hasLinkedSpouse = overrides.hasLinkedSpouse;
   if ("profileDataOverride" in overrides) {
-    return { id, name: overrides.name ?? `User ${id}`, deletedAt: overrides.deletedAt ?? null, profileData: overrides.profileDataOverride };
+    return {
+      id, name: overrides.name ?? `User ${id}`, deletedAt: overrides.deletedAt ?? null,
+      profileData: overrides.profileDataOverride, hasLinkedSpouse,
+    };
   }
   return {
     id,
     name: overrides.name ?? `User ${id}`,
     deletedAt: overrides.deletedAt ?? null,
+    hasLinkedSpouse,
     profileData: {
       parentProfile: {
         firstName: "A", lastName: "B", birthDate: "1990-01-01",
@@ -165,6 +173,107 @@ describe("incompleteChildren", () => {
 
   it("incompleteChildNames is empty when nothing is incomplete", () => {
     expect(incompleteChildNames(user(1))).toEqual([]);
+  });
+});
+
+describe("recipientGender", () => {
+  it("returns \"man\" for a male parent", () => {
+    expect(recipientGender(user(1, { parentProfile: { gender: "man" } }))).toBe("man");
+  });
+
+  it("returns \"vrouw\" for a female parent", () => {
+    expect(recipientGender(user(1, { parentProfile: { gender: "vrouw" } }))).toBe("vrouw");
+  });
+
+  it("returns null when gender is missing", () => {
+    expect(recipientGender(user(1, { parentProfile: { gender: "" } }))).toBeNull();
+  });
+
+  it("returns null for an unrecognized gender value (never guesses)", () => {
+    expect(recipientGender(user(1, { parentProfile: { gender: "other" } }))).toBeNull();
+  });
+});
+
+describe("attachLinkedSpouse", () => {
+  it("marks only the given user IDs as having a linked spouse, everyone else false", () => {
+    const users = [user(1), user(2), user(3)];
+    const withLinks = attachLinkedSpouse(users, [2]);
+    expect(withLinks.map((u) => [u.id, u.hasLinkedSpouse])).toEqual([
+      [1, false],
+      [2, true],
+      [3, false],
+    ]);
+  });
+
+  it("does not mutate the input array's objects", () => {
+    const original = user(1);
+    attachLinkedSpouse([original], [1]);
+    expect(original.hasLinkedSpouse).toBeUndefined();
+  });
+});
+
+describe("notLinkedSpouse", () => {
+  it("matches a married user with a known gender and no linked spouse", () => {
+    const u = attachLinkedSpouse(
+      [user(1, { parentProfile: { maritalStatus: "getrouwd", gender: "man" } })],
+      [],
+    )[0];
+    expect(matchesAudience(u, { notLinkedSpouse: true })).toBe(true);
+  });
+
+  it("does not match a married user whose spouse is already linked", () => {
+    const u = attachLinkedSpouse(
+      [user(1, { parentProfile: { maritalStatus: "getrouwd", gender: "man" } })],
+      [1],
+    )[0];
+    expect(matchesAudience(u, { notLinkedSpouse: true })).toBe(false);
+  });
+
+  it("does not match an unmarried user, even with no linked spouse (nothing to link)", () => {
+    const single = attachLinkedSpouse(
+      [user(1, { parentProfile: { maritalStatus: "alleenstaand", gender: "man" } })],
+      [],
+    )[0];
+    const divorced = attachLinkedSpouse(
+      [user(2, { parentProfile: { maritalStatus: "gescheiden", gender: "vrouw" } })],
+      [],
+    )[0];
+    expect(matchesAudience(single, { notLinkedSpouse: true })).toBe(false);
+    expect(matchesAudience(divorced, { notLinkedSpouse: true })).toBe(false);
+  });
+
+  it("does not match when spouse-link status was never supplied (fails closed, not a false claim)", () => {
+    // hasLinkedSpouse left undefined — attachLinkedSpouse() was never called.
+    const u = user(1, { parentProfile: { maritalStatus: "getrouwd", gender: "man" } });
+    expect(u.hasLinkedSpouse).toBeUndefined();
+    expect(matchesAudience(u, { notLinkedSpouse: true })).toBe(false);
+  });
+
+  it("does not match a married, unlinked user with an unrecognized or missing gender (can't render gendered wording safely)", () => {
+    const missing = attachLinkedSpouse(
+      [user(1, { parentProfile: { maritalStatus: "getrouwd", gender: "" } })],
+      [],
+    )[0];
+    const unrecognized = attachLinkedSpouse(
+      [user(2, { parentProfile: { maritalStatus: "getrouwd", gender: "other" } })],
+      [],
+    )[0];
+    expect(matchesAudience(missing, { notLinkedSpouse: true })).toBe(false);
+    expect(matchesAudience(unrecognized, { notLinkedSpouse: true })).toBe(false);
+  });
+
+  it("ANDs with the country filter like every other audience dimension", () => {
+    const nlUnlinked = attachLinkedSpouse(
+      [user(1, { parentProfile: { country: "Nederland", maritalStatus: "getrouwd", gender: "man" } })],
+      [],
+    )[0];
+    const beUnlinked = attachLinkedSpouse(
+      [user(2, { parentProfile: { country: "Belgium", maritalStatus: "getrouwd", gender: "man" } })],
+      [],
+    )[0];
+    const filter = { countries: ["Nederland"], notLinkedSpouse: true };
+    expect(matchesAudience(nlUnlinked, filter)).toBe(true);
+    expect(matchesAudience(beUnlinked, filter)).toBe(false);
   });
 });
 

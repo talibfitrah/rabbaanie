@@ -138,7 +138,7 @@ describe("regression: numbered tasks that restart per section are not promoted t
   ].join("\n");
 
   it("keeps the numbered lines as tasks", () => {
-    expect(taskKeysOf(RESTARTING_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
+    expect(taskKeysOf(RESTARTING_PLAN)).toHaveLength(3);
   });
 
   it("does not add a heading1 for any of the numbered lines", () => {
@@ -167,11 +167,7 @@ describe("cubic P1: a translated ai-chat plan keeps its tasks and section titles
   ].join("\n");
 
   it("keeps the numbered lines as tasks", () => {
-    expect(taskKeysOf(TRANSLATED_RESTARTING_PLAN)).toEqual([
-      "task-0",
-      "task-1",
-      "task-2",
-    ]);
+    expect(taskKeysOf(TRANSLATED_RESTARTING_PLAN)).toHaveLength(3);
   });
 
   it("splits into one section per translated heading, titled correctly", () => {

@@ -88,11 +88,35 @@ function isHeading1(trimmed: string, isNumberedOutline: boolean, nextLineIsNumbe
   return false;
 }
 
+/**
+ * A task's identity is the text a parent actually reads and ticks, not its
+ * position in the document. A plain index breaks the moment anything before
+ * it changes -- inserting, removing or reordering a task elsewhere shifts
+ * every index after it, and this file's own history (see isHeading1's
+ * comment above: cubic round 3, 5, 7, P1, P2) shows that "elsewhere" also
+ * includes the parser's own classification rules changing under an app
+ * update, for text that never changed at all.
+ *
+ * Keying on the cleaned text instead survives all of that: a task keeps its
+ * key as long as its own wording does, regardless of what happens around it.
+ * Two tasks with identical wording are disambiguated by which occurrence
+ * they are, so duplicate text still gets distinct keys.
+ *
+ * Prefixed "task2-", not "task-": a stored legacy `task-<N>` key (the old
+ * positional scheme) must never collide with one from this scheme, since
+ * migrateLegacyTaskKeys below depends on telling the two apart on sight.
+ */
+function nextTaskKey(cleanedText: string, occurrences: Map<string, number>): string {
+  const n = occurrences.get(cleanedText) ?? 0;
+  occurrences.set(cleanedText, n + 1);
+  return `task2-${n}-${cleanedText}`;
+}
+
 export function parsePlanText(text: string): ParsedBlock[] {
   if (!text) return [];
   const lines = text.split("\n");
   const blocks: ParsedBlock[] = [];
-  let taskIndex = 0;
+  const taskOccurrences = new Map<string, number>();
 
   // Two plan shapes share this parser. server/advice.ts numbers its own
   // top-level section outline 1..N and gives a heading no other form —
@@ -229,7 +253,7 @@ export function parsePlanText(text: string): ParsedBlock[] {
       ))) {
         blocks.push({ type: "heading1", text: cleaned });
       } else if (isCompleteTask(trimmed)) {
-        blocks.push({ type: "task", text: cleaned, key: `task-${taskIndex++}` });
+        blocks.push({ type: "task", text: cleaned, key: nextTaskKey(cleaned, taskOccurrences) });
       } else {
         blocks.push({ type: "paragraph", text: cleaned });
       }
@@ -239,7 +263,7 @@ export function parsePlanText(text: string): ParsedBlock[] {
     if (/^[-•*]\s/.test(trimmed) || /^\s+[-•*]\s/.test(line) || /^\s+\d+\.\s/.test(line)) {
       const cleaned = cleanMarkdown(trimmed);
       if (isCompleteTask(trimmed)) {
-        blocks.push({ type: "task", text: cleaned, key: `task-${taskIndex++}` });
+        blocks.push({ type: "task", text: cleaned, key: nextTaskKey(cleaned, taskOccurrences) });
       } else {
         blocks.push({ type: "paragraph", text: cleaned });
       }
@@ -257,10 +281,12 @@ export function parsePlanText(text: string): ParsedBlock[] {
  * The task keys a plan's progress is measured against.
  *
  * Always pass the plan's ORIGINAL text, never a translation of it, even when a
- * translation is what is on screen. Keys are positional (`task-0`, `task-1`, …)
- * and carry nothing about the text, so a translation that parses to a different
- * number of tasks makes the same key mean a different task. One key space per
- * plan — the original's — is what keeps a tick meaning the same thing in the
+ * translation is what is on screen. Keys are content-derived (see nextTaskKey
+ * above), so a translation that reorders or drops a task still names its own
+ * tasks correctly on its own -- but a translation's tasks are still a
+ * different parse of different text, and mixing key spaces between the two
+ * is exactly what "always the original" prevents. One key space per plan —
+ * the original's — is what keeps a tick meaning the same thing in the
  * renderer, in the cached count and in the daily reminder.
  *
  * The visible consequence, accepted: a translation that drops a task leaves the
@@ -271,6 +297,36 @@ export function taskKeysOf(text: string): string[] {
   return parsePlanText(text)
     .filter((b) => b.type === "task")
     .map((b) => (b as { key: string }).key);
+}
+
+const LEGACY_TASK_KEY = /^task-(\d+)$/;
+
+/**
+ * Upgrades a plan's stored ticks from the old positional scheme (`task-0`,
+ * `task-1`, …) to the current content-derived one (nextTaskKey above).
+ *
+ * A legacy key only ever meant "the Nth task of whatever got parsed" — so
+ * translating one is exact when the plan's text has not changed since the
+ * tick was made: parsing that same text now, task N of the old parse and
+ * task N of this one are the same call in the same order. If the plan WAS
+ * edited since the tick, the legacy key was already pointing at the wrong
+ * task before this ever ran — that is the bug fixed going forward, not one
+ * this function can retroactively undo.
+ *
+ * An already-migrated or unrecognised key is returned unchanged. A legacy
+ * key with no current task at that index (a plan that lost tasks) is also
+ * returned unchanged, as plain "task-N" text: it cannot equal any key
+ * nextTaskKey ever produces (all "task2-…"), so it just stops counting as
+ * done — the same silent drop a translation short a task already causes.
+ */
+export function migrateLegacyTaskKeys(storedKeys: string[], text: string): string[] {
+  if (!storedKeys.some((k) => LEGACY_TASK_KEY.test(k))) return storedKeys;
+  const currentKeys = taskKeysOf(text);
+  return storedKeys.map((k) => {
+    const m = LEGACY_TASK_KEY.exec(k);
+    if (!m) return k;
+    return currentKeys[Number(m[1])] ?? k;
+  });
 }
 
 export interface Section {

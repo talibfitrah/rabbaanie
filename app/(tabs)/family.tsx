@@ -1883,7 +1883,13 @@ export default function FamilyScreen() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         signal: controller.signal,
-        body: JSON.stringify({ language }),
+        // selectedPartnerId (polygyny spouse selector, above): stays null
+        // for a single-partner user, so JSON.stringify drops the key
+        // entirely and this call is byte-for-byte what it was before.
+        body: JSON.stringify({
+          language,
+          partnerId: selectedPartnerId ?? undefined,
+        }),
       });
       clearTimeout(timeoutId);
       const data = await response.json();

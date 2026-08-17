@@ -23,9 +23,19 @@ const dbMocks = vi.hoisted(() => ({
   addChild: vi.fn(),
   generateChildPublicId: vi.fn(),
   linkParentToChild: vi.fn(),
+  // getSpouseAdvice (server/advice.ts) mocks only — same three
+  // tests/daily-diagnostic.test.ts already stubs for the same procedure.
+  getSpouseInteractionData: vi.fn(),
+  getRecentDiagnosticSignals: vi.fn(),
+  createSpouseAdvice: vi.fn(),
   tx: (lang: string, nl: string, en: string, ar: string) =>
     lang === "ar" ? ar : lang === "en" ? en : nl,
 }));
+// getSpouseAdvice's own hoisted mock (same pattern as tests/advice-safety.test.ts)
+// — real invokeLLM would attempt a live network call, which testing must
+// never trigger (paid, end-user-budget only).
+const invokeLLMMock = vi.hoisted(() => vi.fn());
+vi.mock("../server/_core/llm", () => ({ invokeLLM: invokeLLMMock }));
 
 vi.mock("../server/db", () => dbMocks);
 
@@ -49,7 +59,11 @@ const partnershipDb = vi.hoisted(() => ({
   // with no .returning() — insertId() is documented to return undefined
   // for exactly that shape.
   insert: vi.fn(async (): Promise<{ insertId?: number }[]> => [{ insertId: 999 }]),
-  update: vi.fn(async () => [{ affectedRows: 1 }]),
+  // Typed `any` (not inferred from the mysql2-shaped default): Fix 2 tests
+  // override this to a node-postgres shape (`{ rowCount, rows }`, no array
+  // wrapper, no affectedRows) to prove affectedRows() reads both driver
+  // shapes — the real thing this mock stands in for.
+  update: vi.fn(async (): Promise<any> => [{ affectedRows: 1 }]),
   // Captured by db.updateUserProfile's tests below (real db.ts, not the
   // dbMocks module mock) — the fields passed to .set(), so those tests can
   // assert on exactly what would have been written.
@@ -71,6 +85,18 @@ vi.mock("drizzle-orm/mysql2", () => ({
           // object itself rather than an array. Support both.
           const result: any = { limit: async () => resolveRows() };
           result.then = (resolve: any) => resolve(resolveRows());
+          // getPartnersOfUser's branch-1 query is the only caller of
+          // .orderBy() anywhere in this mocked chain (the determinism fix —
+          // ascending by id). Sorts for real, rather than a no-op
+          // passthrough, so a test can prove ordering actually happened
+          // instead of merely that the call didn't crash. ponytail: hardcoded
+          // to .id ascending (this mock's one real caller) rather than
+          // reading the column argument generically — extend if a second
+          // .orderBy() usage ever needs a different column.
+          result.orderBy = () => ({
+            then: (resolve: any) =>
+              resolve([...resolveRows()].sort((a: any, b: any) => (a.id ?? 0) - (b.id ?? 0))),
+          });
           return result;
         },
       }),
@@ -86,6 +112,7 @@ vi.mock("drizzle-orm/mysql2", () => ({
 }));
 
 import { linksRouter, profileRouter } from "../server/routers";
+import { adviceRouter } from "../server/advice";
 import { translateProfileValue } from "../lib/profile-labels";
 
 function ctxFor(id: number, gender: string | undefined, name = "User") {
@@ -116,6 +143,9 @@ function partnerRow(
     partnershipConfirmed: boolean;
     requestedAt: Date | null;
     grantedAt: Date | null;
+    // Fix 1: husband's decline of a pending request — distinguishes
+    // "declined" from "never asked" (see server/db.ts revokePartnerProfileAccess).
+    declinedAt: Date | null;
     extraData: Record<string, unknown>;
   }> = {},
 ) {
@@ -133,6 +163,7 @@ function partnerRow(
     partnershipConfirmed = true,
     requestedAt = null,
     grantedAt = null,
+    declinedAt = null,
     extraData = {},
   } = overrides;
   return {
@@ -154,6 +185,7 @@ function partnerRow(
     partnershipConfirmed,
     profileAccessRequestedAt: requestedAt,
     profileAccessGrantedAt: grantedAt,
+    profileAccessDeclinedAt: declinedAt,
   };
 }
 
@@ -190,6 +222,7 @@ describe("links.getPartnerProfile gender gating", () => {
       [
         "access",
         "canRequest",
+        "declined",
         "gender",
         "id",
         "name",
@@ -350,13 +383,13 @@ describe("links.getPartnerProfile / syncWithPartner — full access requires a C
   });
 
   it("syncWithPartner: husband syncing with wife does not merge her data while the partnership is unconfirmed", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "vrouw",
         partnershipConfirmed: false,
         extraData: { children: [{ id: "c1", name: "Kid", birthDate: "2020-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(1, "man")).syncWithPartner();
     expect(result.success).toBe(false);
@@ -365,13 +398,13 @@ describe("links.getPartnerProfile / syncWithPartner — full access requires a C
   });
 
   it("syncWithPartner: husband syncing with wife still merges normally once the partnership is confirmed (unaffected)", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "vrouw",
         partnershipConfirmed: true,
         extraData: { children: [{ id: "c1", name: "Kid", birthDate: "2020-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(1, "man")).syncWithPartner();
     expect(result.success).toBe(true);
@@ -451,6 +484,47 @@ describe("links.getPartnerProfile — incoming request signal (Gap 1)", () => {
   });
 });
 
+describe("links.getPartnerProfile — declined vs never-asked (Fix 1)", () => {
+  it("never asked: declined=false, canRequest=true", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(partnerRow({ gender: "man" }));
+    const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).getPartnerProfile();
+    expect(result.access).toBe("restricted");
+    expect(result.declined).toBe(false);
+    expect(result.canRequest).toBe(true);
+  });
+
+  it("declined: declined=true, and she can still re-request (no cooldown invented)", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({ gender: "man", declinedAt: new Date("2026-01-01") }),
+    );
+    const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).getPartnerProfile();
+    expect(result.access).toBe("restricted");
+    expect(result.declined).toBe(true);
+    expect(result.canRequest).toBe(true);
+  });
+
+  it("a fresh pending request masks a stale declined flag from an earlier cycle", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({
+        gender: "man",
+        declinedAt: new Date("2026-01-01"),
+        requestedAt: new Date("2026-01-02"),
+      }),
+    );
+    const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).getPartnerProfile();
+    expect(result.requestPending).toBe(true);
+    expect(result.declined).toBe(false);
+  });
+
+  it("an active grant masks a stale declined flag from an earlier cycle", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({ gender: "man", declinedAt: new Date("2026-01-01"), grantedAt: new Date("2026-01-02") }),
+    );
+    const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).getPartnerProfile();
+    expect(result.access).toBe("full");
+  });
+});
+
 describe("links.getPartnerProfile — needsMyGender / needsPartnerGender split", () => {
   it("only the caller's gender is missing: needsMyGender true, needsPartnerGender false", async () => {
     dbMocks.getPartnerOfUser.mockResolvedValue(partnerRow({ gender: "man" }));
@@ -506,7 +580,11 @@ describe("Gap 2 regression: revoke/decline must clear the pending-request timest
   // exercise server/db.ts's real .set(...) call, which has no automated
   // coverage in this file and was instead verified by manual trace.
   function wireStatefulPartnershipMock(gender: "man" | "vrouw") {
-    const row = { requestedAt: null as Date | null, grantedAt: null as Date | null };
+    const row = {
+      requestedAt: null as Date | null,
+      grantedAt: null as Date | null,
+      declinedAt: null as Date | null,
+    };
     dbMocks.requestPartnerProfileAccess.mockImplementation(async () => {
       row.requestedAt = new Date();
       return true;
@@ -516,13 +594,26 @@ describe("Gap 2 regression: revoke/decline must clear the pending-request timest
       return true;
     });
     dbMocks.revokePartnerProfileAccess.mockImplementation(async () => {
-      // Mirrors server/db.ts revokePartnerProfileAccess's .set(...) call.
+      // Mirrors server/db.ts revokePartnerProfileAccess's .set(...) call
+      // (Fix 1): revoking an active grant is a plain reset (grant+request+
+      // decline all clear — a stale decline from before that grant is
+      // obsolete); declining a still-pending request (no grant yet) stamps
+      // declinedAt instead, so the two events leave distinguishable state.
+      const wasGranted = row.grantedAt !== null;
       row.grantedAt = null;
       row.requestedAt = null;
+      row.declinedAt = wasGranted ? null : new Date();
       return true;
     });
     dbMocks.getPartnerOfUser.mockImplementation(async () =>
-      partnerRow({ gender, id: 9, partnershipId: 55, requestedAt: row.requestedAt, grantedAt: row.grantedAt }),
+      partnerRow({
+        gender,
+        id: 9,
+        partnershipId: 55,
+        requestedAt: row.requestedAt,
+        grantedAt: row.grantedAt,
+        declinedAt: row.declinedAt,
+      }),
     );
     return row;
   }
@@ -553,16 +644,65 @@ describe("Gap 2 regression: revoke/decline must clear the pending-request timest
     expect(result.canRequest).toBe(true);
     expect(result.requestPending).toBe(false);
   });
+
+  it("request -> grant actually yields full access (Fix 1 happy path)", async () => {
+    wireStatefulPartnershipMock("man");
+    const wife = linksRouter.createCaller(ctxFor(2, "vrouw"));
+    const husband = linksRouter.createCaller(ctxFor(1, "man"));
+
+    await wife.requestPartnerProfileAccess();
+    await husband.grantPartnerProfileAccess();
+
+    const result: any = await wife.getPartnerProfile();
+    expect(result.access).toBe("full");
+  });
+
+  it("decline -> request -> decline: state is distinguishable at every step (Fix 1, unbounded re-notification path)", async () => {
+    wireStatefulPartnershipMock("man");
+    const wife = linksRouter.createCaller(ctxFor(2, "vrouw"));
+    const husband = linksRouter.createCaller(ctxFor(1, "man"));
+
+    // 1. never asked yet
+    let result: any = await wife.getPartnerProfile();
+    expect(result.requestPending).toBe(false);
+    expect(result.declined).toBe(false);
+
+    // 2. she asks
+    await wife.requestPartnerProfileAccess();
+    result = await wife.getPartnerProfile();
+    expect(result.requestPending).toBe(true);
+    expect(result.declined).toBe(false);
+
+    // 3. he declines — distinguishable from step 1 (never asked)
+    await husband.revokePartnerProfileAccess();
+    result = await wife.getPartnerProfile();
+    expect(result.requestPending).toBe(false);
+    expect(result.declined).toBe(true);
+    expect(result.canRequest).toBe(true);
+
+    // 4. she asks again — allowed, no cooldown
+    await wife.requestPartnerProfileAccess();
+    result = await wife.getPartnerProfile();
+    expect(result.requestPending).toBe(true);
+    expect(result.declined).toBe(false);
+
+    // 5. he declines again — still distinguishable, not silently swallowed
+    await husband.revokePartnerProfileAccess();
+    result = await wife.getPartnerProfile();
+    expect(result.requestPending).toBe(false);
+    expect(result.declined).toBe(true);
+    expect(result.canRequest).toBe(true);
+  });
 });
 
 describe("links.syncWithPartner enforces the same gender/grant gate as getPartnerProfile (Finding 1)", () => {
   it("husband syncing with his wife (full access) merges normally", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "vrouw",
         extraData: { children: [{ id: "c1", name: "Kid", birthDate: "2020-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(1, "man")).syncWithPartner();
     expect(result.success).toBe(true);
@@ -571,12 +711,12 @@ describe("links.syncWithPartner enforces the same gender/grant gate as getPartne
   });
 
   it("wife syncing WITHOUT a grant: no merge, no partner data returned, nothing persisted", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "man",
         extraData: { children: [{ id: "h1", name: "HisKid", birthDate: "2019-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).syncWithPartner();
     expect(result.success).toBe(false);
@@ -586,13 +726,13 @@ describe("links.syncWithPartner enforces the same gender/grant gate as getPartne
   });
 
   it("wife syncing AFTER a grant merges normally", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "man",
         grantedAt: new Date("2026-01-01"),
         extraData: { children: [{ id: "h1", name: "HisKid", birthDate: "2019-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(2, "vrouw")).syncWithPartner();
     expect(result.success).toBe(true);
@@ -613,13 +753,13 @@ describe("links.getPartnerProfile / syncWithPartner — gender falls back to the
   });
 
   it("syncWithPartner: husband's sync is not blocked when the wife's gender is on the column but her JSON copy is missing", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: undefined,
         columnGender: "vrouw",
         extraData: { children: [{ id: "c1", name: "Kid", birthDate: "2020-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const result: any = await linksRouter.createCaller(ctxFor(1, "man")).syncWithPartner();
     expect(result.success).toBe(true);
@@ -627,12 +767,12 @@ describe("links.getPartnerProfile / syncWithPartner — gender falls back to the
   });
 
   it("syncWithPartner: husband's OWN sync is not blocked when HIS gender is on the column but his own JSON copy is missing", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue(
+    dbMocks.getPartnersOfUser.mockResolvedValue([
       partnerRow({
         gender: "vrouw",
         extraData: { children: [{ id: "c1", name: "Kid", birthDate: "2020-01-01" }] },
       }),
-    );
+    ]);
     dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
     const ctx = {
       req: {} as any,
@@ -865,6 +1005,212 @@ describe("links.grantPartnerProfileAccess / revokePartnerProfileAccess — targe
       linksRouter.createCaller(ctxFor(1, "man")).grantPartnerProfileAccess({ partnerId: 999 }),
     ).rejects.toThrow();
     expect(dbMocks.grantPartnerProfileAccess).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// syncWithPartner / shareWeeklyProgress — same class of bug as the
+// grant/revoke P0 above (round-9/round-10): both used to resolve via the
+// single-partner db.getPartnerOfUser, silently acting on whichever wife its
+// unordered query returned first. Fixed the same way — an explicit,
+// caller-owned partnerId, resolved only from db.getPartnersOfUser (never a
+// raw id) — but syncWithPartner deliberately does NOT throw on ambiguity:
+// see its own comment in server/routers.ts (it has a pre-existing, documented
+// never-throw contract because app-context.tsx calls it silently on app
+// open). shareWeeklyProgress reuses resolveTargetPartner directly (it
+// already throws plain Error for "no partner", so a thrown BAD_REQUEST for
+// "ambiguous" is consistent with its own existing idiom).
+// ============================================================
+describe("links.syncWithPartner — target the SELECTED partnership, not always the primary (item 1 polygyny review pass)", () => {
+  function twoWives() {
+    return [
+      partnerRow({
+        id: 2,
+        name: "Wife One",
+        gender: "vrouw",
+        partnershipId: 55,
+        extraData: { parentProfile: { thinkingAboutPartner: "WIFE_ONE_MARKER" } },
+      }),
+      partnerRow({
+        id: 3,
+        name: "Wife Two",
+        gender: "vrouw",
+        partnershipId: 56,
+        extraData: { parentProfile: { thinkingAboutPartner: "WIFE_TWO_MARKER" } },
+      }),
+    ];
+  }
+
+  it("an explicit partnerId syncs THAT wife's data, not the other confirmed wife's", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+    dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
+
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner({ partnerId: 3 });
+
+    expect(result.success).toBe(true);
+    expect(result.partnerData.parentProfile.thinkingAboutPartner).toBe("WIFE_TWO_MARKER");
+  });
+
+  it("NO partnerId + 2 confirmed partners fails closed instead of merging an arbitrary wife's data", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+    dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
+
+    const result: any = await linksRouter.createCaller(ctxFor(1, "man")).syncWithPartner();
+
+    expect(result.success).toBe(false);
+    expect(dbMocks.updateUserProfile).not.toHaveBeenCalled();
+  });
+
+  it("a partnerId that is NOT one of the caller's own partners fails closed (never trust a raw id)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+    dbMocks.getUserById.mockResolvedValue({ profileData: { children: [] } });
+
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .syncWithPartner({ partnerId: 999 });
+
+    expect(result.success).toBe(false);
+    expect(dbMocks.updateUserProfile).not.toHaveBeenCalled();
+  });
+});
+
+describe("links.shareWeeklyProgress — target the SELECTED partnership, not always the primary (item 1 polygyny review pass)", () => {
+  function twoWives() {
+    return [
+      partnerRow({ id: 2, name: "Wife One", gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, name: "Wife Two", gender: "vrouw", partnershipId: 56 }),
+    ];
+  }
+  const baseInput = {
+    childName: "Kid",
+    weekNumber: 5,
+    completedGoals: 2,
+    totalGoals: 4,
+    progressPercent: 50,
+  };
+
+  it("an explicit partnerId shares progress with THAT wife, not the other confirmed wife", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+
+    const result = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .shareWeeklyProgress({ ...baseInput, partnerId: 3 });
+
+    expect(result).toEqual({ success: true });
+    expect(dbMocks.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 3 }),
+    );
+    expect(dbMocks.sendMessage).not.toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 2 }),
+    );
+  });
+
+  it("NO partnerId + 2 confirmed partners throws instead of messaging an arbitrary wife", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+
+    await expect(
+      linksRouter.createCaller(ctxFor(1, "man")).shareWeeklyProgress(baseInput),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(dbMocks.sendMessage).not.toHaveBeenCalled();
+  });
+
+  it("NO partnerId + exactly 1 confirmed partner still works (no regression)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+
+    const result = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .shareWeeklyProgress(baseInput);
+
+    expect(result).toEqual({ success: true });
+    expect(dbMocks.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: 2 }),
+    );
+  });
+
+  it("no confirmed partner at all still throws the same plain Error as before (resolveTargetPartner returns null, unchanged from getPartnerOfUser)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([]);
+
+    await expect(
+      linksRouter.createCaller(ctxFor(1, "man")).shareWeeklyProgress(baseInput),
+    ).rejects.toThrow("No linked partner found");
+    expect(dbMocks.sendMessage).not.toHaveBeenCalled();
+  });
+});
+
+// ============================================================
+// getSpouseAdvice (server/advice.ts) — the last remaining getPartnerOfUser
+// call site (item 1 polygyny review pass). Its input had no partner field
+// at all, so a husband with 2+ confirmed wives silently got advice built
+// from (and about) whichever wife getPartnerOfUser's unordered query
+// returned first. Fixed the same way as the rest of this file: optional
+// partnerId, resolved from getPartnersOfUser, fails closed to a sentinel
+// return (this procedure's own established error convention — see
+// {advice:null, error:"no_partner"/"not_confirmed"} above — never a throw)
+// rather than guessing.
+// ============================================================
+describe("advice.getSpouseAdvice — target the SELECTED partnership, not always the primary (item 1 polygyny review pass)", () => {
+  function twoWives() {
+    return [
+      partnerRow({ id: 2, name: "Wife One", gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, name: "Wife Two", gender: "vrouw", partnershipId: 56 }),
+    ];
+  }
+
+  beforeEach(() => {
+    invokeLLMMock.mockReset();
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "1. Test\n- doe iets aardigs" } }] });
+  });
+
+  it("an explicit partnerId builds advice from THAT wife's interaction data, not the other confirmed wife's", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+
+    await adviceRouter
+      .createCaller(ctxFor(1, "man"))
+      .getSpouseAdvice({ language: "nl", partnerId: 3 });
+
+    // Called once for "my" interactions (userId, partner.id) and once for
+    // the partner's (partner.id, userId) — both must target wife 3 (id 3),
+    // never wife 2 (id 2).
+    expect(dbMocks.getSpouseInteractionData).toHaveBeenCalledWith(1, 3);
+    expect(dbMocks.getSpouseInteractionData).toHaveBeenCalledWith(3, 1);
+    expect(dbMocks.getSpouseInteractionData).not.toHaveBeenCalledWith(1, 2);
+    expect(dbMocks.getSpouseInteractionData).not.toHaveBeenCalledWith(2, 1);
+  });
+
+  it("NO partnerId + 2 confirmed partners fails closed instead of drawing on an arbitrary wife's private data", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue(twoWives());
+
+    const result = await adviceRouter
+      .createCaller(ctxFor(1, "man"))
+      .getSpouseAdvice({ language: "nl" });
+
+    expect(result).toEqual({ advice: null, error: "ambiguous_partner" });
+    expect(dbMocks.getSpouseInteractionData).not.toHaveBeenCalled();
+    expect(invokeLLMMock).not.toHaveBeenCalled();
+  });
+
+  it("NO partnerId + exactly 1 confirmed partner still works (no regression)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, name: "Wife One", gender: "vrouw", partnershipId: 55 }),
+    ]);
+
+    const result: any = await adviceRouter
+      .createCaller(ctxFor(1, "man"))
+      .getSpouseAdvice({ language: "nl" });
+
+    expect(result.error).toBeUndefined();
+    expect(invokeLLMMock).toHaveBeenCalledTimes(1);
   });
 });
 
@@ -1760,6 +2106,48 @@ describe("db.getPartnersOfUser / db.getPartnerOfUser (item 1 — multi-partner r
 
     expect(result).toBeNull();
   });
+
+  // Root cause behind the round-9/round-10 "arbitrary wife" findings:
+  // getPartnersOfUser's branch-1 query had no ORDER BY, so two identical
+  // calls could return the two wives in a different order. Fix is one
+  // ORDER BY (oldest confirmed partnership first, by id) in the shared
+  // function — these prove the ordering by feeding the DB rows back in the
+  // OPPOSITE order (id 56 before 55) and asserting the result comes back
+  // sorted, not just "didn't crash".
+  it("getPartnersOfUser orders confirmed partnerships oldest-first (ascending id) even when the underlying rows come back out of order", async () => {
+    partnershipDb.queue = [
+      [
+        { id: 56, userId1: 1, userId2: 3, status: "active", confirmed: true },
+        { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true },
+      ],
+      [{ id: 2, name: "Wife One", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [{ id: 3, name: "Wife Two", gender: "vrouw", profileData: {}, deletedAt: null }],
+    ];
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.getPartnersOfUser(1);
+
+    expect(result.map((p) => p.partnershipId)).toEqual([55, 56]);
+    expect(result.map((p) => p.id)).toEqual([2, 3]);
+  });
+
+  it("getPartnerOfUser deterministically picks the OLDEST confirmed partnership, not whichever the query returns first", async () => {
+    partnershipDb.queue = [
+      [
+        { id: 56, userId1: 1, userId2: 3, status: "active", confirmed: true },
+        { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true },
+      ],
+      [{ id: 2, name: "Wife One", gender: "vrouw", profileData: {}, deletedAt: null }],
+    ];
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.getPartnerOfUser(1);
+
+    // Wife One (partnership 55, the older one) — not Wife Two (56), even
+    // though 56 sorted first in the raw, unordered rows above.
+    expect(result?.id).toBe(2);
+    expect(result?.partnershipId).toBe(55);
+  });
 });
 
 // ============================================================
@@ -1894,6 +2282,92 @@ describe("db.revokePartnerProfileAccess: an idempotent no-op still succeeds (rou
     partnershipDb.rows = []; // no row matches this id+granterId+active+confirmed
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     const result = await real.revokePartnerProfileAccess(999, 1);
+    expect(result).toBe(false);
+  });
+});
+
+describe("db.revokePartnerProfileAccess: branches on grant-vs-pending (Fix 1)", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "mysql://fix1-test-only/db";
+    partnershipDb.update.mockClear();
+    partnershipDb.queue = undefined;
+  });
+
+  it("declining a pending request (no prior grant) stamps profileAccessDeclinedAt", async () => {
+    partnershipDb.rows = [
+      { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true, profileAccessGrantedAt: null },
+    ];
+    partnershipDb.update.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.revokePartnerProfileAccess(55, 1);
+
+    expect(result).toBe(true);
+    expect(partnershipDb.lastSetFields.profileAccessGrantedAt).toBeNull();
+    expect(partnershipDb.lastSetFields.profileAccessRequestedAt).toBeNull();
+    expect(partnershipDb.lastSetFields.profileAccessDeclinedAt).toBeInstanceOf(Date);
+  });
+
+  it("revoking an ACTIVE GRANT does not stamp profileAccessDeclinedAt — a revoke is not a decline", async () => {
+    partnershipDb.rows = [
+      {
+        id: 55,
+        userId1: 1,
+        userId2: 2,
+        status: "active",
+        confirmed: true,
+        profileAccessGrantedAt: new Date("2026-01-01"),
+      },
+    ];
+    partnershipDb.update.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.revokePartnerProfileAccess(55, 1);
+
+    expect(result).toBe(true);
+    expect(partnershipDb.lastSetFields.profileAccessGrantedAt).toBeNull();
+    expect(partnershipDb.lastSetFields.profileAccessRequestedAt).toBeNull();
+    expect(partnershipDb.lastSetFields.profileAccessDeclinedAt).toBeNull();
+  });
+});
+
+describe("db.confirmPartnershipRequest / db.rejectPartnershipRequest — Postgres affectedRows shape (Fix 2)", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "mysql://fix2-test-only/db";
+    partnershipDb.update.mockClear();
+    partnershipDb.queue = undefined;
+  });
+
+  it("confirmPartnershipRequest succeeds on a Postgres-shaped update result ({rowCount}, no [0].affectedRows)", async () => {
+    partnershipDb.queue = [
+      [{ id: 77, userId1: 1, userId2: 2, status: "pending", confirmed: false, initiatedBy: 1 }], // getPartnershipById
+      [{ gender: "vrouw" }], // recipient (user 2) gender
+      [], // recipient has no other confirmed partnership
+      [{ gender: "man" }], // other party (user 1) gender — not vrouw, no further check needed
+    ];
+    partnershipDb.update.mockResolvedValueOnce({ rowCount: 1, rows: [] }); // node-postgres shape
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.confirmPartnershipRequest(77, 2);
+
+    expect(result).toBe(true);
+  });
+
+  it("rejectPartnershipRequest succeeds on a Postgres-shaped update result ({rowCount}, no [0].affectedRows)", async () => {
+    partnershipDb.update.mockResolvedValueOnce({ rowCount: 1, rows: [] });
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.rejectPartnershipRequest(55, 1);
+
+    expect(result).toBe(true);
+  });
+
+  it("rejectPartnershipRequest still reports false when a Postgres-shaped update matches nothing", async () => {
+    partnershipDb.update.mockResolvedValueOnce({ rowCount: 0, rows: [] });
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.rejectPartnershipRequest(55, 1);
+
     expect(result).toBe(false);
   });
 });

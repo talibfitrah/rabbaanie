@@ -1,4 +1,30 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+
+// confirmLink's "should accept senderId parameter" it() below used to grep
+// server/routers.ts for two literal substrings: the zod schema key, and a
+// call to server/db.ts's confirmAllLinksFromSender. The router no longer
+// calls that function at all — confirmLink was reworked to loop
+// db.getPendingLinksFromSender() results through the real per-link
+// assertMayConfirmLink authorization gate instead (see git blame on
+// confirmLink in server/routers.ts). confirmAllLinksFromSender /
+// removeAllLinksFromSender still exist in server/db.ts but are now dead code
+// (grepped repo-wide: zero callers outside this test file) — a pre-existing
+// finding, not touched here since server/db.ts is off-limits and deleting
+// pre-existing code needs the user's explicit yes. Rewritten to invoke the
+// real confirmLink mutation with server/db mocked, same hoisted-mock +
+// createCaller pattern as tests/partner-profile-access.test.ts.
+const dbMocks = vi.hoisted(() => ({
+  getPendingLinksFromSender: vi.fn(),
+  getParentChildLinkById: vi.fn(),
+  getChildById: vi.fn(),
+  getFamilyMembership: vi.fn(),
+  getConfirmedParentChildLink: vi.fn(),
+  confirmParentChildLink: vi.fn(),
+  getPendingPartnershipFromSender: vi.fn(),
+}));
+vi.mock("../server/db", () => dbMocks);
+
+import { linksRouter } from "../server/routers";
 
 describe("Link accept/reject fix", () => {
   it("linkChildByPublicId should set createdBy to the requesting parent ID (not 0)", async () => {
@@ -57,21 +83,38 @@ describe("Link accept/reject fix", () => {
     expect(funcBody).toContain("eq(parentChildLinks.confirmed, false)");
   });
 
-  it("confirmLink endpoint should accept senderId parameter", async () => {
-    const fs = await import("fs");
-    const path = await import("path");
-    const routersPath = path.resolve(__dirname, "../server/routers.ts");
-    const content = fs.readFileSync(routersPath, "utf-8");
+  it("confirmLink with senderId confirms only the sender's links the confirming user is authorized for", async () => {
+    // Sender (id 2) has two pending links: one to a child in the confirming
+    // user's own family (must get confirmed), one to a child in a family the
+    // confirming user has no access to at all (must be silently skipped, not
+    // confirmed) — the real generalization of the old "parentId = senderId,
+    // the requester's own links" scoping.
+    const linkToOwnChild = { id: 10, parentId: 2, childId: 100, createdBy: 2, confirmed: false };
+    const linkToForeignChild = { id: 11, parentId: 2, childId: 200, createdBy: 2, confirmed: false };
+    dbMocks.getPendingLinksFromSender.mockResolvedValue([linkToOwnChild, linkToForeignChild]);
+    dbMocks.getParentChildLinkById.mockImplementation(async (linkId: number) =>
+      linkId === 10 ? linkToOwnChild : linkId === 11 ? linkToForeignChild : undefined,
+    );
+    dbMocks.getChildById.mockImplementation(async (childId: number) =>
+      childId === 100
+        ? { id: 100, familyId: 5, name: "Kid A" }
+        : childId === 200
+          ? { id: 200, familyId: 9, name: "Kid B" }
+          : undefined,
+    );
+    dbMocks.getFamilyMembership.mockImplementation(async (userId: number, familyId: number) =>
+      userId === 1 && familyId === 5 ? { permissions: {} } : undefined,
+    );
+    dbMocks.getConfirmedParentChildLink.mockResolvedValue(undefined);
+    dbMocks.getPendingPartnershipFromSender.mockResolvedValue(null);
 
-    // Find the confirmLink endpoint
-    const funcStart = content.indexOf("confirmLink: protectedProcedure");
-    const funcEnd = content.indexOf("return { success: true }", funcStart) + 30;
-    const funcBody = content.substring(funcStart, funcEnd);
+    const result = await linksRouter
+      .createCaller({ req: {} as any, res: {} as any, user: { id: 1 } as any })
+      .confirmLink({ senderId: 2 });
 
-    // Should accept senderId as input
-    expect(funcBody).toContain("senderId: z.number().optional()");
-    // Should call confirmAllLinksFromSender
-    expect(funcBody).toContain("confirmAllLinksFromSender");
+    expect(result).toEqual({ success: true, changed: 1 });
+    expect(dbMocks.confirmParentChildLink).toHaveBeenCalledWith(10);
+    expect(dbMocks.confirmParentChildLink).not.toHaveBeenCalledWith(11);
   });
 
   it("LinkRequestActions UI should pass item.senderId to confirmLink mutation", async () => {

@@ -2714,26 +2714,34 @@ Neem de volledige gezinssituatie integraal mee.`;
   getSpouseAdvice: protectedProcedure
     .input(z.object({
       language: z.string().optional(),
+      partnerId: z.number().optional(),
     }))
     .mutation(async ({ ctx, input }) => {
       const userId = ctx.user.id;
       const lang = input.language || ctx.user.language || "nl";
-      // Find the partner. round-9 P2: not migrated to the multi-wife
-      // db.getPartnersOfUser — this endpoint's input (above) has no field
-      // to name WHICH wife the advice is about, so for a husband with 2+
-      // confirmed wives this silently operates on whichever partnership
-      // getPartnerOfUser's own unordered query returns first (the
-      // "primary" one) and stays silent about the others. Not fixed here:
-      // inventing a partner-selection field on this input is an API
-      // contract change (client + this procedure both), not something to
-      // slip in as a side effect of a review-pipeline pass — a follow-up
-      // task once the client has a concrete UI for "get advice about wife
-      // N" (this is the only db.getPartnerOfUser call site left in
-      // server/advice.ts — confirmed by grep; every other "partner"
-      // reference in this file is either a comment or a literal prompt
-      // label, and getSpouseAdviceHistory/markSpouseAdviceRead/
-      // markSpouseAdviceHelpful/getQuickTips resolve no partner at all).
-      const partner = await db.getPartnerOfUser(userId);
+      // Find the partner (item 1 polygyny review pass — closes the last
+      // db.getPartnerOfUser call site in this file, confirmed by grep).
+      // Mirrors getPartnerProfile's optional-partnerId shape (server/
+      // routers.ts): omitted, with 0 or 1 confirmed partners this is
+      // byte-for-byte what it always returned. With 2+ confirmed wives and
+      // no partnerId, this used to silently draw on (and generate advice
+      // ABOUT) whichever wife getPartnerOfUser's unordered query returned
+      // first — unlike getPartnerProfile (a read of already-shared data),
+      // building advice from the wrong wife's private profile/check-ins is
+      // not a UX papercut, so this fails closed instead of defaulting, via
+      // this procedure's own existing return-sentinel error convention
+      // (see the partnershipConfirmed check just below) rather than a
+      // thrown error — no client currently wires the failure end-to-end,
+      // see the caller.
+      const partners = await db.getPartnersOfUser(userId);
+      let partner: (typeof partners)[number] | null;
+      if (input.partnerId !== undefined) {
+        partner = partners.find((p) => p.id === input.partnerId) ?? null;
+      } else if (partners.length > 1) {
+        return { advice: null, error: "ambiguous_partner" };
+      } else {
+        partner = partners[0] ?? null;
+      }
       if (!partner) {
         return { advice: null, error: "no_partner" };
       }
@@ -2741,7 +2749,7 @@ Neem de volledige gezinssituatie integraal mee.`;
       // DIFFERENT axis from the grant — see the comment further down, near
       // getRecentDiagnosticSignals, for why this function is deliberately
       // exempt from the gender/grant gate getPartnerProfile/syncWithPartner
-      // enforce. Confirmation is not exempt: db.getPartnerOfUser's
+      // enforce. Confirmation is not exempt: db.getPartnersOfUser's
       // shared-children legacy fallback can hand back a "partner" whose
       // partnerships row is still a pending, unconfirmed invite (round-8
       // P1), and without this check the function below would draw on that
@@ -2891,7 +2899,7 @@ Neem de volledige gezinssituatie integraal mee.`;
       // partner's profile (getPartnerProfile/syncWithPartner) requires one.
       // Do not add a gender/grant check here to "fix" this. Confirmation is
       // a separate axis and IS required — see the partnershipConfirmed
-      // check right after db.getPartnerOfUser, near the top of this
+      // check right after partner resolution, near the top of this
       // procedure (item 5 fix).
       try {
         const partnerSignals = await db.getRecentDiagnosticSignals(partner.id, 7);

@@ -394,7 +394,17 @@ export default function SpouseProfileScreen() {
           ) : data.canRequest ? (
             <>
               <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", marginTop: 8 }}>
-                {tx(lang, "Vraag toestemming aan uw man om zijn profiel te bekijken.", "Ask your husband for permission to view his profile.", "اطلبي إذن زوجك للاطلاع على ملفه.")}
+                {/* Fix 1: distinguishes "he declined" from "never asked" —
+                    canRequest stays true either way (no re-request cooldown),
+                    only the copy changes. */}
+                {data.declined
+                  ? tx(
+                      lang,
+                      "Uw man heeft dit verzoek eerder geweigerd. U kunt opnieuw vragen.",
+                      "Your husband declined this request before. You can ask again.",
+                      "رفض زوجك هذا الطلب من قبل. يمكنك أن تطلبي مرة أخرى.",
+                    )
+                  : tx(lang, "Vraag toestemming aan uw man om zijn profiel te bekijken.", "Ask your husband for permission to view his profile.", "اطلبي إذن زوجك للاطلاع على ملفه.")}
               </Text>
               <Pressable
                 onPress={() => requestAccessMutation.mutate()}

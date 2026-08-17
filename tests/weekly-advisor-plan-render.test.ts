@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
-import { taskKeysOf, parsePlanText, groupIntoSections } from "../lib/plan-blocks";
+import { taskKeysOf, parsePlanText, groupIntoSections, migrateLegacyTaskKeys } from "../lib/plan-blocks";
 
 // Daa3iyah (2026-08-15): «نفس الخطة بنفس الطريقة لابد ان تعرض في قسم العائلات
 // وفي قسم الأسبوعي … فالآن تعرض الخطة فقط كنص تحت بعض وليس بالطريقة المقدمة
@@ -76,23 +76,29 @@ describe("the bar and the cached count are one measurement", () => {
     "- Lees samen elke dag een pagina",
   ].join("\n");
 
-  it("gives one key per task, positionally", () => {
-    expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
+  it("gives one key per task", () => {
+    expect(taskKeysOf(ARABIC_PLAN)).toHaveLength(3);
+    expect(taskKeysOf(DUTCH_PLAN)).toHaveLength(2);
   });
 
-  it("keys a plan's tasks by position, so the same key means the same task", () => {
-    // Positional keys are the whole reason the original text must be the one
-    // measured against: `task-1` is "the second task of whatever you parsed",
-    // and a translation that drops a task shifts what that refers to.
-    expect(taskKeysOf(ARABIC_PLAN)).toEqual(["task-0", "task-1", "task-2"]);
-    expect(taskKeysOf(DUTCH_PLAN)).toEqual(["task-0", "task-1"]);
+  it("keys a plan's tasks by their own text, so unrelated plans never share a key", () => {
+    // The original reason this mattered still holds -- the original text must
+    // be the one measured against, never a translation of it -- but the
+    // mechanism changed: keys are content-derived now (see nextTaskKey in
+    // lib/plan-blocks.ts), not "the Nth task of whatever you parsed". Two
+    // plans in different languages have no shared text, so their key sets
+    // are disjoint by construction, the same guarantee positional keys never
+    // gave (task-0 of one plan is just as much "task-0" as task-0 of another).
+    const arabicKeys = new Set(taskKeysOf(ARABIC_PLAN));
+    const dutchKeys = new Set(taskKeysOf(DUTCH_PLAN));
+    expect([...arabicKeys].some((k) => dutchKeys.has(k))).toBe(false);
   });
 
-  it("leaves the plan's third task outstanding when only the translation is ticked", () => {
-    // The bug this guards: ticking both boxes a Dutch reader sees must not mark
-    // the Arabic plan's third task done, in the bar or in the daily reminder.
+  it("leaves the plan's tasks outstanding when only the translation is ticked", () => {
+    // The bug this guards: ticking the boxes a Dutch reader sees must not mark
+    // any of the Arabic plan's tasks done, in the bar or in the daily reminder.
     const ticked = new Set(taskKeysOf(DUTCH_PLAN));
-    expect(taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k))).toEqual(["task-2"]);
+    expect(taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k))).toHaveLength(3);
   });
 
   it("measures against the original while displaying the translation", () => {
@@ -103,6 +109,83 @@ describe("the bar and the cached count are one measurement", () => {
     expect(renderer).toContain("taskKeysOf(planText)");
     expect(renderer).toContain("parsePlanText(effectiveText)");
     expect(renderer).not.toContain("taskKeysOf(effectiveText)");
+  });
+});
+
+// A specialist can edit a saved plan's text in place (server/routers.ts
+// specialist.updatePlan accepts planContent, same planId, so the same
+// AsyncStorage progress entry is reparsed against the new text next time the
+// screen opens). A positional key is the Nth task of WHATEVER got parsed --
+// inserting one task before an already-ticked one shifts every key after it,
+// so a parent's tick silently lands on work they never did.
+describe("a task's identity survives edits elsewhere in the plan", () => {
+  const BEFORE_EDIT = [
+    "- اجلس مع ابنك بعد صلاة الفجر",
+    "- اقرأ معه صفحة من المصحف كلّ يوم",
+    "- ذكّره بفضل الصلاة في وقتها",
+  ].join("\n");
+  // Same three tasks, untouched, plus one new task inserted at the top --
+  // exactly what a specialist's edit looks like.
+  const AFTER_EDIT = [
+    "- اتصل بالمعلم لمتابعة تحصيله الدراسي",
+    "- اجلس مع ابنك بعد صلاة الفجر",
+    "- اقرأ معه صفحة من المصحف كلّ يوم",
+    "- ذكّره بفضل الصلاة في وقتها",
+  ].join("\n");
+
+  it("keeps the same key for an unchanged task after a task is inserted before it", () => {
+    const beforeKeys = taskKeysOf(BEFORE_EDIT);
+    const afterKeys = taskKeysOf(AFTER_EDIT);
+    // "اقرأ معه صفحة..." was the SECOND task before the edit and is the THIRD
+    // (index 2) after it -- the key must move with the task, not stay at index 1.
+    const secondTaskKeyBefore = beforeKeys[1];
+    expect(afterKeys.indexOf(secondTaskKeyBefore)).toBe(2);
+  });
+
+  it("does not mark the newly-inserted task done when only the old first task was ticked", () => {
+    const ticked = new Set([taskKeysOf(BEFORE_EDIT)[0]]); // "اجلس مع ابنك..." ticked
+    const afterKeys = taskKeysOf(AFTER_EDIT);
+    // The inserted task ("اتصل بالمعلم...") is now first and must read as NOT
+    // done; the real ticked task ("اجلس مع ابنك...", now second) must still
+    // read as done.
+    expect(ticked.has(afterKeys[0])).toBe(false);
+    expect(ticked.has(afterKeys[1])).toBe(true);
+  });
+});
+
+// Real users already have progress saved under the old positional scheme
+// (`task-0`, `task-1`, …). Switching schemes must not silently discard or
+// misapply it -- migrateLegacyTaskKeys upgrades it in place, exactly when
+// that is unambiguous: the plan's text has not changed since the tick.
+describe("legacy positional progress migrates to the content-derived scheme", () => {
+  const PLAN = [
+    "- اجلس مع ابنك بعد صلاة الفجر",
+    "- اقرأ معه صفحة من المصحف كلّ يوم",
+    "- ذكّره بفضل الصلاة في وقتها",
+  ].join("\n");
+
+  it("maps old task-N keys onto the SAME tasks' new keys, by text, not just by count", () => {
+    const legacyStored = ["task-0", "task-2"]; // first and third ticked under the old scheme
+    const migrated = migrateLegacyTaskKeys(legacyStored, PLAN);
+    const currentKeys = taskKeysOf(PLAN);
+    // Proves the correct TASKS survive, not merely that two keys came back:
+    // the migrated set must mark the first and third tasks done and the
+    // second one not, whatever the new keys look like.
+    expect(currentKeys.map((k) => migrated.includes(k))).toEqual([true, false, true]);
+  });
+
+  it("leaves already-migrated (content-derived) keys untouched", () => {
+    const currentKeys = taskKeysOf(PLAN);
+    expect(migrateLegacyTaskKeys([currentKeys[1]], PLAN)).toEqual([currentKeys[1]]);
+  });
+
+  it("drops a legacy key that no longer has a matching task, instead of crashing or matching the wrong one", () => {
+    const migrated = migrateLegacyTaskKeys(["task-99"], PLAN);
+    // Returned unchanged, and "task-99" cannot equal any key nextTaskKey
+    // produces (all "task2-…"), so it silently stops counting as done --
+    // never crashes, never latches onto an unrelated task.
+    expect(migrated).toEqual(["task-99"]);
+    expect(taskKeysOf(PLAN)).not.toContain("task-99");
   });
 });
 

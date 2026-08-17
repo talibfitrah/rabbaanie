@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
 import { sectionOwner } from "@/lib/plan-owner";
-import { parsePlanText, taskKeysOf, groupIntoSections, type ParsedBlock } from "@/lib/plan-blocks";
+import { parsePlanText, taskKeysOf, groupIntoSections, migrateLegacyTaskKeys, type ParsedBlock } from "@/lib/plan-blocks";
 import { planProgressKey } from "@/lib/plan-progress";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
@@ -176,10 +176,16 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
       // onProgressChange wired up, switching to a plan that has no saved ticks
       // would report the old plan's count against the new one and then persist
       // those keys under the new plan on the first toggle.
-      setCompletedTasks(raw ? new Set<string>(JSON.parse(raw)) : new Set<string>());
+      //
+      // migrateLegacyTaskKeys upgrades any pre-existing "task-N" keys onto the
+      // current content-derived scheme, against planText -- never effectiveText,
+      // same reason as taskKeys below. It re-persists on the next toggleTask
+      // (which saves whatever is in `next`, already migrated), not here.
+      const stored: string[] = raw ? JSON.parse(raw) : [];
+      setCompletedTasks(new Set<string>(migrateLegacyTaskKeys(stored, planText)));
       setTicksLoaded(true);
     }).catch(() => setTicksLoaded(true));
-  }, [issueId, reloadTicks]);
+  }, [issueId, reloadTicks, planText]);
 
   useEffect(() => {
     if (onProgressChange && ticksLoaded) {
@@ -208,19 +214,21 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   
   // ONE key space for a plan's ticks: the original text's.
   //
-  // Keys are positional, and a translation rarely parses to the same number of
-  // tasks, so the two parses disagree about what "task-3" means. Everything that
+  // Keys are content-derived (lib/plan-blocks.ts's nextTaskKey), not positional,
+  // but that alone does not make keying off effectiveText safe: a translation is
+  // still a different parse of different text, with its own key space, so
+  // measuring against it would still mean a tick here and a different one there
+  // depending on which text was on screen when it was toggled. Everything that
   // is not this component reads the original — the daily reminder parses
   // plan.content, and the cached count is stored per plan, not per language — so
-  // keying the boxes to whatever is on screen made a tick mean one task here and
-  // a different one there, and toggling "show original" recounted the same plan
-  // against a different parse.
+  // ONE canonical source (planText) is what keeps every reader agreeing on what
+  // a given tick means.
   //
-  // No re-keying is needed to achieve that: parsePlanText numbers tasks purely
-  // by position, so the Nth task of ANY text is already `task-N`. An earlier
-  // version of this added a rekeyTasksTo() step here and a comment crediting it
-  // with the fix; it mapped every key onto itself and did nothing. What actually
-  // fixes it is measuring against planText below while displaying effectiveText.
+  // An earlier version of this added a rekeyTasksTo() step here and a comment
+  // crediting it with fixing this; it mapped every key onto itself (keys were
+  // positional then, so two parses of the SAME text always produced identical
+  // sequences) and did nothing. What actually fixes it is measuring against
+  // planText below while displaying effectiveText.
   const taskKeys = taskKeysOf(planText);
   const blocks = parsePlanText(effectiveText);
   const sections = groupIntoSections(blocks, language);
@@ -229,8 +237,8 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   // ponytail: a translation that drops a task leaves the reader unable to tick
   // the ones it lost, so the bar can sit below 100% with every visible box
   // ticked. That is the honest reading — the plan really does have more tasks
-  // than the translation shows. Content-anchored keys would fix it properly and
-  // are worth building only if a family actually reads one plan in two languages.
+  // than the translation shows. No keying scheme fixes this: the task is simply
+  // absent from what's on screen, so there is nothing there to tick.
   
   return (
     <View style={styles.container}>

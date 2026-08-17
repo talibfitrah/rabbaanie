@@ -8,6 +8,13 @@ const dbMocks = vi.hoisted(() => ({
   saveDiagnosticAnswers: vi.fn(),
   getRecentDiagnosticSignals: vi.fn(),
   getPartnerOfUser: vi.fn(),
+  // getSpouseAdvice (server/advice.ts) switched from getPartnerOfUser to
+  // getPartnersOfUser (item 1 polygyny review pass) so it can detect 2+
+  // confirmed partners and fail closed instead of guessing. getPartnerOfUser
+  // above stays declared (unused by production code now, but the round-8 P2
+  // regression test below asserts it's never called, which needs the mock
+  // fn to exist).
+  getPartnersOfUser: vi.fn(),
   hasConfirmedPartner: vi.fn(),
   getSpouseInteractionData: vi.fn(),
   createSpouseAdvice: vi.fn(),
@@ -592,12 +599,12 @@ describe("getSpouseAdvice never lets the partner's raw answer text reach the pro
     // partnershipConfirmed: true — item 5's new confirmation gate (see the
     // describe block below) must not reject the confirmed-partner case
     // these tests exist to cover.
-    dbMocks.getPartnerOfUser.mockResolvedValue({
+    dbMocks.getPartnersOfUser.mockResolvedValue([{
       id: 2,
       name: "Partner",
       profileData: {},
       partnershipConfirmed: true,
-    });
+    }]);
     dbMocks.getSpouseInteractionData.mockResolvedValue({
       goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
     });
@@ -641,12 +648,12 @@ describe("getSpouseAdvice never lets the partner's raw answer text reach the pro
 // ============================================================
 describe("getSpouseAdvice requires a CONFIRMED partnership (item 5 fix)", () => {
   it("refuses to generate advice when the partner is not confirmed, and never calls the model", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue({
+    dbMocks.getPartnersOfUser.mockResolvedValue([{
       id: 2,
       name: "Partner",
       profileData: {},
       partnershipConfirmed: false,
-    });
+    }]);
 
     const result: any = await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
 
@@ -657,12 +664,12 @@ describe("getSpouseAdvice requires a CONFIRMED partnership (item 5 fix)", () => 
   });
 
   it("still proceeds normally once the partnership IS confirmed (no regression)", async () => {
-    dbMocks.getPartnerOfUser.mockResolvedValue({
+    dbMocks.getPartnersOfUser.mockResolvedValue([{
       id: 2,
       name: "Partner",
       profileData: {},
       partnershipConfirmed: true,
-    });
+    }]);
     dbMocks.getSpouseInteractionData.mockResolvedValue({
       goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
     });

@@ -46,7 +46,13 @@ import {
   parentAiConsultRouter,
 } from "./child-monitoring-router";
 import * as db from "./db";
-import { selectAudience, incompleteChildNames } from "./broadcast-audience";
+import { selectAudience, incompleteChildNames, attachLinkedSpouse, recipientGender } from "./broadcast-audience";
+import {
+  analyticalProfileTemplate,
+  personalProfileTemplate,
+  childProfileTemplate,
+  spouseNotLinkedTemplate,
+} from "./broadcast-templates";
 import {
   assertActiveSpecialistFamily,
   assertAvailableSpecialist,
@@ -908,6 +914,7 @@ const audienceFilterSchema = z.object({
   incompletePersonal: z.boolean().optional(),
   incompleteAnalytical: z.boolean().optional(),
   incompleteChildren: z.boolean().optional(),
+  notLinkedSpouse: z.boolean().optional(),
 });
 
 const adminRouter = router({
@@ -1182,7 +1189,9 @@ Respond in JSON format:
     .input(audienceFilterSchema.default({}))
     .query(async ({ input }) => {
       const allUsers = await db.getAllUsers();
-      const matched = selectAudience(allUsers, input);
+      const linkedIds = await db.getLinkedSpouseUserIds();
+      const withSpouseInfo = attachLinkedSpouse(allUsers, linkedIds);
+      const matched = selectAudience(withSpouseInfo, input);
       return {
         count: matched.length,
         recipients: matched.map((u) => ({
@@ -1200,21 +1209,80 @@ Respond in JSON format:
   sendBroadcast: adminProcedure
     .input(
       z.object({
-        subject: z.string().min(1),
-        message: z.string().min(1),
+        subject: z.string().optional(),
+        message: z.string().optional(),
         target: z.enum(["all", "parents", "admins"]).default("all"),
         audience: audienceFilterSchema.optional(),
-      }),
+        category: z
+          .enum(["incompleteAnalytical", "incompleteChildren", "incompletePersonal", "notLinkedSpouse"])
+          .optional(),
+      }).refine(
+        (v) => v.category || (v.subject && v.subject.trim().length > 0 && v.message && v.message.trim().length > 0),
+        { message: "subject and message are required when category is not given" },
+      ),
     )
     .mutation(async ({ input }) => {
+      if (input.category) {
+        const allUsers = await db.getAllUsers();
+        const linkedIds = await db.getLinkedSpouseUserIds();
+        const withSpouseInfo = attachLinkedSpouse(allUsers, linkedIds);
+        const matched = selectAudience(withSpouseInfo, {
+          ...(input.audience || {}),
+          [input.category]: true,
+        });
+        const data = { type: "admin_broadcast", category: input.category };
+        // Only `sent` is ever returned (matching the no-category path below,
+        // which also discards broadcastPushNotification's `failed`), so it's
+        // the only field accumulated here.
+        let sent = 0;
+
+        if (input.category === "incompleteChildren") {
+          for (const u of matched) {
+            const t = childProfileTemplate(incompleteChildNames(u));
+            const r = await db.broadcastLocalizedPush(
+              t.title.nl, t.title.en, t.title.ar,
+              t.body.nl, t.body.en, t.body.ar,
+              data, [u.id],
+            );
+            sent += r.sent;
+          }
+        } else if (input.category === "notLinkedSpouse") {
+          const byGender: Record<"man" | "vrouw", number[]> = { man: [], vrouw: [] };
+          for (const u of matched) {
+            const g = recipientGender(u);
+            if (g) byGender[g].push(u.id); // never null here — see note above
+          }
+          for (const gender of ["man", "vrouw"] as const) {
+            if (byGender[gender].length === 0) continue;
+            const t = spouseNotLinkedTemplate(gender);
+            const r = await db.broadcastLocalizedPush(
+              t.title.nl, t.title.en, t.title.ar,
+              t.body.nl, t.body.en, t.body.ar,
+              data, byGender[gender],
+            );
+            sent += r.sent;
+          }
+        } else {
+          const t = input.category === "incompleteAnalytical" ? analyticalProfileTemplate() : personalProfileTemplate();
+          const r = await db.broadcastLocalizedPush(
+            t.title.nl, t.title.en, t.title.ar,
+            t.body.nl, t.body.en, t.body.ar,
+            data, matched.map((u) => u.id),
+          );
+          sent += r.sent;
+        }
+        return { success: true, sent, target: input.target };
+      }
+
+      // No category: unchanged from before this patch.
       let userIds: number[] | undefined;
       if (input.audience) {
         const allUsers = await db.getAllUsers();
         userIds = selectAudience(allUsers, input.audience).map((u) => u.id);
       }
       const result = await db.broadcastPushNotification(
-        input.subject,
-        input.message,
+        input.subject!,
+        input.message!,
         { type: "admin_broadcast", target: input.target },
         userIds,
       );
@@ -1723,7 +1791,17 @@ export const profileRouter = router({
     const profileData = user?.profileData as any;
     if (!profileData) return null;
 
-    // Auto-populate partner info from partnerships table
+    // Auto-populate partner info from partnerships table. Left on
+    // getPartnerOfUser deliberately (item 1 polygyny review pass): these are
+    // legacy singular parentProfile.partnerName/partnerId display fields
+    // that predate polygyny, with no per-partner selector concept — there is
+    // no "which wife" to ask for here, only "your profile's one partner
+    // slot". For a man with 2+ confirmed wives this always reflects his
+    // OLDEST confirmed wife now (getPartnerOfUser's own determinism fix),
+    // consistently across calls, rather than flipping between GETs as it
+    // could before. A full multi-wife version of this legacy field would
+    // need a UI decision (which wife's name goes in a single slot?) that
+    // does not exist today — not attempted here.
     try {
       const partner = await db.getPartnerOfUser(ctx.user.id);
       if (partner) {
@@ -2452,6 +2530,13 @@ export const linksRouter = router({
     );
     const hasGrant = !!partner.profileAccessGrantedAt;
     const hasPendingRequest = !!partner.profileAccessRequestedAt && !hasGrant;
+    // Fix 1: mirrors hasPendingRequest's masking — a grant or a fresh
+    // pending request supersedes a stale decline from an earlier
+    // ask-decline-ask cycle (revokePartnerProfileAccess in db.ts also
+    // clears profileAccessDeclinedAt outright once a grant is later
+    // revoked, so this masking is a belt-and-suspenders read, not the only
+    // thing preventing a stale "he declined" from showing).
+    const hasDeclined = !!partner.profileAccessDeclinedAt && !hasGrant && !hasPendingRequest;
     const isFull = hasFullPartnerAccess(
       myGender,
       partnerGender,
@@ -2505,6 +2590,10 @@ export const linksRouter = router({
         // — an unconditional FORBIDDEN with no path forward (round-6 fix).
         partner.partnershipConfirmed,
       requestPending: hasPendingRequest,
+      // Fix 1: lets the client show "he declined, ask again" instead of
+      // fresh ask-copy — canRequest is unaffected (deliberately: whether to
+      // add a re-request cooldown is a product decision, not made here).
+      declined: hasDeclined,
       needsGender: !myGender || !partnerGender || myGender === partnerGender,
       needsMyGender: !myGender,
       needsPartnerGender: !partnerGender,
@@ -2525,6 +2614,14 @@ export const linksRouter = router({
           "Alleen de vrouw kan dit verzoek versturen / Only the wife can send this request / يمكن للزوجة فقط إرسال هذا الطلب",
       });
     }
+    // Safe on getPartnerOfUser (item 1 polygyny review pass): the FORBIDDEN
+    // gate just above only lets a caller with myGender === "vrouw" reach
+    // this line, and the data layer enforces at most one confirmed husband
+    // per woman (womanAlreadyHasConfirmedHusband, checked at both places a
+    // partnership is confirmed — see its own comment in server/db.ts) — so
+    // there is never more than one confirmed partner for getPartnerOfUser to
+    // be ambiguous about here. Same reasoning applies to the second
+    // getPartnerOfUser call further down this same procedure.
     const partner = await db.getPartnerOfUser(ctx.user.id);
     if (!partner)
       throw new Error(
@@ -2688,8 +2785,29 @@ export const linksRouter = router({
   }),
 
   /** Full sync: pull all partner data and merge with local (called explicitly by user) */
-  syncWithPartner: protectedProcedure.mutation(async ({ ctx }) => {
-    const partner = await db.getPartnerOfUser(ctx.user.id);
+  syncWithPartner: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .mutation(async ({ ctx, input }) => {
+    // Polygyny (item 1 review pass): mirrors getPartnerProfile's optional-
+    // partnerId shape, resolved only from the caller's own
+    // getPartnersOfUser list (never a raw id — same "never trust a raw id"
+    // rule getPartnerProfile follows). Unlike grantPartnerProfileAccess/
+    // revokePartnerProfileAccess's resolveTargetPartner, ambiguity (2+
+    // confirmed partners, no partnerId) does NOT throw here — it returns
+    // success:false like every other early-out below. Deliberate, not an
+    // oversight: this procedure has an existing, documented never-throw
+    // contract (see the comment further down) because app-context.tsx calls
+    // it silently in the background on app open, so a thrown error here
+    // would be a regression this pass must not introduce.
+    const partners = await db.getPartnersOfUser(ctx.user.id);
+    let partner: (typeof partners)[number] | null;
+    if (input?.partnerId !== undefined) {
+      partner = partners.find((p) => p.id === input.partnerId) ?? null;
+    } else if (partners.length > 1) {
+      return { success: false, message: "Multiple partners linked, specify partnerId" };
+    } else {
+      partner = partners[0] ?? null;
+    }
     if (!partner) return { success: false, message: "No partner linked" };
     const partnerData = partner.profileData as any;
     // Same gate as getPartnerProfile (see hasFullPartnerAccess) — without
@@ -2914,6 +3032,7 @@ export const linksRouter = router({
   shareWeeklyProgress: protectedProcedure
     .input(
       z.object({
+        partnerId: z.number().optional(),
         childName: z.string(),
         weekNumber: z.number(),
         completedGoals: z.number(),
@@ -2923,7 +3042,12 @@ export const linksRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const partner = await db.getPartnerOfUser(ctx.user.id);
+      // Polygyny (item 1 review pass): reuses resolveTargetPartner — same
+      // helper grantPartnerProfileAccess/revokePartnerProfileAccess already
+      // use, and this procedure already throws a plain Error for "no
+      // partner" below, so resolveTargetPartner's thrown BAD_REQUEST for
+      // "ambiguous, no partnerId given" matches its own existing idiom.
+      const partner = await resolveTargetPartner(ctx.user.id, input.partnerId);
       if (!partner) throw new Error("No linked partner found");
       const senderName = ctx.user.name || "Partner";
       const partnerLang = await db.getUserLanguage(partner.id);

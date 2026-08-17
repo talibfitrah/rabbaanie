@@ -3606,6 +3606,26 @@ export async function hasConfirmedPartner(userId: number): Promise<boolean> {
   return partner.length > 0;
 }
 
+/** All user IDs with a confirmed, active partnership, either side of it.
+ *  Bulk form of hasConfirmedPartner — one query instead of one per user —
+ *  for broadcast-audience.ts's notLinkedSpouse filter (see
+ *  attachLinkedSpouse there). Same WHERE as hasConfirmedPartner's first
+ *  branch: status="active" AND confirmed=true. */
+export async function getLinkedSpouseUserIds(): Promise<number[]> {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select({ userId1: partnerships.userId1, userId2: partnerships.userId2 })
+    .from(partnerships)
+    .where(and(eq(partnerships.status, "active"), eq(partnerships.confirmed, true)));
+  const ids = new Set<number>();
+  for (const r of rows) {
+    ids.add(r.userId1);
+    ids.add(r.userId2);
+  }
+  return Array.from(ids);
+}
+
 /** Shared shape returned per-partner by getPartnersOfUser/getPartnerOfUser. */
 type PartnerRecord = {
   id: number;
@@ -3625,6 +3645,9 @@ type PartnerRecord = {
   partnershipConfirmed: boolean;
   profileAccessRequestedAt: Date | null;
   profileAccessGrantedAt: Date | null;
+  /** Husband's decline of a pending request (Fix 1) — see PartnerRecord's
+   * sibling fields above and revokePartnerProfileAccess's own doc comment. */
+  profileAccessDeclinedAt: Date | null;
 };
 
 /**
@@ -3643,6 +3666,16 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
 
   // 1. First check partnerships table (persists across reinstalls) — EVERY
   // active, confirmed row this user is a party to, not just one.
+  //
+  // ORDER BY id ASC (oldest confirmed partnership first): without this the
+  // query was unordered, so two identical calls could return a man's wives
+  // in a different order — the root cause behind several "acted on the
+  // wrong wife" review findings (round-9/round-10) in callers that only
+  // ever look at getPartnerOfUser's first entry. `id` rather than
+  // `createdAt`: createdAt is a MySQL TIMESTAMP with no fractional-seconds
+  // precision configured, so two partnerships confirmed in the same second
+  // would tie; the autoincrement id can't. Plain ORDER BY, not RETURNING —
+  // portable to the hand-ported Postgres production copy.
   const partnershipRows = await db
     .select()
     .from(partnerships)
@@ -3652,7 +3685,8 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
         eq(partnerships.status, "active"),
         eq(partnerships.confirmed, true),
       ),
-    );
+    )
+    .orderBy(partnerships.id);
 
   if (partnershipRows.length > 0) {
     const result: PartnerRecord[] = [];
@@ -3676,6 +3710,7 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           partnershipConfirmed: p.status === "active" && p.confirmed === true,
           profileAccessRequestedAt: p.profileAccessRequestedAt ?? null,
           profileAccessGrantedAt: p.profileAccessGrantedAt ?? null,
+          profileAccessDeclinedAt: p.profileAccessDeclinedAt ?? null,
         });
       }
     }
@@ -3754,6 +3789,7 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           profileAccessRequestedAt:
             (created as any)?.profileAccessRequestedAt ?? null,
           profileAccessGrantedAt: (created as any)?.profileAccessGrantedAt ?? null,
+          profileAccessDeclinedAt: (created as any)?.profileAccessDeclinedAt ?? null,
         }];
       }
     }
@@ -3762,16 +3798,32 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
 }
 
 /**
- * The sole/primary partner of a user — first entry of getPartnersOfUser.
- * Kept working, unchanged, for every existing single-partner call site
- * (profile.get/save, syncWithPartner, getSpouseAdvice, request/grant/
- * revokePartnerProfileAccess, shareWeeklyProgress, ...): a user with 0 or 1
- * confirmed partnerships gets bit-for-bit the same result this function
- * always returned. A man with 2+ confirmed wives gets whichever partnership
- * getPartnersOfUser's branch-1 query happens to return first (no ORDER BY —
- * this was already an unordered `.limit(1)` before this refactor, so this
- * preserves rather than changes that). Callers that must see every partner
- * use getPartnersOfUser directly (links.listPartners/getPartnerProfile).
+ * The sole/primary partner of a user — first entry of getPartnersOfUser,
+ * which now orders oldest confirmed partnership first (see its own ORDER BY
+ * comment). A user with 0 or 1 confirmed partnerships gets bit-for-bit the
+ * same result this function always returned. A man with 2+ confirmed wives
+ * now deterministically gets his OLDEST confirmed wife on every call — never
+ * "whichever the query happens to return" (that non-determinism was the
+ * actual bug; fixed once, in getPartnersOfUser, for every caller below).
+ *
+ * Determinism alone does not make a polygynous man's result CORRECT for
+ * every caller, only stable — so this is still only called from sites where
+ * that has been deliberately checked to be safe:
+ * - profileRouter.get: legacy singular `parentProfile.partnerName`/`partnerId`
+ *   display fields predating polygyny; own comment there.
+ * - requestPartnerProfileAccess: gated wife-only before this is ever
+ *   reached, and a woman has at most one confirmed husband (data-layer rule
+ *   — womanAlreadyHasConfirmedHusband, checked at both places a partnership
+ *   is confirmed) — unambiguous for every caller who can reach it.
+ * - getPartnerProfile: the reference pattern (optional `partnerId`, falls
+ *   back to this only when omitted) — a deliberate read-only exception that
+ *   does not fail closed on ambiguity; see its own comment for why.
+ *
+ * syncWithPartner/shareWeeklyProgress/getSpouseAdvice no longer call this at
+ * all: they take an explicit `partnerId` and resolve it against
+ * getPartnersOfUser directly, failing closed when ambiguous. Callers that
+ * must see every partner also use getPartnersOfUser directly
+ * (links.listPartners).
  */
 export async function getPartnerOfUser(userId: number): Promise<PartnerRecord | null> {
   const partners = await getPartnersOfUser(userId);
@@ -4012,7 +4064,13 @@ export async function confirmPartnershipRequest(
         eq(partnerships.confirmed, false),
       ),
     );
-  return Number((result as any)?.[0]?.affectedRows ?? 0) === 1;
+  // Fix 2: was a raw, mysql2-only `[0]?.affectedRows` read. Production is
+  // node-postgres, where that shape doesn't exist (see affectedRows()'s own
+  // porting-hazard comment) — so this always read 0 there, and the
+  // confirm-link mutation in routers.ts (which requires this to return true
+  // before it counts the confirmation as "changed") threw FORBIDDEN even
+  // though the UPDATE itself had succeeded.
+  return affectedRows(result) === 1;
 }
 
 export async function rejectPartnershipRequest(
@@ -4035,7 +4093,9 @@ export async function rejectPartnershipRequest(
         eq(partnerships.status, "pending"),
       ),
     );
-  return Number((result as any)?.[0]?.affectedRows ?? 0) === 1;
+  // Fix 2: same mysql2-only shape bug as confirmPartnershipRequest above —
+  // same fix, same helper.
+  return affectedRows(result) === 1;
 }
 
 /**
@@ -4105,9 +4165,22 @@ export async function grantPartnerProfileAccess(
 
 /**
  * Husband revokes access (or declines a request he never granted — the app
- * wires both actions to this same mutation). Works at any time. Also clears
- * the request timestamp: leaving it set stranded the wife at
+ * wires both actions to this same mutation, with no input of its own to say
+ * which — see the Fix 1 branch below). Works at any time. Also clears the
+ * request timestamp: leaving it set stranded the wife at
  * requestPending=true forever with no way to ask again.
+ *
+ * Fix 1: revoking an active grant and declining a pending request used to
+ * both just null profileAccessGrantedAt/profileAccessRequestedAt — leaving
+ * an identical row to "never asked", so the wife was re-shown fresh ask-copy
+ * after being declined, and nothing bounded the husband being re-notified
+ * (decline -> request -> decline...). Branches on the row's OWN prior state
+ * (there is no caller-supplied intent to read) to leave distinguishable
+ * state: a decline (no grant existed) stamps profileAccessDeclinedAt; an
+ * actual revoke (a grant existed) clears it instead — a revoke is a
+ * different event, and clearing it here also drops any decline stamp left
+ * over from an earlier ask-decline-ask-grant cycle, so a later revoke never
+ * shows a stale "he declined" from before he ultimately said yes.
  */
 export async function revokePartnerProfileAccess(
   partnershipId: number,
@@ -4127,8 +4200,12 @@ export async function revokePartnerProfileAccess(
   // affectedRows()'s own porting-hazard comment), so that no-op would read
   // as affectedRows=0 — indistinguishable, at that point, from "no such
   // authorized row" — and get reported as FORBIDDEN instead of success.
+  //
+  // Also selects profileAccessGrantedAt (Fix 1): the ownership check needs
+  // to read the row anyway, so branching on its own prior state costs no
+  // extra query.
   const owned = await db
-    .select({ id: partnerships.id })
+    .select({ id: partnerships.id, profileAccessGrantedAt: partnerships.profileAccessGrantedAt })
     .from(partnerships)
     .where(
       and(
@@ -4143,9 +4220,14 @@ export async function revokePartnerProfileAccess(
     )
     .limit(1);
   if (owned.length === 0) return false;
+  const wasGranted = owned[0].profileAccessGrantedAt != null;
   await db
     .update(partnerships)
-    .set({ profileAccessGrantedAt: null, profileAccessRequestedAt: null })
+    .set({
+      profileAccessGrantedAt: null,
+      profileAccessRequestedAt: null,
+      profileAccessDeclinedAt: wasGranted ? null : new Date(),
+    })
     .where(eq(partnerships.id, partnershipId));
   return true;
 }

@@ -189,8 +189,17 @@ async function startServer() {
       // Build context from the Express request using the same createContext used by tRPC
       const ctx = await createContext({ req, res } as any);
       const caller = adviceRouter.createCaller(ctx);
+      // partnerId: item 1 polygyny review pass — this REST shim rebuilds the
+      // input object by hand rather than forwarding req.body wholesale, so
+      // the client's spouse selector (app/(tabs)/family.tsx) would otherwise
+      // reach this route and have its choice silently dropped before it
+      // ever reached getSpouseAdvice's own partnerId resolution. Left
+      // undefined (not coerced) when absent, matching every existing
+      // single-partner caller unchanged; getSpouseAdvice's own zod schema
+      // validates the shape.
       const result = await caller.getSpouseAdvice({
         language: req.body?.language || "nl",
+        partnerId: req.body?.partnerId,
       });
       // Wrap in tRPC-like shape that the client expects: { result: { data: ... } }
       res.json({

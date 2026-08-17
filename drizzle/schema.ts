@@ -895,6 +895,15 @@ export const partnerships = mysqlTable("partnerships", {
   profileAccessRequestedAt: timestamp("profileAccessRequestedAt"),
   /** Husband's grant of that request; cleared on revoke */
   profileAccessGrantedAt: timestamp("profileAccessGrantedAt"),
+  /**
+   * Husband's decline of a pending request. Without this, revoking an
+   * active grant and declining a pending request both null out the same two
+   * columns above, leaving an identical row to "never asked" — the wife
+   * would be re-shown fresh ask-copy after being declined. Cleared (not
+   * stamped) when an active grant is revoked, since that is a different
+   * event, not a decline (see revokePartnerProfileAccess in server/db.ts).
+   */
+  profileAccessDeclinedAt: timestamp("profileAccessDeclinedAt"),
 });
 
 export type Partnership = typeof partnerships.$inferSelect;

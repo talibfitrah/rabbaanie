@@ -50,8 +50,45 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
 
 // ============ CLOUD SYNC HELPERS ============
 
-/** Save state to server (fire-and-forget, non-blocking) */
-async function syncToServer(state: AppState): Promise<void> {
+/**
+ * profile.save reports the gender it actually persisted (see server/routers.ts
+ * profile.save), which can differ from what was just sent — e.g. a stale
+ * local value falls back to the authoritative server-side value there.
+ * Returns the effective gender when it differs from what was sent, or
+ * undefined when there's nothing to reconcile: either they already match, or
+ * the response didn't parse into the expected tRPC envelope.
+ */
+export function reconcileEffectiveGender(sentGender: string, body: unknown): string | undefined {
+  const result = (body as any)?.result?.data?.json;
+  if (!result || typeof result !== "object") return undefined;
+  const effective = typeof result.gender === "string" ? result.gender : "";
+  return effective !== sentGender ? effective : undefined;
+}
+
+/**
+ * Patches parentProfile.gender to the server's effective value. Returns the
+ * SAME state reference when the gender already matches, so a caller can skip
+ * setState/saveAppState on a no-op instead of manufacturing a "change" that
+ * isn't one.
+ */
+export function applyReconciledGender(current: AppState, gender: string): AppState {
+  if (current.parentProfile.gender === gender) return current;
+  return { ...current, parentProfile: { ...current.parentProfile, gender } };
+}
+
+/**
+ * Save state to server (fire-and-forget, non-blocking).
+ *
+ * onGenderReconciled, when given, is invoked with the server's effective
+ * gender whenever it differs from what was just sent — see
+ * reconcileEffectiveGender. Callers must patch local state directly (e.g.
+ * via applyReconciledGender + setState) rather than through persist(), or
+ * the patch would itself arm another debounced syncToServer call.
+ */
+export async function syncToServer(
+  state: AppState,
+  onGenderReconciled?: (gender: string) => void
+): Promise<void> {
   try {
     const token = await Auth.getSessionToken();
     if (!token) return; // Not authenticated, skip sync
@@ -89,6 +126,12 @@ async function syncToServer(state: AppState): Promise<void> {
     });
     if (!response.ok) {
       console.warn("[CloudSync] Save failed:", response.status);
+      return;
+    }
+    if (onGenderReconciled) {
+      const body = await response.json().catch(() => null);
+      const effectiveGender = reconcileEffectiveGender(state.parentProfile.gender, body);
+      if (effectiveGender !== undefined) onGenderReconciled(effectiveGender);
     }
   } catch (e) {
     console.warn("[CloudSync] Save error (non-blocking):", e);
@@ -201,6 +244,20 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   stateRef.current = state;
   const userIdRef = useRef<number | null>(null);
 
+  // Applies a gender profile.save reconciled server-side (see syncToServer /
+  // reconcileEffectiveGender). Deliberately bypasses persist(): patching
+  // straight through setState/saveAppState means this can never itself arm
+  // another debounced syncToServer call that re-sends the value the server
+  // just corrected — matches the "merge partner info from server" pattern
+  // below, which reconciles server-authoritative data the same way.
+  const applyServerGender = useCallback((gender: string) => {
+    const patched = applyReconciledGender(stateRef.current, gender);
+    if (patched === stateRef.current) return;
+    setState(patched);
+    stateRef.current = patched;
+    saveAppState(patched, userIdRef.current);
+  }, []);
+
   useEffect(() => {
     async function hydrate() {
       try {
@@ -217,7 +274,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         if (!localState.onboardingCompleted && isProfileComplete({ parentProfile: localState.parentProfile, children: localState.children })) {
           localState = { ...localState, onboardingCompleted: true };
           await saveAppState(localState, userIdRef.current);
-          syncToServer(localState);
+          syncToServer(localState, applyServerGender);
         }
 
         // 2. If local state has data, use it immediately
@@ -379,9 +436,9 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     // Sync to server (debounced, non-blocking)
     if (syncTimer) clearTimeout(syncTimer);
     syncTimer = setTimeout(() => {
-      syncToServer(newState);
+      syncToServer(newState, applyServerGender);
     }, 2000); // Wait 2 seconds after last change before syncing
-  }, []);
+  }, [applyServerGender]);
 
   const updateParentProfile = useCallback(
     async (profile: Partial<ParentProfile>) => {
