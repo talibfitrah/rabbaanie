@@ -77,14 +77,16 @@ requests landing in the same instant, and the app has no concurrent-marriage loa
     **Follow-up:** surface a pending auto-created partnership on the family / spouse-profile
     screen as "confirm you are partners", so the path out is visible.
 
-## Deferred: reads that write
+## Reads that write — CLOSED
 
-9. **`listPartners` is a `.query` that can INSERT.** The legacy shared-children fallback calls
-   `createPartnership`. Partly mitigated in 1.5.7 — an explicitly dissolved partnership is no
-   longer resurrected by a read — but a *first-ever* co-parent detection still creates a
-   partnership as a side effect of opening the family tab.
-   **Follow-up:** give the fallback a write-free variant, as `hasConfirmedPartner` already is for
-   the daily check-in.
+9. ~~**`listPartners` is a `.query` that can INSERT.**~~ **FIXED.** The shared-children fallback
+   now writes nothing at all. It had been carried as a deferral for several rounds; what forced
+   the issue was that the pending row it created was byte-identical to a deliberate invite, so a
+   co-parent accepting an unrelated *child* link silently confirmed a marriage too. Checking what
+   the row actually bought settled it: every mutation taking a `partnershipId` requires
+   `status='active'`, which a pending row never satisfies, so it enabled nothing. The co-parent
+   is still surfaced, with `partnershipId: 0` — matching no row, so every mutation fails closed
+   until the two link deliberately.
 
 ## Deferred: pre-existing, not introduced here
 
