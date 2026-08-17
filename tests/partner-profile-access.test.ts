@@ -2263,3 +2263,45 @@ describe("the shared-children fallback must not manufacture consent", () => {
     expect(result?.partnershipConfirmed).toBe(false);
   });
 });
+
+describe("a full profile does not carry another household's synced data", () => {
+  it("wife #2 reading her husband does not receive what he synced from wife #1", async () => {
+    // syncWithPartner merges the chosen partner's household into the caller's
+    // OWN profileData, tagging each merged item syncedFromPartner. Serving
+    // that blob wholesale handed wife #2 wife #1's children, issues and
+    // treatment plans the moment he granted wife #2 access.
+    dbMocks.getPartnerOfUser.mockResolvedValue({
+      id: 1,
+      name: "Husband",
+      gender: "man",
+      partnershipId: 55,
+      partnershipConfirmed: true,
+      profileAccessRequestedAt: null,
+      profileAccessGrantedAt: new Date("2026-01-01"),
+      profileData: {
+        parentProfile: { gender: "man" },
+        children: [
+          { id: 10, name: "His own child" },
+          { id: 11, name: "Wife #1's child", syncedFromPartner: true },
+        ],
+        issues: [
+          { id: 1, description: "his" },
+          { id: 2, description: "wife #1's private issue", syncedFromPartner: true },
+        ],
+        actionPlans: [{ id: 3, syncedFromPartner: true }],
+        environments: [{ id: 4, syncedFromPartner: true }],
+      },
+    });
+
+    const result: any = await linksRouter
+      .createCaller(ctxFor(2, "vrouw"))
+      .getPartnerProfile();
+
+    expect(result.access).toBe("full");
+    expect(result.children.map((c: any) => c.id)).toEqual([10]);
+    expect(result.issues.map((i: any) => i.id)).toEqual([1]);
+    expect(result.actionPlans).toEqual([]);
+    expect(result.environments).toEqual([]);
+    expect(JSON.stringify(result)).not.toContain("wife #1's private issue");
+  });
+});

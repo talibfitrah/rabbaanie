@@ -2185,6 +2185,46 @@ export const linksRouter = router({
     .mutation(async ({ ctx, input }) => {
       let changed = 0;
       if (input.senderId) {
+        // The partnership is settled FIRST, before any child link is written.
+        // Confirming links and then throwing left those writes durable while
+        // the client saw a hard failure — it was told it already had a partner
+        // even though the child links had in fact been confirmed.
+        const partnership = await db.getPendingPartnershipFromSender(
+          input.senderId,
+          ctx.user.id,
+        );
+        // Split from the confirm rather than &&-ed with it: since the
+        // one-husband constraint landed, a `false` means "refused", not "there
+        // was nothing to confirm", and collapsing the two left the refusal with
+        // no user-visible path at all — the row sat pending forever with no way
+        // to learn why.
+        let partnershipConfirmed = partnership
+          ? await db.confirmPartnershipRequest(partnership.id, ctx.user.id)
+          : false;
+        if (partnership && !partnershipConfirmed) {
+          // A false return has three causes and they need different answers,
+          // so the row is re-read rather than assuming the constraint refused
+          // it — telling someone they already have a confirmed partner when a
+          // concurrent tap simply won the race is its own wrong answer.
+          const current = await db.getPartnershipById(partnership.id);
+          if (current?.status === "active" && current?.confirmed === true) {
+            // Someone (or a duplicate tap) already confirmed it. Idempotent
+            // success, not an error.
+            partnershipConfirmed = true;
+          } else if (!current) {
+            throw new TRPCError({
+              code: "NOT_FOUND",
+              message:
+                "Dit koppelverzoek bestaat niet meer / This link request no longer exists / لم يعد طلب الربط هذا موجودًا",
+            });
+          } else {
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
+            });
+          }
+        }
         const links = await db.getPendingLinksFromSender(input.senderId);
         for (const link of links) {
           try {
@@ -2194,28 +2234,6 @@ export const linksRouter = router({
           } catch {
             // Ignore requests for children the current user does not control.
           }
-        }
-        const partnership = await db.getPendingPartnershipFromSender(
-          input.senderId,
-          ctx.user.id,
-        );
-        // Split from the confirm below rather than &&-ed with it: since the
-        // one-husband constraint landed, a `false` here means "refused", not
-        // "there was nothing to confirm", and collapsing the two left the
-        // refusal with no user-visible path at all. A woman who already has a
-        // confirmed husband was told either that the link succeeded (whenever
-        // the same sender also sent child-link requests, so changed > 0) or
-        // that there were no requests to confirm — while the row sat pending
-        // forever and she had no way to learn why.
-        const partnershipConfirmed = partnership
-          ? await db.confirmPartnershipRequest(partnership.id, ctx.user.id)
-          : false;
-        if (partnership && !partnershipConfirmed) {
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
-          });
         }
         if (partnership && partnershipConfirmed) {
           // Both people have now consented. Only at this point share their
@@ -2541,15 +2559,29 @@ export const linksRouter = router({
     const grantedToPartner = isHusband && hasGrant;
 
     if (isFull) {
+      // syncWithPartner merges the chosen partner's children/environments/
+      // issues/actionPlans into the caller's OWN profileData, tagging each
+      // merged item syncedFromPartner. Serving profileData wholesale therefore
+      // handed a husband's second wife everything he had synced from his
+      // FIRST — her children, issue descriptions and treatment plans — the
+      // moment he granted wife #2 access. confirmLink's ownChildren filter
+      // closes the same disclosure on the parentChildLinks table; this closes
+      // it on the profile blob, which was the other half of the path.
+      //
+      // Harmless for a monogamous couple: the only thing stripped from what a
+      // wife sees of her husband is what he had synced FROM her, which is her
+      // own data echoed back.
+      const notSynced = (rows: any) =>
+        Array.isArray(rows) ? rows.filter((r: any) => !r?.syncedFromPartner) : [];
       return {
         id: partner.id,
         name: partner.name,
         gender: partnerGender || null,
         parentProfile: profileData?.parentProfile || null,
-        children: profileData?.children || [],
-        environments: profileData?.environments || [],
-        issues: profileData?.issues || [],
-        actionPlans: profileData?.actionPlans || [],
+        children: notSynced(profileData?.children),
+        environments: notSynced(profileData?.environments),
+        issues: notSynced(profileData?.issues),
+        actionPlans: notSynced(profileData?.actionPlans),
         dailyCheckins: profileData?.dailyCheckins || [],
         dailyTipCompletions: profileData?.dailyTipCompletions || [],
         lastSyncedAt: profileData?.lastSyncedAt || null,

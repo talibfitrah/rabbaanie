@@ -3679,7 +3679,12 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
         });
       }
     }
-    return result;
+    // Only short-circuit when this branch actually produced someone. If every
+    // partner row pointed at a soft-deleted user the list is empty, and
+    // returning it here would skip the shared-children fallback that used to
+    // run in exactly that case — losing a live co-parent because an unrelated
+    // partner's account was deleted.
+    if (result.length > 0) return result;
   }
 
   // 2. Fallback: detect via shared children (legacy). Structurally can only
@@ -3758,10 +3763,11 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
         if (!created) {
           // createPartnership returns null/falsy for two different reasons:
           // its own getDb() came back empty (DB briefly unavailable between
-          // this function's top-level check and here), or (item 3) the
-          // one-husband constraint refused to confirm it. Either way this
-          // PAIR yields no partner, instead of throwing on created.id or
-          // silently promoting a blocked marriage.
+          // this function's top-level check and here). NOT the one-husband
+          // constraint: this call passes confirmed:false and that check only
+          // runs under `if (confirmed && ...)`, so it cannot fire from here.
+          // Either way this PAIR yields no partner, instead of throwing on
+          // created.id.
           //
           // `continue`, not `return []`, and for the same reason the
           // prior-dissolution check above continues: one blocked pair must not
@@ -3846,12 +3852,21 @@ export async function getPartnerOfUser(userId: number): Promise<PartnerRecord | 
 async function womanAlreadyHasConfirmedHusband(userId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
+  // Column OR the JSON copy, matching what every authorization this protects
+  // resolves through (routers.ts resolveGender). Reading the column alone let a
+  // pre-migration-0012 row — users.gender NULL, profileData.parentProfile.gender
+  // "vrouw" — pass as non-female and hold two confirmed husbands, while the
+  // access gate simultaneously treated her as a woman. The write path has to use
+  // the same resolution the read path does, or the invariant is only enforced
+  // for whoever happens to have the newer column populated.
   const [user] = await db
-    .select({ gender: users.gender })
+    .select({ gender: users.gender, profileData: users.profileData })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (user?.gender !== "vrouw") return false;
+  const resolved =
+    user?.gender || (user?.profileData as any)?.parentProfile?.gender || "";
+  if (resolved !== "vrouw") return false;
   const [existing] = await db
     .select({ id: partnerships.id })
     .from(partnerships)
@@ -3900,7 +3915,9 @@ export async function createPartnership(
     // caller passed confirmed=true. The only two callers of this function
     // are linkPartnerByPublicId (always confirmed=false — creates a genuine,
     // live invite the recipient must act on) and getPartnerOfUser's shared-
-    // children legacy fallback (confirmed=true). That fallback is not
+    // children legacy fallback (confirmed=FALSE since the consent fix — it
+    // used to pass true, which let a read manufacture the very consent
+    // hasFullPartnerAccess checks). That fallback is not
     // guaranteed to run only when no partnerships row exists for this pair —
     // getPartnerOfUser's own lookup also falls through to it when a matching
     // active+confirmed row DOES exist but its partner user is soft-deleted
@@ -4058,7 +4075,15 @@ export async function confirmPartnershipRequest(
         eq(partnerships.confirmed, false),
       ),
     );
-  return Number((result as any)?.[0]?.affectedRows ?? 0) === 1;
+  // affectedRows(), not a raw mysql2-shaped read: this file is MySQL-flavoured
+  // but production is a hand-ported Postgres server, where an .update() without
+  // .returning() yields { rowCount, rows } and `result[0].affectedRows` is
+  // always undefined — see affectedRows()'s own porting-hazard comment. That
+  // used to fail SILENTLY (a false return just skipped the child-sharing
+  // block); confirmLink now turns a false into a thrown CONFLICT, so the same
+  // misread would tell every confirming user they already have a partner. The
+  // helper reads both driver shapes.
+  return affectedRows(result) === 1;
 }
 
 export async function rejectPartnershipRequest(
