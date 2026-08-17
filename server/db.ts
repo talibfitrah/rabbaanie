@@ -3738,7 +3738,23 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           .limit(1);
         if (priorDissolved.length > 0) continue;
         // Auto-create partnership record for persistence
-        const created = await createPartnership(userId, partnerId, userId, true);
+        // confirmed: FALSE. This is a READ auto-creating a partnership, and
+        // `confirmed` is the exact signal hasFullPartnerAccess treats as "both
+        // people consented" — the round-8 fix added it because an unconfirmed
+        // invite was yielding the wife's whole profile while the invite told
+        // her nothing is shared until she confirms. Passing true here let this
+        // path manufacture its own precondition: a man who merely opened the
+        // spouse-profile screen while sharing one confirmed CHILD link with a
+        // woman was handed her full profile — parentProfile, children, issues,
+        // actionPlans, dailyCheckins — with no partnership either of them ever
+        // agreed to. Sharing a child is consent to co-parent, not consent to
+        // hand over a psychological profile.
+        //
+        // The row is still created, so the relationship stays discoverable and
+        // either party can confirm it through the normal invite flow; until one
+        // of them does, the gate reports restricted. Nothing is deleted and no
+        // existing confirmed partnership is affected.
+        const created = await createPartnership(userId, partnerId, userId, false);
         if (!created) {
           // createPartnership returns null/falsy for two different reasons:
           // its own getDb() came back empty (DB briefly unavailable between

@@ -1880,7 +1880,11 @@ describe("db.getPartnerOfUser: shared-children fallback and insertId() finding n
     expect(result).not.toBeNull();
     expect(result?.id).toBe(2);
     expect(result?.partnershipId).toBe(777);
-    expect(result?.partnershipConfirmed).toBe(true);
+    // FALSE since this fallback stopped auto-confirming: sharing a child is
+    // consent to co-parent, not consent to hand over a profile. This test's
+    // subject is the id recovery above — the flag is derived from the row the
+    // re-select returned, which carries no active/confirmed status here.
+    expect(result?.partnershipConfirmed).toBe(false);
   });
 
   it("a DISSOLVED partnership is not resurrected by the shared-children fallback — separation survives a read", async () => {
@@ -2225,5 +2229,37 @@ describe("syncWithPartner refuses to guess which wife when there are several", (
       .createCaller(ctxFor(1, "man"))
       .syncWithPartner();
     expect(solo.success).toBe(true);
+  });
+});
+
+describe("the shared-children fallback must not manufacture consent", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "mysql://consent-test-only/db";
+    partnershipDb.insert.mockClear();
+    partnershipDb.queue = undefined;
+    partnershipDb.rows = [];
+  });
+
+  it("auto-creates the partnership as PENDING, so a shared child alone does not unlock the full profile", async () => {
+    // `confirmed` is what hasFullPartnerAccess reads as "both people agreed".
+    // Auto-confirming here let a man who merely opened the spouse-profile
+    // screen, while sharing one confirmed CHILD link with a woman, receive her
+    // entire profile — psychologist notes included — with no partnership
+    // either of them ever accepted.
+    partnershipDb.queue = [
+      [], // no active+confirmed partnership -> fallback
+      [{ childId: 10, parentId: 1, confirmed: true }], // myLinks
+      [{ childId: 10, parentId: 2, confirmed: true }], // otherLinks
+      [{ id: 2, name: "CoParent", gender: "vrouw", profileData: {}, deletedAt: null }],
+      [], // prior-dissolution check: none
+      [], // createPartnership's existing-row check: none -> insert
+    ];
+    partnershipDb.rows = [{ id: 777, status: "pending", confirmed: false }];
+
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    const result = await real.getPartnerOfUser(1);
+
+    expect(result).not.toBeNull();
+    expect(result?.partnershipConfirmed).toBe(false);
   });
 });
