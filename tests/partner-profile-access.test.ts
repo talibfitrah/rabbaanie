@@ -1034,6 +1034,58 @@ describe("SECURITY: a gender change revokes every profile-access grant it's part
     expect(dbMocks.revokeProfileAccessGrantsForUser).not.toHaveBeenCalled();
   });
 
+  it("a legacy row whose gender lives only in the JSON copy still revokes on a change", async () => {
+    // Pre-migration-0012 rows can carry users.gender NULL with
+    // profileData.parentProfile.gender set — resolveGender's own doc names the
+    // case, and every authorization here (getPartnerProfile, syncWithPartner,
+    // request/grantPartnerProfileAccess) resolves through it, so those rows CAN
+    // hold and grant access. The revocation protecting those same
+    // authorizations was anchored on the column alone, so for exactly these
+    // rows a gender flip was invisible to it: grant as "man", save "vrouw",
+    // keep the grant. Column stays the preferred anchor (the JSON copy is
+    // erasable by save({profileData:{}})); the JSON is consulted only when the
+    // column has nothing to say.
+    const husband = wireStatefulUserRow({
+      id: 1,
+      gender: null,
+      profileData: { parentProfile: { gender: "man" } },
+    });
+    const partnership = {
+      requestedAt: null as Date | null,
+      grantedAt: new Date("2026-01-01") as Date | null,
+    };
+    dbMocks.getPartnerOfUser.mockImplementation(async () => ({
+      id: 2,
+      name: "Wife",
+      profileData: {},
+      partnershipId: 55,
+      profileAccessRequestedAt: partnership.requestedAt,
+      profileAccessGrantedAt: partnership.grantedAt,
+    }));
+    dbMocks.revokeProfileAccessGrantsForUser.mockImplementation(async () => {
+      partnership.grantedAt = null;
+      partnership.requestedAt = null;
+    });
+
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: husband.id,
+        name: "Husband",
+        language: "nl",
+        gender: husband.gender,
+        profileData: husband.profileData,
+      } as any,
+    };
+    await profileRouter
+      .createCaller(ctx)
+      .save({ profileData: { parentProfile: { gender: "vrouw" } } });
+
+    expect(dbMocks.revokeProfileAccessGrantsForUser).toHaveBeenCalledWith(1);
+    expect(partnership.grantedAt).toBeNull();
+  });
+
   it("wipe-then-set: an empty-object save doesn't corrupt the gender anchor, and a genuine follow-up change still takes effect", async () => {
     // Round-6 finding: the anchor lived only in the JSON copy, and
     // updateUserProfile fully REPLACES that column on every save, so

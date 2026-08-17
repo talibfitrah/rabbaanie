@@ -1327,14 +1327,31 @@ export const profileRouter = router({
       // differs, so a save that omits parentProfile entirely can't drop
       // the anchor out of the blob, or have a genuine change mistaken for
       // a "never set" first-time set.
+      //
+      // Resolved through resolveGender rather than read off the column
+      // directly, because the column is not the only place a gender can
+      // legitimately live. A pre-migration-0012 row can have users.gender NULL
+      // with the JSON copy set, and resolveGender is what every authorization
+      // this revocation protects already uses — getPartnerProfile,
+      // syncWithPartner, requestPartnerProfileAccess, grantPartnerProfileAccess
+      // (see resolveGender). Anchored on the column alone, those exact rows
+      // could grant as "man" and then save "vrouw" with no revocation firing:
+      // the guard could not see a gender the authorization had just honoured.
+      // The column still wins whenever it holds anything, so the erasability
+      // argument above is untouched; the JSON is consulted only when the column
+      // has nothing to say, and the re-stamp below then repairs the anchor.
       let genderAccessRevoked = false;
-      if (oldUser?.gender && newData && typeof newData === "object") {
+      const oldGender = resolveGender(
+        oldUser?.gender,
+        (oldUser?.profileData as any)?.parentProfile?.gender,
+      );
+      if (oldGender && newData && typeof newData === "object") {
         const incomingGender = newData.parentProfile?.gender;
-        if (incomingGender && incomingGender !== oldUser.gender) {
+        if (incomingGender && incomingGender !== oldGender) {
           await db.revokeProfileAccessGrantsForUser(ctx.user.id);
           genderAccessRevoked = true;
         }
-        newData.parentProfile = { ...(newData.parentProfile || {}), gender: incomingGender || oldUser.gender };
+        newData.parentProfile = { ...(newData.parentProfile || {}), gender: incomingGender || oldGender };
       }
 
       await db.updateUserProfile(ctx.user.id, newData);
