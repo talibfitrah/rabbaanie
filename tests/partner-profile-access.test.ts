@@ -23,6 +23,11 @@ const dbMocks = vi.hoisted(() => ({
   addChild: vi.fn(),
   generateChildPublicId: vi.fn(),
   linkParentToChild: vi.fn(),
+  // confirmLink's partnership branch — see the "second wife" describe below.
+  getPendingLinksFromSender: vi.fn(),
+  confirmParentChildLink: vi.fn(),
+  getPendingPartnershipFromSender: vi.fn(),
+  confirmPartnershipRequest: vi.fn(),
   tx: (lang: string, nl: string, en: string, ar: string) =>
     lang === "ar" ? ar : lang === "en" ? en : nl,
 }));
@@ -2114,5 +2119,43 @@ describe("db.revokePartnerProfileAccess: an idempotent no-op still succeeds (rou
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     const result = await real.revokePartnerProfileAccess(999, 1);
     expect(result).toBe(false);
+  });
+});
+
+describe("confirmLink: a second wife must not inherit the first wife's children", () => {
+  beforeEach(() => {
+    dbMocks.getPendingLinksFromSender.mockResolvedValue([]);
+    dbMocks.confirmParentChildLink.mockResolvedValue(undefined);
+    dbMocks.getPendingPartnershipFromSender.mockResolvedValue({ id: 55 });
+    dbMocks.confirmPartnershipRequest.mockResolvedValue(true);
+    dbMocks.linkParentToChild.mockClear();
+    dbMocks.linkParentToChild.mockResolvedValue(undefined);
+  });
+
+  it("shares only the husband's OWN children, not ones he holds via another partner", async () => {
+    // H (id 1) is linked to child 100 as a parent in his own right, and to
+    // child 200 only through his FIRST wife (relationship "partner" — the
+    // link this same block writes). W2 (id 3) now confirms his invitation.
+    // Forwarding 200 would give her canEdit over the first wife's child:
+    // read, update, delete and observations, per access-control.ts, with the
+    // first wife never consenting to or being told of any of it.
+    dbMocks.getLinkedChildren.mockImplementation(async (parentId: number) =>
+      parentId === 1
+        ? [
+            { id: 100, link: { relationship: "parent" } },
+            { id: 200, link: { relationship: "partner" } },
+          ]
+        : [],
+    );
+
+    await linksRouter
+      .createCaller(ctxFor(3, "vrouw", "Second wife"))
+      .confirmLink({ senderId: 1 });
+
+    const sharedChildIds = dbMocks.linkParentToChild.mock.calls
+      .filter((c: any[]) => c[0].parentId === 3)
+      .map((c: any[]) => c[0].childId);
+    expect(sharedChildIds).toContain(100);
+    expect(sharedChildIds).not.toContain(200);
   });
 });

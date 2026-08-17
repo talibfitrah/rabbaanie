@@ -2205,8 +2205,22 @@ export const linksRouter = router({
         ) {
           // Both people have now consented. Only at this point share their
           // currently confirmed children in both directions.
-          const senderChildren = await db.getLinkedChildren(input.senderId);
-          const recipientChildren = await db.getLinkedChildren(ctx.user.id);
+          //
+          // Own children only. A child held via a "partner" link came from a
+          // DIFFERENT spouse's household (that is the relationship this very
+          // block writes), and forwarding it on would hand a second wife
+          // canEdit over the FIRST wife's child — read, update, delete and
+          // observations, per access-control.ts — with the first wife never
+          // consenting to, or being told of, any of it. Harmless while a man
+          // had one wife; a disclosure the moment he has two.
+          const ownChildren = (kids: Awaited<ReturnType<typeof db.getLinkedChildren>>) =>
+            kids.filter((c) => c.link?.relationship !== "partner");
+          const senderChildren = ownChildren(
+            await db.getLinkedChildren(input.senderId),
+          );
+          const recipientChildren = ownChildren(
+            await db.getLinkedChildren(ctx.user.id),
+          );
           for (const child of senderChildren) {
             await db.linkParentToChild({
               parentId: ctx.user.id,
