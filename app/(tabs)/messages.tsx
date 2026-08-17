@@ -87,6 +87,13 @@ function MessagesScreenInner() {
   const lang = language as string;
   const { state, rehydrateFromServer } = useAppState();
   const userGender = state.parentProfile.gender || "man";
+  // The RAW value, deliberately without userGender's "man" default. That
+  // default exists for the relationship labels above, but it collapses
+  // "gender not recorded locally" into "man" — which is exactly the legacy
+  // case the disclosure has to cover (gender living only in the server's
+  // users.gender column, the case resolveGender was added for). Gating the
+  // notice on userGender therefore hid it from the very women it is for.
+  const knownToBeMan = state.parentProfile.gender === "man";
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -653,6 +660,7 @@ function MessagesScreenInner() {
               isAuthenticated={isAuthenticated}
               coParents={coParents}
               coParentsQuery={coParentsQuery}
+              knownToBeMan={knownToBeMan}
               userGender={userGender}
               localChildren={localChildren}
               setSelected={setSelected}
@@ -880,7 +888,7 @@ function InvitePartnerForm({ colors, lang, isRTL, userGender }: { colors: any; l
 
 // ============ FAMILY SECTION (أسرتي) ============
 function ParentsSection({
-  colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender,
+  colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender, knownToBeMan,
   localChildren, setSelected, partnerIdInput, setPartnerIdInput, handleLinkPartner, linkPartner,
   linkResult, linkError, router, t,
 }: any) {
@@ -982,14 +990,11 @@ function ParentsSection({
                 "أدخل رقم هوية شريكك أو امسح رمز QR."
               )}
             </Text>
-            {/* Shown unless the user is KNOWN to be a man. userGender defaults
-                to "man" when the local JSON copy is empty, which is exactly the
-                legacy case resolveGender exists to handle server-side — a wife
-                whose gender lives only in the users.gender column would never
-                have seen this owner-mandated disclosure before writing her
-                profile. Failing open costs a man an irrelevant notice; failing
-                closed costs a woman the disclosure itself. */}
-            {userGender !== "man" && <SpouseVisibilityNotice />}
+            {/* Shown unless the user is KNOWN to be a man — see knownToBeMan,
+                which reads the raw value rather than userGender. Failing open
+                costs a man an irrelevant notice; failing closed costs a woman
+                the owner-mandated disclosure itself. */}
+            {!knownToBeMan && <SpouseVisibilityNotice />}
             <View style={{ gap: 8 }}>
               <TextInput
                 value={partnerIdInput}

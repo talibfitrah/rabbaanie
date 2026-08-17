@@ -2306,7 +2306,11 @@ export const linksRouter = router({
           message:
             partnershipBlocked === "not_found"
               ? "Dit koppelverzoek bestaat niet meer / This link request no longer exists / لم يعد طلب الربط هذا موجودًا"
-              : "U heeft al een bevestigde partner; verbreek die eerst / You already have a confirmed partner; end that one first / لديك شريك مؤكَّد بالفعل؛ أنهِ تلك الشراكة أولاً",
+              // Deliberately neutral about WHO. confirmPartnershipRequest
+              // refuses when EITHER party fails the one-husband check, so
+              // naming the caller told a man with no partner at all to end a
+              // partnership he does not have.
+              : "Deze koppeling kan niet worden bevestigd: een van u beiden heeft al een bevestigde partner. / This link cannot be confirmed: one of you already has a confirmed partner. / تعذّر تأكيد هذا الارتباط: أحدكما لديه شريك مؤكَّد بالفعل.",
         });
       }
       if (changed === 0) {

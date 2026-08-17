@@ -4074,7 +4074,13 @@ export async function rejectPartnershipRequest(
         eq(partnerships.status, "pending"),
       ),
     );
-  return Number((result as any)?.[0]?.affectedRows ?? 0) === 1;
+  // affectedRows(), for the same porting reason its sibling
+  // confirmPartnershipRequest was just switched: this file is MySQL-flavoured
+  // but production is a hand-ported Postgres server, where an .update() with no
+  // .returning() yields { rowCount, rows } and result[0].affectedRows is always
+  // undefined. Left raw, every rejection there would report failure while
+  // having actually dissolved the row.
+  return affectedRows(result) === 1;
 }
 
 /**
