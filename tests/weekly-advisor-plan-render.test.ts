@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import fs from "fs";
-import { taskKeysOf, parsePlanText, groupIntoSections, migrateLegacyTaskKeys } from "../lib/plan-blocks";
+import { taskKeysOf, parsePlanText, groupIntoSections, migrateLegacyTaskKeys, displayBlocks } from "../lib/plan-blocks";
 
 // Daa3iyah (2026-08-15): «نفس الخطة بنفس الطريقة لابد ان تعرض في قسم العائلات
 // وفي قسم الأسبوعي … فالآن تعرض الخطة فقط كنص تحت بعض وليس بالطريقة المقدمة
@@ -58,12 +58,16 @@ describe("the bar and the cached count are one measurement", () => {
   // (the auto-translation, when one was showing) while the cached count came
   // from the original, so the same plan could report more done than it had.
   //
-  // The counting itself now lives in taskKeysOf, so it can be asserted by
-  // behaviour. The earlier version of this test pinned the exact source lines
-  // down to the semicolon, which a rename would break for no real reason —
-  // and the tempting fix, loosening the string, deletes the guard silently.
-  const renderer = fs.readFileSync("components/treatment-plan-renderer.tsx", "utf-8");
-
+  // Fixed once by keying the bar off taskKeysOf(planText) and the display off
+  // parsePlanText(effectiveText) -- which cubic then found broke the checkbox
+  // itself: task keys are content-derived (nextTaskKey), so a task parsed from
+  // effectiveText (translated) gets a DIFFERENT key than the same task parsed
+  // from planText (original), and a tick on the translated box was invisible
+  // to the original-keyed bar. displayBlocks is the actual fix: it parses
+  // effectiveText for display but keys every task to its CANONICAL position in
+  // planText's own parse, so a tick made on either side of the auto-translate
+  // toggle lands in the same key space. Asserted by behaviour, not by grepping
+  // the renderer's source for which functions it calls.
   const ARABIC_PLAN = [
     "- اجلس مع ابنك بعد صلاة الفجر",
     "- اقرأ معه صفحة من المصحف كلّ يوم",
@@ -101,14 +105,27 @@ describe("the bar and the cached count are one measurement", () => {
     expect(taskKeysOf(ARABIC_PLAN).filter((k) => !ticked.has(k))).toHaveLength(3);
   });
 
-  it("measures against the original while displaying the translation", () => {
-    // The wiring that actually fixes the cross-language mismatch: the denominator
-    // and the reported count come from planText, the displayed blocks from
-    // effectiveText. An earlier attempt added a rekeying step that mapped every
-    // key onto itself; this asserts the part that does the work.
-    expect(renderer).toContain("taskKeysOf(planText)");
-    expect(renderer).toContain("parsePlanText(effectiveText)");
-    expect(renderer).not.toContain("taskKeysOf(effectiveText)");
+  it("a tick on the displayed (translated) box is counted by the original-keyed progress", () => {
+    const canonicalKeys = taskKeysOf(ARABIC_PLAN);
+    // DUTCH_PLAN stands in for effectiveText (what useAutoTranslate fetched);
+    // ARABIC_PLAN stands in for planText (what taskKeysOf measures against).
+    const displayed = displayBlocks(DUTCH_PLAN, ARABIC_PLAN).filter((b) => b.type === "task") as { key: string }[];
+
+    // Simulates toggleTask(block.key) on the FIRST rendered (Dutch) box.
+    const completedTasks = new Set<string>([displayed[0].key]);
+    const completedCount = canonicalKeys.filter((k) => completedTasks.has(k)).length;
+    expect(completedCount).toBe(1);
+    expect(completedTasks.has(canonicalKeys[0])).toBe(true);
+  });
+
+  it("DUTCH_PLAN's one-task-short translation still maps its second box to the SECOND Arabic task, not the third (anti-mis-mapping)", () => {
+    const canonicalKeys = taskKeysOf(ARABIC_PLAN);
+    const displayed = displayBlocks(DUTCH_PLAN, ARABIC_PLAN).filter((b) => b.type === "task") as { key: string }[];
+    const completedTasks = new Set<string>([displayed[1].key]); // "Lees samen..." (2nd Dutch box)
+
+    expect(completedTasks.has(canonicalKeys[0])).toBe(false);
+    expect(completedTasks.has(canonicalKeys[1])).toBe(true);
+    expect(completedTasks.has(canonicalKeys[2])).toBe(false);
   });
 });
 

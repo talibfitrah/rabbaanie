@@ -299,6 +299,42 @@ export function taskKeysOf(text: string): string[] {
     .map((b) => (b as { key: string }).key);
 }
 
+/**
+ * Parses displayText for what's actually shown -- section headings, body
+ * text, translated/transliterated task wording -- but gives every task the
+ * CANONICAL key it has in canonicalText's own parse, at the same position,
+ * instead of a key derived from displayText's own wording.
+ *
+ * Position, not content, is what's trusted across this boundary: a
+ * translation can reword a task past any resemblance to the original, so
+ * nothing about the translated text can be trusted to name the matching
+ * canonical task -- only its place in the document can, and translation is
+ * order-preserving. When displayText and canonicalText are the SAME text
+ * (nothing translated or transliterated), position i's canonical key IS
+ * block i's own key, so this degrades to parsePlanText exactly.
+ *
+ * ponytail: if canonicalText has fewer tasks than displayText at some
+ * position (a translation that ADDED a task), the extra display task keeps
+ * its own (displayText-derived) key rather than losing one -- it simply
+ * cannot be counted by anything keyed on canonicalText. Mirrors the
+ * "translation DROPS a task" ceiling taskKeysOf's own comment (and
+ * components/treatment-plan-renderer.tsx's ponytail comment) already accept;
+ * fixing either direction for real needs diffing displayText against
+ * canonicalText task-by-task (e.g. LCS alignment) instead of trusting
+ * position, worth doing only if a translator adding/dropping tasks turns out
+ * to be common rather than rare.
+ */
+export function displayBlocks(displayText: string, canonicalText: string): ParsedBlock[] {
+  const canonicalKeys = taskKeysOf(canonicalText);
+  let taskIndex = 0;
+  return parsePlanText(displayText).map((block) => {
+    if (block.type !== "task") return block;
+    const key = canonicalKeys[taskIndex] ?? block.key;
+    taskIndex++;
+    return { ...block, key };
+  });
+}
+
 const LEGACY_TASK_KEY = /^task-(\d+)$/;
 
 /**

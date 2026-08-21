@@ -25,3 +25,24 @@ export function cleanTreatmentText(text: string, lang?: string): string {
   }
   return cleaned.trim();
 }
+
+/**
+ * The language-independent form of a treatment plan's text -- for anything
+ * that must agree regardless of which language the reader's UI happens to be
+ * in right now: a task's stored progress key, and the identity used to match
+ * a displayed (possibly translated and/or transliterated) task back to it.
+ *
+ * cleanTreatmentText only transliterates Latin Islamic terms under "ar" --
+ * every other language leaves "Allaah" etc. as Latin script, so the SAME
+ * plan cleaned for two different UI languages is two different strings.
+ * Forcing "ar" here is not about Arabic specifically: "ar" is the one branch
+ * that does the FULL transform, so running it again on text a caller already
+ * cleaned for its own display language (any language) always lands on the
+ * same result -- cleanTreatmentText's "**"-strip and its term substitutions
+ * never interact (the terms contain no "**", and \b already sits on either
+ * side of a bare "*"), so this composes safely with an already-cleaned input:
+ * canonicalPlanText(cleanTreatmentText(text, anyLang)) === canonicalPlanText(text).
+ */
+export function canonicalPlanText(text: string): string {
+  return cleanTreatmentText(text, "ar");
+}

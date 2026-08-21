@@ -36,6 +36,8 @@ vi.mock("expo-notifications", () => ({
 
 import { getCurrentGoalText } from "@/lib/weekly-goals-notification";
 import { cachePlanProgress } from "@/lib/plan-progress";
+import { taskKeysOf } from "@/lib/plan-blocks";
+import { canonicalPlanText } from "@/lib/plan-text";
 
 const plan = (extra: Record<string, unknown>) => ({
   id: "plan_1",
@@ -173,6 +175,31 @@ describe("the reminder keys ticks off the same cleaned text the screens parse", 
     const text = await getCurrentGoalText("ar");
     expect(text).not.toContain("راجع نيتك");
     expect(text).toContain("اقرأ باب الإخلاص");
+  });
+});
+
+describe("the reminder recognises a tick regardless of which UI language it was made under (P2, cross-module)", () => {
+  it("a tick stored under the canonical key space is seen even when the reminder runs in a different language", async () => {
+    // "Allaah" is the one thing cleanTreatmentText treats differently per
+    // language (transliterated only under "ar") -- the case that actually
+    // exercises canonicalPlanText here.
+    const content = [
+      "- Remind him that everything is from Allaah",
+      "- Read a page of Qur'aan together daily",
+    ].join("\n");
+    store["@advisor_action_plans"] = JSON.stringify([
+      { id: "plan_c", childName: "", content, phases: [] },
+    ]);
+    // What components/treatment-plan-renderer.tsx's toggleTask stores post-fix:
+    // the CANONICAL key of the first task, not one keyed to either language.
+    const canonicalKeys = taskKeysOf(canonicalPlanText(content));
+    store["@treatment_tasks_plan_c"] = JSON.stringify([canonicalKeys[0]]);
+
+    // Queried in English -- a different language than the tick's own text was
+    // ever cleaned for above -- and still recognised as done.
+    const text = await getCurrentGoalText("en");
+    expect(text).not.toContain("Remind him");
+    expect(text).toContain("Read a page");
   });
 });
 

@@ -6,8 +6,9 @@ import { useI18n } from "@/lib/i18n";
 
 import { authedFetch } from "@/lib/authed-fetch";
 import { sectionOwner } from "@/lib/plan-owner";
-import { parsePlanText, taskKeysOf, groupIntoSections, migrateLegacyTaskKeys, type ParsedBlock } from "@/lib/plan-blocks";
+import { taskKeysOf, groupIntoSections, migrateLegacyTaskKeys, displayBlocks, type ParsedBlock } from "@/lib/plan-blocks";
 import { planProgressKey } from "@/lib/plan-progress";
+import { canonicalPlanText } from "@/lib/plan-text";
 // Per-text direction: align by the script of the text itself, so Arabic content
 // stays readable (RTL) while non-Arabic content follows LTR — regardless of the
 // stored plan's original language. The surrounding UI follows the user's choice.
@@ -156,6 +157,20 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
   const { effectiveText, translated, translating, showOriginal, setShowOriginal, needsTranslation } =
     useAutoTranslate(planText, language);
 
+  // planText already comes cleaned for `language` -- every call site cleans
+  // it before handing it down (see cleanTreatmentText's own doc comment) --
+  // so it is NOT language-independent on its own: switching the UI language
+  // changes the STRING, and content-derived keys (lib/plan-blocks.ts's
+  // nextTaskKey) change with it. canonicalPlanText normalises away exactly
+  // the part of that cleaning which varies with language, so canonicalText is
+  // the same string no matter which UI language was active when planText was
+  // produced. Every reader of this plan's progress -- the checkboxes below,
+  // the bar, AsyncStorage, and the daily reminder in
+  // lib/weekly-goals-notification.ts -- keys off this, never off planText or
+  // effectiveText directly, so a tick means the same task everywhere
+  // regardless of translation or UI language.
+  const canonicalText = canonicalPlanText(planText);
+
   const [completedTasks, setCompletedTasks] = useState<Set<string>>(new Set());
   // Folded by default, which is what Daa3iyah asked for once he could actually
   // reach the plan (2026-08-16): the headings ARE the organisation, and he wants
@@ -178,24 +193,25 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
       // those keys under the new plan on the first toggle.
       //
       // migrateLegacyTaskKeys upgrades any pre-existing "task-N" keys onto the
-      // current content-derived scheme, against planText -- never effectiveText,
-      // same reason as taskKeys below. It re-persists on the next toggleTask
-      // (which saves whatever is in `next`, already migrated), not here.
+      // current content-derived scheme, against canonicalText -- never planText
+      // or effectiveText, same reason as taskKeys below. It re-persists on the
+      // next toggleTask (which saves whatever is in `next`, already migrated),
+      // not here.
       const stored: string[] = raw ? JSON.parse(raw) : [];
-      setCompletedTasks(new Set<string>(migrateLegacyTaskKeys(stored, planText)));
+      setCompletedTasks(new Set<string>(migrateLegacyTaskKeys(stored, canonicalText)));
       setTicksLoaded(true);
     }).catch(() => setTicksLoaded(true));
-  }, [issueId, reloadTicks, planText]);
+  }, [issueId, reloadTicks, canonicalText]);
 
   useEffect(() => {
     if (onProgressChange && ticksLoaded) {
       // Same parse the bar and the checkboxes use, so what the card caches
       // cannot disagree with what this screen shows.
-      const keys = taskKeysOf(planText);
+      const keys = taskKeysOf(canonicalText);
       const done = keys.filter(k => completedTasks.has(k)).length;
       onProgressChange(done, keys.length);
     }
-  }, [completedTasks, planText, ticksLoaded]);
+  }, [completedTasks, canonicalText, ticksLoaded]);
   
   const toggleTask = async (key: string) => {
     const next = new Set(completedTasks);
@@ -212,25 +228,23 @@ export function TreatmentPlanRenderer({ planText, issueId, colors, onProgressCha
     setExpandedSections(next);
   };
   
-  // ONE key space for a plan's ticks: the original text's.
+  // ONE key space for a plan's ticks: canonicalText's.
   //
-  // Keys are content-derived (lib/plan-blocks.ts's nextTaskKey), not positional,
-  // but that alone does not make keying off effectiveText safe: a translation is
-  // still a different parse of different text, with its own key space, so
-  // measuring against it would still mean a tick here and a different one there
-  // depending on which text was on screen when it was toggled. Everything that
-  // is not this component reads the original — the daily reminder parses
-  // plan.content, and the cached count is stored per plan, not per language — so
-  // ONE canonical source (planText) is what keeps every reader agreeing on what
-  // a given tick means.
+  // Keys are content-derived (lib/plan-blocks.ts's nextTaskKey), so two
+  // parses of DIFFERENT text for "the same" task -- a translation, or the
+  // same plan cleaned for two different UI languages -- produce two
+  // different keys for it. Measuring taskKeysOf(planText) against blocks
+  // parsed from effectiveText (an earlier version of this file did exactly
+  // that) silently failed to count a tick made on a translated box, because
+  // planText and effectiveText are different text with disjoint key spaces.
   //
-  // An earlier version of this added a rekeyTasksTo() step here and a comment
-  // crediting it with fixing this; it mapped every key onto itself (keys were
-  // positional then, so two parses of the SAME text always produced identical
-  // sequences) and did nothing. What actually fixes it is measuring against
-  // planText below while displaying effectiveText.
-  const taskKeys = taskKeysOf(planText);
-  const blocks = parsePlanText(effectiveText);
+  // displayBlocks parses effectiveText for what's shown but keys every task
+  // to its canonical position in canonicalText, so a tick made on a
+  // translated/transliterated box always lands in the same key space the bar,
+  // AsyncStorage, and lib/weekly-goals-notification.ts's reminder all count
+  // against.
+  const taskKeys = taskKeysOf(canonicalText);
+  const blocks = displayBlocks(effectiveText, canonicalText);
   const sections = groupIntoSections(blocks, language);
   const totalTasks = taskKeys.length;
   const completedCount = taskKeys.filter(k => completedTasks.has(k)).length;
