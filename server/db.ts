@@ -3714,7 +3714,12 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
         });
       }
     }
-    return result;
+    // Only short-circuit when this branch actually produced someone. If every
+    // partner row pointed at a soft-deleted user the list is empty, and
+    // returning it here would skip the shared-children fallback that used to
+    // run in exactly that case — losing a live co-parent because an unrelated
+    // partner's account was deleted.
+    if (result.length > 0) return result;
   }
 
   // 2. Fallback: detect via shared children (legacy). Structurally can only
@@ -3772,54 +3777,39 @@ export async function getPartnersOfUser(userId: number): Promise<PartnerRecord[]
           )
           .limit(1);
         if (priorDissolved.length > 0) continue;
-        // Auto-create partnership record for persistence
-        const created = await createPartnership(userId, partnerId, userId, true);
-        if (!created) {
-          // createPartnership returns null/falsy for two different reasons:
-          // its own getDb() came back empty (DB briefly unavailable between
-          // this function's top-level check and here), or (item 3) the
-          // one-husband constraint refused to confirm it. Either way this
-          // PAIR yields no partner, instead of throwing on created.id or
-          // silently promoting a blocked marriage.
-          //
-          // `continue`, not `return []`, and for the same reason the
-          // prior-dissolution check above continues: one blocked pair must not
-          // abandon the remaining children. A man co-parenting child A with a
-          // woman who already has a confirmed husband and child B with an
-          // unattached co-parent was losing the link to BOTH, because the loop
-          // never reached B. A transient getDb() failure had the same
-          // all-or-nothing effect.
-          continue;
-        }
-        if (typeof created.id !== "number") {
-          // round-8 P3 backstop, narrowed by round-10 P2: createPartnership
-          // now re-selects by natural key when insertId() finds nothing
-          // (e.g. a Postgres INSERT with no .returning() — see insertId()'s
-          // own doc comment), so on production this branch should no longer
-          // be the routine path — it only remains reachable if that
-          // re-select ALSO turns up no row (a genuine anomaly: the pair was
-          // deleted between the insert and the re-select, or a driver gives
-          // a still-different empty shape). Skip this pair the same way the
-          // sibling !created check above does, instead of handing back a
-          // partnershipId no mutation could ever act on.
-          continue;
-        }
+        // NO WRITE. This is a query — listPartners and getPartnerProfile are
+        // both called with refetchOnMount:"always" — and it used to INSERT a
+        // partnership here for persistence.
+        //
+        // First it inserted a CONFIRMED one, which let a read manufacture the
+        // very consent hasFullPartnerAccess checks. That was changed to
+        // pending, which closed the direct leak but left a subtler door: the
+        // pending row is byte-identical to a deliberate invite, so
+        // getPendingPartnershipFromSender finds it, and when the co-parent
+        // later taps accept on an unrelated pending CHILD link from the same
+        // person, confirmLink silently confirms the marriage too — cross-
+        // linking every child with canEdit and, if the genders line up,
+        // handing over full profile access. Consent obtained through a door
+        // the other party thought was about a child.
+        //
+        // The row bought nothing to offset that: every mutation that takes a
+        // partnershipId (request/grant/revokePartnerProfileAccess,
+        // dissolvePartnership) requires status='active', which a pending row
+        // never satisfies. So the co-parent is still surfaced here — name,
+        // gender, profile — but with no partnership row and no partnershipId
+        // any mutation can act on, until the two of them link deliberately
+        // through linkPartnerByPublicId. partnershipId 0 is that "there is no
+        // partnership": it matches no row, so every mutation fails closed.
         return [{
           id: partner[0].id,
           name: partner[0].name,
           gender: partner[0].gender,
           profileData: partner[0].profileData,
-          partnershipId: created.id,
-          // createPartnership never promotes an existing row (see its own
-          // comment above) — it can hand back a still-pending invite here,
-          // so this must be derived from the row it actually returned, not
-          // assumed true just because we asked for confirmed=true.
-          partnershipConfirmed:
-            created.status === "active" && created.confirmed === true,
-          profileAccessRequestedAt:
-            (created as any)?.profileAccessRequestedAt ?? null,
-          profileAccessGrantedAt: (created as any)?.profileAccessGrantedAt ?? null,
-          profileAccessDeclinedAt: (created as any)?.profileAccessDeclinedAt ?? null,
+          partnershipId: 0,
+          partnershipConfirmed: false,
+          profileAccessRequestedAt: null,
+          profileAccessGrantedAt: null,
+          profileAccessDeclinedAt: null,
         }];
       }
     }
@@ -3882,12 +3872,21 @@ export async function getPartnerOfUser(userId: number): Promise<PartnerRecord | 
 async function womanAlreadyHasConfirmedHusband(userId: number): Promise<boolean> {
   const db = await getDb();
   if (!db) return false;
+  // Column OR the JSON copy, matching what every authorization this protects
+  // resolves through (routers.ts resolveGender). Reading the column alone let a
+  // pre-migration-0012 row — users.gender NULL, profileData.parentProfile.gender
+  // "vrouw" — pass as non-female and hold two confirmed husbands, while the
+  // access gate simultaneously treated her as a woman. The write path has to use
+  // the same resolution the read path does, or the invariant is only enforced
+  // for whoever happens to have the newer column populated.
   const [user] = await db
-    .select({ gender: users.gender })
+    .select({ gender: users.gender, profileData: users.profileData })
     .from(users)
     .where(eq(users.id, userId))
     .limit(1);
-  if (user?.gender !== "vrouw") return false;
+  const resolved =
+    user?.gender || (user?.profileData as any)?.parentProfile?.gender || "";
+  if (resolved !== "vrouw") return false;
   const [existing] = await db
     .select({ id: partnerships.id })
     .from(partnerships)
@@ -3936,7 +3935,9 @@ export async function createPartnership(
     // caller passed confirmed=true. The only two callers of this function
     // are linkPartnerByPublicId (always confirmed=false — creates a genuine,
     // live invite the recipient must act on) and getPartnerOfUser's shared-
-    // children legacy fallback (confirmed=true). That fallback is not
+    // children legacy fallback (confirmed=FALSE since the consent fix — it
+    // used to pass true, which let a read manufacture the very consent
+    // hasFullPartnerAccess checks). That fallback is not
     // guaranteed to run only when no partnerships row exists for this pair —
     // getPartnerOfUser's own lookup also falls through to it when a matching
     // active+confirmed row DOES exist but its partner user is soft-deleted
@@ -3958,6 +3959,13 @@ export async function createPartnership(
   // poses no risk here and is never blocked by this.
   if (
     confirmed &&
+    // Currently unreachable: the only caller left passes confirmed:false
+    // (linkPartnerByPublicId), since the shared-children fallback stopped
+    // writing. Kept deliberately rather than deleted as dead code — it is a
+    // backstop on an invariant, and the cost is one unexecuted branch, while
+    // removing it would let a future confirmed:true caller activate a second
+    // husband with nothing to stop it. confirmPartnershipRequest carries the
+    // same check for the path that IS live.
     ((await womanAlreadyHasConfirmedHusband(userId1)) ||
       (await womanAlreadyHasConfirmedHusband(userId2)))
   ) {
@@ -4094,12 +4102,14 @@ export async function confirmPartnershipRequest(
         eq(partnerships.confirmed, false),
       ),
     );
-  // Fix 2: was a raw, mysql2-only `[0]?.affectedRows` read. Production is
-  // node-postgres, where that shape doesn't exist (see affectedRows()'s own
-  // porting-hazard comment) — so this always read 0 there, and the
-  // confirm-link mutation in routers.ts (which requires this to return true
-  // before it counts the confirmation as "changed") threw FORBIDDEN even
-  // though the UPDATE itself had succeeded.
+  // affectedRows(), not a raw mysql2-shaped read: this file is MySQL-flavoured
+  // but production is a hand-ported Postgres server, where an .update() without
+  // .returning() yields { rowCount, rows } and `result[0].affectedRows` is
+  // always undefined — see affectedRows()'s own porting-hazard comment. That
+  // used to fail SILENTLY (a false return just skipped the child-sharing
+  // block); confirmLink now turns a false into a thrown CONFLICT, so the same
+  // misread would tell every confirming user they already have a partner. The
+  // helper reads both driver shapes.
   return affectedRows(result) === 1;
 }
 
@@ -4123,8 +4133,12 @@ export async function rejectPartnershipRequest(
         eq(partnerships.status, "pending"),
       ),
     );
-  // Fix 2: same mysql2-only shape bug as confirmPartnershipRequest above —
-  // same fix, same helper.
+  // affectedRows(), for the same porting reason its sibling
+  // confirmPartnershipRequest was just switched: this file is MySQL-flavoured
+  // but production is a hand-ported Postgres server, where an .update() with no
+  // .returning() yields { rowCount, rows } and result[0].affectedRows is always
+  // undefined. Left raw, every rejection there would report failure while
+  // having actually dissolved the row.
   return affectedRows(result) === 1;
 }
 

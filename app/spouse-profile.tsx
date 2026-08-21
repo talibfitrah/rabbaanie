@@ -64,6 +64,21 @@ export default function SpouseProfileScreen() {
   // single-partner user, which the server treats exactly as before.
   const partnerArg =
     selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined;
+  // The banners below render off partnerProfileQuery, which can resolve before
+  // listPartners (or be served from the persisted cache while listPartners is
+  // still in flight). In that window selectedPartnerId is still null, so a
+  // husband with several wives would send no partnerId and the server — which
+  // refuses to guess on a write that hands out access — answers BAD_REQUEST
+  // "Multiple partners found". Disable the controls until the partner list has
+  // actually landed; a single-partner user is unaffected either way.
+  // !isLoading, NOT isSuccess: on an error (offline, 500) isSuccess never
+  // becomes true, which left these controls permanently inert AND silent —
+  // the exact dead-control defect the rest of this release exists to remove.
+  // If the list failed we simply do not know the partner count, so the tap
+  // goes through and the server decides: a single-partner user syncs as
+  // always, and a multi-partner one gets the refusal toast, which is a real
+  // answer rather than a button that does nothing.
+  const partnerChoiceReady = !listPartnersQuery.isLoading;
 
   const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
     selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,
@@ -166,7 +181,16 @@ export default function SpouseProfileScreen() {
   // matched by user id (not selectedPartnerId) so this also resolves for
   // the single-partner case, where selectedPartnerId stays null and the
   // server picks the partner on its own.
-  const currentPartnership = partners.find((p) => p.id === data?.id);
+  // partnershipId 0 means the shared-children fallback surfaced this co-parent
+  // without any partnerships row existing (it deliberately writes nothing —
+  // see getPartnersOfUser). There is nothing to dissolve, and dissolvePartner
+  // would match no row and throw FORBIDDEN, so the destructive control must not
+  // be offered at all: an alarming "cannot be easily undone" dialog followed by
+  // a failure alert, every time. Fails closed the same way canRequest already
+  // does for this case.
+  const currentPartnership = partners.find(
+    (p) => p.id === data?.id && p.partnershipId > 0,
+  );
 
   function confirmDissolvePartnership() {
     if (!currentPartnership) return;
@@ -305,8 +329,8 @@ export default function SpouseProfileScreen() {
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 12 }}>
         <Pressable
           onPress={() => grantAccessMutation.mutate(partnerArg)}
-          disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
+          disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
+          style={({ pressed }) => [{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: !partnerChoiceReady || pressed || grantAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>
             {tx(lang, "Toestaan", "Allow", "السماح")}
@@ -314,8 +338,8 @@ export default function SpouseProfileScreen() {
         </Pressable>
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
-          disabled={grantAccessMutation.isPending || revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
+          disabled={!partnerChoiceReady || grantAccessMutation.isPending || revokeAccessMutation.isPending}
+          style={({ pressed }) => [{ backgroundColor: "#F3F4F6", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 16, opacity: !partnerChoiceReady || pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#374151", fontWeight: "600", fontSize: 13 }}>
             {tx(lang, "Weigeren", "Decline", "رفض")}
@@ -344,8 +368,8 @@ export default function SpouseProfileScreen() {
         </Text>
         <Pressable
           onPress={() => revokeAccessMutation.mutate(partnerArg)}
-          disabled={revokeAccessMutation.isPending}
-          style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
+          disabled={!partnerChoiceReady || revokeAccessMutation.isPending}
+          style={({ pressed }) => [{ backgroundColor: "#fff", borderRadius: 10, paddingVertical: 6, paddingHorizontal: 12, borderWidth: 1, borderColor: "#166534", opacity: !partnerChoiceReady || pressed || revokeAccessMutation.isPending ? 0.7 : 1 }]}
         >
           <Text style={{ color: "#166534", fontWeight: "600", fontSize: 12 }}>
             {tx(lang, "Intrekken", "Revoke", "سحب")}

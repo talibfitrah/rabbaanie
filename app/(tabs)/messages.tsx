@@ -87,6 +87,13 @@ function MessagesScreenInner() {
   const lang = language as string;
   const { state, rehydrateFromServer } = useAppState();
   const userGender = state.parentProfile.gender || "man";
+  // The RAW value, deliberately without userGender's "man" default. That
+  // default exists for the relationship labels above, but it collapses
+  // "gender not recorded locally" into "man" — which is exactly the legacy
+  // case the disclosure has to cover (gender living only in the server's
+  // users.gender column, the case resolveGender was added for). Gating the
+  // notice on userGender therefore hid it from the very women it is for.
+  const knownToBeMan = state.parentProfile.gender === "man";
   const { user, isAuthenticated } = useAuth();
   const router = useRouter();
 
@@ -653,6 +660,7 @@ function MessagesScreenInner() {
               isAuthenticated={isAuthenticated}
               coParents={coParents}
               coParentsQuery={coParentsQuery}
+              knownToBeMan={knownToBeMan}
               userGender={userGender}
               localChildren={localChildren}
               setSelected={setSelected}
@@ -880,7 +888,7 @@ function InvitePartnerForm({ colors, lang, isRTL, userGender }: { colors: any; l
 
 // ============ FAMILY SECTION (أسرتي) ============
 function ParentsSection({
-  colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender,
+  colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender, knownToBeMan,
   localChildren, setSelected, partnerIdInput, setPartnerIdInput, handleLinkPartner, linkPartner,
   linkResult, linkError, router, t,
 }: any) {
@@ -982,7 +990,11 @@ function ParentsSection({
                 "أدخل رقم هوية شريكك أو امسح رمز QR."
               )}
             </Text>
-            {userGender === "vrouw" && <SpouseVisibilityNotice />}
+            {/* Shown unless the user is KNOWN to be a man — see knownToBeMan,
+                which reads the raw value rather than userGender. Failing open
+                costs a man an irrelevant notice; failing closed costs a woman
+                the owner-mandated disclosure itself. */}
+            {!knownToBeMan && <SpouseVisibilityNotice />}
             <View style={{ gap: 8 }}>
               <TextInput
                 value={partnerIdInput}
@@ -1421,10 +1433,37 @@ function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; la
   const [handled, setHandled] = useState(false);
   const [action, setAction] = useState<"accepted" | "rejected" | null>(null);
   const confirmMutation = trpc.links.confirmLink.useMutation({
-    onSuccess: () => {
+    onSuccess: (res: any) => {
       setHandled(true);
       setAction("accepted");
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      // The child links succeeded, but the partnership half was refused. The
+      // server reports that rather than throwing, precisely so this outcome is
+      // not lost — reporting only "accepted" would leave the person believing
+      // they are now linked as partners when they are not.
+      if (res?.partnershipBlocked) {
+        Alert.alert(
+          tx(lang, "Gedeeltelijk bevestigd", "Partly confirmed", "تم التأكيد جزئيًا"),
+          res.partnershipBlocked === "not_found"
+            ? tx(lang,
+                "De kinderkoppeling is bevestigd, maar het partnerverzoek bestaat niet meer.",
+                "The child link was confirmed, but the partner request no longer exists.",
+                "تم تأكيد ارتباط الطفل، لكن طلب الشريك لم يعد موجودًا.")
+            : tx(lang,
+                "De kinderkoppeling is bevestigd. Het partnerverzoek niet: een van u beiden heeft al een bevestigde partner.",
+                "The child link was confirmed. The partner request was not: one of you already has a confirmed partner.",
+                "تم تأكيد ارتباط الطفل. أما طلب الشريك فلا: أحدكما لديه شريك مؤكَّد بالفعل."),
+        );
+      }
+    },
+    // Without this a thrown CONFLICT/NOT_FOUND — the case where NOTHING could
+    // be confirmed — showed the user nothing at all.
+    onError: (err: any) => {
+      Alert.alert(
+        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
+        err?.message ||
+          tx(lang, "Kon het verzoek niet bevestigen.", "Could not confirm the request.", "تعذّر تأكيد الطلب."),
+      );
     },
   });
   const removeMutation = trpc.links.removeLink.useMutation({
