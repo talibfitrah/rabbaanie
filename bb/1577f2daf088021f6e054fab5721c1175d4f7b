@@ -1,0 +1,21 @@
+tests/partner-profile-access.test.ts
+  s_6e45a795419267::t_708d15804a2fcb 1037-1088
+server/routers.ts
+  s_6e45a795419267::t_2c7e8e8fcc5d9e 1330-1342,1344-1348,1350,1354
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "bb1577f2daf088021f6e054fab5721c1175d4f7b",
+  "prompts": {},
+  "sessions": {
+    "s_6e45a795419267": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "894776a6-4c51-438f-a809-c0273351f6d5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

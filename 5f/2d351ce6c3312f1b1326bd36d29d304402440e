@@ -1,0 +1,28 @@
+package.json
+  s_835671c30cfc16::t_92cc33d3b8838e 17
+server/db.ts
+  s_835671c30cfc16::t_7ed57f39dddfc0 4077-4083
+server/routers.ts
+  s_835671c30cfc16::t_92cc33d3b8838e 2309-2313
+app/(tabs)/messages.tsx
+  s_835671c30cfc16::t_59bd2c9887f252 663,891
+  s_835671c30cfc16::t_70af0f30ea578b 90-96,993-997
+tests/spouse-visibility-disclosure.test.ts
+  s_835671c30cfc16::t_babd0f64949cc8 1-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5f2d351ce6c3312f1b1326bd36d29d304402440e",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

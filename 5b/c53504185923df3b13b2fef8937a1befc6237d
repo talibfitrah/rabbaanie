@@ -1,0 +1,27 @@
+tests/partner-profile-access.test.ts
+  s_835671c30cfc16::t_0c9d38b7a0f567 2266-2307
+server/db.ts
+  s_835671c30cfc16::t_6d25924260de1e 3682-3687,3766-3770
+  s_835671c30cfc16::t_0392ffd0081baf 3855-3861,3863,3867-3869
+  s_835671c30cfc16::t_d2bdaacf13376f 3918-3920
+  s_835671c30cfc16::t_f6c24cf19ef3a1 4078-4086
+server/routers.ts
+  s_835671c30cfc16::t_063bed24ab2136 2562-2575,2581-2584
+  s_835671c30cfc16::t_825af94605046d 2188-2227
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5bc53504185923df3b13b2fef8937a1befc6237d",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

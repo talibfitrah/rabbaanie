@@ -1,0 +1,23 @@
+app/spouse-profile.tsx
+  s_835671c30cfc16::t_ba76edb6b6cb41 177-186
+app/(tabs)/family.tsx
+  s_835671c30cfc16::t_ec4c701b0dba9d 1619-1624
+  s_835671c30cfc16::t_02565d59eef6c5 1899-1916
+  s_835671c30cfc16::t_93714148a67d2b 2184,3039
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5852b24da3a118ad96182ba42291d5ae1072dbfd",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

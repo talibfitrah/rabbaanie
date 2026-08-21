@@ -1,0 +1,28 @@
+server/db.ts
+  s_835671c30cfc16::t_81bf6e2e2a4524 3910-3916
+app/(tabs)/messages.tsx
+  s_835671c30cfc16::t_ed7b78e5f28e73 1436,1440-1466
+local-docs/FINDINGS-1.5.7-deferred.md
+  s_835671c30cfc16::t_b93376349f7881 69-79
+  s_835671c30cfc16::t_6ad3a55764bbd7 53-64
+  s_835671c30cfc16::t_85bdfe7f08d8ff 1-52,65-68,80-110
+  s_835671c30cfc16::t_dc57c763fd44f4 111-133
+app/spouse-profile.tsx
+  s_835671c30cfc16::t_455c912844a0dd 333,342,372
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7794dc3402101cec3fba4aa3ad45206a5915f779",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
