@@ -2503,7 +2503,7 @@ describe("db.revokePartnerProfileAccess: branches on grant-vs-pending (Fix 1)", 
 
   it("declining a pending request (no prior grant) stamps profileAccessDeclinedAt", async () => {
     partnershipDb.rows = [
-      { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true, profileAccessGrantedAt: null },
+      { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true, profileAccessRequestedAt: new Date("2026-02-01"), profileAccessGrantedAt: null },
     ];
     partnershipDb.update.mockResolvedValueOnce([{ affectedRows: 1 }]);
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
@@ -2514,6 +2514,19 @@ describe("db.revokePartnerProfileAccess: branches on grant-vs-pending (Fix 1)", 
     expect(partnershipDb.lastSetFields.profileAccessGrantedAt).toBeNull();
     expect(partnershipDb.lastSetFields.profileAccessRequestedAt).toBeNull();
     expect(partnershipDb.lastSetFields.profileAccessDeclinedAt).toBeInstanceOf(Date);
+  });
+
+  it("revoking with nothing pending (no grant, no request) does not fabricate a decline", async () => {
+    partnershipDb.rows = [
+      { id: 55, userId1: 1, userId2: 2, status: "active", confirmed: true, profileAccessRequestedAt: null, profileAccessGrantedAt: null, profileAccessDeclinedAt: null },
+    ];
+    partnershipDb.update.mockResolvedValueOnce([{ affectedRows: 1 }]);
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const result = await real.revokePartnerProfileAccess(55, 1);
+
+    expect(result).toBe(true);
+    expect(partnershipDb.lastSetFields.profileAccessDeclinedAt).toBeNull();
   });
 
   it("revoking an ACTIVE GRANT does not stamp profileAccessDeclinedAt — a revoke is not a decline", async () => {

@@ -3618,10 +3618,20 @@ export async function getLinkedSpouseUserIds(): Promise<number[]> {
     .select({ userId1: partnerships.userId1, userId2: partnerships.userId2 })
     .from(partnerships)
     .where(and(eq(partnerships.status, "active"), eq(partnerships.confirmed, true)));
+  if (rows.length === 0) return [];
+  // Parity with hasConfirmedPartner: a user whose partner deleted their
+  // account is NOT counted as linked, so the "link your spouse" broadcast
+  // still reaches them. Include a user only if THEIR partner is not deleted.
+  const involved = Array.from(new Set(rows.flatMap((r) => [r.userId1, r.userId2])));
+  const deletedRows = await db
+    .select({ id: users.id })
+    .from(users)
+    .where(and(inArray(users.id, involved), isNotNull(users.deletedAt)));
+  const deleted = new Set(deletedRows.map((u) => u.id));
   const ids = new Set<number>();
   for (const r of rows) {
-    ids.add(r.userId1);
-    ids.add(r.userId2);
+    if (!deleted.has(r.userId2)) ids.add(r.userId1);
+    if (!deleted.has(r.userId1)) ids.add(r.userId2);
   }
   return Array.from(ids);
 }
@@ -4249,7 +4259,12 @@ export async function revokePartnerProfileAccess(
   // to read the row anyway, so branching on its own prior state costs no
   // extra query.
   const owned = await db
-    .select({ id: partnerships.id, profileAccessGrantedAt: partnerships.profileAccessGrantedAt })
+    .select({
+      id: partnerships.id,
+      profileAccessGrantedAt: partnerships.profileAccessGrantedAt,
+      profileAccessRequestedAt: partnerships.profileAccessRequestedAt,
+      profileAccessDeclinedAt: partnerships.profileAccessDeclinedAt,
+    })
     .from(partnerships)
     .where(
       and(
@@ -4265,12 +4280,21 @@ export async function revokePartnerProfileAccess(
     .limit(1);
   if (owned.length === 0) return false;
   const wasGranted = owned[0].profileAccessGrantedAt != null;
+  const wasRequested = owned[0].profileAccessRequestedAt != null;
+  // Only a genuine decline of a still-pending request stamps declinedAt.
+  // Revoking a grant clears it; calling this with nothing pending must not
+  // fabricate a decline — preserve whatever was already there.
+  const newDeclinedAt = wasGranted
+    ? null
+    : wasRequested
+      ? new Date()
+      : owned[0].profileAccessDeclinedAt;
   await db
     .update(partnerships)
     .set({
       profileAccessGrantedAt: null,
       profileAccessRequestedAt: null,
-      profileAccessDeclinedAt: wasGranted ? null : new Date(),
+      profileAccessDeclinedAt: newDeclinedAt,
     })
     .where(eq(partnerships.id, partnershipId));
   return true;
