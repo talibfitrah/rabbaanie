@@ -19,6 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
+import { selectDailyHomeTip } from "@/lib/daily-home-tip";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -395,14 +396,11 @@ export default function AlgemeenScreen() {
     });
   }, [state.children, completedGoals, lang]);
 
-  // Today's main tip
+  // Today's main tip — Friday/Mon/Thu keep their fixed Islamic-calendar tips;
+  // other days now also reflect today's check-in (lib/daily-home-tip.ts).
   const todayMainTip = useMemo(() => {
-    const dow = currentTime.getDay();
-    if (dow === 5) return tx(lang, "Vandaag is Jumu'ah — lees Soerah al-Kahf en stuur salawaat", "Today is Jumu'ah — read Surah al-Kahf and send salawaat", "اليوم جمعة — اقرأ سورة الكهف وأكثر من الصلاة على النبي ﷺ");
-    if (dow === 1) return tx(lang, "Maandag — soennah vasten aanbevolen", "Monday — fasting recommended", "اليوم الاثنين — صيام مستحب");
-    if (dow === 4) return tx(lang, "Donderdag — soennah vasten aanbevolen", "Thursday — fasting recommended", "اليوم الخميس — صيام مستحب");
-    return tx(lang, "Vergeet ochtend- en avondadhkaar niet", "Don't forget morning and evening adhkaar", "لا تنسَ أذكار الصباح والمساء");
-  }, [currentTime.getDay(), lang]);
+    return selectDailyHomeTip({ dayOfWeek: currentTime.getDay(), checkin: todayCheckin, lang });
+  }, [currentTime.getDay(), todayCheckin, lang]);
 
   if (loading) {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;

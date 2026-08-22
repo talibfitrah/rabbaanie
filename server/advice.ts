@@ -3005,6 +3005,15 @@ Neem de volledige gezinssituatie integraal mee.`;
         console.error("[getSpouseAdvice] diagnostic signals unavailable, continuing without them:", err);
       }
 
+      // === Fold in the REQUESTER's OWN recent daily-diagnostic tone, mirroring
+      // the self-advisors' getOwnCheckinContext usage elsewhere in this file
+      // (e.g. getGeneralAdvice ~line 1044). This is the user's own data, not
+      // the partner's, so — like the coarse partner-signal block just above —
+      // it stays unconditional and unaffected by hasFullAnswerAccess.
+      // getOwnCheckinContext already fails open to "" on any error/missing id.
+      const ownContext = await getOwnCheckinContext(ctx.user?.id, isAr ? "ar" : isEn ? "en" : "nl");
+      interactionContext += ownContext;
+
       // === Item 3: the partner's ACTUAL answer text (not just category+tone)
       // — UNLIKE the coarse signal block just above, this one IS gated on
       // hasFullAnswerAccess (computed near the top of this procedure): a

@@ -47,6 +47,7 @@ import {
   scheduleDailyAdviceNotification,
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
+import { scheduleDailyCheckinNotification, setupDailyCheckinChannel } from "@/lib/daily-checkin-notification";
 import {
   setupSpouseAdviceChannel,
   scheduleSpouseAdviceNotification,
@@ -542,6 +543,7 @@ export default function RootLayout() {
       // Setup all notification channels
       await setupNotificationChannels();
       await setupDailyAdviceChannel();
+      await setupDailyCheckinChannel();
       await setupSpouseAdviceChannel();
       await setupWeeklyGoalsChannel();
       await setupIslamicRemindersChannel();
@@ -560,6 +562,10 @@ export default function RootLayout() {
       await scheduleWeeklyReminder(lang, unfinished);
       // Schedule daily advice notification
       await scheduleDailyAdviceNotification(lang);
+      // Schedule daily check-in reminder here too — this boot path is not gated
+      // on a saved prayer location, so location-less users still get it (mirrors
+      // how daily advice is scheduled).
+      await scheduleDailyCheckinNotification(lang);
       // Schedule daily spouse advice notification
       await scheduleSpouseAdviceNotification(lang);
       // Show advice widget if enabled

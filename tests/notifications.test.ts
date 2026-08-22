@@ -201,6 +201,22 @@ describe("Notifications module", () => {
       expect(Notifications.scheduleNotificationAsync).toHaveBeenCalled();
     });
 
+    it("also registers the daily check-in reminder, next to the daily advice notification", async () => {
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
+        if (key === "@prayer_method") return "uoif";
+        return null;
+      });
+      await scheduleAllNotifications("nl");
+      const checkinCalls = (Notifications.scheduleNotificationAsync as any).mock.calls
+        .map((c: any[]) => c[0])
+        .filter((call: any) => call.content?.data?.type === "daily_checkin_reminder");
+      expect(checkinCalls.length).toBe(1);
+      expect(checkinCalls[0].content.data.url).toBe("/(tabs)");
+      expect(checkinCalls[0].trigger.type).toBe("daily");
+    });
+
     /**
      * It used to call cancelAllScheduledNotificationsAsync(), which deleted the
      * schedules of every other module too — iqaamah silence, iman, islamic
