@@ -912,6 +912,16 @@ const audienceFilterSchema = z.object({
   notLinkedSpouse: z.boolean().optional(),
 });
 
+/** Nonempty CSV of weekday numbers 0(Sunday)-6(Saturday), e.g. "0,1,2,3,4,5,6"
+ *  or "0,6" for weekends only — see server/broadcast-schedule.ts. */
+const daysOfWeekSchema = z.string().min(1).refine(
+  (v) => {
+    const parts = v.split(",").map((s) => s.trim());
+    return parts.length > 0 && parts.every((s) => /^[0-6]$/.test(s));
+  },
+  { message: "daysOfWeek must be a comma-separated list of 0-6" },
+);
+
 const adminRouter = router({
   /** Get dashboard statistics */
   dashboard: adminProcedure.query(async () => {
@@ -1248,7 +1258,8 @@ Respond in JSON format:
     .input(
       z.object({
         category: z.enum(BROADCAST_CATEGORIES),
-        cadenceDays: z.number().int().min(1),
+        daysOfWeek: daysOfWeekSchema,
+        sendHour: z.number().int().min(0).max(23),
         active: z.boolean().default(false),
       }),
     )
@@ -1257,16 +1268,18 @@ Respond in JSON format:
       return { success: true };
     }),
 
-  /** Update a recurring broadcast schedule's cadence and/or active toggle. */
+  /** Update a recurring broadcast schedule's weekdays/hour and/or active
+   *  toggle. */
   updateSchedule: adminProcedure
     .input(
       z.object({
         id: z.number(),
-        cadenceDays: z.number().int().min(1).optional(),
+        daysOfWeek: daysOfWeekSchema.optional(),
+        sendHour: z.number().int().min(0).max(23).optional(),
         active: z.boolean().optional(),
       }).refine(
-        (v) => v.cadenceDays !== undefined || v.active !== undefined,
-        { message: "cadenceDays or active is required" },
+        (v) => v.daysOfWeek !== undefined || v.sendHour !== undefined || v.active !== undefined,
+        { message: "daysOfWeek, sendHour, or active is required" },
       ),
     )
     .mutation(async ({ input }) => {
@@ -1281,6 +1294,12 @@ Respond in JSON format:
       const success = await db.deleteBroadcastSchedule(input.id);
       return { success };
     }),
+
+  /** Recent recurring-broadcast sends (owner-facing "تقارير الإرسال" report),
+   *  newest first. Read-only. */
+  sendLog: adminProcedure.query(async () => {
+    return db.listBroadcastSendLog();
+  }),
 
   /** Get system audit log (admin/super_admin only) */
   auditLog: adminProcedure

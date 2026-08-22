@@ -80,6 +80,28 @@ const COMPLETENESS_TOGGLES = [
 ] as const;
 type CompletenessKey = (typeof COMPLETENESS_TOGGLES)[number]["key"];
 
+// ─── Recurring schedule: day-of-week + hour ─────────────────────────────
+// index 0..6 = Sunday..Saturday, matching JS Date#getDay() and
+// server/broadcast-schedule.ts's daysOfWeek CSV.
+const WEEKDAY_LABELS_AR = ["الأحد", "الاثنين", "الثلاثاء", "الأربعاء", "الخميس", "الجمعة", "السبت"];
+const ALL_DAYS = ["0", "1", "2", "3", "4", "5", "6"];
+
+function parseDaysCsv(csv: string): string[] {
+  return csv ? csv.split(",").map((s) => s.trim()).filter(Boolean) : [];
+}
+
+/** Toggles `key` in the CSV, refusing to remove the last remaining day —
+ *  same "never let the value go invalid" guard the old cadence stepper used
+ *  (disabled at cadenceDays<=1). An empty daysOfWeek would fail the
+ *  server's zod validation anyway; this just avoids firing that mutation. */
+function toggleDayInCsv(csv: string, key: string): string {
+  const days = parseDaysCsv(csv);
+  const next = days.includes(key)
+    ? (days.length <= 1 ? days : days.filter((d) => d !== key))
+    : [...days, key];
+  return next.sort((a, b) => Number(a) - Number(b)).join(",");
+}
+
 export default function BroadcastScreen() {
   const colors = useColors();
   const { isRTL } = useI18n();
@@ -181,7 +203,8 @@ export default function BroadcastScreen() {
   const availableCategories = CATEGORIES.filter((c) => !scheduledCategories.has(c.key));
 
   const [newScheduleCategory, setNewScheduleCategory] = useState<CategoryKey | null>(null);
-  const [newScheduleCadence, setNewScheduleCadence] = useState("1");
+  const [newScheduleDays, setNewScheduleDays] = useState<string[]>(ALL_DAYS);
+  const [newScheduleHour, setNewScheduleHour] = useState("9");
   const [newScheduleActive, setNewScheduleActive] = useState(false);
   // Live recipient count for the category being staged into a new schedule —
   // independent of the manual-send audienceQuery above so picking one
@@ -195,7 +218,8 @@ export default function BroadcastScreen() {
     onSuccess: () => {
       refetchSchedules();
       setNewScheduleCategory(null);
-      setNewScheduleCadence("1");
+      setNewScheduleDays(ALL_DAYS);
+      setNewScheduleHour("9");
       setNewScheduleActive(false);
     },
     onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر إنشاء الجدولة."),
@@ -209,11 +233,19 @@ export default function BroadcastScreen() {
     onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر حذف الجدولة."),
   });
 
+  // ─── Send reports ────────────────────────────────────────────────────
+  const sendLogQuery = (trpc.admin as any).sendLog.useQuery();
+  const sendLog: any[] = sendLogQuery.data || [];
+
   const addSchedule = () => {
     if (!newScheduleCategory) { Alert.alert("تنبيه", "اختر فئة الجمهور أولاً."); return; }
-    const cadenceDays = parseInt(newScheduleCadence, 10);
-    if (!Number.isFinite(cadenceDays) || cadenceDays < 1) { Alert.alert("تنبيه", "أدخل عدد أيام صحيح (1 أو أكثر)."); return; }
-    createScheduleM.mutate({ category: newScheduleCategory, cadenceDays, active: newScheduleActive });
+    // No "at least one day" check here: newScheduleDays starts at ALL_DAYS
+    // and toggleDayInCsv refuses to remove the last remaining day, so it
+    // structurally can't reach empty through this screen.
+    const sendHour = parseInt(newScheduleHour, 10);
+    if (!Number.isFinite(sendHour) || sendHour < 0 || sendHour > 23) { Alert.alert("تنبيه", "أدخل ساعة صحيحة (0 إلى 23)."); return; }
+    const daysOfWeek = newScheduleDays.slice().sort((a, b) => Number(a) - Number(b)).join(",");
+    createScheduleM.mutate({ category: newScheduleCategory, daysOfWeek, sendHour, active: newScheduleActive });
   };
 
   const confirmDeleteSchedule = (id: number) => {
@@ -382,15 +414,18 @@ export default function BroadcastScreen() {
                   <MaterialIcons name="delete-outline" size={20} color={colors.error} />
                 </TouchableOpacity>
               </View>
+              {chipRow(
+                WEEKDAY_LABELS_AR.map((lbl, i) => ({ key: String(i), label: lbl })),
+                parseDaysCsv(s.daysOfWeek),
+                (k) => updateScheduleM.mutate({ id: s.id, daysOfWeek: toggleDayInCsv(s.daysOfWeek, k) }),
+              )}
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
-                  <TouchableOpacity
-                    disabled={s.cadenceDays <= 1}
-                    onPress={() => updateScheduleM.mutate({ id: s.id, cadenceDays: Math.max(1, s.cadenceDays - 1) })}>
-                    <MaterialIcons name="remove-circle-outline" size={20} color={s.cadenceDays <= 1 ? colors.border : colors.foreground} />
+                  <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, sendHour: (s.sendHour + 23) % 24 })}>
+                    <MaterialIcons name="remove-circle-outline" size={20} color={colors.foreground} />
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 13, color: colors.foreground }}>{"كل " + s.cadenceDays + " " + (s.cadenceDays === 1 ? "يوم" : "أيام")}</Text>
-                  <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, cadenceDays: s.cadenceDays + 1 })}>
+                  <Text style={{ fontSize: 13, color: colors.foreground }}>{"الساعة " + s.sendHour + ":00"}</Text>
+                  <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, sendHour: (s.sendHour + 1) % 24 })}>
                     <MaterialIcons name="add-circle-outline" size={20} color={colors.foreground} />
                   </TouchableOpacity>
                 </View>
@@ -426,15 +461,19 @@ export default function BroadcastScreen() {
                 {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم"}
               </Text>
             )}
+            {chipRow(
+              WEEKDAY_LABELS_AR.map((lbl, i) => ({ key: String(i), label: lbl })),
+              newScheduleDays,
+              (k) => setNewScheduleDays(parseDaysCsv(toggleDayInCsv(newScheduleDays.join(","), k))),
+            )}
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <Text style={{ fontSize: 13, color: colors.foreground }}>كل</Text>
+              <Text style={{ fontSize: 13, color: colors.foreground }}>الساعة</Text>
               <TextInput
-                value={newScheduleCadence}
-                onChangeText={setNewScheduleCadence}
+                value={newScheduleHour}
+                onChangeText={setNewScheduleHour}
                 keyboardType="number-pad"
                 style={{ ...inputStyle, width: 56, marginTop: 0, textAlign: "center", paddingHorizontal: 4 }}
               />
-              <Text style={{ fontSize: 13, color: colors.foreground }}>{parseInt(newScheduleCadence, 10) === 1 ? "يوم" : "أيام"}</Text>
               <TouchableOpacity onPress={() => setNewScheduleActive(!newScheduleActive)}
                 style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: newScheduleActive ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: newScheduleActive ? colors.primary : colors.border }}>
                 <MaterialIcons name={newScheduleActive ? "check-box" : "check-box-outline-blank"} size={15} color={newScheduleActive ? "#fff" : colors.muted} />
@@ -447,6 +486,26 @@ export default function BroadcastScreen() {
             </TouchableOpacity>
           </>
         )}
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginTop: 28 }} />
+
+        {label("تقارير الإرسال")}
+        {hint("آخر الرسائل المتكررة التي أُرسلت فعليًا، وعدد من وصلتهم كل رسالة.")}
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {sendLogQuery.isLoading && <ActivityIndicator size="small" color={colors.muted} />}
+          {sendLog.map((l) => (
+            <View key={l.id} style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+              <View>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{categoryLabel(l.category)}</Text>
+                <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>{new Date(l.sentAt).toLocaleString("ar")}</Text>
+              </View>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>{l.recipientCount + " مستخدمًا"}</Text>
+            </View>
+          ))}
+          {!sendLogQuery.isLoading && sendLog.length === 0 && (
+            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>لا توجد عمليات إرسال بعد.</Text>
+          )}
+        </View>
       </ScrollView>
     </View>
   );

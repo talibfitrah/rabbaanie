@@ -1,25 +1,27 @@
 /**
- * Cron entrypoint for recurring admin broadcasts (owner-configured cadence
- * per audience category, managed from app/admin/broadcast.tsx). Run daily by
- * scripts/run-recurring-broadcasts.sh via the VM crontab.
+ * Cron entrypoint for recurring admin broadcasts (owner-configured weekdays +
+ * hour per audience category, managed from app/admin/broadcast.tsx). Run
+ * HOURLY by scripts/run-recurring-broadcasts.sh via the VM crontab — each
+ * schedule's sendHour only matches one of those runs per day (see
+ * server/broadcast-schedule.ts's isScheduleDue).
  *
- * Idempotent on the success path: a schedule only becomes due again once
- * markBroadcastScheduleSent has pushed lastSentAt far enough past for
- * isScheduleDue (server/broadcast-schedule.ts) to say so — so a second run
- * on an already-sent day (e.g. a retried cron) finds nothing due and sends
- * nothing twice. Not exactly-once end to end: if sendCategoryBroadcast
- * throws (a DB blip, not a push-delivery failure — broadcastLocalizedPush
- * already swallows those per-recipient), lastSentAt is never advanced, so
- * that one schedule can re-send its whole category on the next run. Treated
- * as an acceptable, self-healing edge for a non-critical reminder push, not
- * worth per-recipient dedup tracking.
+ * Idempotent per occurrence: markBroadcastScheduleSent advances lastSentAt to
+ * today and isScheduleDue's exact-hour match means the schedule isn't due
+ * again until its next selected day — so a retried cron tick sends nothing
+ * twice. Not exactly-once: if the send succeeds but the mark write then fails
+ * (a DB blip; per-recipient push failures are already swallowed inside
+ * broadcastLocalizedPush), lastSentAt isn't advanced and the schedule
+ * re-sends on its next occurrence — once (daily/weekly), not hourly, precisely
+ * because the hour match is exact. The send-log insert is best-effort (its own
+ * catch) so a failed report row never masks a successful send. Accepted,
+ * self-healing edges for a non-critical reminder push.
  *
  * Each schedule is wrapped in its own try/catch so one failing category
  * (bad template, transient DB error) can't block every schedule after it in
- * the same run — it just retries on the next cron.
+ * the same run.
  */
 import "dotenv/config";
-import { getDueBroadcastSchedules, markBroadcastScheduleSent } from "../server/db";
+import { getDueBroadcastSchedules, markBroadcastScheduleSent, logBroadcastSend } from "../server/db";
 import { sendCategoryBroadcast } from "../server/broadcast-send-category";
 import { BROADCAST_CATEGORIES, type BroadcastCategory } from "../server/broadcast-audience";
 
@@ -49,6 +51,13 @@ async function main() {
     try {
       const { sent } = await sendCategoryBroadcast(schedule.category);
       await markBroadcastScheduleSent(schedule.id, now);
+      try {
+        await logBroadcastSend({ scheduleId: schedule.id, category: schedule.category, recipientCount: sent });
+      } catch (logErr) {
+        // Report row is best-effort — a failed log insert must not be
+        // reported as the send failing (it succeeded and was marked).
+        console.error(`[recurring-broadcast] category=${schedule.category} sent=${sent} but send-log insert failed:`, logErr);
+      }
       console.log(`[recurring-broadcast] category=${schedule.category} sent=${sent}`);
     } catch (err) {
       console.error(`[recurring-broadcast] category=${schedule.category} failed:`, err);

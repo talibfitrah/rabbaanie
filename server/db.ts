@@ -126,6 +126,8 @@ import {
   InsertParentAiConsultation,
   broadcastSchedules,
   InsertBroadcastSchedule,
+  broadcastSendLog,
+  InsertBroadcastSendLog,
 } from "../drizzle/schema";
 // Family groups use existing `families` table - no separate familyGroups/familyGroupMembers tables
 import { ENV } from "./_core/env";
@@ -3362,7 +3364,8 @@ export async function listBroadcastSchedules() {
 
 export async function createBroadcastSchedule(data: {
   category: string;
-  cadenceDays: number;
+  daysOfWeek: string;
+  sendHour: number;
   active: boolean;
   createdBy?: number | null;
 }) {
@@ -3381,7 +3384,8 @@ export async function createBroadcastSchedule(data: {
  *  A SELECT's row count has no such ambiguity on either driver. */
 export async function updateBroadcastSchedule(data: {
   id: number;
-  cadenceDays?: number;
+  daysOfWeek?: string;
+  sendHour?: number;
   active?: boolean;
 }): Promise<boolean> {
   const db = await getDb();
@@ -3414,6 +3418,27 @@ export async function markBroadcastScheduleSent(id: number, now: Date): Promise<
   const db = await getDb();
   if (!db) return;
   await db.update(broadcastSchedules).set({ lastSentAt: now }).where(eq(broadcastSchedules.id, id));
+}
+
+/** Records one completed send (recurring cron or, in principle, a manual
+ *  send) for the admin-facing "تقارير الإرسال" report. scheduleId is
+ *  nullable so a caller with no schedule row (there isn't one today, but
+ *  this keeps the log usable if manual sends are ever logged too) can still
+ *  log. */
+export async function logBroadcastSend(data: {
+  scheduleId: number | null;
+  category: string;
+  recipientCount: number;
+}) {
+  const db = await getDb();
+  if (!db) return;
+  await db.insert(broadcastSendLog).values(data as InsertBroadcastSendLog);
+}
+
+export async function listBroadcastSendLog(limit = 50) {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(broadcastSendLog).orderBy(desc(broadcastSendLog.sentAt)).limit(limit);
 }
 
 // ============================================================

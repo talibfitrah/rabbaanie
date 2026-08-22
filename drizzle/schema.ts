@@ -851,12 +851,13 @@ export type DailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferSelect
 export type InsertDailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferInsert;
 
 // ============================================================
-// BROADCAST SCHEDULES - recurring automated admin broadcasts (e.g. "daily to
-// users with an incomplete personal profile"). category is one of
-// broadcast-audience.ts's BROADCAST_CATEGORIES. active defaults false: a
-// newly-created (or freshly-seeded) schedule must not auto-fire until an
-// admin explicitly turns it on. See server/broadcast-schedule.ts's
-// isScheduleDue() for the cadence/lastSentAt due-check this table feeds.
+// BROADCAST SCHEDULES - recurring automated admin broadcasts (e.g. "every
+// Friday at 9am to users with an incomplete personal profile"). category is
+// one of broadcast-audience.ts's BROADCAST_CATEGORIES. active defaults
+// false: a newly-created (or freshly-seeded) schedule must not auto-fire
+// until an admin explicitly turns it on. See server/broadcast-schedule.ts's
+// isScheduleDue() for the daysOfWeek/sendHour/lastSentAt due-check this
+// table feeds.
 // ============================================================
 export const broadcastSchedules = mysqlTable("broadcast_schedules", {
   id: int("id").autoincrement().primaryKey(),
@@ -864,7 +865,14 @@ export const broadcastSchedules = mysqlTable("broadcast_schedules", {
   // 1-per-category use cases — two active schedules for the same category
   // would double-push every matching user each cycle.
   category: varchar("category", { length: 32 }).notNull().unique(),
-  cadenceDays: int("cadenceDays").notNull(),
+  // ponytail: legacy — the "every N days" model this table used before
+  // daysOfWeek/sendHour replaced it. Kept nullable (never written or read
+  // by current code) instead of a destructive drop.
+  cadenceDays: int("cadenceDays"),
+  /** CSV of weekday numbers, 0=Sunday..6=Saturday, e.g. "0,1,2,3,4,5,6" */
+  daysOfWeek: varchar("daysOfWeek", { length: 32 }).notNull(),
+  /** Local hour of day to send, 0-23 */
+  sendHour: int("sendHour").notNull(),
   active: boolean("active").default(false).notNull(),
   lastSentAt: timestamp("lastSentAt"),
   createdBy: int("createdBy"),
@@ -873,6 +881,22 @@ export const broadcastSchedules = mysqlTable("broadcast_schedules", {
 
 export type BroadcastSchedule = typeof broadcastSchedules.$inferSelect;
 export type InsertBroadcastSchedule = typeof broadcastSchedules.$inferInsert;
+
+// ============================================================
+// BROADCAST SEND LOG - a record of every recurring-schedule send (owner asked
+// for a report of what was actually sent and to how many). scheduleId is
+// nullable so a log row survives its schedule being deleted later.
+// ============================================================
+export const broadcastSendLog = mysqlTable("broadcast_send_log", {
+  id: int("id").autoincrement().primaryKey(),
+  scheduleId: int("scheduleId"),
+  category: varchar("category", { length: 32 }).notNull(),
+  sentAt: timestamp("sentAt").defaultNow().notNull(),
+  recipientCount: int("recipientCount").notNull(),
+});
+
+export type BroadcastSendLog = typeof broadcastSendLog.$inferSelect;
+export type InsertBroadcastSendLog = typeof broadcastSendLog.$inferInsert;
 
 // ============================================================
 // TRANSLATION CACHE - Persistent translation cache shared across all users

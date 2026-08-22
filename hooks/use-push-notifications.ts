@@ -211,6 +211,24 @@ export function usePushNotifications(isAuthenticated: boolean) {
           // screen. See server/routers.ts requestPartnerProfileAccess /
           // grantPartnerProfileAccess for these two type strings.
           router.push("/spouse-profile" as any);
+        } else if (data?.type === "admin_broadcast") {
+          // Owner-configured recurring or manual broadcast (see
+          // server/broadcast-send-category.ts). category is one of
+          // server/broadcast-audience.ts's BROADCAST_CATEGORIES — route
+          // straight to the screen the recipient must act on. A manual
+          // custom-message broadcast (server/routers.ts sendBroadcast with
+          // no category) carries no data.category and falls through to home.
+          if (data?.category === "incompletePersonal") {
+            router.push("/onboarding");
+          } else if (data?.category === "incompleteAnalytical") {
+            router.push("/onboarding/parent-profile");
+          } else if (data?.category === "incompleteChildren") {
+            router.push("/(tabs)/family");
+          } else if (data?.category === "notLinkedSpouse") {
+            router.push("/(tabs)/messages");
+          } else {
+            router.push("/(tabs)");
+          }
         } else if (data?.url) {
           // Generic URL-based navigation
           router.push(data.url as string);

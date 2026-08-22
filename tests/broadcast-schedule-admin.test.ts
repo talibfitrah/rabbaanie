@@ -37,7 +37,7 @@ describe("admin.listSchedules / createSchedule / updateSchedule / deleteSchedule
   });
 
   it("listSchedules returns db.listBroadcastSchedules() verbatim", async () => {
-    const rows = [{ id: 1, category: "incompletePersonal", cadenceDays: 1, active: false, lastSentAt: null, createdBy: 7, createdAt: new Date() }];
+    const rows = [{ id: 1, category: "incompletePersonal", daysOfWeek: "0,1,2,3,4,5,6", sendHour: 9, active: false, lastSentAt: null, createdBy: 7, createdAt: new Date() }];
     dbMocks.listBroadcastSchedules.mockResolvedValue(rows);
 
     const result = await adminCaller().admin.listSchedules();
@@ -48,11 +48,12 @@ describe("admin.listSchedules / createSchedule / updateSchedule / deleteSchedule
   it("createSchedule stamps createdBy from the caller and defaults active to false", async () => {
     dbMocks.createBroadcastSchedule.mockResolvedValue(undefined);
 
-    const result = await adminCaller().admin.createSchedule({ category: "incompleteAnalytical", cadenceDays: 3 });
+    const result = await adminCaller().admin.createSchedule({ category: "incompleteAnalytical", daysOfWeek: "1,3,5", sendHour: 14 });
 
     expect(dbMocks.createBroadcastSchedule).toHaveBeenCalledWith({
       category: "incompleteAnalytical",
-      cadenceDays: 3,
+      daysOfWeek: "1,3,5",
+      sendHour: 14,
       active: false,
       createdBy: 7,
     });
@@ -61,13 +62,25 @@ describe("admin.listSchedules / createSchedule / updateSchedule / deleteSchedule
 
   it("createSchedule rejects a category outside the four known ones", async () => {
     await expect(
-      adminCaller().admin.createSchedule({ category: "bogus" as any, cadenceDays: 1 }),
+      adminCaller().admin.createSchedule({ category: "bogus" as any, daysOfWeek: "0,1,2,3,4,5,6", sendHour: 9 }),
     ).rejects.toThrow();
   });
 
-  it("createSchedule rejects cadenceDays below 1", async () => {
+  it("createSchedule rejects an empty daysOfWeek", async () => {
     await expect(
-      adminCaller().admin.createSchedule({ category: "incompletePersonal", cadenceDays: 0 }),
+      adminCaller().admin.createSchedule({ category: "incompletePersonal", daysOfWeek: "", sendHour: 9 }),
+    ).rejects.toThrow();
+  });
+
+  it("createSchedule rejects a daysOfWeek entry outside 0-6", async () => {
+    await expect(
+      adminCaller().admin.createSchedule({ category: "incompletePersonal", daysOfWeek: "0,7", sendHour: 9 }),
+    ).rejects.toThrow();
+  });
+
+  it("createSchedule rejects sendHour outside 0-23", async () => {
+    await expect(
+      adminCaller().admin.createSchedule({ category: "incompletePersonal", daysOfWeek: "0", sendHour: 24 }),
     ).rejects.toThrow();
   });
 
@@ -80,7 +93,7 @@ describe("admin.listSchedules / createSchedule / updateSchedule / deleteSchedule
     expect(result).toEqual({ success: true });
   });
 
-  it("updateSchedule rejects a payload with neither cadenceDays nor active", async () => {
+  it("updateSchedule rejects a payload with none of daysOfWeek, sendHour, or active", async () => {
     await expect(adminCaller().admin.updateSchedule({ id: 5 })).rejects.toThrow();
   });
 
