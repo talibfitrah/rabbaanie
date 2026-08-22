@@ -363,22 +363,74 @@ const TONE_LABEL: Record<Lang, Record<DiagnosticTone, string>> = {
   nl: { positive: "gaat goed", neutral: "gewoon", needs_support: "kan steun gebruiken" },
 };
 
+function signalContextLines(summary: Partial<Record<DiagnosticCategory, DiagnosticTone>>, lang: Lang): string[] {
+  const categories = Object.keys(summary) as DiagnosticCategory[];
+  return categories.map((cat) => `${CATEGORY_LABEL[lang][cat]}: ${TONE_LABEL[lang][summary[cat]!]}`);
+}
+
 /**
  * Turns a category->tone summary into the short text block folded into the
  * spouse-advice prompt. Only ever emits category names + tone words —
  * never an option label, so nothing the partner wrote can appear here.
  */
 export function buildPartnerSignalContext(summary: Partial<Record<DiagnosticCategory, DiagnosticTone>>, lang: Lang): string {
-  const categories = Object.keys(summary) as DiagnosticCategory[];
-  if (categories.length === 0) return "";
+  const lines = signalContextLines(summary, lang);
+  if (lines.length === 0) return "";
   const header =
     lang === "ar"
       ? "\n\n--- إشارات ذاتية من الشريك هذا الأسبوع (فئات عامة فقط) ---"
       : lang === "en"
         ? "\n\n--- Partner's self-reported signals this week (categories only) ---"
         : "\n\n--- Partner's zelfgerapporteerde signalen deze week (alleen categorieën) ---";
-  const lines = categories.map((cat) => `${CATEGORY_LABEL[lang][cat]}: ${TONE_LABEL[lang][summary[cat]!]}`);
   return `${header}\n${lines.join("\n")}`;
+}
+
+/**
+ * Self-facing counterpart to buildPartnerSignalContext above: the user's OWN
+ * recent check-in signals, folded into the user's OWN advice prompt
+ * (personal/parenting advice, the advisor chat) instead of the other
+ * spouse's. Same category+tone-only shape and never-the-label guarantee;
+ * only the header's framing differs ("your own" vs "partner's"), so a
+ * reader of the prompt can't confuse whose signal it's reading.
+ */
+export function buildOwnSignalContext(summary: Partial<Record<DiagnosticCategory, DiagnosticTone>>, lang: Lang): string {
+  const lines = signalContextLines(summary, lang);
+  if (lines.length === 0) return "";
+  const header =
+    lang === "ar"
+      ? "\n\n--- إشاراتك الذاتية من تسجيلك اليومي هذا الأسبوع (فئات عامة فقط) ---"
+      : lang === "en"
+        ? "\n\n--- Your own self-reported check-in signals this week (categories only) ---"
+        : "\n\n--- Uw eigen zelfgerapporteerde check-in signalen deze week (alleen categorieën) ---";
+  return `${header}\n${lines.join("\n")}`;
+}
+
+/**
+ * Fetch + summarize + format the CALLER'S OWN recent check-ins in one call —
+ * the composing helper each own-advice surface (getGeneralAdvice,
+ * getWeekPlan, generateTreatmentPlan in advice.ts; startConversation,
+ * sendMessage, getLiveAdvice in ai-chat.ts) calls once. Mirrors
+ * getSpouseAdvice's own inline fetch-then-summarize-then-format sequence
+ * (server/advice.ts) — same 7-day window, same fail-open behaviour: a DB
+ * hiccup (or a still-missing migration on a server this hasn't rolled out
+ * to yet) degrades to "", never a 500, exactly like getSpouseAdvice's own
+ * try/catch around the partner's signals.
+ *
+ * No DB round-trip for a caller with no id (an unauthenticated request to
+ * one of these public procedures, or the `0` sentinel this codebase already
+ * uses for "no owner" — see ai-chat.ts's ctx.user?.id ?? 0) — there is
+ * nothing to look up, and it keeps that path exactly as cheap as it was
+ * before this feature existed.
+ */
+export async function getOwnCheckinContext(userId: number | null | undefined, lang: Lang): Promise<string> {
+  if (!userId) return "";
+  try {
+    const rows = await db.getRecentDiagnosticSignals(userId, 7);
+    return buildOwnSignalContext(summarizeSignals(rows), lang);
+  } catch (err) {
+    console.error("[getOwnCheckinContext] diagnostic signals unavailable, continuing without them:", err);
+    return "";
+  }
 }
 
 // ============================================================

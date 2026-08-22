@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
-import { summarizeSignals, buildPartnerSignalContext } from "./daily-diagnostic";
+import { summarizeSignals, buildPartnerSignalContext, getOwnCheckinContext } from "./daily-diagnostic";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -996,7 +996,7 @@ export const adviceRouter = router({
         environment: environmentSchema,
       })).optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const kb = getKnowledgeBase();
       const lang = input.language || "nl";
       const gezinskundeContext = getGezinskunde2025Context(["algemeen", "advies", "gezin", "dagelijks", "fitnah", "bescherming", "omgeving"], lang);
@@ -1035,7 +1035,12 @@ export const adviceRouter = router({
           lang === "en" ? ` (${missedCount}/${recentPrayers.length} days not all 5 on time)` :
           ` (${missedCount}/${recentPrayers.length} dagen niet alle 5 op tijd)`;
       }
-      
+      // Fold in the user's OWN stored diagnostic check-in (prayer/psychological/
+      // physical/children), on top of the thin client-passed prayer+mood above —
+      // additive, so a user with no stored check-in yet leaves this prompt
+      // byte-identical to before this feature existed.
+      checkinContext += await getOwnCheckinContext(ctx.user?.id, lang === "ar" ? "ar" : lang === "en" ? "en" : "nl");
+
             // Build children environment context
       let childrenEnvContext = "";
       if (input.childrenEnvironments && input.childrenEnvironments.length > 0) {
@@ -1509,7 +1514,7 @@ STRIKTE REGELS:
         completedTasks: z.number().int().min(0).max(1000).optional(),
       })).optional(),
     }))
-    .query(async ({ input }) => {
+    .query(async ({ ctx, input }) => {
       const lang = input.language || "nl";
       const isEn = lang === "en";
       const isAr = lang === "ar";
@@ -1518,6 +1523,7 @@ STRIKTE REGELS:
       const mawsouahContext = getMawsouahContext("weekplan", lang);
       const parentInfo = buildFullParentInfo(input.parentProfile, lang);
       const environmentInfo = buildFullEnvironmentInfo(input.environment, lang);
+      const checkinContext = await getOwnCheckinContext(ctx.user?.id, isAr ? "ar" : isEn ? "en" : "nl");
 
       // Build issues context for incorporating into weekly plan
       let issuesContext = "";
@@ -1820,6 +1826,7 @@ BELANGRIJK: Je MOET volledig in het Nederlands antwoorden.`;
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 ${issuesContext}
 
 قدّم خطة أسبوعية هجينة بهذا الهيكل بالضبط:
@@ -1890,6 +1897,7 @@ WEEK: ${input.weekInYear}
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 ${issuesContext}
 
 Provide a HYBRID week plan in this structure:
@@ -1920,6 +1928,7 @@ WEEK: ${input.weekInYear}
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 ${issuesContext}
 
 Geef een HYBRIDE weekplan in deze structuur:
@@ -2011,7 +2020,7 @@ BELANGRIJK - WERKVORMEN:
       currentAnswers: z.array(z.string()).optional(),
       questionIndex: z.number().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const lang = input.language || "nl";
       const isEn = lang === "en";
       const isAr = lang === "ar";
@@ -2283,6 +2292,7 @@ Als onvoldoende: return {"rootCauseFound": false, "missingInfo": "wat we nog moe
       const mawsouahContext = getMawsouahContext("treatment", lang);
       const parentInfo = buildFullParentInfo(input.parentProfile, lang);
       const environmentInfo = buildFullEnvironmentInfo(input.environment, lang);
+      const checkinContext = await getOwnCheckinContext(ctx.user?.id, isAr ? "ar" : isEn ? "en" : "nl");
 
       // If we have analytical Q&A, append it to the issue
       let enrichedIssue = input.issue;
@@ -2499,6 +2509,7 @@ ${enrichedIssue}
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 
 أنشئ خطة علاج هجينة ومحددة بالترتيب التالي بالضبط:
 
@@ -2577,6 +2588,7 @@ ${enrichedIssue}
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 
 Generate a HYBRID and SPECIFIC treatment plan:
 
@@ -2606,6 +2618,7 @@ ${enrichedIssue}
 
 ${parentInfo}
 ${environmentInfo}
+${checkinContext}
 
 Genereer een HYBRIDE en SPECIFIEK behandelplan:
 

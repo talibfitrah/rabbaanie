@@ -28,6 +28,7 @@ import { z } from "zod";
 import { router, publicProcedure } from "./_core/trpc";
 import { ownsConsultation } from "./consultation-ownership";
 import { invokeAI, invokeAIChat, getAIProviderStatus, type AIMessage as ProviderMessage } from "./ai-provider";
+import { getOwnCheckinContext } from "./daily-diagnostic";
 
 // ============================================================
 // SYSTEM PROMPTS
@@ -400,7 +401,7 @@ export const aiChatRouter = router({
       consultationType: z.enum(["child", "spouse"]).optional().default("child"),
       parentGender: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const convId = `conv_${nextConvId++}`;
       const lang = input.language;
       const basePrompt = SYSTEM_PROMPTS[lang] || SYSTEM_PROMPTS.nl;
@@ -430,6 +431,8 @@ export const aiChatRouter = router({
       // Enrich with misconceptions knowledge from DB
       const miscCtx = await getMisconceptionsContext(lang);
       if (miscCtx) enrichedPrompt += miscCtx;
+      // Fold in the user's OWN recent daily check-in signals (additive; "" when none)
+      enrichedPrompt += await getOwnCheckinContext(ctx.user?.id, lang);
 
       // Get AI response
       const response = await invokeAIChat(
@@ -477,7 +480,7 @@ export const aiChatRouter = router({
       consultationType: z.enum(["child", "spouse"]).optional().default("child"),
       parentGender: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const conversation = conversations.get(input.conversationId);
       if (!conversation) {
         throw new Error("Conversation not found. Start a new conversation first.");
@@ -506,6 +509,8 @@ export const aiChatRouter = router({
       if (input.parentContext) {
         systemPrompt += `\n\n${input.parentContext}`;
       }
+      // Fold in the user's OWN recent daily check-in signals (additive; "" when none)
+      systemPrompt += await getOwnCheckinContext(ctx.user?.id, lang === "ar" ? "ar" : lang === "en" ? "en" : "nl");
 
       // Build history for context
       const history: ProviderMessage[] = conversation.messages.map(m => ({
@@ -645,9 +650,10 @@ export const aiChatRouter = router({
       language: z.enum(["nl", "ar", "en"]).default("nl"),
       specificQuestion: z.string().optional(),
     }))
-    .mutation(async ({ input }) => {
+    .mutation(async ({ ctx, input }) => {
       const lang = input.language;
-      const systemPrompt = SYSTEM_PROMPTS[lang as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.nl;
+      const systemPrompt = (SYSTEM_PROMPTS[lang as keyof typeof SYSTEM_PROMPTS] || SYSTEM_PROMPTS.nl)
+        + await getOwnCheckinContext(ctx.user?.id, lang);
 
       // Gather recent live data for this child
       let recentData = Array.from(liveDataEntries.values())
