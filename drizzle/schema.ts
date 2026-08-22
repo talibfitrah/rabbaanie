@@ -851,6 +851,30 @@ export type DailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferSelect
 export type InsertDailyDiagnosticCheckin = typeof dailyDiagnosticCheckins.$inferInsert;
 
 // ============================================================
+// BROADCAST SCHEDULES - recurring automated admin broadcasts (e.g. "daily to
+// users with an incomplete personal profile"). category is one of
+// broadcast-audience.ts's BROADCAST_CATEGORIES. active defaults false: a
+// newly-created (or freshly-seeded) schedule must not auto-fire until an
+// admin explicitly turns it on. See server/broadcast-schedule.ts's
+// isScheduleDue() for the cadence/lastSentAt due-check this table feeds.
+// ============================================================
+export const broadcastSchedules = mysqlTable("broadcast_schedules", {
+  id: int("id").autoincrement().primaryKey(),
+  // unique: at most one schedule per category, matching the feature's own
+  // 1-per-category use cases — two active schedules for the same category
+  // would double-push every matching user each cycle.
+  category: varchar("category", { length: 32 }).notNull().unique(),
+  cadenceDays: int("cadenceDays").notNull(),
+  active: boolean("active").default(false).notNull(),
+  lastSentAt: timestamp("lastSentAt"),
+  createdBy: int("createdBy"),
+  createdAt: timestamp("createdAt").defaultNow().notNull(),
+});
+
+export type BroadcastSchedule = typeof broadcastSchedules.$inferSelect;
+export type InsertBroadcastSchedule = typeof broadcastSchedules.$inferInsert;
+
+// ============================================================
 // TRANSLATION CACHE - Persistent translation cache shared across all users
 // ============================================================
 export const translationCache = mysqlTable("translation_cache", {

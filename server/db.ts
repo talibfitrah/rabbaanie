@@ -124,9 +124,12 @@ import {
   InsertChildAppUsage,
   parentAiConsultations,
   InsertParentAiConsultation,
+  broadcastSchedules,
+  InsertBroadcastSchedule,
 } from "../drizzle/schema";
 // Family groups use existing `families` table - no separate familyGroups/familyGroupMembers tables
 import { ENV } from "./_core/env";
+import { isScheduleDue } from "./broadcast-schedule";
 
 let _db: ReturnType<typeof drizzle> | null = null;
 
@@ -3342,6 +3345,75 @@ export async function broadcastLocalizedPush(
   }
 
   return { sent, failed };
+}
+
+// ============================================================
+// BROADCAST SCHEDULES - recurring automated admin broadcasts (owner-managed
+// cadence per category — see server/broadcast-schedule.ts for the due-check
+// and scripts/send-recurring-broadcasts.ts for the cron runner that calls
+// getDueBroadcastSchedules/markBroadcastScheduleSent below).
+// ============================================================
+
+export async function listBroadcastSchedules() {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(broadcastSchedules).orderBy(desc(broadcastSchedules.createdAt));
+}
+
+export async function createBroadcastSchedule(data: {
+  category: string;
+  cadenceDays: number;
+  active: boolean;
+  createdBy?: number | null;
+}) {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  await db.insert(broadcastSchedules).values(data as InsertBroadcastSchedule);
+}
+
+/** Returns whether the row exists (so the router can tell a genuine update
+ *  from an id that no longer exists), checked with a SELECT rather than
+ *  affectedRows() on the UPDATE itself: mysql2's affectedRows for UPDATE
+ *  counts rows actually CHANGED, not matched — re-sending a patch equal to
+ *  the row's current value (e.g. toggling active twice) would read 0 and
+ *  report a false "not found" even though the row exists. Postgres's
+ *  rowCount counts matched rows, so the two dialects would also disagree.
+ *  A SELECT's row count has no such ambiguity on either driver. */
+export async function updateBroadcastSchedule(data: {
+  id: number;
+  cadenceDays?: number;
+  active?: boolean;
+}): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const { id, ...patch } = data;
+  const existing = await db.select({ id: broadcastSchedules.id }).from(broadcastSchedules).where(eq(broadcastSchedules.id, id)).limit(1);
+  if (existing.length === 0) return false;
+  await db.update(broadcastSchedules).set(patch).where(eq(broadcastSchedules.id, id));
+  return true;
+}
+
+export async function deleteBroadcastSchedule(id: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const result = await db.delete(broadcastSchedules).where(eq(broadcastSchedules.id, id));
+  return affectedRows(result) > 0;
+}
+
+/** Filters in JS with the same isScheduleDue() the tests pin, rather than a
+ *  SQL date-diff WHERE clause — one predicate answers "is it due" on both
+ *  mysql2 and Postgres, with no dialect-specific date function. The table
+ *  holds admin-configured schedules (a handful of rows), not per-user data,
+ *  so an unfiltered SELECT here is cheap. */
+export async function getDueBroadcastSchedules(now: Date) {
+  const schedules = await listBroadcastSchedules();
+  return schedules.filter((s) => isScheduleDue(s, now));
+}
+
+export async function markBroadcastScheduleSent(id: number, now: Date): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.update(broadcastSchedules).set({ lastSentAt: now }).where(eq(broadcastSchedules.id, id));
 }
 
 // ============================================================

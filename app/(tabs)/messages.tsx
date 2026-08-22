@@ -866,7 +866,7 @@ function CoParentPermissions({
             style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
           >
             <Text style={{ fontSize: 12, color: colors.foreground }}>
-              {tx(lang, "Toegang tot mijn profiel en dagregistraties", "Access to my profile and check-ins", "الاطلاع على ملفي الشخصي وتسجيلاتي اليومية")}
+              {tx(lang, "Toegang tot mijn profiel en mijn dagelijkse activiteit", "Access to my profile and my daily activity", "الاطّلاع على ملفي الشخصي وتفاعلي اليومي")}
             </Text>
             <View style={{
               backgroundColor: profileAccessQuery.data?.grantedToPartner ? colors.success + "20" : colors.error + "20",

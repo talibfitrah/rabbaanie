@@ -166,6 +166,63 @@ export default function BroadcastScreen() {
     onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر الإرسال. تأكد أنك المالك."),
   });
 
+  // ─── Recurring automated broadcasts ─────────────────────────────────────
+  // Same four categories as the manual send above (CATEGORIES), sent
+  // automatically on a cadence by scripts/send-recurring-broadcasts.ts
+  // (server/broadcast-schedule.ts's isScheduleDue) instead of an admin
+  // tapping "send" each time.
+  const schedulesQuery = (trpc.admin as any).listSchedules.useQuery();
+  const schedules: any[] = schedulesQuery.data || [];
+  const refetchSchedules = () => schedulesQuery.refetch();
+  const categoryLabel = (key: string) => CATEGORIES.find((c) => c.key === key)?.label || key;
+  // category is unique per schedule (drizzle/schema.ts) — offering one that
+  // already has a schedule would just fail with a raw constraint error.
+  const scheduledCategories = new Set(schedules.map((s) => s.category));
+  const availableCategories = CATEGORIES.filter((c) => !scheduledCategories.has(c.key));
+
+  const [newScheduleCategory, setNewScheduleCategory] = useState<CategoryKey | null>(null);
+  const [newScheduleCadence, setNewScheduleCadence] = useState("1");
+  const [newScheduleActive, setNewScheduleActive] = useState(false);
+  // Live recipient count for the category being staged into a new schedule —
+  // independent of the manual-send audienceQuery above so picking one
+  // doesn't move the other's number.
+  const newScheduleAudienceQuery = trpc.admin.broadcastAudience.useQuery(
+    (newScheduleCategory ? { [newScheduleCategory]: true } : {}) as any,
+    { enabled: !!newScheduleCategory },
+  );
+
+  const createScheduleM = (trpc.admin as any).createSchedule.useMutation({
+    onSuccess: () => {
+      refetchSchedules();
+      setNewScheduleCategory(null);
+      setNewScheduleCadence("1");
+      setNewScheduleActive(false);
+    },
+    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر إنشاء الجدولة."),
+  });
+  const updateScheduleM = (trpc.admin as any).updateSchedule.useMutation({
+    onSuccess: refetchSchedules,
+    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر تحديث الجدولة."),
+  });
+  const deleteScheduleM = (trpc.admin as any).deleteSchedule.useMutation({
+    onSuccess: refetchSchedules,
+    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر حذف الجدولة."),
+  });
+
+  const addSchedule = () => {
+    if (!newScheduleCategory) { Alert.alert("تنبيه", "اختر فئة الجمهور أولاً."); return; }
+    const cadenceDays = parseInt(newScheduleCadence, 10);
+    if (!Number.isFinite(cadenceDays) || cadenceDays < 1) { Alert.alert("تنبيه", "أدخل عدد أيام صحيح (1 أو أكثر)."); return; }
+    createScheduleM.mutate({ category: newScheduleCategory, cadenceDays, active: newScheduleActive });
+  };
+
+  const confirmDeleteSchedule = (id: number) => {
+    Alert.alert("حذف الجدولة", "هل أنت متأكد من حذف هذه الرسالة المتكررة؟", [
+      { text: "إلغاء", style: "cancel" },
+      { text: "حذف", style: "destructive", onPress: () => deleteScheduleM.mutate({ id }) },
+    ]);
+  };
+
   const submit = () => {
     const result = buildSendPayload(activeCategory, subject, message, roles, audience);
     if (!result.ok) {
@@ -310,6 +367,86 @@ export default function BroadcastScreen() {
         <TouchableOpacity onPress={submit} disabled={send.isPending} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10, opacity: send.isPending ? 0.6 : 1 }}>
           {send.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>إرسال</Text>}
         </TouchableOpacity>
+
+        <View style={{ height: 1, backgroundColor: colors.border, marginTop: 28 }} />
+
+        {label("الرسائل التلقائية المتكررة")}
+        {hint("تُرسل تلقائيًا حسب فئة الجمهور بمعدل تكرار محدد بالأيام — لا تعمل الجدولة إلا بعد تفعيلها.")}
+        <View style={{ gap: 8, marginTop: 8 }}>
+          {schedulesQuery.isLoading && <ActivityIndicator size="small" color={colors.muted} />}
+          {schedules.map((s) => (
+            <View key={s.id} style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, gap: 8 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>{categoryLabel(s.category)}</Text>
+                <TouchableOpacity onPress={() => confirmDeleteSchedule(s.id)}>
+                  <MaterialIcons name="delete-outline" size={20} color={colors.error} />
+                </TouchableOpacity>
+              </View>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                  <TouchableOpacity
+                    disabled={s.cadenceDays <= 1}
+                    onPress={() => updateScheduleM.mutate({ id: s.id, cadenceDays: Math.max(1, s.cadenceDays - 1) })}>
+                    <MaterialIcons name="remove-circle-outline" size={20} color={s.cadenceDays <= 1 ? colors.border : colors.foreground} />
+                  </TouchableOpacity>
+                  <Text style={{ fontSize: 13, color: colors.foreground }}>{"كل " + s.cadenceDays + " " + (s.cadenceDays === 1 ? "يوم" : "أيام")}</Text>
+                  <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, cadenceDays: s.cadenceDays + 1 })}>
+                    <MaterialIcons name="add-circle-outline" size={20} color={colors.foreground} />
+                  </TouchableOpacity>
+                </View>
+                <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, active: !s.active })}
+                  style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: s.active ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: s.active ? colors.primary : colors.border }}>
+                  <MaterialIcons name={s.active ? "check-box" : "check-box-outline-blank"} size={15} color={s.active ? "#fff" : colors.muted} />
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: s.active ? "#fff" : colors.foreground }}>{s.active ? "نشطة" : "متوقفة"}</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          ))}
+          {!schedulesQuery.isLoading && schedules.length === 0 && (
+            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>لا توجد جدولات بعد.</Text>
+          )}
+        </View>
+
+        {label("إضافة جدولة جديدة")}
+        {availableCategories.length === 0 ? (
+          <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 8 }}>
+            لكل فئة جدولة بالفعل — عدّل الجدولة الحالية بدل إضافة جديدة.
+          </Text>
+        ) : (
+          chipRow(
+            availableCategories.map((c) => ({ key: c.key, label: c.label })),
+            newScheduleCategory ? [newScheduleCategory] : [],
+            (k) => setNewScheduleCategory(newScheduleCategory === k ? null : (k as CategoryKey)),
+          )
+        )}
+        {availableCategories.length > 0 && (
+          <>
+            {newScheduleCategory && (
+              <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
+                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم"}
+              </Text>
+            )}
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginTop: 10 }}>
+              <Text style={{ fontSize: 13, color: colors.foreground }}>كل</Text>
+              <TextInput
+                value={newScheduleCadence}
+                onChangeText={setNewScheduleCadence}
+                keyboardType="number-pad"
+                style={{ ...inputStyle, width: 56, marginTop: 0, textAlign: "center", paddingHorizontal: 4 }}
+              />
+              <Text style={{ fontSize: 13, color: colors.foreground }}>{parseInt(newScheduleCadence, 10) === 1 ? "يوم" : "أيام"}</Text>
+              <TouchableOpacity onPress={() => setNewScheduleActive(!newScheduleActive)}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: newScheduleActive ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: newScheduleActive ? colors.primary : colors.border }}>
+                <MaterialIcons name={newScheduleActive ? "check-box" : "check-box-outline-blank"} size={15} color={newScheduleActive ? "#fff" : colors.muted} />
+                <Text style={{ fontSize: 12, fontWeight: "700", color: newScheduleActive ? "#fff" : colors.foreground }}>{newScheduleActive ? "نشطة" : "متوقفة"}</Text>
+              </TouchableOpacity>
+            </View>
+            <TouchableOpacity onPress={addSchedule} disabled={createScheduleM.isPending}
+              style={{ backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: colors.primary, opacity: createScheduleM.isPending ? 0.6 : 1 }}>
+              {createScheduleM.isPending ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>إضافة جدولة</Text>}
+            </TouchableOpacity>
+          </>
+        )}
       </ScrollView>
     </View>
   );

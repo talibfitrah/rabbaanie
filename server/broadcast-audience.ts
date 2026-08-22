@@ -31,6 +31,18 @@ export type AudienceUser = {
   hasLinkedSpouse?: boolean;
 };
 
+/** The four audience categories a broadcast (manual or recurring) can target.
+ *  Single source of truth — server/routers.ts's zod schemas and
+ *  server/broadcast-send-category.ts's sendCategoryBroadcast() both import
+ *  this instead of re-listing the four strings. */
+export const BROADCAST_CATEGORIES = [
+  "incompleteAnalytical",
+  "incompleteChildren",
+  "incompletePersonal",
+  "notLinkedSpouse",
+] as const;
+export type BroadcastCategory = (typeof BROADCAST_CATEGORIES)[number];
+
 export type AudienceFilter = {
   countries?: string[]; // empty/omitted = every country
   cities?: string[]; // empty/omitted = every city

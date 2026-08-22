@@ -46,13 +46,8 @@ import {
   parentAiConsultRouter,
 } from "./child-monitoring-router";
 import * as db from "./db";
-import { selectAudience, incompleteChildNames, attachLinkedSpouse, recipientGender } from "./broadcast-audience";
-import {
-  analyticalProfileTemplate,
-  personalProfileTemplate,
-  childProfileTemplate,
-  spouseNotLinkedTemplate,
-} from "./broadcast-templates";
+import { selectAudience, incompleteChildNames, attachLinkedSpouse, BROADCAST_CATEGORIES } from "./broadcast-audience";
+import { sendCategoryBroadcast } from "./broadcast-send-category";
 import {
   assertActiveSpecialistFamily,
   assertAvailableSpecialist,
@@ -1213,9 +1208,7 @@ Respond in JSON format:
         message: z.string().optional(),
         target: z.enum(["all", "parents", "admins"]).default("all"),
         audience: audienceFilterSchema.optional(),
-        category: z
-          .enum(["incompleteAnalytical", "incompleteChildren", "incompletePersonal", "notLinkedSpouse"])
-          .optional(),
+        category: z.enum(BROADCAST_CATEGORIES).optional(),
       }).refine(
         (v) => v.category || (v.subject && v.subject.trim().length > 0 && v.message && v.message.trim().length > 0),
         { message: "subject and message are required when category is not given" },
@@ -1223,54 +1216,7 @@ Respond in JSON format:
     )
     .mutation(async ({ input }) => {
       if (input.category) {
-        const allUsers = await db.getAllUsers();
-        const linkedIds = await db.getLinkedSpouseUserIds();
-        const withSpouseInfo = attachLinkedSpouse(allUsers, linkedIds);
-        const matched = selectAudience(withSpouseInfo, {
-          ...(input.audience || {}),
-          [input.category]: true,
-        });
-        const data = { type: "admin_broadcast", category: input.category };
-        // Only `sent` is ever returned (matching the no-category path below,
-        // which also discards broadcastPushNotification's `failed`), so it's
-        // the only field accumulated here.
-        let sent = 0;
-
-        if (input.category === "incompleteChildren") {
-          for (const u of matched) {
-            const t = childProfileTemplate(incompleteChildNames(u));
-            const r = await db.broadcastLocalizedPush(
-              t.title.nl, t.title.en, t.title.ar,
-              t.body.nl, t.body.en, t.body.ar,
-              data, [u.id],
-            );
-            sent += r.sent;
-          }
-        } else if (input.category === "notLinkedSpouse") {
-          const byGender: Record<"man" | "vrouw", number[]> = { man: [], vrouw: [] };
-          for (const u of matched) {
-            const g = recipientGender(u);
-            if (g) byGender[g].push(u.id); // never null here — see note above
-          }
-          for (const gender of ["man", "vrouw"] as const) {
-            if (byGender[gender].length === 0) continue;
-            const t = spouseNotLinkedTemplate(gender);
-            const r = await db.broadcastLocalizedPush(
-              t.title.nl, t.title.en, t.title.ar,
-              t.body.nl, t.body.en, t.body.ar,
-              data, byGender[gender],
-            );
-            sent += r.sent;
-          }
-        } else {
-          const t = input.category === "incompleteAnalytical" ? analyticalProfileTemplate() : personalProfileTemplate();
-          const r = await db.broadcastLocalizedPush(
-            t.title.nl, t.title.en, t.title.ar,
-            t.body.nl, t.body.en, t.body.ar,
-            data, matched.map((u) => u.id),
-          );
-          sent += r.sent;
-        }
+        const { sent } = await sendCategoryBroadcast(input.category, input.audience || {});
         return { success: true, sent, target: input.target };
       }
 
@@ -1287,6 +1233,53 @@ Respond in JSON format:
         userIds,
       );
       return { success: true, sent: result.sent, target: input.target };
+    }),
+
+  /** List recurring broadcast schedules (owner-managed cadence per
+   *  audience category — see server/broadcast-schedule.ts). */
+  listSchedules: adminProcedure.query(async () => {
+    return db.listBroadcastSchedules();
+  }),
+
+  /** Create a recurring broadcast schedule. Starts inactive unless the
+   *  caller explicitly turns it on — same safety default as the seeded
+   *  schedules in drizzle/postgres-broadcast-schedules.sql. */
+  createSchedule: adminProcedure
+    .input(
+      z.object({
+        category: z.enum(BROADCAST_CATEGORIES),
+        cadenceDays: z.number().int().min(1),
+        active: z.boolean().default(false),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await db.createBroadcastSchedule({ ...input, createdBy: ctx.user.id });
+      return { success: true };
+    }),
+
+  /** Update a recurring broadcast schedule's cadence and/or active toggle. */
+  updateSchedule: adminProcedure
+    .input(
+      z.object({
+        id: z.number(),
+        cadenceDays: z.number().int().min(1).optional(),
+        active: z.boolean().optional(),
+      }).refine(
+        (v) => v.cadenceDays !== undefined || v.active !== undefined,
+        { message: "cadenceDays or active is required" },
+      ),
+    )
+    .mutation(async ({ input }) => {
+      const success = await db.updateBroadcastSchedule(input);
+      return { success };
+    }),
+
+  /** Delete a recurring broadcast schedule. */
+  deleteSchedule: adminProcedure
+    .input(z.object({ id: z.number() }))
+    .mutation(async ({ input }) => {
+      const success = await db.deleteBroadcastSchedule(input.id);
+      return { success };
     }),
 
   /** Get system audit log (admin/super_admin only) */

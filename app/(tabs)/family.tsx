@@ -3334,13 +3334,13 @@ export default function FamilyScreen() {
           <ExpandableSection
             title={tx(
               lang,
-              "Activiteit partner",
-              "Partner Activity",
-              "نشاط الشريك/ة",
+              "Dagelijkse activiteit partner",
+              "Partner's Daily Activity",
+              "تفاعل الشريك/ة اليومي",
             )}
             colors={colors}
             isRTL={isRTL}
-            defaultExpanded={false}
+            defaultExpanded={true}
           >
             <View style={{ gap: 10 }}>
               {/* Partner's daily check-in status */}
