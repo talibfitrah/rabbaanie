@@ -42,8 +42,14 @@ vi.mock("@/lib/authed-fetch", () => ({
   authedFetch: (...args: unknown[]) => authedFetch(...args),
 }));
 
-import { defaultAppState } from "@/lib/store";
-import { syncToServer, reconcileEffectiveGender, applyReconciledGender } from "@/lib/app-context";
+import { defaultAppState, isProfileComplete } from "@/lib/store";
+import {
+  syncToServer,
+  reconcileEffectiveGender,
+  applyReconciledGender,
+  mergeServerState,
+  fillParentProfileFromServer,
+} from "@/lib/app-context";
 
 /** Shape of the raw fetch Response profile.save returns over HTTP. */
 function saveResponse(gender: string | null) {
@@ -153,5 +159,134 @@ describe("syncToServer reconciles the server's effective gender", () => {
 
     expect(authedFetch).not.toHaveBeenCalled();
     expect(onGenderReconciled).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * v1.5.8 P0: a user who updated in place (not reinstalled) can have
+ * onboardingCompleted:true locally while their local parentProfile is
+ * missing a field the server has (e.g. gender empty, everything else
+ * filled) — hydrate()'s branch for onboardingCompleted:true never runs the
+ * full server-restore (that's gated behind the opposite branch), and its
+ * background merge used to only recover children/environments/issues/
+ * actionPlans/partnerName, never parentProfile. isProfileComplete() then
+ * stays false forever, so AuthGate force-sends an already-onboarded user
+ * back into onboarding on every launch. These tests cover the recovery:
+ * an empty local parentProfile field is filled from a complete server
+ * profile, without ever overwriting a non-empty local value.
+ */
+describe("fillParentProfileFromServer (recovers empty local parentProfile fields from the server)", () => {
+  const complete = {
+    ...defaultAppState.parentProfile,
+    firstName: "Suhayb",
+    lastName: "X",
+    birthDate: "1985-01-01",
+    country: "Marokko",
+    city: "Tanger",
+    street: "Straat",
+    houseNumber: "1",
+    phoneNumber: "0600000000",
+    gender: "man",
+    maritalStatus: "getrouwd",
+  };
+
+  it("fills an empty local field (gender) from a non-empty server value", () => {
+    const local = { ...complete, gender: "" };
+    const { profile, changed } = fillParentProfileFromServer(local, complete);
+    expect(changed).toBe(true);
+    expect(profile.gender).toBe("man");
+  });
+
+  it("fills every empty local field the server has, not just one", () => {
+    const local = { ...defaultAppState.parentProfile }; // fully empty
+    const { profile, changed } = fillParentProfileFromServer(local, complete);
+    expect(changed).toBe(true);
+    expect(profile.gender).toBe("man");
+    expect(profile.maritalStatus).toBe("getrouwd");
+    expect(profile.firstName).toBe("Suhayb");
+  });
+
+  it("never clobbers a non-empty local value, even when the server disagrees", () => {
+    const local = { ...complete, gender: "vrouw" }; // local disagrees with server's "man"
+    const { profile, changed } = fillParentProfileFromServer(local, complete);
+    expect(profile.gender).toBe("vrouw");
+    expect(changed).toBe(false); // nothing else in this fixture is empty locally
+  });
+
+  it("does not touch partnerName/partnerId — the dedicated partner merge owns those", () => {
+    const local = { ...complete, partnerName: "" };
+    const server = { ...complete, partnerName: "Fatima", partnerId: "abc" };
+    const { profile } = fillParentProfileFromServer(local, server);
+    expect(profile.partnerName).toBe("");
+  });
+
+  it("reports no change and returns the same reference when nothing is missing", () => {
+    const { profile, changed } = fillParentProfileFromServer(complete, complete);
+    expect(changed).toBe(false);
+    expect(profile).toBe(complete);
+  });
+});
+
+describe("mergeServerState (hydrate's background-sync decision)", () => {
+  const completeServerProfile = {
+    ...defaultAppState.parentProfile,
+    firstName: "Suhayb",
+    lastName: "X",
+    birthDate: "1985-01-01",
+    country: "Marokko",
+    city: "Tanger",
+    street: "Straat",
+    houseNumber: "1",
+    phoneNumber: "0600000000",
+    gender: "man",
+    maritalStatus: "getrouwd",
+  };
+  const serverState = {
+    ...defaultAppState,
+    onboardingCompleted: true,
+    parentProfile: completeServerProfile,
+    children: [
+      { id: "c1", name: "Child", birthDate: "2015-01-01", gender: "jongen" as const, profileCompleted: false, laterInvullen: true },
+    ],
+  };
+
+  it("an updating user (onboardingCompleted:true, gender empty locally) lands profile-complete after merge, not stuck in onboarding", () => {
+    const localState = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      // Matches the reported symptom exactly: marital status filled, gender not.
+      parentProfile: { ...completeServerProfile, gender: "" },
+      children: [] as typeof serverState.children,
+    };
+
+    const { state } = mergeServerState(localState, serverState);
+
+    expect(isProfileComplete({ parentProfile: state.parentProfile, children: state.children })).toBe(true);
+  });
+
+  it("does not clobber a locally-set gender with a differing server value", () => {
+    const localState = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeServerProfile, gender: "vrouw" },
+      children: serverState.children,
+    };
+
+    const { state } = mergeServerState(localState, {
+      ...serverState,
+      parentProfile: { ...completeServerProfile, gender: "man" },
+    });
+
+    expect(state.parentProfile.gender).toBe("vrouw");
+  });
+
+  it("a genuine new user (local and server both empty/default) reports no change — still onboards", () => {
+    const localState = { ...defaultAppState }; // onboardingCompleted: false, everything empty
+    const emptyServer = { ...defaultAppState };
+
+    const { changed } = mergeServerState(localState, emptyServer);
+
+    expect(changed).toBe(false);
+    expect(isProfileComplete({ parentProfile: localState.parentProfile, children: localState.children })).toBe(false);
   });
 });

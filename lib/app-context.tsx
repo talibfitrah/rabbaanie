@@ -189,6 +189,165 @@ async function syncFromServer(): Promise<AppState | null> {
   }
 }
 
+/**
+ * Fills empty LOCAL parentProfile string fields (gender, maritalStatus,
+ * firstName, address, …) from the server's copy. A user whose local
+ * onboardingCompleted stays true but whose local parentProfile is missing a
+ * field the server has (e.g. after an app update) fails isProfileComplete
+ * forever and is forced back through onboarding on every launch, even
+ * though the account's data is intact server-side — this is the recovery.
+ * Only fills a field that is EMPTY locally; a non-empty local value always
+ * wins, even over a differing server value, so an edit in flight is never
+ * clobbered. partnerName/partnerId are skipped: the dedicated partner-info
+ * merge in mergeServerState below already owns those two fields.
+ */
+export function fillParentProfileFromServer(
+  local: ParentProfile,
+  server: ParentProfile
+): { profile: ParentProfile; changed: boolean } {
+  let changed = false;
+  const filled: ParentProfile = { ...local };
+  for (const key of Object.keys(server) as (keyof ParentProfile)[]) {
+    if (key === "partnerName" || key === "partnerId") continue;
+    const localValue = local[key];
+    const serverValue = server[key];
+    if (
+      typeof localValue === "string" &&
+      typeof serverValue === "string" &&
+      localValue.trim() === "" &&
+      serverValue.trim() !== ""
+    ) {
+      (filled as any)[key] = serverValue;
+      changed = true;
+    }
+  }
+  return { profile: changed ? filled : local, changed };
+}
+
+/**
+ * Combines a hydrated local AppState with a freshly-fetched server AppState
+ * (see syncFromServer) into what hydrate()'s background sync should persist.
+ * Merges children/environments/issues/actionPlans/partner-info — unchanged
+ * from the inline version this replaces, extracted only so it's unit
+ * testable the same way reconcileEffectiveGender/applyReconciledGender are —
+ * plus recovers any empty local parentProfile field via
+ * fillParentProfileFromServer (see that function for why).
+ */
+export function mergeServerState(
+  localState: AppState,
+  serverState: AppState
+): { state: AppState; changed: boolean } {
+  let changed = false;
+  let updatedState = { ...localState };
+
+  const { profile: filledProfile, changed: profileChanged } = fillParentProfileFromServer(
+    localState.parentProfile,
+    serverState.parentProfile
+  );
+  if (profileChanged) {
+    updatedState = { ...updatedState, parentProfile: filledProfile };
+    changed = true;
+  }
+
+  // Merge children
+  if (serverState.children && serverState.children.length > 0) {
+    const localChildren = localState.children || [];
+    const merged = [...localChildren];
+    for (const sc of serverState.children) {
+      const exists = merged.some(
+        (lc: any) => (lc.name === sc.name && lc.birthDate === sc.birthDate) || lc.id === sc.id
+      );
+      if (!exists) {
+        merged.push(sc);
+      }
+    }
+    if (merged.length > localChildren.length) {
+      updatedState = { ...updatedState, children: merged };
+      changed = true;
+      console.log(`[CloudSync] Merged ${merged.length - localChildren.length} new children from server`);
+    }
+  }
+
+  // Merge environments (from partner via shared DB)
+  if (serverState.environments && serverState.environments.length > 0) {
+    const localEnvs = updatedState.environments || [];
+    const mergedEnvs = [...localEnvs];
+    for (const se of serverState.environments) {
+      if (!se.completed) continue;
+      // Match by childId - server already mapped it to local child ID
+      const hasLocal = mergedEnvs.some(
+        (le: any) => le.childId === se.childId && le.completed
+      );
+      if (!hasLocal) {
+        mergedEnvs.push(se);
+      }
+    }
+    if (mergedEnvs.length > localEnvs.length) {
+      updatedState = { ...updatedState, environments: mergedEnvs };
+      changed = true;
+      console.log(`[CloudSync] Merged ${mergedEnvs.length - localEnvs.length} new environments from server`);
+    }
+  }
+
+  // Merge issues (from partner via shared DB)
+  if (serverState.issues && serverState.issues.length > 0) {
+    const localIssues = updatedState.issues || [];
+    const mergedIssues = [...localIssues];
+    for (const si of serverState.issues) {
+      const exists = mergedIssues.some(
+        (li: any) => li.id === si.id || (li.description === si.description && li.childId === si.childId)
+      );
+      if (!exists) {
+        mergedIssues.push(si);
+      }
+    }
+    if (mergedIssues.length > localIssues.length) {
+      updatedState = { ...updatedState, issues: mergedIssues };
+      changed = true;
+      console.log(`[CloudSync] Merged ${mergedIssues.length - localIssues.length} new issues from server`);
+    }
+  }
+
+  // Merge action plans (from partner via shared DB)
+  if (serverState.actionPlans && serverState.actionPlans.length > 0) {
+    const localPlans = updatedState.actionPlans || [];
+    const mergedPlans = [...localPlans];
+    for (const sp of serverState.actionPlans) {
+      const exists = mergedPlans.some((lp: any) => lp.id === sp.id);
+      if (!exists) {
+        mergedPlans.push(sp);
+      }
+    }
+    if (mergedPlans.length > localPlans.length) {
+      updatedState = { ...updatedState, actionPlans: mergedPlans };
+      changed = true;
+      console.log(`[CloudSync] Merged ${mergedPlans.length - localPlans.length} new action plans from server`);
+    }
+  }
+
+  // Merge partner info from server (authoritative source from partnerships table)
+  if (serverState.parentProfile?.partnerName || serverState.parentProfile?.partnerId) {
+    const localPartnerName = updatedState.parentProfile?.partnerName || "";
+    const localPartnerId = updatedState.parentProfile?.partnerId || "";
+    const serverPartnerName = serverState.parentProfile?.partnerName || "";
+    const serverPartnerId = serverState.parentProfile?.partnerId || "";
+    if ((!localPartnerName && serverPartnerName) || (!localPartnerId && serverPartnerId)) {
+      updatedState = {
+        ...updatedState,
+        parentProfile: {
+          ...updatedState.parentProfile,
+          partnerName: serverPartnerName || localPartnerName,
+          partnerId: serverPartnerId || localPartnerId,
+        },
+      };
+      changed = true;
+      console.log(`[CloudSync] Merged partner info from server: ${serverPartnerName}`);
+    }
+  }
+
+  return { state: updatedState, changed };
+}
+
 // Debounce timer for server sync
 let syncTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -284,104 +443,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Also sync from server in background to merge linked children + environments from partner
           syncFromServer().then((serverState) => {
             if (!serverState) return;
-            let changed = false;
-            let updatedState = { ...localState };
-
-            // Merge children
-            if (serverState.children && serverState.children.length > 0) {
-              const localChildren = localState.children || [];
-              const merged = [...localChildren];
-              for (const sc of serverState.children) {
-                const exists = merged.some(
-                  (lc: any) => (lc.name === sc.name && lc.birthDate === sc.birthDate) || lc.id === sc.id
-                );
-                if (!exists) {
-                  merged.push(sc);
-                }
-              }
-              if (merged.length > localChildren.length) {
-                updatedState = { ...updatedState, children: merged };
-                changed = true;
-                console.log(`[CloudSync] Merged ${merged.length - localChildren.length} new children from server`);
-              }
-            }
-
-            // Merge environments (from partner via shared DB)
-            if (serverState.environments && serverState.environments.length > 0) {
-              const localEnvs = updatedState.environments || [];
-              const mergedEnvs = [...localEnvs];
-              for (const se of serverState.environments) {
-                if (!se.completed) continue;
-                // Match by childId - server already mapped it to local child ID
-                const hasLocal = mergedEnvs.some(
-                  (le: any) => le.childId === se.childId && le.completed
-                );
-                if (!hasLocal) {
-                  mergedEnvs.push(se);
-                }
-              }
-              if (mergedEnvs.length > localEnvs.length) {
-                updatedState = { ...updatedState, environments: mergedEnvs };
-                changed = true;
-                console.log(`[CloudSync] Merged ${mergedEnvs.length - localEnvs.length} new environments from server`);
-              }
-            }
-
-            // Merge issues (from partner via shared DB)
-            if (serverState.issues && serverState.issues.length > 0) {
-              const localIssues = updatedState.issues || [];
-              const mergedIssues = [...localIssues];
-              for (const si of serverState.issues) {
-                const exists = mergedIssues.some(
-                  (li: any) => li.id === si.id || (li.description === si.description && li.childId === si.childId)
-                );
-                if (!exists) {
-                  mergedIssues.push(si);
-                }
-              }
-              if (mergedIssues.length > localIssues.length) {
-                updatedState = { ...updatedState, issues: mergedIssues };
-                changed = true;
-                console.log(`[CloudSync] Merged ${mergedIssues.length - localIssues.length} new issues from server`);
-              }
-            }
-
-            // Merge action plans (from partner via shared DB)
-            if (serverState.actionPlans && serverState.actionPlans.length > 0) {
-              const localPlans = updatedState.actionPlans || [];
-              const mergedPlans = [...localPlans];
-              for (const sp of serverState.actionPlans) {
-                const exists = mergedPlans.some((lp: any) => lp.id === sp.id);
-                if (!exists) {
-                  mergedPlans.push(sp);
-                }
-              }
-              if (mergedPlans.length > localPlans.length) {
-                updatedState = { ...updatedState, actionPlans: mergedPlans };
-                changed = true;
-                console.log(`[CloudSync] Merged ${mergedPlans.length - localPlans.length} new action plans from server`);
-              }
-            }
-
-            // Merge partner info from server (authoritative source from partnerships table)
-            if (serverState.parentProfile?.partnerName || serverState.parentProfile?.partnerId) {
-              const localPartnerName = updatedState.parentProfile?.partnerName || "";
-              const localPartnerId = updatedState.parentProfile?.partnerId || "";
-              const serverPartnerName = serverState.parentProfile?.partnerName || "";
-              const serverPartnerId = serverState.parentProfile?.partnerId || "";
-              if ((!localPartnerName && serverPartnerName) || (!localPartnerId && serverPartnerId)) {
-                updatedState = {
-                  ...updatedState,
-                  parentProfile: {
-                    ...updatedState.parentProfile,
-                    partnerName: serverPartnerName || localPartnerName,
-                    partnerId: serverPartnerId || localPartnerId,
-                  },
-                };
-                changed = true;
-                console.log(`[CloudSync] Merged partner info from server: ${serverPartnerName}`);
-              }
-            }
+            const { state: updatedState, changed } = mergeServerState(localState, serverState);
 
             if (changed) {
               setState(updatedState);
