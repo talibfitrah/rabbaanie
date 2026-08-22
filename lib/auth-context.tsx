@@ -131,6 +131,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const userInfo = await Api.verifySessionToken(token);
     await Auth.markLogoutPending();
     try {
+      // Cached query results are device-global (one "rq_offline_cache" key,
+      // no account scoping — see logout()'s own wipe above) and outlive a
+      // session by up to 7 days. logout() only wipes them when a session
+      // ENDS cleanly through this app; a session that just stops (killed,
+      // backgrounded, token expiry) never calls it, so the stale cache
+      // survives and app/_layout.tsx's restoreQueryCache injects it into the
+      // query client at next launch — before this function, or any auth
+      // check, ever runs. Wiping here as well means a NEW session starts
+      // clean regardless of how the previous one ended, not only when it
+      // ended through logout(). In-memory first, then the persisted copy,
+      // matching logout()'s own order.
+      queryClient.clear();
+      await clearPersistedQueryCache();
       await Auth.setSessionToken(token);
       await Auth.setUserInfo(userInfo);
       await Auth.clearLogoutPending();
@@ -145,7 +158,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(null);
       throw error;
     }
-  }, []);
+  }, [queryClient]);
 
   const isAuthenticated = useMemo(() => Boolean(user), [user]);
 

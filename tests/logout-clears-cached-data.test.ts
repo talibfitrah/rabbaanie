@@ -92,3 +92,41 @@ describe("ending a session wipes cached query data, not just credentials", () =>
     expect(persistence).toContain(`getItem(QUERY_CACHE_KEY)`);
   });
 });
+
+/**
+ * The two paths above only wipe a session that ENDS cleanly through this
+ * app's own logout()/crash-recovery. Neither one runs when a session simply
+ * stops (the app is force-closed, backgrounded and killed by the OS, or the
+ * token just expires) with no logout() call at all — the persisted cache
+ * survives untouched, and restoreQueryCache (app/_layout.tsx, fired once at
+ * app boot, before any auth check) injects it into the query client
+ * regardless of who signs in next.
+ *
+ * completeTokenSignIn (lib/auth-context.tsx) is the ONLY place a session
+ * actually starts — app/login.tsx calls it after both password and Google
+ * sign-in, and app/register.tsx calls it after registration — so it is the
+ * one place a NEW session can guarantee a clean cache regardless of how the
+ * previous one ended. It currently does not: it writes the new token/user
+ * info straight into the existing queryClient, so a stale
+ * links.getPartnerProfile entry from whoever was last signed in on this
+ * device (tRPC's query key carries no user id) is served to the new account
+ * until its own refetch happens to land. On the family screen that entry
+ * carries private fields — gender, and for an ungated husband the wife's
+ * full profile (psychologist notes, children, issues) — shown as if it were
+ * the new account's own partner.
+ *
+ * Same lexical-anchoring approach and same caveat as the block above: this
+ * is a presence check on completeTokenSignIn's own body, not a call-graph
+ * search — extracting the wipe into a shared helper preserves the invariant
+ * but fails this test, and the fix then is to re-point it at the helper.
+ */
+describe("starting a session wipes any stale cached query data left on the device", () => {
+  it("completeTokenSignIn() clears the in-memory cache and the persisted copy before the new session is live", () => {
+    const at = AUTH.indexOf("const completeTokenSignIn = useCallback");
+    expect(at).toBeGreaterThan(-1);
+    const body = blockAfter(AUTH, at);
+
+    expect(body).toMatch(/queryClient\s*\.\s*clear\s*\(/);
+    expect(body).toMatch(/clearPersistedQueryCache\s*\(/);
+  });
+});

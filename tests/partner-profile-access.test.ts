@@ -2359,6 +2359,81 @@ describe("db.getPartnersOfUser / db.getPartnerOfUser (item 1 — multi-partner r
 });
 
 // ============================================================
+// Incident regression (2026-08-22): a wife's family screen showed her OWN
+// gender as her partner's, and an ungated husband's wife's FULL profile did
+// not show. Traced end to end (server routers.ts/db.ts, both this repo and
+// the production snapshot) against the real reported account numbers below —
+// the server-side resolution is correct for this exact data; root cause was
+// client-side (lib/auth-context.tsx's completeTokenSignIn never wiped the
+// device-global query cache before starting a new session — see
+// tests/logout-clears-cached-data.test.ts). Kept as a regression anchor for
+// the real scenario, not a duplicate of the generic gender-gating tests
+// above: those use synthetic ids 1/2, these pin the actual reported
+// ids/genders so a future regression here is caught by name, not just by
+// the general pattern.
+// ============================================================
+describe("db.getPartnerOfUser resolves BOTH directions correctly for the real reported partnership (husband id 1 / wife id 3870001)", () => {
+  beforeEach(() => {
+    process.env.DATABASE_URL = "mysql://incident-2026-08-22-test-only/db";
+    partnershipDb.insert.mockClear();
+    partnershipDb.queue = undefined;
+    partnershipDb.rows = [];
+  });
+
+  it("husband (id 1) resolves to the wife (id 3870001), not to himself", async () => {
+    partnershipDb.queue = [
+      [{ id: 1, userId1: 1, userId2: 3870001, status: "active", confirmed: true }],
+      [{ id: 3870001, name: "Samira", gender: "vrouw", profileData: {}, deletedAt: null }],
+    ];
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const partner = await real.getPartnerOfUser(1);
+
+    expect(partner?.id).toBe(3870001);
+    expect(partner?.gender).toBe("vrouw");
+  });
+
+  it("wife (id 3870001) resolves to the husband (id 1), not to herself", async () => {
+    partnershipDb.queue = [
+      [{ id: 1, userId1: 1, userId2: 3870001, status: "active", confirmed: true }],
+      [{ id: 1, name: "Suhayb", gender: "man", profileData: {}, deletedAt: null }],
+    ];
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+
+    const partner = await real.getPartnerOfUser(3870001);
+
+    expect(partner?.id).toBe(1);
+    expect(partner?.gender).toBe("man");
+  });
+});
+
+describe("links.getPartnerProfile end to end for the real reported partnership (server side was already correct)", () => {
+  it("husband (man, ungated) gets the wife's FULL profile, gendered correctly — never his own", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({ id: 3870001, name: "Samira", gender: "vrouw", partnershipId: 1 }),
+    );
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man", "Suhayb"))
+      .getPartnerProfile();
+    expect(result.access).toBe("full");
+    expect(result.gender).toBe("vrouw");
+    expect(result.id).toBe(3870001);
+  });
+
+  it("wife (vrouw, no grant) gets the husband's gender correctly — never her own", async () => {
+    dbMocks.getPartnerOfUser.mockResolvedValue(
+      partnerRow({ id: 1, name: "Suhayb", gender: "man", partnershipId: 1 }),
+    );
+    const result: any = await linksRouter
+      .createCaller(ctxFor(3870001, "vrouw", "Samira"))
+      .getPartnerProfile();
+    expect(result.access).toBe("restricted");
+    expect(result.gender).toBe("man");
+    expect(result.id).toBe(1);
+  });
+});
+
+// ============================================================
 // Multi-wife (polygyny) foundation — one-husband-at-a-time constraint
 // (item 3), enforced where partnerships are created/confirmed.
 // ============================================================
