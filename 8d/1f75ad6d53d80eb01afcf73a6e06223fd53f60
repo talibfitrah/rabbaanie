@@ -1,0 +1,60 @@
+scripts/send-recurring-broadcasts.ts
+  s_d920963ea6fc87::t_cc56e3aca76548 24,26-29,40-48,50
+  s_d920963ea6fc87::t_66c5f2da90f099 1-5,20-23,25,30-39,56-64
+  s_d920963ea6fc87::t_2ed10c7d6bca24 6-19,49,51-55
+scripts/run-recurring-broadcasts.sh
+  s_d920963ea6fc87::t_8966eecef8692c 1-11
+server/routers.ts
+  s_d920963ea6fc87::t_fc0093a2b0f544 1283-1284
+  s_d920963ea6fc87::t_6511234051af05 49-50,1211,1219,1238-1282
+drizzle/postgres-broadcast-schedules.sql
+  s_d920963ea6fc87::t_349baa7994e02e 1-19,23-39
+  s_d920963ea6fc87::t_10035ffebb30b1 20-22
+drizzle/schema.ts
+  s_d920963ea6fc87::t_6511234051af05 854-862,867-877
+  s_d920963ea6fc87::t_bd821255fdf40c 863-866
+server/db.ts
+  s_d920963ea6fc87::t_6511234051af05 127-128,132,3350-3373,3382-3389,3394-3416
+  s_d920963ea6fc87::t_05e40905cdac7d 3374-3381,3390-3393
+  s_d920963ea6fc87::t_f1c1a24ba1ce2b 3417-3418
+app/(tabs)/family.tsx
+  s_d920963ea6fc87::t_9614a542abba65 3337-3339,3343
+tests/broadcast-schedule-due.test.ts
+  s_d920963ea6fc87::t_028e15223c2cb6 1-49,67
+  s_d920963ea6fc87::t_572796ff255047 50-66
+app/admin/broadcast.tsx
+  s_d920963ea6fc87::t_a7f1eb02a205e0 422-448
+  s_d920963ea6fc87::t_bf820aafae8c70 411-420
+  s_d920963ea6fc87::t_55d57a4d8b6ae5 392
+  s_d920963ea6fc87::t_6511234051af05 169-177,182-225,370-391,393-410,421,449
+  s_d920963ea6fc87::t_749acf6a0cbf9c 178-181
+tests/broadcast-schedule-admin.test.ts
+  s_d920963ea6fc87::t_ccb45202122b5b 1-95
+app/(tabs)/messages.tsx
+  s_d920963ea6fc87::t_d58d4e95c06cd0 869
+server/broadcast-audience.ts
+  s_d920963ea6fc87::t_6511234051af05 34-45
+server/broadcast-schedule.ts
+  s_d920963ea6fc87::t_702a151987f625 29-34
+  s_d920963ea6fc87::t_5e01d286bdc743 21-28,35-42,46
+  s_d920963ea6fc87::t_5728e4affa9440 1-8,14-20,44-45,47
+  s_d920963ea6fc87::t_a98458259d4710 9-13,43
+server/broadcast-send-category.ts
+  s_d920963ea6fc87::t_64bfeb92edd043 1-74
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8d1f75ad6d53d80eb01afcf73a6e06223fd53f60",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
