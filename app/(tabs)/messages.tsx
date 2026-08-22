@@ -37,6 +37,7 @@ import { SpouseVisibilityNotice } from "@/components/form-field";
 import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
+import { toggleProfileAccess } from "@/lib/partner-profile-toggle";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -741,7 +742,9 @@ function MessagesScreenInner() {
   );
 }
 
-function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: string; isRTL: boolean }) {
+function CoParentPermissions({
+  colors, lang, isRTL, coParents,
+}: { colors: any; lang: string; isRTL: boolean; coParents: { id: number }[] }) {
   const familyListQuery = trpc.family.list.useQuery();
   const myFamily = (familyListQuery.data as any[])?.[0];
   const membersQuery = trpc.family.members.useQuery(
@@ -753,10 +756,39 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
     onSuccess: () => membersQuery.refetch(),
   });
 
+  // Husband-only proactive grant/revoke of his OWN profile+check-ins to his
+  // wife (see lib/partner-profile-toggle.ts) — reuses the exact procedures
+  // app/spouse-profile.tsx's reactive request-then-grant flow already calls.
+  // coParents (trpc.links.coParents, the polygyny-aware "links" domain) is
+  // the source of the wife's id here rather than family.members' `other`
+  // below: that's a separate, older membership model this component already
+  // treats as single-wife (`other` is a single `.find`, not `.filter`), and
+  // coParents[0] matches that same assumption while staying in the id space
+  // grantPartnerProfileAccess actually resolves partnerId against.
+  //
+  // Gated on the "vader" role too, computed early (before the
+  // hooks-must-run-unconditionally point below, and reused later as the
+  // sole isFather check — membersQuery isn't needed for the role itself):
+  // the control this backs only ever renders for the husband, so firing it
+  // for the wife's render of this same component would fetch her husband's
+  // full profile (children, issues, dailyCheckins) on a screen where
+  // nothing uses it.
+  const amFather = myFamily?.membership?.role === "vader";
+  const wifePartnerId = coParents[0]?.id;
+  const profileAccessQuery = trpc.links.getPartnerProfile.useQuery(
+    wifePartnerId != null ? { partnerId: wifePartnerId } : undefined,
+    { enabled: !!wifePartnerId && amFather },
+  );
+  const grantProfileAccess = trpc.links.grantPartnerProfileAccess.useMutation({
+    onSuccess: () => profileAccessQuery.refetch(),
+  });
+  const revokeProfileAccess = trpc.links.revokePartnerProfileAccess.useMutation({
+    onSuccess: () => profileAccessQuery.refetch(),
+  });
+
   if (!myFamily || !membersQuery.data) return null;
   const members = membersQuery.data as any[];
   const myUserId = myFamily.membership?.userId;
-  const isFather = myFamily.membership?.role === "vader";
   const activeFather = members.find((m) => m.role === "vader" && !m.stubAccount);
   const other = members.find((m) => m.userId !== myUserId);
   if (!other) return null;
@@ -779,7 +811,7 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
     );
   }
 
-  if (!isFather) {
+  if (!amFather) {
     return (
       <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
@@ -820,6 +852,33 @@ function CoParentPermissions({ colors, lang, isRTL }: { colors: any; lang: strin
           </TouchableOpacity>
         );
       })}
+      {!!wifePartnerId && (
+        <>
+          <View style={{ height: 1, backgroundColor: colors.border, marginTop: 10, marginBottom: 4 }} />
+          <TouchableOpacity
+            onPress={() =>
+              toggleProfileAccess(!!profileAccessQuery.data?.grantedToPartner, wifePartnerId, {
+                grant: grantProfileAccess,
+                revoke: revokeProfileAccess,
+              })
+            }
+            disabled={grantProfileAccess.isPending || revokeProfileAccess.isPending || profileAccessQuery.isLoading}
+            style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
+          >
+            <Text style={{ fontSize: 12, color: colors.foreground }}>
+              {tx(lang, "Toegang tot mijn profiel en dagregistraties", "Access to my profile and check-ins", "الاطلاع على ملفي الشخصي وتسجيلاتي اليومية")}
+            </Text>
+            <View style={{
+              backgroundColor: profileAccessQuery.data?.grantedToPartner ? colors.success + "20" : colors.error + "20",
+              borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10,
+            }}>
+              <Text style={{ fontSize: 11, fontWeight: "700", color: profileAccessQuery.data?.grantedToPartner ? colors.success : colors.error }}>
+                {profileAccessQuery.data?.grantedToPartner ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
+              </Text>
+            </View>
+          </TouchableOpacity>
+        </>
+      )}
     </View>
   );
 }
@@ -1057,7 +1116,7 @@ function ParentsSection({
       </View>
 
       {coParents.length > 0 && (
-        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} />
+        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} coParents={coParents} />
       )}
 
       {/* === CHILDREN SECTION === */}

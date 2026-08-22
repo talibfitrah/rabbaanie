@@ -19,6 +19,20 @@ interface Props {
 }
 
 /**
+ * Turns a stored `answers` array back into the `{ [category]: {label, tone} }`
+ * shape the option list's isSelected check reads — the pre-fill for
+ * reopening an already-answered day to review it. Pulled out as a plain
+ * function so it's assertable without a renderer (none is installed in this
+ * project — see tests/daily-diagnostic-card.test.ts).
+ */
+export function buildReviewSelections(
+  answers: { category: string; label: string; tone: DiagnosticTone }[] | null | undefined,
+): Record<string, { label: string; tone: DiagnosticTone }> {
+  if (!answers) return {};
+  return Object.fromEntries(answers.map((a) => [a.category, { label: a.label, tone: a.tone }]));
+}
+
+/**
  * Once-a-day self check-in (prayer / psychological / physical / children).
  * Replaces guessed spouse advice: these answers — never the partner's raw
  * text, only a category+tone summary — are what the spouse-advice AI reads
@@ -32,6 +46,10 @@ interface Props {
 export function DailyDiagnosticCard({ lang, isRTL }: Props) {
   const utils = trpc.useUtils();
   const [started, setStarted] = useState(false);
+  // Tapping the answered "done" card opens this back up to review the day's
+  // answers — never a new fetch/generation (todayQuery stays driven by
+  // `started`/its own cache; this flag only switches which JSX renders).
+  const [reviewing, setReviewing] = useState(false);
   const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang }, { enabled: started });
   const submitMutation = trpc.dailyDiagnostic.submitAnswers.useMutation({
     onSuccess: () => utils.dailyDiagnostic.getToday.invalidate(),
@@ -64,6 +82,17 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     : "";
   useEffect(() => {
     setSelected({});
+    // Same overnight-mount hazard the comment above already guards
+    // `selected` against, one layer up: if the card was left open in review
+    // mode (reviewing=true) and the day rolls over while still mounted, the
+    // NEW day's fresh answers=null content lands here too. Nothing in this
+    // effect resets `reviewing` on its own — a signature change is exactly
+    // the marker that whatever was being reviewed no longer matches what's
+    // on screen, so this is also the point that must clear it. Left unset,
+    // reviewing would still read true once the user later submits THIS new
+    // day's answers, skipping straight past the compact "done" card to the
+    // locked review view for a submission that just happened.
+    setReviewing(false);
   }, [questionsSignature]);
 
   // A disabled useQuery still hands back whatever the query cache already
@@ -132,9 +161,12 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
 
   const { date, questions, answers, source } = data;
 
-  if (answers) {
+  if (answers && !reviewing) {
     return (
-      <View style={[s.doneCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <Pressable
+        onPress={() => setReviewing(true)}
+        style={({ pressed }) => [s.doneCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+      >
         <MaterialIcons name="check-circle" size={16} color="#1B4332" />
         <Text style={[s.doneText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
           {/* Deliberately distinct from index.tsx's own check-in completion text
@@ -142,17 +174,42 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
               back to back and must not look like a duplicated/glitched string. */}
           {tx(lang, "Extra dagregistratie voltooid", "Extra daily entry completed", "تمت إضافة بيانات اليوم")}
         </Text>
-      </View>
+        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
+      </Pressable>
     );
   }
 
-  const allAnswered = questions.every((q) => !!selected[q.category]);
+  // Reached two ways: filling in today's not-yet-answered check-in (answers
+  // is null), or reviewing an already-answered one (answers is non-null and
+  // reviewing is true — the only way past the early return above). Answers
+  // are final once submitted (server/daily-diagnostic.ts submitAnswers
+  // rejects any second submission for the same day, by design — the
+  // spouse-advice signal may already have been read from it), so review mode
+  // shows the prior selections locked rather than offering a submit that the
+  // server would always reject.
+  const reviewSelections = answers ? buildReviewSelections(answers) : null;
+  const locked = !!reviewSelections;
+  const activeSelections = locked ? reviewSelections! : selected;
+  const allAnswered = questions.every((q) => !!activeSelections[q.category]);
 
   return (
     <View style={s.section}>
-      <Text style={[s.title, { textAlign: lang === "ar" ? "right" : "left" }]}>
-        {tx(lang, "Hoe was uw dag vandaag?", "How was your day today?", "كيف كان يومك اليوم؟")}
-      </Text>
+      {locked ? (
+        <Pressable
+          onPress={() => setReviewing(false)}
+          style={({ pressed }) => [s.reviewHeader, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
+        >
+          <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />
+          <MaterialIcons name="check-circle" size={16} color="#1B4332" />
+          <Text style={[s.title, { marginBottom: 0 }]}>
+            {tx(lang, "Uw antwoorden van vandaag", "Your answers today", "إجاباتك اليوم")}
+          </Text>
+        </Pressable>
+      ) : (
+        <Text style={[s.title, { textAlign: lang === "ar" ? "right" : "left" }]}>
+          {tx(lang, "Hoe was uw dag vandaag?", "How was your day today?", "كيف كان يومك اليوم؟")}
+        </Text>
+      )}
       {/* Said before answering, not only in a source comment. These answers
           cover prayer, psychological and physical state, and they feed the
           advice the OTHER spouse receives — a secondary use of sensitive data
@@ -160,29 +217,32 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
           point of collection. Wording matches what actually leaves: a coarse
           category+tone summary, never the typed text (see
           server/daily-diagnostic.ts summarizeSignals). */}
-      <Text style={[s.notice, { textAlign: lang === "ar" ? "right" : "left" }]}>
-        {tx(
-          lang,
-          "Uw antwoorden helpen het advies voor uw partner — alleen als samenvatting, nooit uw eigen tekst.",
-          "Your answers help shape the advice your partner receives — as a summary only, never your own words.",
-          "تساعد إجاباتك في تشكيل النصيحة التي يتلقاها شريكك — كملخّص فقط، دون نصّك الخاص.",
-        )}
-      </Text>
+      {!locked && (
+        <Text style={[s.notice, { textAlign: lang === "ar" ? "right" : "left" }]}>
+          {tx(
+            lang,
+            "Uw antwoorden helpen het advies voor uw partner — alleen als samenvatting, nooit uw eigen tekst.",
+            "Your answers help shape the advice your partner receives — as a summary only, never your own words.",
+            "تساعد إجاباتك في تشكيل النصيحة التي يتلقاها شريكك — كملخّص فقط، دون نصّك الخاص.",
+          )}
+        </Text>
+      )}
       {questions.map((q) => (
         <View key={q.category} style={s.card}>
           <Text style={[s.question, { textAlign: lang === "ar" ? "right" : "left" }]}>{q.text}</Text>
           <View style={s.options}>
             {q.options.map((opt) => {
-              const isSelected = selected[q.category]?.label === opt.label;
+              const isSelected = activeSelections[q.category]?.label === opt.label;
               return (
                 <Pressable
                   key={opt.label}
-                  onPress={() => setSelected((prev) => ({ ...prev, [q.category]: { label: opt.label, tone: opt.tone } }))}
+                  disabled={locked}
+                  onPress={locked ? undefined : () => setSelected((prev) => ({ ...prev, [q.category]: { label: opt.label, tone: opt.tone } }))}
                   style={({ pressed }) => [
                     s.option,
                     { flexDirection: isRTL ? "row-reverse" : "row" },
                     isSelected && s.optionSelected,
-                    pressed && { opacity: 0.7 },
+                    pressed && !locked && { opacity: 0.7 },
                   ]}
                 >
                   <View style={[s.radio, isSelected && s.radioSelected]}>
@@ -209,27 +269,43 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
           surface="daily-diagnostic"
         />
       )}
-      <Pressable
-        disabled={!allAnswered || submitMutation.isPending}
-        onPress={() =>
-          submitMutation.mutate({
-            date,
-            answers: questions.map((q) => ({ category: q.category, ...selected[q.category]! })),
-          })
-        }
-        style={({ pressed }) => [
-          s.submitBtn,
-          (!allAnswered || submitMutation.isPending) && s.submitBtnDisabled,
-          pressed && allAnswered && { opacity: 0.8 },
-        ]}
-      >
-        <MaterialIcons name="check-circle" size={18} color={allAnswered ? "#FFFFFF" : "#9CA3AF"} />
-        <Text style={[s.submitText, !allAnswered && s.submitTextDisabled]}>{tx(lang, "Beantwoord", "Submit", "إرسال")}</Text>
-      </Pressable>
-      {submitMutation.isError && (
-        <Text style={[s.errorText, { textAlign: lang === "ar" ? "right" : "left" }]}>
-          {tx(lang, "Verzenden mislukt, probeer opnieuw", "Failed to send, please try again", "تعذّر الإرسال، حاول مرة أخرى")}
-        </Text>
+      {locked ? (
+        <View style={[s.lockedNotice, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <MaterialIcons name="lock-outline" size={14} color="#52796F" />
+          <Text style={[s.lockedNoticeText, { textAlign: lang === "ar" ? "right" : "left" }]}>
+            {tx(
+              lang,
+              "Al beantwoord vandaag — kan niet meer worden gewijzigd.",
+              "Already answered today — can no longer be changed.",
+              "تمت الإجابة اليوم بالفعل — لا يمكن تغييرها بعد الآن.",
+            )}
+          </Text>
+        </View>
+      ) : (
+        <>
+          <Pressable
+            disabled={!allAnswered || submitMutation.isPending}
+            onPress={() =>
+              submitMutation.mutate({
+                date,
+                answers: questions.map((q) => ({ category: q.category, ...selected[q.category]! })),
+              })
+            }
+            style={({ pressed }) => [
+              s.submitBtn,
+              (!allAnswered || submitMutation.isPending) && s.submitBtnDisabled,
+              pressed && allAnswered && { opacity: 0.8 },
+            ]}
+          >
+            <MaterialIcons name="check-circle" size={18} color={allAnswered ? "#FFFFFF" : "#9CA3AF"} />
+            <Text style={[s.submitText, !allAnswered && s.submitTextDisabled]}>{tx(lang, "Beantwoord", "Submit", "إرسال")}</Text>
+          </Pressable>
+          {submitMutation.isError && (
+            <Text style={[s.errorText, { textAlign: lang === "ar" ? "right" : "left" }]}>
+              {tx(lang, "Verzenden mislukt, probeer opnieuw", "Failed to send, please try again", "تعذّر الإرسال، حاول مرة أخرى")}
+            </Text>
+          )}
+        </>
       )}
     </View>
   );
@@ -304,4 +380,15 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   doneText: { flex: 1, fontSize: 14, fontWeight: "600", color: "#1B4332" },
+  reviewHeader: { alignItems: "center", gap: 8, marginBottom: 4 },
+  lockedNotice: {
+    alignItems: "center",
+    gap: 8,
+    backgroundColor: "#F3F4F6",
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    marginTop: 4,
+  },
+  lockedNoticeText: { flex: 1, fontSize: 12, fontWeight: "600", color: "#52796F" },
 });
