@@ -8,6 +8,7 @@ import { TRPCError } from "@trpc/server";
 import { router, protectedProcedure } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
+import { NAME_FIDELITY_RULE } from "./name-fidelity";
 
 function notFound(): never {
   // Do not reveal whether another family owns the requested record.
@@ -411,7 +412,8 @@ REGELS:
 - Als je Arabische termen gebruikt, geef dan altijd de Nederlandse uitleg erbij
 - Gebruik NOOIT westerse psychologische of filosofische termen. Gebruik alleen islamitische terminologie.
 - Schrijf "Allaah" in plaats van "Allah" en "Salaah" in plaats van "Salah"
-- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.`;
+- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${NAME_FIDELITY_RULE.nl}`;
 
       // Build messages for LLM
       const llmMessages: any[] = [
@@ -658,7 +660,8 @@ REGELS:
 - Gebruik islamitische terminologie: tarbiyah, adab, tawbah, sabr, shukr, tawakkul, etc.
 - Schrijf "Allaah" in plaats van "Allah" en "Salaah" in plaats van "Salah"
 - Antwoord in het Nederlands tenzij anders gevraagd
-- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.`;
+- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${NAME_FIDELITY_RULE.nl}`;
       } else {
         // Spouse consultation
         const spouseGender =

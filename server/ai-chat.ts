@@ -29,6 +29,7 @@ import { router, publicProcedure } from "./_core/trpc";
 import { ownsConsultation } from "./consultation-ownership";
 import { invokeAI, invokeAIChat, getAIProviderStatus, type AIMessage as ProviderMessage } from "./ai-provider";
 import { getOwnCheckinContext } from "./daily-diagnostic";
+import { NAME_FIDELITY_RULE } from "./name-fidelity";
 
 // ============================================================
 // SYSTEM PROMPTS
@@ -100,7 +101,9 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
 
-REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.`,
+REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+${NAME_FIDELITY_RULE.nl}`,
 
   ar: `أنت مستشار تربوي إسلامي متخصص في برنامج "علم الأسرة الإسلامي".
 
@@ -238,7 +241,9 @@ REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafrasee
 - لا تستخدم النجوم (**) أو أي رموز تنسيق. اجعل النص نظيفًا وواضحًا.
 - لا تستخدم أرقامًا بدل الحروف العربية (لا تكتب 3 بدل ع).
 
-قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.`,
+قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
+
+${NAME_FIDELITY_RULE.ar}`,
 
   en: `You are an Islamic parenting advisor specialized in the "Islamic Family Science" program.
 
@@ -306,7 +311,9 @@ Always respond in English.
 Be warm, encouraging but also honest and direct.
 Use Qur'aan and Sunnah as the basis for every advice.
 
-SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.`,
+SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+${NAME_FIDELITY_RULE.en}`,
 };
 
 // ============================================================
@@ -411,11 +418,16 @@ export const aiChatRouter = router({
       
       if (input.consultationType === "spouse") {
         // Spouse consultation - add marriage-specific context
+        // Never interpolate the spouse's name here (getSpouseAdvice precedent,
+        // server/advice.ts): this is a bare identification clause the model
+        // never needs to reconstruct sentences around, so dropping it removes
+        // a mis-transliteration risk for free instead of relying on the
+        // name-fidelity rule to catch it downstream.
         const spousePromptAddition = lang === "ar"
-          ? `\n\n=== استشارة زوجية ===\nهذه استشارة حول العلاقة الزوجية. المستشير ${input.parentGender === "male" ? "زوج (رجل)" : "زوجة (امرأة)"}. اسم ${input.parentGender === "male" ? "الزوجة" : "الزوج"}: ${input.childName || "غير محدد"}.\n\nقواعد الاستشارة الزوجية:\n- استخدم القرآن والسنة في كل نصيحة\n- ذكّر بحقوق كل طرف وواجباته\n- المعاشرة بالمعروف أساس\n- الصبر والرفق والحكمة\n- لا تنحز لطرف على حساب الآخر\n- الهدف هو رضا الله واستقرار الأسرة\n- اسأل سؤالاً واحداً في كل رسالة للتشخيص\n- قدّم حلولاً عملية مبنية على الكتاب والسنة`
+          ? `\n\n=== استشارة زوجية ===\nهذه استشارة حول العلاقة الزوجية. المستشير ${input.parentGender === "male" ? "زوج (رجل)" : "زوجة (امرأة)"}.\n\nقواعد الاستشارة الزوجية:\n- استخدم القرآن والسنة في كل نصيحة\n- ذكّر بحقوق كل طرف وواجباته\n- المعاشرة بالمعروف أساس\n- الصبر والرفق والحكمة\n- لا تنحز لطرف على حساب الآخر\n- الهدف هو رضا الله واستقرار الأسرة\n- اسأل سؤالاً واحداً في كل رسالة للتشخيص\n- قدّم حلولاً عملية مبنية على الكتاب والسنة`
           : lang === "en"
-            ? `\n\n=== Spousal Consultation ===\nThis is a consultation about the marital relationship. The consultant is a ${input.parentGender === "male" ? "husband (man)" : "wife (woman)"}. ${input.parentGender === "male" ? "Wife" : "Husband"}'s name: ${input.childName || "not specified"}.\n\nMarital consultation rules:\n- Use Qur'aan and Sunnah in every advice\n- Remind of each party's rights and obligations\n- Good companionship (mu3aasharah bil-ma3roof) is the foundation\n- Patience, gentleness, and wisdom\n- Do not side with one party against the other\n- The goal is Allaah's pleasure and family stability\n- Ask ONE question per message for diagnosis\n- Provide practical solutions based on the Book and Sunnah`
-            : `\n\n=== Huwelijksadvies ===\nDit is een consultatie over de huwelijksrelatie. De raadpleger is een ${input.parentGender === "male" ? "echtgenoot (man)" : "echtgenote (vrouw)"}. Naam van ${input.parentGender === "male" ? "de echtgenote" : "de echtgenoot"}: ${input.childName || "niet opgegeven"}.\n\nRegels huwelijksadvies:\n- Gebruik Qur'aan en Soennah bij elk advies\n- Herinner aan de rechten en plichten van beide partijen\n- Goed samenleven (mu3aasharah bil-ma3roef) is de basis\n- Geduld, zachtheid en wijsheid\n- Kies geen partij ten koste van de ander\n- Het doel is Allaah's tevredenheid en gezinsstabiliteit\n- Stel ÉÉN vraag per bericht voor diagnose\n- Geef praktische oplossingen gebaseerd op het Boek en de Soennah`;
+            ? `\n\n=== Spousal Consultation ===\nThis is a consultation about the marital relationship. The consultant is a ${input.parentGender === "male" ? "husband (man)" : "wife (woman)"}.\n\nMarital consultation rules:\n- Use Qur'aan and Sunnah in every advice\n- Remind of each party's rights and obligations\n- Good companionship (mu3aasharah bil-ma3roof) is the foundation\n- Patience, gentleness, and wisdom\n- Do not side with one party against the other\n- The goal is Allaah's pleasure and family stability\n- Ask ONE question per message for diagnosis\n- Provide practical solutions based on the Book and Sunnah`
+            : `\n\n=== Huwelijksadvies ===\nDit is een consultatie over de huwelijksrelatie. De raadpleger is een ${input.parentGender === "male" ? "echtgenoot (man)" : "echtgenote (vrouw)"}.\n\nRegels huwelijksadvies:\n- Gebruik Qur'aan en Soennah bij elk advies\n- Herinner aan de rechten en plichten van beide partijen\n- Goed samenleven (mu3aasharah bil-ma3roef) is de basis\n- Geduld, zachtheid en wijsheid\n- Kies geen partij ten koste van de ander\n- Het doel is Allaah's tevredenheid en gezinsstabiliteit\n- Stel ÉÉN vraag per bericht voor diagnose\n- Geef praktische oplossingen gebaseerd op het Boek en de Soennah`;
         enrichedPrompt += spousePromptAddition;
       } else if (input.childName || input.childAge) {
         const childInfo = lang === "ar"
@@ -491,11 +503,13 @@ export const aiChatRouter = router({
 
       // Enrich system prompt based on consultation type
       if (input.consultationType === "spouse") {
+        // Same drop as startConversation above — never interpolate the
+        // spouse's name (getSpouseAdvice precedent, server/advice.ts).
         const spouseCtx = lang === "ar"
-          ? `\n\n=== استشارة زوجية ===\nالمستشير ${input.parentGender === "male" ? "زوج" : "زوجة"}. اسم ${input.parentGender === "male" ? "الزوجة" : "الزوج"}: ${input.childName || "غير محدد"}.`
+          ? `\n\n=== استشارة زوجية ===\nالمستشير ${input.parentGender === "male" ? "زوج" : "زوجة"}.`
           : lang === "en"
-            ? `\n\n=== Spousal Consultation ===\nConsultant is a ${input.parentGender === "male" ? "husband" : "wife"}. ${input.parentGender === "male" ? "Wife" : "Husband"}'s name: ${input.childName || "not specified"}.`
-            : `\n\n=== Huwelijksadvies ===\nRaadpleger is een ${input.parentGender === "male" ? "echtgenoot" : "echtgenote"}. Naam van ${input.parentGender === "male" ? "echtgenote" : "echtgenoot"}: ${input.childName || "niet opgegeven"}.`;
+            ? `\n\n=== Spousal Consultation ===\nConsultant is a ${input.parentGender === "male" ? "husband" : "wife"}.`
+            : `\n\n=== Huwelijksadvies ===\nRaadpleger is een ${input.parentGender === "male" ? "echtgenoot" : "echtgenote"}.`;
         systemPrompt += spouseCtx;
       } else if (input.childName || input.childAge) {
         const childInfo = lang === "ar"

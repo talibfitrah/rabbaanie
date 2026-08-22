@@ -3,6 +3,7 @@ import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
 import { summarizeSignals, buildPartnerSignalContext, getOwnCheckinContext } from "./daily-diagnostic";
+import { NAME_FIDELITY_RULE } from "./name-fidelity";
 import * as fs from "fs";
 import * as path from "path";
 import { fileURLToPath } from "url";
@@ -1094,6 +1095,7 @@ export const adviceRouter = router({
 - لا تقل "تصفية الطفل" بل قل "التصفية لـ [اسم الطفل]".
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا بدون رموز.
 - قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
+- ${NAME_FIDELITY_RULE.ar}
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا.
 
 قواعد المدح والتشجيع (صارمة):
@@ -1137,6 +1139,8 @@ TRANSLITERATION RULES (ALWAYS apply):
 - Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
 
 SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+${NAME_FIDELITY_RULE.en}
 
 FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
@@ -1183,6 +1187,8 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
 
 REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+${NAME_FIDELITY_RULE.nl}
 
 OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
@@ -1668,6 +1674,7 @@ ${mawsouahContext}
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا وواضحًا بدون أي رموز.
 - لا تستخدم النقطتين المزدوجتين (**المساء:**) أو أي شكل من أشكال bold/italic.
 - قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
+- ${NAME_FIDELITY_RULE.ar}
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا بعناوين مضبوطة.` : isEn ? `You are an Islamic parenting advisor specialized in the "Islamic Family Science" program (Feb 2022 - June 2025).
 
 METHODOLOGY (from the primary source):
@@ -1733,6 +1740,8 @@ TRANSLITERATION RULES (ALWAYS apply):
 - Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
 
 SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+${NAME_FIDELITY_RULE.en}
 
 FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
@@ -1806,6 +1815,8 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
 
 REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+${NAME_FIDELITY_RULE.nl}
 
 OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
@@ -2046,6 +2057,7 @@ ${hasEnv ? `=== معلومات بيئة الطفل المتوفرة ===\n${envIn
 - لا يقبل إجابة "نعم/لا" فقط بل يتطلب شرحاً مفصلاً
 - ابدأ بالسؤال عن مكان الإشكال: هل هو في عقل الطفل (تفكيره ومعتقداته) أم قلبه (مشاعره وتعلقه بالله) أم لسانه أم جوارحه
 - اكتب بالعربية الفصحى فقط. لا تستخدم أي كلمة هولندية أو إنجليزية.
+- ${NAME_FIDELITY_RULE.ar}
 
 أعد JSON object بمفتاح "question" يحتوي على السؤال الأول فقط.`
           : isEn
@@ -2062,6 +2074,7 @@ Rules:
 - Must be direct and specific
 - Cannot be answered with just "yes/no" - requires detailed explanation
 - Start by asking where the problem lies: child's mind (thinking/beliefs), heart (feelings/connection to Allah), tongue, or limbs
+- ${NAME_FIDELITY_RULE.en}
 
 Return a JSON object with key "question" containing only the first question.`
           : `Je bent een islamitische opvoedingsadviseur gespecialiseerd in geleidelijke diagnose. Een ouder beschrijft een probleem met hun kind "${input.childName}" (${input.childAge}):
@@ -2077,6 +2090,7 @@ Regels:
 - Moet direct en specifiek zijn
 - Kan niet met alleen "ja/nee" beantwoord worden - vereist gedetailleerde uitleg
 - Begin met vragen waar het probleem zit: verstand (denken/overtuigingen), hart (gevoelens/band met Allah), tong, of ledematen
+- ${NAME_FIDELITY_RULE.nl}
 
 Retourneer een JSON object met sleutel "question" met alleen de eerste vraag.`;
 
@@ -2141,6 +2155,7 @@ ${prevQA}
 - السؤال يجب أن يكون مباشراً ولا يقبل "نعم/لا" فقط بل يتطلب شرحاً مفصلاً
 - هدفك النهائي: الوصول إلى جذر المشكلة بشكل قاطع (ليس احتمالات)
 - اكتب بالعربية الفصحى فقط. لا تستخدم أي كلمة هولندية أو إنجليزية.
+- ${NAME_FIDELITY_RULE.ar}
 
 أعد JSON object بمفتاح "question" يحتوي على السؤال فقط.`
           : isEn
@@ -2159,6 +2174,7 @@ Rules:
 - The new question MUST reference what the parent said (start with "You mentioned that..." or "Since you said...")
 - Don't repeat previously asked questions
 - The question should reveal a cause, context, or relationship not yet uncovered
+- ${NAME_FIDELITY_RULE.en}
 
 Return a JSON object with key "question" containing only the question.`
           : `Je bent een islamitische opvoedingsadviseur gespecialiseerd in diagnose. Een ouder beschrijft een probleem met hun kind "${input.childName}" (${input.childAge}):
@@ -2176,6 +2192,7 @@ Regels:
 - De nieuwe vraag MOET verwijzen naar wat de ouder zei (begin met "U noemde dat..." of "Aangezien u zei...")
 - Herhaal geen eerder gestelde vragen
 - De vraag moet een oorzaak, context of relatie onthullen die nog niet is ontdekt
+- ${NAME_FIDELITY_RULE.nl}
 
 Retourneer een JSON object met sleutel "question" met alleen de vraag.`;
 
@@ -2219,6 +2236,8 @@ ${allQA}
 - هل نعرف دور الوالد في المشكلة؟
 - هل نعرف البيئة المحيطة وتأثيرها؟
 
+${NAME_FIDELITY_RULE.ar}
+
 إذا كانت المعلومات كافية: أعد {"rootCauseFound": true, "rootCause": "وصف مختصر لجذر المشكلة"}
 إذا كانت غير كافية: أعد {"rootCauseFound": false, "missingInfo": "ما الذي نحتاج معرفته بعد", "nextQuestion": "سؤال واحد يكشف المعلومة المفقودة"}`
           : isEn
@@ -2236,6 +2255,8 @@ Sufficiency criteria:
 - Do we know the parent's role in the problem?
 - Do we know the surrounding environment and its influence?
 
+${NAME_FIDELITY_RULE.en}
+
 If sufficient: return {"rootCauseFound": true, "rootCause": "brief description of root cause"}
 If insufficient: return {"rootCauseFound": false, "missingInfo": "what we still need to know", "nextQuestion": "one question to uncover the missing info"}`
           : `Je bent een islamitische opvoedingsadviseur gespecialiseerd in diagnose. Een ouder beschrijft een probleem met hun kind "${input.childName}" (${input.childAge}):
@@ -2251,6 +2272,8 @@ Criteria:
 - Kennen we de echte oorzaak achter het gedrag (niet alleen symptomen)?
 - Kennen we de rol van de ouder in het probleem?
 - Kennen we de omgeving en haar invloed?
+
+${NAME_FIDELITY_RULE.nl}
 
 Als voldoende: return {"rootCauseFound": true, "rootCause": "korte beschrijving"}
 Als onvoldoende: return {"rootCauseFound": false, "missingInfo": "wat we nog moeten weten", "nextQuestion": "één vraag om de ontbrekende info te onthullen"}`;
@@ -2369,6 +2392,7 @@ ${mawsouahContext}
 - لا تقل "تصفية الطفل" بل قل "التصفية لـ [اسم الطفل]".
 - لا تستخدم النجوم (**) أو أي رموز تنسيق (markdown). اجعل النص نظيفًا بدون رموز.
 - قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
+- ${NAME_FIDELITY_RULE.ar}
 - رتّب المحتوى ترتيبًا منطقيًا واضحًا.` : isEn ? `You are an Islamic parenting advisor and therapist specialized in the "Islamic Family Science" program (Feb 2022 - June 2025).
 
 METHODOLOGY (from the primary source):
@@ -2424,6 +2448,8 @@ TRANSLITERATION RULES (ALWAYS apply):
 - Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa). Where the context provided above already gives a term's own wording, use that exact wording.
 
 SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+${NAME_FIDELITY_RULE.en}
 
 FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
@@ -2487,6 +2513,8 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa'). Geeft de context hierboven al de eigen bewoording van een term, gebruik die bewoording.
 
 REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+${NAME_FIDELITY_RULE.nl}
 
 OPMAAK: Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 
@@ -3220,6 +3248,7 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
 - لا تستخدم أي حروف لاتينية أو رموز تنسيق
 - اكتب "الله" وليس "Allaah"
 - قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
+- ${NAME_FIDELITY_RULE.ar}
 
 أجب بصيغة JSON فقط:
 {"tips": ["نصيحة 1", "نصيحة 2", ...]}`
@@ -3239,6 +3268,7 @@ Rules:
 - Always use the established transliterated Islamic term (e.g. du'aa, dhikr, salaah, adhkaar, Sunnah, tawheed) — never a loose, colloquial, or diminutive rendering (e.g. never "little prayer" for adhkaar or du'aa).
 - Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 - SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+- ${NAME_FIDELITY_RULE.en}
 
 Respond in JSON only:
 {"tips": ["tip 1", "tip 2", ...]}`
@@ -3258,6 +3288,7 @@ Regels:
 - Gebruik altijd de vaste getranslitereerde islamitische term (bijv. du3aa', dhikr, salaah, adhkaar, Soennah, tawhied) — nooit een losse, informele of verkleinwoordvorm (bijv. nooit "gebedje" of "slaapgebedje" voor adhkaar of du3aa').
 - Gebruik geen sterretjes (**) of andere opmaaksymbolen (markdown). Houd de tekst schoon, zonder symbolen.
 - REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${NAME_FIDELITY_RULE.nl}
 
 Antwoord alleen in JSON:
 {"tips": ["tip 1", "tip 2", ...]}`;
