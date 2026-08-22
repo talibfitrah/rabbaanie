@@ -137,26 +137,6 @@ export default function SpouseProfileScreen() {
       );
     },
   });
-  // Ends one specific partnership (owner's ruling: a man may have multiple
-  // wives, so separation must target a partnershipId, not "the" partner).
-  const dissolvePartnerMutation = trpc.links.dissolvePartner.useMutation({
-    onSuccess: () => {
-      listPartnersQuery.refetch();
-      router.back();
-    },
-    onError: (err: any) => {
-      Alert.alert(
-        tx(lang, "Mislukt", "Failed", "فشلت العملية"),
-        err?.message ||
-          tx(
-            lang,
-            "Kon de verbintenis niet verbreken.",
-            "Could not end the partnership.",
-            "تعذّر إنهاء هذه الشراكة.",
-          ),
-      );
-    },
-  });
 
   const data = partnerProfileQuery.data;
   // Narrowed once here so every full-only-field read below goes through a
@@ -176,44 +156,6 @@ export default function SpouseProfileScreen() {
   // as "my gender is missing", matching today's needsGender behavior.
   const needsMyGender = restrictedData?.needsMyGender ?? !!restrictedData?.needsGender;
   const needsPartnerGender = restrictedData?.needsPartnerGender ?? false;
-
-  // The partnership backing whichever profile is currently on screen —
-  // matched by user id (not selectedPartnerId) so this also resolves for
-  // the single-partner case, where selectedPartnerId stays null and the
-  // server picks the partner on its own.
-  // partnershipId 0 means the shared-children fallback surfaced this co-parent
-  // without any partnerships row existing (it deliberately writes nothing —
-  // see getPartnersOfUser). There is nothing to dissolve, and dissolvePartner
-  // would match no row and throw FORBIDDEN, so the destructive control must not
-  // be offered at all: an alarming "cannot be easily undone" dialog followed by
-  // a failure alert, every time. Fails closed the same way canRequest already
-  // does for this case.
-  const currentPartnership = partners.find(
-    (p) => p.id === data?.id && p.partnershipId > 0,
-  );
-
-  function confirmDissolvePartnership() {
-    if (!currentPartnership) return;
-    const name = data?.name || partnerName;
-    Alert.alert(
-      tx(lang, "Verbintenis verbreken?", "End partnership?", "هل تريد إنهاء هذه الشراكة؟"),
-      tx(
-        lang,
-        `Dit beëindigt de verbintenis met ${name}. Deze persoon verliest toegang tot uw profiel en dit kan niet eenvoudig ongedaan worden gemaakt.`,
-        `This ends the partnership with ${name}. They will lose access to your profile, and this cannot be easily undone.`,
-        `سينهي هذا الشراكة مع ${name}. سيفقد هذا الشخص إمكانية الاطلاع على ملفك، ولا يمكن التراجع عن ذلك بسهولة.`,
-      ),
-      [
-        { text: tx(lang, "Annuleren", "Cancel", "إلغاء"), style: "cancel" },
-        {
-          text: tx(lang, "Verbreken", "End it", "إنهاء"),
-          style: "destructive",
-          onPress: () =>
-            dissolvePartnerMutation.mutate({ partnershipId: currentPartnership.partnershipId }),
-        },
-      ],
-    );
-  }
 
   // Chip row for switching which spouse this screen shows. Renders nothing
   // for the overwhelmingly common single-partner case — the screen must
@@ -266,41 +208,6 @@ export default function SpouseProfileScreen() {
           );
         })}
       </View>
-    );
-  }
-
-  // Destructive "end this partnership" action. Renders nothing until
-  // listPartners has resolved the current partner's partnershipId — so it
-  // silently stays absent (today's behaviour: no such control exists yet)
-  // rather than rendering a button it can't actually wire up.
-  function renderDissolveAction() {
-    if (!currentPartnership) return null;
-    return (
-      <Pressable
-        onPress={confirmDissolvePartnership}
-        disabled={dissolvePartnerMutation.isPending}
-        style={({ pressed }) => [
-          {
-            marginHorizontal: 16,
-            marginTop: 8,
-            marginBottom: 24,
-            alignItems: "center",
-            paddingVertical: 10,
-            opacity: pressed || dissolvePartnerMutation.isPending ? 0.6 : 1,
-          },
-        ]}
-      >
-        <Text style={{ color: colors.error, fontSize: 12, fontWeight: "600" }}>
-          {dissolvePartnerMutation.isPending
-            ? tx(lang, "Bezig...", "Working...", "جارٍ التنفيذ...")
-            : tx(
-                lang,
-                "Verbintenis met deze partner verbreken",
-                "End partnership with this spouse",
-                "إنهاء الشراكة مع هذا الشريك/ة",
-              )}
-        </Text>
-      </Pressable>
     );
   }
 
@@ -476,7 +383,6 @@ export default function SpouseProfileScreen() {
             </Text>
           )}
         </View>
-        {renderDissolveAction()}
       </ScreenContainer>
     );
   }
@@ -503,7 +409,6 @@ export default function SpouseProfileScreen() {
             <Text style={{ color: "#fff", fontWeight: "600" }}>{tx(lang, "Terug", "Back", "رجوع")}</Text>
           </Pressable>
         </View>
-        {renderDissolveAction()}
       </ScreenContainer>
     );
   }
@@ -665,7 +570,6 @@ export default function SpouseProfileScreen() {
           </View>
         )}
 
-        {renderDissolveAction()}
       </ScrollView>
     </ScreenContainer>
   );

@@ -2273,10 +2273,20 @@ export async function getCoParents(userId: number) {
       .select()
       .from(children)
       .where(
+        // Item 4 (2005) fix: deleteChild is a soft delete (children.deletedAt
+        // set, parentChildLinks rows for that child left untouched — see
+        // deleteChild's own "preserve data" comment) and this query used to
+        // have no deletedAt filter at all, unlike its sibling
+        // getLinkedChildren (same file), which already excludes deleted rows
+        // from its own children-table query. A removed child's
+        // parentChildLinks rows kept matching myLinks/otherLinks above
+        // forever, so its name/publicId kept surfacing here — inflating
+        // "shared children" with children that no longer exist in the
+        // family (reported live: 13 shown vs 9 real).
         sql`${children.id} IN (${sql.join(
           allSharedChildIds.map((id) => sql`${id}`),
           sql`, `,
-        )})`,
+        )}) AND ${children.deletedAt} IS NULL`,
       );
   }
 
@@ -3656,6 +3666,56 @@ export async function getRecentDiagnosticSignals(userId: number, days: number) {
         eq(dailyDiagnosticCheckins.userId, userId),
         isNotNull(dailyDiagnosticCheckins.answeredAt),
         gte(dailyDiagnosticCheckins.date, cutoff),
+      ),
+    )
+    .orderBy(desc(dailyDiagnosticCheckins.date));
+  return rows;
+}
+
+/**
+ * Full-row counterpart to getRecentDiagnosticSignals above — same table,
+ * same calendar-day window, same "answered only" filter, but selects
+ * `date`/`questions`/`answers` instead of `answers` alone (item 1: the
+ * husband-ungated / wife-with-grant direction may now read the partner's
+ * actual answer text, not just category+tone). This function does no
+ * ACCESS gating itself — it is a plain read exactly like
+ * getRecentDiagnosticSignals; the caller (links.getPartnerDailyDiagnostic,
+ * server/routers.ts; getSpouseAdvice, server/advice.ts) is responsible for
+ * calling it ONLY once hasFullPartnerAccess has already been checked.
+ *
+ * It DOES restrict to source="curated" (adversarial-review finding), unlike
+ * getRecentDiagnosticSignals: this is the one function that carries the raw
+ * answer `label`, and a historical row from before the curated question
+ * bank existed can have source "generated"/"fallback" — old, LLM-authored
+ * questions AND option labels (this module's own file header documents real
+ * bugs from that system: wrong-gender phrasing, a forbidden topic).
+ * submitAnswers only proves a submitted label matched SOME option already
+ * stored on that row; it says nothing about whether that stored option was
+ * itself curated. getRecentDiagnosticSignals needs no such filter — its
+ * category+tone output is bounded to a fixed, runtime-validated enum
+ * (isDiagnosticAnswer) regardless of source, so there is nothing
+ * source-dependent for it to leak.
+ */
+export async function getRecentDiagnosticRows(userId: number, days: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const cutoffDate = new Date();
+  cutoffDate.setUTCHours(0, 0, 0, 0);
+  cutoffDate.setUTCDate(cutoffDate.getUTCDate() - (days - 1));
+  const cutoff = cutoffDate.toISOString().slice(0, 10);
+  const rows = await db
+    .select({
+      date: dailyDiagnosticCheckins.date,
+      questions: dailyDiagnosticCheckins.questions,
+      answers: dailyDiagnosticCheckins.answers,
+    })
+    .from(dailyDiagnosticCheckins)
+    .where(
+      and(
+        eq(dailyDiagnosticCheckins.userId, userId),
+        isNotNull(dailyDiagnosticCheckins.answeredAt),
+        gte(dailyDiagnosticCheckins.date, cutoff),
+        eq(dailyDiagnosticCheckins.source, "curated"),
       ),
     )
     .orderBy(desc(dailyDiagnosticCheckins.date));

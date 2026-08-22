@@ -18,6 +18,9 @@ const dbMocks = vi.hoisted(() => ({
   hasConfirmedPartner: vi.fn(),
   getSpouseInteractionData: vi.fn(),
   createSpouseAdvice: vi.fn(),
+  // item 3 — full-row counterpart of getRecentDiagnosticSignals, used by
+  // getSpouseAdvice ONLY in the hasFullPartnerAccess-gated direction.
+  getRecentDiagnosticRows: vi.fn(),
 }));
 const invokeLLMMock = vi.hoisted(() => vi.fn());
 
@@ -30,6 +33,7 @@ import {
   allBankQuestions,
   summarizeSignals,
   buildPartnerSignalContext,
+  buildPartnerAnswersContext,
   dailyDiagnosticRouter,
 } from "../server/daily-diagnostic";
 import { adviceRouter } from "../server/advice";
@@ -297,6 +301,41 @@ describe("buildPartnerSignalContext", () => {
     const text = buildPartnerSignalContext({ prayer: "needs_support" }, "ar");
     expect(text.length).toBeGreaterThan(0);
     expect(text).not.toMatch(/[a-zA-Z]/); // Arabic-only, no leaked labels or Latin scaffolding
+  });
+});
+
+describe("buildPartnerAnswersContext (item 3 — full answer labels, caller must gate)", () => {
+  it("returns an empty string for no rows", () => {
+    expect(buildPartnerAnswersContext([], "ar")).toBe("");
+  });
+
+  it("returns an empty string when every row is unanswered", () => {
+    const rows = [{ date: "2026-08-16", questions: [], answers: null }];
+    expect(buildPartnerAnswersContext(rows, "ar")).toBe("");
+  });
+
+  it("includes the actual answer label text (unlike buildPartnerSignalContext)", () => {
+    const rows = [
+      {
+        date: "2026-08-16",
+        questions: [{ category: "prayer" as const, text: "كيف كان خشوعك؟", options: [] }],
+        answers: [{ category: "prayer" as const, label: "كثير التشتت", tone: "needs_support" as const }],
+      },
+    ];
+    const text = buildPartnerAnswersContext(rows, "ar");
+    expect(text).toContain("كثير التشتت");
+    expect(text).toContain("كيف كان خشوعك؟");
+  });
+
+  it("ignores a malformed answer entry instead of trusting the raw JSON column", () => {
+    const rows = [
+      {
+        date: "2026-08-16",
+        questions: [],
+        answers: [{ category: "not_a_real_category", label: "SHOULD_NOT_APPEAR", tone: "positive" }],
+      },
+    ];
+    expect(buildPartnerAnswersContext(rows as any, "ar")).not.toContain("SHOULD_NOT_APPEAR");
   });
 });
 
@@ -635,6 +674,91 @@ describe("getSpouseAdvice never lets the partner's raw answer text reach the pro
   it("never puts the raw label in what goes back to the requesting spouse either", async () => {
     const result = await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
     expect(JSON.stringify(result)).not.toContain(SECRET);
+  });
+});
+
+// ============================================================
+// item 3: the husband-ungated / wife-with-grant direction now ALSO feeds
+// the partner's actual answer labels (buildPartnerAnswersContext), on top
+// of the coarse category+tone signal above (which stays unconditional and
+// unchanged in both directions — see the untouched describe block above).
+// ============================================================
+describe("getSpouseAdvice — full-access direction now feeds the partner's actual answer labels (item 3)", () => {
+  const LABEL = "MARKER_FULL_ANSWER_LABEL_ZZZ";
+
+  function wireCommonMocks() {
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([]); // coarse signal: irrelevant here, unaffected either way
+    dbMocks.getRecentDiagnosticRows.mockResolvedValue([
+      { date: "2026-08-16", questions: [{ category: "prayer", text: "Q", options: [] }], answers: [{ category: "prayer", label: LABEL, tone: "needs_support" }] },
+    ]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "advice" } }] });
+  }
+
+  it("husband (full access, ungated) DOES get her answer label in the prompt", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      { id: 2, name: "Wife", gender: "vrouw", profileData: {}, partnershipConfirmed: true, profileAccessGrantedAt: null },
+    ]);
+    wireCommonMocks();
+
+    await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" }); // context() defaults to gender "man"
+
+    const sentPrompt = JSON.stringify(invokeLLMMock.mock.calls[0][0]);
+    expect(sentPrompt).toContain(LABEL);
+    expect(dbMocks.getRecentDiagnosticRows).toHaveBeenCalledWith(2, 7);
+  });
+
+  it("wife WITHOUT a grant does NOT get his answer label — the fetch itself is gated, not just the render", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      { id: 2, name: "Husband", gender: "man", profileData: {}, partnershipConfirmed: true, profileAccessGrantedAt: null },
+    ]);
+    wireCommonMocks();
+
+    await adviceRouter
+      .createCaller(context({ gender: "vrouw", profileData: { children: [] } }))
+      .getSpouseAdvice({ language: "ar" });
+
+    const sentPrompt = JSON.stringify(invokeLLMMock.mock.calls[0][0]);
+    expect(sentPrompt).not.toContain(LABEL);
+    expect(dbMocks.getRecentDiagnosticRows).not.toHaveBeenCalled();
+  });
+
+  it("wife WITH an active grant DOES get his answer label", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      { id: 2, name: "Husband", gender: "man", profileData: {}, partnershipConfirmed: true, profileAccessGrantedAt: new Date("2026-01-01") },
+    ]);
+    wireCommonMocks();
+
+    await adviceRouter
+      .createCaller(context({ gender: "vrouw", profileData: { children: [] } }))
+      .getSpouseAdvice({ language: "ar" });
+
+    const sentPrompt = JSON.stringify(invokeLLMMock.mock.calls[0][0]);
+    expect(sentPrompt).toContain(LABEL);
+  });
+
+  it("still wires the coarse category+tone signal in unconditionally alongside the labels (no regression)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      { id: 2, name: "Wife", gender: "vrouw", profileData: {}, partnershipConfirmed: true, profileAccessGrantedAt: null },
+    ]);
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([
+      { answers: [{ category: "prayer", label: "x", tone: "needs_support" }] },
+    ]);
+    dbMocks.getRecentDiagnosticRows.mockResolvedValue([]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "advice" } }] });
+
+    await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
+
+    const sentPrompt = JSON.stringify(invokeLLMMock.mock.calls[0][0]);
+    expect(sentPrompt).toContain("الصلاة");
+    expect(sentPrompt).toContain("بحاجة إلى دعم");
   });
 });
 

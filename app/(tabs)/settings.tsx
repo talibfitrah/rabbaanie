@@ -70,6 +70,7 @@ import * as Clipboard from "expo-clipboard";
 import { openBrowserAsync } from "expo-web-browser";
 import { getApiBaseUrl } from "@/constants/oauth";
 import { getSessionRole } from "@/lib/_core/auth";
+import type { PartnerListEntry } from "@/lib/partner-types";
 
 
 const REMINDER_OPTIONS_KEYS = [
@@ -205,6 +206,44 @@ export default function SettingsScreen() {
   const { state, updateReminderSettings, updateLocationSettings, resetState, removeChild } = useAppState();
   const { isAuthenticated, logout } = useAuth();
   const deleteAccountMutation = trpc.profile.deleteAccount.useMutation();
+  // Item 5 (2010): "end partnership" (links.dissolvePartner) moved here from
+  // partner-profile/network views — Settings is now the ONLY place it
+  // appears. One row per confirmed partner (below) so a man with several
+  // wives can end one specific marriage, matching dissolvePartner's own
+  // per-partnershipId design rather than "the" partner.
+  const listPartnersQuery = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated });
+  const dissolvePartnerMutation = trpc.links.dissolvePartner.useMutation({
+    onSuccess: () => listPartnersQuery.refetch(),
+    onError: (err: any) => {
+      Alert.alert(
+        language === "ar" ? "فشلت العملية" : isEn ? "Failed" : "Mislukt",
+        err?.message ||
+          (language === "ar"
+            ? "تعذّر إنهاء هذه الشراكة."
+            : isEn
+              ? "Could not end the partnership."
+              : "Kon de verbintenis niet verbreken."),
+      );
+    },
+  });
+  const confirmDissolvePartnership = (partnershipId: number, partnerName: string) => {
+    Alert.alert(
+      language === "ar" ? "هل تريد إنهاء هذه الشراكة؟" : isEn ? "End partnership?" : "Verbintenis verbreken?",
+      language === "ar"
+        ? `سينهي هذا الشراكة مع ${partnerName}. سيفقد هذا الشخص إمكانية الاطلاع على ملفك، ولا يمكن التراجع عن ذلك بسهولة.`
+        : isEn
+          ? `This ends the partnership with ${partnerName}. They will lose access to your profile, and this cannot be easily undone.`
+          : `Dit beëindigt de verbintenis met ${partnerName}. Deze persoon verliest toegang tot uw profiel en dit kan niet eenvoudig ongedaan worden gemaakt.`,
+      [
+        { text: language === "ar" ? "إلغاء" : isEn ? "Cancel" : "Annuleren", style: "cancel" },
+        {
+          text: language === "ar" ? "إنهاء" : isEn ? "End it" : "Verbreken",
+          style: "destructive",
+          onPress: () => dissolvePartnerMutation.mutate({ partnershipId }),
+        },
+      ],
+    );
+  };
   const { subscribed, expiresAt } = useSubscription();
   const [adminRole, setAdminRole] = useState<string | null>(null);
   useEffect(() => { getSessionRole().then(setAdminRole); }, []);
@@ -2175,6 +2214,45 @@ export default function SettingsScreen() {
           </Text>
         </Pressable>
       )}
+
+      {/* End partnership (item 5) — the only place this control appears now.
+          One row per CONFIRMED partner; renders nothing for a user with no
+          linked partner (today's behaviour for everyone before this
+          feature existed). */}
+      {isAuthenticated &&
+        (listPartnersQuery.data ?? [])
+          .filter((p: PartnerListEntry) => p.confirmed)
+          .map((p: PartnerListEntry) => {
+            const displayName =
+              p.name ||
+              (p.gender === "man"
+                ? (language === "ar" ? "الزوج" : isEn ? "husband" : "man")
+                : (language === "ar" ? "الزوجة" : isEn ? "wife" : "vrouw"));
+            return (
+              <Pressable
+                key={p.partnershipId}
+                onPress={() => confirmDissolvePartnership(p.partnershipId, displayName)}
+                disabled={dissolvePartnerMutation.isPending}
+                style={({ pressed }) => [{
+                  borderWidth: 1,
+                  borderColor: colors.error,
+                  borderRadius: 12,
+                  paddingVertical: 16,
+                  alignItems: "center" as const,
+                  marginTop: 12,
+                  opacity: pressed || dissolvePartnerMutation.isPending ? 0.7 : 1,
+                }]}
+              >
+                <Text style={{ fontWeight: "bold", color: colors.error }}>
+                  {language === "ar"
+                    ? `إنهاء الشراكة مع ${displayName}`
+                    : isEn
+                      ? `End partnership with ${displayName}`
+                      : `Verbintenis met ${displayName} verbreken`}
+                </Text>
+              </Pressable>
+            );
+          })}
       </ScrollView>
     </View>
   );

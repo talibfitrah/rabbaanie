@@ -2750,6 +2750,56 @@ export const linksRouter = router({
     };
   }),
 
+  /**
+   * Partner's recent daily-diagnostic ANSWERS (item 1) — question + her
+   * actual answer text + tone, not just the category+tone summary
+   * getSpouseAdvice's signal context carries. Same access rule as
+   * getPartnerProfile (hasFullPartnerAccess: husband reads his wife's
+   * unconditionally once confirmed; a wife reads her husband's only with
+   * his active grant) and the SAME never-trust-a-raw-id partner resolution
+   * (resolveTargetPartner) grant/revoke/shareWeeklyProgress already use —
+   * not getPartnerProfile's own inline resolution, since a read that is
+   * about to hand back her raw answer text is closer in kind to those
+   * write paths than to a profile-field read. Fails closed exactly like
+   * getPartnerProfile: null when no partner resolves; a restricted, empty
+   * shape (never the answers) when access isn't full.
+   */
+  getPartnerDailyDiagnostic: protectedProcedure
+    .input(z.object({ partnerId: z.number().optional() }).optional())
+    .query(async ({ ctx, input }) => {
+      const partner = await resolveTargetPartner(ctx.user.id, input?.partnerId);
+      if (!partner) return null;
+      const profileData = partner.profileData as any;
+      const myGender = resolveGender(
+        (ctx.user as any).gender,
+        (ctx.user.profileData as any)?.parentProfile?.gender,
+      );
+      const partnerGender = resolveGender(
+        partner.gender,
+        profileData?.parentProfile?.gender,
+      );
+      const isFull = hasFullPartnerAccess(
+        myGender,
+        partnerGender,
+        !!partner.profileAccessGrantedAt,
+        partner.partnershipConfirmed,
+      );
+      if (!isFull) return { access: "restricted" as const, rows: [] };
+      // ponytail: isFull is a snapshot from the resolveTargetPartner read
+      // above, not re-verified against this SELECT — a revoke landing in
+      // the gap between them (single DB round-trip, milliseconds) could let
+      // one already-in-flight request return her answers just after access
+      // was pulled. No DB transaction wraps any read in this file today
+      // (getPartnerProfile accepts the same class of gap by construction —
+      // it just has no second query after its own check to race against).
+      // Upgrade path: re-check profileAccessGrantedAt in the same query
+      // that reads dailyDiagnosticCheckins, if this ever proves reachable
+      // in practice (a husband revoking mid-request from his wife is not
+      // attacker-controlled timing).
+      const rows = await db.getRecentDiagnosticRows(partner.id, 7);
+      return { access: "full" as const, rows };
+    }),
+
   /** Wife-only: ask her husband for permission to read his full profile. */
   requestPartnerProfileAccess: protectedProcedure.mutation(async ({ ctx }) => {
     const myGender = resolveGender(

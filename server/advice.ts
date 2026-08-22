@@ -2,7 +2,7 @@ import { z } from "zod";
 import { router, publicProcedure, protectedProcedure } from "./_core/trpc";
 import * as db from "./db";
 import { invokeLLM } from "./_core/llm";
-import { summarizeSignals, buildPartnerSignalContext, getOwnCheckinContext } from "./daily-diagnostic";
+import { summarizeSignals, buildPartnerSignalContext, buildPartnerAnswersContext, getOwnCheckinContext } from "./daily-diagnostic";
 import { NAME_FIDELITY_RULE } from "./name-fidelity";
 import { SOURCE_GROUNDING_RULE } from "./source-grounding";
 import * as fs from "fs";
@@ -2834,6 +2834,34 @@ Neem de volledige gezinssituatie integraal mee.`;
       // Build context from questionnaire answers
       const myProfile = ctx.user.profileData as any;
       const partnerProfile = partner.profileData as any;
+      // Item 3 gate — the SAME hasFullPartnerAccess formula routers.ts uses
+      // for getPartnerProfile/links.getPartnerDailyDiagnostic (duplicated
+      // rather than imported: routers.ts imports adviceRouter from this
+      // file, so importing back would cycle — same workaround `myGender`
+      // just below already uses, hoisted here so this gate can read it
+      // too). Decides whether getSpouseAdvice may fold the partner's
+      // ACTUAL answer text (buildPartnerAnswersContext) into the prompt,
+      // further down — the coarse category+tone signal
+      // (buildPartnerSignalContext) stays unconditional in both
+      // directions, unaffected by this gate.
+      //
+      // partner.partnershipConfirmed is included explicitly here (unlike
+      // an earlier version of this comment claimed) rather than relied on
+      // via the confirmation check above: that check and this gate are
+      // textually far apart in a 350+ line procedure, and adversarial
+      // review flagged that a future edit reordering or removing the
+      // early return could silently reopen full-answer access to an
+      // unconfirmed "partner" (the shared-children legacy fallback can
+      // hand one back) with no compiler or test catching it structurally.
+      // Correct by construction now, matching hasFullPartnerAccess's own
+      // 4-argument shape (server/routers.ts) instead of depending on
+      // control flow above.
+      const myGender = ctx.user.gender || myProfile?.parentProfile?.gender || "";
+      const partnerGender = partner.gender || partnerProfile?.parentProfile?.gender || "";
+      const hasFullAnswerAccess =
+        partner.partnershipConfirmed &&
+        ((myGender === "man" && partnerGender === "vrouw") ||
+          (myGender === "vrouw" && partnerGender === "man" && !!partner.profileAccessGrantedAt));
       const isAr = lang === "ar";
       const isEn = lang === "en";
       const l = (ar: string, en: string, nl: string) => isAr ? ar : isEn ? en : nl;
@@ -2977,6 +3005,33 @@ Neem de volledige gezinssituatie integraal mee.`;
         console.error("[getSpouseAdvice] diagnostic signals unavailable, continuing without them:", err);
       }
 
+      // === Item 3: the partner's ACTUAL answer text (not just category+tone)
+      // — UNLIKE the coarse signal block just above, this one IS gated on
+      // hasFullAnswerAccess (computed near the top of this procedure): a
+      // husband gets it unconditionally (once confirmed, already checked);
+      // a wife only once her husband has granted her profile access. This
+      // is the same hasFullPartnerAccess rule getPartnerProfile/
+      // links.getPartnerDailyDiagnostic enforce for reading the raw
+      // answers directly — spelled out here again because it is the one
+      // exception to "spouse advice is ungated" the comment above
+      // describes. The fetch itself is gated, not just the render, so an
+      // ungated wife's request never even reads her husband's answer rows.
+      // ponytail: hasFullAnswerAccess is a snapshot taken near the top of
+      // this procedure, not re-verified against this fetch — same accepted,
+      // documented gap as links.getPartnerDailyDiagnostic's own comment in
+      // server/routers.ts (no DB transaction wraps any read in this file
+      // today); this window is at least as wide (several awaited queries
+      // sit between the snapshot and here), same low-probability reasoning
+      // applies. ===
+      if (hasFullAnswerAccess) {
+        try {
+          const partnerAnswerRows = await db.getRecentDiagnosticRows(partner.id, 7);
+          interactionContext += buildPartnerAnswersContext(partnerAnswerRows, isAr ? "ar" : isEn ? "en" : "nl");
+        } catch (err) {
+          console.error("[getSpouseAdvice] diagnostic answer labels unavailable, continuing without them:", err);
+        }
+      }
+
       // Build the prompt. The prompt used to embed ctx.user.name (Latin
       // script, e.g. "Suhayb Salam") directly into the Arabic-language
       // prompt and frame the task in 3rd person ("suggestions for
@@ -2984,12 +3039,9 @@ Neem de volledige gezinssituatie integraal mee.`;
       // re-transliterated the Latin name back into Arabic and got it wrong
       // (سهيب instead of صهيب). Fix: never put a name in the prompt; address
       // the user in 2nd person and refer to the partner by a gendered
-      // relationship term instead. Same column-then-JSON gender precedence
-      // as resolveGender (server/routers.ts); duplicated rather than
-      // imported — routers.ts imports adviceRouter from this file, so
-      // importing back would be a cycle (see daily-diagnostic.ts's getToday
-      // for the same workaround).
-      const myGender = ctx.user.gender || myProfile?.parentProfile?.gender || "";
+      // relationship term instead. `myGender` is declared earlier now (the
+      // item 3 gate above needs it too); same column-then-JSON gender
+      // precedence as resolveGender (server/routers.ts).
       const partnerTerm = myGender === "man"
         ? l("زوجتك", "your wife", "je vrouw")
         : myGender === "vrouw"

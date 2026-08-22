@@ -33,13 +33,26 @@
  *
  * PRIVACY (scoped to THIS module's own contribution only — see caveat
  * below): every question here is single-choice (no free text field exists
- * in this schema at all), and the signal this module adds to getSpouseAdvice
- * only ever carries the coarse category+tone summary via
- * summarizeSignals/buildPartnerSignalContext — never the option `label`
- * text. That is what makes it structurally impossible for THIS data to
- * leak a raw answer into the prompt whose output comes back to the other
- * spouse. Nothing here is read by getPartnerProfile/syncWithPartner — this
- * is a dedicated table + router.
+ * in this schema at all). summarizeSignals/buildPartnerSignalContext only
+ * ever carry the coarse category+tone summary — never the option `label`
+ * text — and that pairing (summarizeSignals + buildPartnerSignalContext)
+ * stays unconditional in BOTH directions of a confirmed partnership, with
+ * no gender/grant gate, exactly as before.
+ *
+ * UPDATED (item 1/3, owner-directed reversal — was previously an absolute
+ * "never leaks a raw answer" guarantee for this whole module; it is not
+ * anymore, deliberately): getRecentDiagnosticRows + buildPartnerAnswersContext
+ * DO carry the raw answer `label`, and ARE now read by two ungated-by-
+ * gender-alone callers — links.getPartnerDailyDiagnostic (server/routers.ts)
+ * and getSpouseAdvice (server/advice.ts) — but ONLY after the SAME
+ * hasFullPartnerAccess check that already gates getPartnerProfile/
+ * syncWithPartner: a husband reads his wife's answers unconditionally
+ * (once confirmed); a wife reads her husband's only with his active grant.
+ * Both callers are required to check this BEFORE calling either function;
+ * neither function gates itself. This mirrors, rather than weakens, the
+ * binding "husband-ungated" ruling that already lets a husband read his
+ * wife's whole profile verbatim — the answers were the one thing that
+ * ruling hadn't reached yet.
  *
  * CAVEAT — this is not a blanket guarantee about getSpouseAdvice as a whole:
  * that same function still concatenates the partner's pre-existing, free-text
@@ -382,6 +395,41 @@ export function buildPartnerSignalContext(summary: Partial<Record<DiagnosticCate
       : lang === "en"
         ? "\n\n--- Partner's self-reported signals this week (categories only) ---"
         : "\n\n--- Partner's zelfgerapporteerde signalen deze week (alleen categorieën) ---";
+  return `${header}\n${lines.join("\n")}`;
+}
+
+/**
+ * Full-answer counterpart to buildPartnerSignalContext (item 3): emits the
+ * actual question text + the partner's chosen answer `label`, not just
+ * category+tone. Unlike buildPartnerSignalContext/summarizeSignals, this is
+ * NOT safe to call unconditionally — it is the one function in this module
+ * that can put the partner's raw answer text in front of the model. Callers
+ * MUST already have checked hasFullPartnerAccess (server/routers.ts) before
+ * calling this; see the file header's UPDATED note above. `answers` comes
+ * straight off a JSON DB column, so each entry is narrowed at runtime
+ * (isDiagnosticAnswer) rather than trusted at the type level, same as
+ * summarizeSignals.
+ */
+export function buildPartnerAnswersContext(
+  recentRowsMostRecentFirst: Array<{ date: string; questions: unknown; answers: unknown }>,
+  lang: Lang,
+): string {
+  const lines = recentRowsMostRecentFirst.flatMap((row) => {
+    if (!Array.isArray(row.answers)) return [];
+    const questions = Array.isArray(row.questions) ? (row.questions as DiagnosticQuestion[]) : [];
+    return row.answers.filter(isDiagnosticAnswer).map((answer) => {
+      const question = questions.find((q) => q.category === answer.category);
+      const questionText = question?.text ?? CATEGORY_LABEL[lang][answer.category];
+      return `${row.date} — ${questionText} :: ${answer.label}`;
+    });
+  });
+  if (lines.length === 0) return "";
+  const header =
+    lang === "ar"
+      ? "\n\n--- إجابات الشريك التفصيلية في تسجيله اليومي هذا الأسبوع ---"
+      : lang === "en"
+        ? "\n\n--- Partner's detailed daily check-in answers this week ---"
+        : "\n\n--- Gedetailleerde dagelijkse check-in antwoorden van partner deze week ---";
   return `${header}\n${lines.join("\n")}`;
 }
 

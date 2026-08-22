@@ -1641,14 +1641,14 @@ export default function FamilyScreen() {
       ? manualPartnerId
       : partners[0].id
     : null;
-  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(
-    selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined,
-    {
-      enabled: isAuthenticated,
-      refetchOnMount: "always",
-      staleTime: 0,
-    },
-  );
+  // Shared by both partner queries just below, so the "which partner" input
+  // is computed once rather than duplicated per query.
+  const partnerIdArg = selectedPartnerId != null ? { partnerId: selectedPartnerId } : undefined;
+  const partnerProfileQuery = trpc.links.getPartnerProfile.useQuery(partnerIdArg, {
+    enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 0,
+  });
   // Narrowed once here so every full-only-field read below (including
   // inside IIFE callbacks, where control-flow narrowing on `.access`
   // doesn't reach) goes through a properly typed value instead of the raw
@@ -1656,6 +1656,22 @@ export default function FamilyScreen() {
   const fullPartnerProfile = isFullPartnerProfile(partnerProfileQuery.data)
     ? partnerProfileQuery.data
     : null;
+  // Item 2: her daily-diagnostic answer details (question + label + tone),
+  // not just the completion count. Same partnerIdArg as partnerProfileQuery,
+  // but ALSO gated on partnerChoiceReady (adversarial-review finding) —
+  // unlike getPartnerProfile's own inline resolution (defaults to the
+  // oldest confirmed partner when partnerId is omitted), this endpoint uses
+  // resolveTargetPartner, which THROWS on an omitted partnerId with 2+
+  // confirmed partners. Without this gate, a polygynous household would
+  // send a guaranteed-to-fail request on every cold mount, before
+  // listPartners has resolved selectedPartnerId.
+  const partnerDiagnosticQuery = trpc.links.getPartnerDailyDiagnostic.useQuery(partnerIdArg, {
+    enabled: isAuthenticated && partnerChoiceReady,
+    refetchOnMount: "always",
+    staleTime: 0,
+  });
+  const partnerDiagnosticRows =
+    partnerDiagnosticQuery.data?.access === "full" ? partnerDiagnosticQuery.data.rows : [];
   const shareProgressMutation = trpc.links.shareWeeklyProgress.useMutation();
   const syncMutation = trpc.links.syncWithPartner.useMutation();
 
@@ -1664,6 +1680,7 @@ export default function FamilyScreen() {
     if (isAuthenticated) {
       coParentsQuery.refetch();
       partnerProfileQuery.refetch();
+      partnerDiagnosticQuery.refetch();
       myIdQuery.refetch();
       listPartnersQuery.refetch();
     }
@@ -3434,6 +3451,94 @@ export default function FamilyScreen() {
                   </View>
                 );
               })()}
+
+              {/* Item 2: her daily-diagnostic answer details (question + her
+                  answer label + tone) — the fuller counterpart to the plain
+                  completion count above. Reads links.getPartnerDailyDiagnostic
+                  (item 1), which mirrors getPartnerProfile's own
+                  hasFullPartnerAccess gate server-side; only rendered here
+                  under the SAME fullPartnerProfile guard already wrapping
+                  this whole ExpandableSection, so an ungated fetch's
+                  {access:"restricted", rows:[]} response simply renders
+                  nothing rather than needing a second check. */}
+              {partnerDiagnosticRows.length > 0 && (
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderRadius: 10,
+                    padding: 10,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                  }}
+                >
+                  <Text
+                    style={{
+                      color: colors.foreground,
+                      fontSize: 11,
+                      fontWeight: "700",
+                      marginBottom: 6,
+                      textAlign: isRTL ? "right" : "left",
+                    }}
+                  >
+                    {tx(lang, "Antwoorden dagelijkse check-in", "Daily check-in answers", "إجابات التسجيل اليومي")}
+                  </Text>
+                  <View style={{ gap: 8 }}>
+                    {partnerDiagnosticRows.slice(0, 7).flatMap((row: any) =>
+                      (row.answers || []).map((a: any, idx: number) => {
+                        const question = (row.questions || []).find((q: any) => q.category === a.category);
+                        const toneColor =
+                          a.tone === "positive"
+                            ? colors.success
+                            : a.tone === "needs_support"
+                              ? colors.error
+                              : colors.muted;
+                        return (
+                          <View
+                            key={`${row.date}-${a.category}-${idx}`}
+                            style={{
+                              flexDirection: isRTL ? "row-reverse" : "row",
+                              alignItems: "flex-start",
+                              gap: 8,
+                            }}
+                          >
+                            <View
+                              style={{
+                                width: 8,
+                                height: 8,
+                                borderRadius: 4,
+                                backgroundColor: toneColor,
+                                marginTop: 5,
+                              }}
+                            />
+                            <View style={{ flex: 1 }}>
+                              <Text
+                                style={{
+                                  color: colors.muted,
+                                  fontSize: 9,
+                                  textAlign: isRTL ? "right" : "left",
+                                }}
+                              >
+                                {row.date}
+                                {question ? ` · ${question.text}` : ""}
+                              </Text>
+                              <Text
+                                style={{
+                                  color: colors.foreground,
+                                  fontSize: 12,
+                                  fontWeight: "600",
+                                  textAlign: isRTL ? "right" : "left",
+                                }}
+                              >
+                                {a.label}
+                              </Text>
+                            </View>
+                          </View>
+                        );
+                      }),
+                    )}
+                  </View>
+                </View>
+              )}
 
               {/* Partner's daily tip interaction */}
               {(() => {

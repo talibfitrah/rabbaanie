@@ -28,6 +28,9 @@ const dbMocks = vi.hoisted(() => ({
   getSpouseInteractionData: vi.fn(),
   getRecentDiagnosticSignals: vi.fn(),
   createSpouseAdvice: vi.fn(),
+  // links.getPartnerDailyDiagnostic (item 1) — full-row counterpart of
+  // getRecentDiagnosticSignals, see tests below.
+  getRecentDiagnosticRows: vi.fn(),
   // confirmLink's partnership branch — see the "second wife" describe below.
   getPendingLinksFromSender: vi.fn(),
   confirmParentChildLink: vi.fn(),
@@ -863,6 +866,90 @@ describe("links.getPartnerProfile — optional partnerId (item 1 + client contra
       .createCaller(ctxFor(1, "man"))
       .getPartnerProfile({ partnerId: 999 });
     expect(result).toBeNull();
+  });
+});
+
+describe("links.getPartnerDailyDiagnostic — same hasFullPartnerAccess gate as getPartnerProfile (item 1)", () => {
+  it("husband (ungated) gets her recent rows", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+    dbMocks.getRecentDiagnosticRows.mockResolvedValue([
+      { date: "2026-08-16", questions: [], answers: [{ category: "prayer", label: "خاشعة", tone: "positive" }] },
+    ]);
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .getPartnerDailyDiagnostic();
+    expect(result.access).toBe("full");
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].answers[0].label).toBe("خاشعة");
+    expect(dbMocks.getRecentDiagnosticRows).toHaveBeenCalledWith(2, 7);
+  });
+
+  it("wife WITHOUT a grant gets no rows (restricted, empty)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 9, gender: "man", partnershipId: 55, grantedAt: null }),
+    ]);
+    const result: any = await linksRouter
+      .createCaller(ctxFor(2, "vrouw"))
+      .getPartnerDailyDiagnostic();
+    expect(result.access).toBe("restricted");
+    expect(result.rows).toEqual([]);
+    expect(dbMocks.getRecentDiagnosticRows).not.toHaveBeenCalled();
+  });
+
+  it("wife WITH an active grant gets his recent rows", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 9, gender: "man", partnershipId: 55, grantedAt: new Date("2026-01-01") }),
+    ]);
+    dbMocks.getRecentDiagnosticRows.mockResolvedValue([
+      { date: "2026-08-16", questions: [], answers: [{ category: "prayer", label: "منشغل", tone: "needs_support" }] },
+    ]);
+    const result: any = await linksRouter
+      .createCaller(ctxFor(2, "vrouw"))
+      .getPartnerDailyDiagnostic();
+    expect(result.access).toBe("full");
+    expect(result.rows).toHaveLength(1);
+  });
+
+  it("unconfirmed partnership gets no rows, even reading the husband->wife direction", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55, partnershipConfirmed: false }),
+    ]);
+    const result: any = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .getPartnerDailyDiagnostic();
+    expect(result.access).toBe("restricted");
+    expect(result.rows).toEqual([]);
+    expect(dbMocks.getRecentDiagnosticRows).not.toHaveBeenCalled();
+  });
+
+  it("no partner at all returns null, mirroring getPartnerProfile", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([]);
+    const result = await linksRouter.createCaller(ctxFor(1, "man")).getPartnerDailyDiagnostic();
+    expect(result).toBeNull();
+  });
+
+  it("an explicit partnerId not among the caller's own partners never leaks rows (never trust a raw id)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, gender: "vrouw", partnershipId: 55 }),
+    ]);
+    const result = await linksRouter
+      .createCaller(ctxFor(1, "man"))
+      .getPartnerDailyDiagnostic({ partnerId: 999 });
+    expect(result).toBeNull();
+    expect(dbMocks.getRecentDiagnosticRows).not.toHaveBeenCalled();
+  });
+
+  it("an explicit partnerId matching a second wife targets HER rows, not the first wife's (polygyny)", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      partnerRow({ id: 2, name: "Wife One", gender: "vrouw", partnershipId: 55 }),
+      partnerRow({ id: 3, name: "Wife Two", gender: "vrouw", partnershipId: 56 }),
+    ]);
+    dbMocks.getRecentDiagnosticRows.mockResolvedValue([]);
+    await linksRouter.createCaller(ctxFor(1, "man")).getPartnerDailyDiagnostic({ partnerId: 3 });
+    expect(dbMocks.getRecentDiagnosticRows).toHaveBeenCalledWith(3, 7);
+    expect(dbMocks.getRecentDiagnosticRows).not.toHaveBeenCalledWith(2, 7);
   });
 });
 
