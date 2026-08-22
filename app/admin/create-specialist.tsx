@@ -17,7 +17,7 @@ export default function CreateSpecialistScreen() {
   const [password, setPassword] = useState("");
 
   const create = (trpc.admin as any).createSpecialist.useMutation({
-    onSuccess: (r: any) => Alert.alert("تم الإنشاء", `أُنشئ حساب المتخصص (المعرّف ${r?.id}). يدخل بالبريد وكلمة المرور.`, [{ text: "حسنًا", onPress: () => router.back() }]),
+    onSuccess: (r: any) => Alert.alert("تم الإنشاء", `أُنشئ حساب المشرف التربوي (المعرّف ${r?.id}). يدخل بالبريد وكلمة المرور.`, [{ text: "حسنًا", onPress: () => router.back() }]),
     onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر إنشاء الحساب."),
   });
 
@@ -33,14 +33,14 @@ export default function CreateSpecialistScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>إضافة متخصص جديد</Text>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>إضافة مشرف تربوي جديد</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
         <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>
-          يُنشئ حساب متخصص جديد (ليس مستخدمًا في التطبيق). يدخل المتخصص بالبريد وكلمة المرور اللذين تحددهما.
+          يُنشئ حساب مشرف تربوي جديد (ليس مستخدمًا في التطبيق). يدخل المشرف التربوي بالبريد وكلمة المرور اللذين تحددهما.
         </Text>
         {label("الاسم")}
-        <TextInput value={name} onChangeText={setName} placeholder="اسم المتخصص" placeholderTextColor={colors.muted} style={inputStyle} />
+        <TextInput value={name} onChangeText={setName} placeholder="اسم المشرف التربوي" placeholderTextColor={colors.muted} style={inputStyle} />
         {label("البريد الإلكتروني")}
         <TextInput value={email} onChangeText={setEmail} autoCapitalize="none" keyboardType="email-address" placeholder="email@example.com" placeholderTextColor={colors.muted} style={inputStyle} />
         {label("كلمة المرور")}

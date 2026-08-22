@@ -24,7 +24,7 @@ export const FUNCTION_ROLES: { id: FunctionRoleId; ar: string; en: string; nl: s
   { id: "maatschappelijk_werker", ar: "أخصائي اجتماعي", en: "Social worker", nl: "Maatschappelijk werker" },
   { id: "moeder", ar: "أم", en: "Mother", nl: "Moeder" },
   { id: "opvoedkundige_begeleider", ar: "مرشد تربوي", en: "Parenting guide", nl: "Opvoedkundige begeleider" },
-  { id: "specialist", ar: "متخصص", en: "Specialist", nl: "Specialist" },
+  { id: "specialist", ar: "مشرف تربوي", en: "Educational Supervisor", nl: "Pedagogisch begeleider" },
   { id: "therapeut", ar: "معالج", en: "Therapist", nl: "Therapeut" },
   { id: "vader", ar: "أب", en: "Father", nl: "Vader" },
 ];

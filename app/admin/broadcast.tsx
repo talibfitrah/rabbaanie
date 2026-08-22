@@ -7,6 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 import { COUNTRIES, COUNTRY_NAMES, getCountryAR, getCityAR } from "@/lib/prayer-data";
+import { buildSendPayload, type CategoryConfig, type CategoryKey } from "./broadcast-send";
 
 const ROLE_TARGETS = [
   { key: "user", ar: "المستخدمون" },
@@ -24,35 +25,22 @@ const ROLE_TARGETS = [
 // server/broadcast-templates.ts, sent through db.broadcastLocalizedPush
 // (which already delivers each recipient their own stored language) via
 // server/routers.ts's sendBroadcast `category` input (see
-// local-docs/BROADCAST-ROUTER-PATCH.md for the wiring). This screen still
-// cannot import server/ code directly — no app/ file ever has (see
-// server/broadcast-audience.ts's header for why: client and server bundles
-// are kept strictly separate) — so incompleteAnalytical/incompletePersonal
-// keep sending through the older freeform subject/message path, with the
-// two Arabic strings below duplicated on purpose from
-// analyticalProfileTemplate() / personalProfileTemplate() and pinned
-// against drift by tests/broadcast-admin-preview.test.ts. incompleteChildren
-// and notLinkedSpouse have no such strings — their wording is per-recipient
-// (child name / gender), so they send via `category` and the server renders
-// the real text (see submit() below).
+// local-docs/BROADCAST-ROUTER-PATCH.md for the wiring). All four categories
+// below send via `category` (see buildSendPayload() in ./broadcast-send) so
+// every recipient gets the server's trilingual template in their own
+// language — this screen still cannot import server/ code directly — no
+// app/ file ever has (see server/broadcast-audience.ts's header for why:
+// client and server bundles are kept strictly separate) — so
+// incompleteAnalytical/incompletePersonal still carry the two Arabic strings
+// below, duplicated on purpose from analyticalProfileTemplate() /
+// personalProfileTemplate() and pinned against drift by
+// tests/broadcast-admin-preview.test.ts, purely as an on-screen preview of
+// what gets sent; they are never read by submit() once a category is
+// selected. incompleteChildren and notLinkedSpouse have no such strings —
+// their wording is per-recipient (child name / gender) and rendered
+// server-side either way.
 const BASMALA_AR = "بسم الله الرحمن الرحيم";
 const CLOSING_AR = "والحمد لله رب العالمين، والسلام عليكم ورحمة الله وبركاته.";
-
-type CategoryKey = "incompleteAnalytical" | "incompleteChildren" | "incompletePersonal" | "notLinkedSpouse";
-
-type CategoryConfig = {
-  key: CategoryKey;
-  label: string;
-  description: string;
-  /** All four categories are sendable now that sendBroadcast accepts
-   *  `category` (see local-docs/BROADCAST-ROUTER-PATCH.md). Kept as a field,
-   *  not hardcoded true, so a future category can still be staged here
-   *  disabled before its server-side wiring lands. */
-  sendReady: boolean;
-  pendingNote?: string;
-  titleAr?: string;
-  bodyAr?: string;
-};
 
 const CATEGORIES: CategoryConfig[] = [
   {
@@ -115,10 +103,12 @@ export default function BroadcastScreen() {
 
   // Picking a category sets the underlying filter it maps to and, for the
   // two categories with a fixed titleAr/bodyAr (incompleteAnalytical,
-  // incompletePersonal), pre-fills the exact message text — the other two
-  // send server-rendered per-recipient text instead (see submit() below).
-  // Picking the already-selected category again returns to manual/custom
-  // mode, leaving whatever was already typed untouched.
+  // incompletePersonal), pre-fills the exact message text as an on-screen
+  // preview — submit() always sends via `category` once one is selected, so
+  // this prefill (and the fields it fills) is never read at send time (see
+  // buildSendPayload() in ./broadcast-send). Picking the already-selected
+  // category again returns to manual/custom mode, leaving whatever was
+  // already typed untouched.
   const applyCategory = (key: CategoryKey) => {
     if (key === category) {
       setCategory(null);
@@ -177,19 +167,16 @@ export default function BroadcastScreen() {
   });
 
   const submit = () => {
-    if (activeCategory && !activeCategory.sendReady) {
-      Alert.alert("غير متاح بعد", activeCategory.pendingNote || "هذه الفئة تحتاج تحديثًا في الخادم قبل الإرسال.");
+    const result = buildSendPayload(activeCategory, subject, message, roles, audience);
+    if (!result.ok) {
+      if (result.reason === "not-ready") {
+        Alert.alert("غير متاح بعد", activeCategory?.pendingNote || "هذه الفئة تحتاج تحديثًا في الخادم قبل الإرسال.");
+      } else {
+        Alert.alert("تنبيه", "أدخل العنوان والنص.");
+      }
       return;
     }
-    // A category with no prefilled titleAr (incompleteChildren,
-    // notLinkedSpouse) has per-recipient wording the server renders itself —
-    // send `category`, not the (empty) subject/message fields.
-    if (activeCategory && !activeCategory.titleAr) {
-      send.mutate({ category: activeCategory.key, roles, audience });
-      return;
-    }
-    if (!subject.trim() || !message.trim()) { Alert.alert("تنبيه", "أدخل العنوان والنص."); return; }
-    send.mutate({ subject: subject.trim(), message: message.trim(), roles, audience });
+    send.mutate(result.payload);
   };
 
   const inputStyle = { backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, textAlign: (isRTL ? "right" : "left") as "right" | "left", borderWidth: 1, borderColor: colors.border, marginTop: 6 };

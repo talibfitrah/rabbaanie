@@ -67,7 +67,7 @@ export default function SpecialistDashboardScreen() {
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[s.headerTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-          {tx(lang, "Specialist Dashboard", "Specialist Dashboard", "لوحة المتخصص")}
+          {tx(lang, "Educational Supervisor Dashboard", "Educational Supervisor Dashboard", "لوحة المشرف التربوي")}
         </Text>
         <View style={{ width: 40 }} />
       </View>

@@ -14,7 +14,7 @@ export default function AdminManagementScreen() {
   const tabs: { key: Tab; label: string; icon: string }[] = [
     { key: "families", label: "Gezinnen", icon: "👨‍👩‍👧‍👦" },
     { key: "children", label: "Kinderen", icon: "👶" },
-    { key: "specialists", label: "Specialisten", icon: "📖" },
+    { key: "specialists", label: "Pedagogisch begeleiders", icon: "📖" },
     { key: "teachers", label: "Leraren", icon: "📚" },
     { key: "analytics", label: "Analyse", icon: "📊" },
   ];
@@ -23,7 +23,7 @@ export default function AdminManagementScreen() {
     <ScreenContainer className="flex-1">
       <View className="px-4 pt-4 pb-2">
         <Text className="text-2xl font-bold text-foreground">Beheer</Text>
-        <Text className="text-sm text-muted mt-1">Families, kinderen, specialisten en leraren beheren</Text>
+        <Text className="text-sm text-muted mt-1">Families, kinderen, pedagogisch begeleiders en leraren beheren</Text>
       </View>
 
       {/* Tab Bar */}
@@ -174,7 +174,7 @@ function SpecialistsTab() {
     <ScrollView className="flex-1 px-4" refreshControl={<RefreshControl refreshing={isLoading} onRefresh={refetch} />}>
       {!specialists?.length ? (
         <View className="items-center py-12">
-          <Text className="text-muted text-base">Geen specialisten gevonden</Text>
+          <Text className="text-muted text-base">Geen pedagogisch begeleiders gevonden</Text>
         </View>
       ) : (
         specialists.map((spec: any) => (
@@ -184,7 +184,7 @@ function SpecialistsTab() {
                 <Text className="text-base font-semibold text-foreground">{spec.name || "Onbekend"}</Text>
                 <Text className="text-xs text-muted mt-0.5">{spec.email || "Geen e-mail"}</Text>
               </View>
-              <TouchableOpacity onPress={() => handleDemote(spec.id, spec.name || "Specialist")} style={{ padding: 6 }}>
+              <TouchableOpacity onPress={() => handleDemote(spec.id, spec.name || "Pedagogisch begeleider")} style={{ padding: 6 }}>
                 <Text style={{ color: colors.warning, fontSize: 12 }}>Degraderen</Text>
               </TouchableOpacity>
             </View>

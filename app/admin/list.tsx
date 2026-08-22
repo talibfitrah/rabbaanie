@@ -7,7 +7,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
 
-const TITLES: Record<string, string> = { families: "العائلات", children: "الأطفال", specialists: "المتخصصون", teachers: "المعلمون" };
+const TITLES: Record<string, string> = { families: "العائلات", children: "الأطفال", specialists: "المشرفون التربويّون", teachers: "المعلمون" };
 const ICONS: Record<string, string> = { families: "family-restroom", children: "child-care", specialists: "badge", teachers: "school" };
 
 export default function AdminListScreen() {

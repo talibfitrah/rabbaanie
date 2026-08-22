@@ -38,10 +38,10 @@ export default function AdminPanelScreen() {
   );
 
   const sections: { ar: string; sub: string; icon: string; route: string }[] = [
-    { ar: "المستخدمون والصلاحيات", sub: "إضافة متخصص، تغيير الصلاحيات", icon: "manage-accounts", route: "/admin/users" },
+    { ar: "المستخدمون والصلاحيات", sub: "إضافة مشرف تربوي، تغيير الصلاحيات", icon: "manage-accounts", route: "/admin/users" },
     { ar: "العائلات", sub: "عرض كل العائلات وتفاصيلها", icon: "family-restroom", route: "/admin/list?type=families" },
     { ar: "الأطفال", sub: "عرض كل الأطفال", icon: "child-care", route: "/admin/list?type=children" },
-    { ar: "المتخصصون", sub: "عرض المتخصصين", icon: "badge", route: "/admin/list?type=specialists" },
+    { ar: "المشرفون التربويّون", sub: "عرض المشرفين التربويّين", icon: "badge", route: "/admin/list?type=specialists" },
     { ar: "إضافة كتاب", sub: "يظهر في المكتبة ويستفيد منه الذكاء الاصطناعي", icon: "menu-book", route: "/admin/add-book" },
     { ar: "إدارة المحتوى", sub: "المقالات والنصائح والمفاهيم", icon: "article", route: "/admin/content" },
     { ar: "رسالة جماعية", sub: "إشعار لكل المستخدمين أو نوع منهم", icon: "campaign", route: "/admin/broadcast" },
@@ -75,7 +75,7 @@ export default function AdminPanelScreen() {
             {numbers.map((n) => (
               <Card key={n.key} value={d[n.key]} label={n.ar} icon={n.icon} color={n.color} />
             ))}
-            <Card value={(specialists.data as any[])?.length} label="المتخصصون" icon="badge" color="#E65100" />
+            <Card value={(specialists.data as any[])?.length} label="المشرفون التربويّون" icon="badge" color="#E65100" />
           </View>
         )}
 
@@ -98,7 +98,7 @@ export default function AdminPanelScreen() {
         {/* Coming next */}
         <View style={{ marginTop: 8, backgroundColor: colors.primary + "0D", borderRadius: 12, padding: 12, borderWidth: 1, borderColor: colors.primary + "20" }}>
           <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>
-            قريبًا: إسناد العائلات للمتخصصين، وإدارة الموقع.
+            قريبًا: إسناد العائلات للمشرفين التربويّين، وإدارة الموقع.
           </Text>
         </View>
       </ScrollView>

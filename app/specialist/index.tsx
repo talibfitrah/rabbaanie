@@ -49,9 +49,9 @@ export default function SpecialistPortalScreen() {
       <ScreenContainer className="p-6">
         <View className="flex-1 items-center justify-center gap-4">
           <IconSymbol name="stethoscope" size={64} color={colors.muted} />
-          <Text className="text-xl font-bold text-foreground text-center">Specialist Portal</Text>
+          <Text className="text-xl font-bold text-foreground text-center">Educational Supervisor Portal</Text>
           <Text className="text-base text-muted text-center">
-            Log in to access the specialist portal.
+            Log in to access the educational supervisor portal.
           </Text>
         </View>
       </ScreenContainer>
@@ -72,7 +72,7 @@ export default function SpecialistPortalScreen() {
         <TouchableOpacity onPress={() => router.back()}>
           <IconSymbol name="chevron.right" size={24} color={colors.primary} style={{ transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
-        <Text className="text-lg font-bold text-foreground">Specialist Portal</Text>
+        <Text className="text-lg font-bold text-foreground">Educational Supervisor Portal</Text>
         <View style={{ width: 24 }} />
       </View>
 
@@ -242,7 +242,7 @@ function OverviewTab({ stats, pending, plans, loading, colors, onAccept, router 
         <View className="items-center py-10">
           <IconSymbol name="stethoscope" size={48} color={colors.muted} />
           <Text className="text-base mt-4 text-center" style={{ color: colors.muted }}>
-            No active assignments yet. Families can invite you as a specialist.
+            No active assignments yet. Families can invite you as an educational supervisor.
           </Text>
         </View>
       )}

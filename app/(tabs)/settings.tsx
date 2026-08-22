@@ -2070,7 +2070,7 @@ export default function SettingsScreen() {
         <MaterialIcons name="vpn-key" size={22} color="#FF9800" />
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: "bold", color: "#E65100", fontSize: 14 }}>
-            {language === "ar" ? "التسجيل كمتخصص" : language === "en" ? "Register as Specialist" : "Registreer als Specialist"}
+            {language === "ar" ? "التسجيل كمشرف تربوي" : language === "en" ? "Register as Educational Supervisor" : "Registreer als Pedagogisch begeleider"}
           </Text>
           <Text style={{ color: "#FF9800", fontSize: 11, marginTop: 2 }}>
             {language === "ar" ? "أدخل رمز الدعوة للتسجيل" : language === "en" ? "Enter invitation code to register" : "Voer uitnodigingscode in om te registreren"}
@@ -2099,7 +2099,7 @@ export default function SettingsScreen() {
         <MaterialIcons name="menu-book" size={22} color="#2E7D32" />
         <View style={{ flex: 1 }}>
           <Text style={{ fontWeight: "bold", color: "#2E7D32", fontSize: 14 }}>
-            {language === "ar" ? "لوحة المتخصص" : language === "en" ? "Specialist Dashboard" : "Specialistendashboard"}
+            {language === "ar" ? "لوحة المشرف التربوي" : language === "en" ? "Educational Supervisor Dashboard" : "Pedagogisch-begeleidersdashboard"}
           </Text>
           <Text style={{ color: "#4CAF50", fontSize: 11, marginTop: 2 }}>
             {language === "ar" ? "إدارة ملفك ومشاهدة العائلات المعينة" : language === "en" ? "Manage your profile and view assigned families" : "Beheer je profiel en bekijk toegewezen gezinnen"}

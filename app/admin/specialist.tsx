@@ -44,13 +44,13 @@ export default function SpecialistDetailScreen() {
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name || "متخصص"}</Text>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name || "مشرف تربوي"}</Text>
           <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{assignedIds.size} عائلة مُسندة</Text>
         </View>
       </View>
 
       <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
-        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>اضغط على عائلة لإسنادها أو إلغاء إسنادها لهذا المتخصص:</Text>
+        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>اضغط على عائلة لإسنادها أو إلغاء إسنادها لهذا المشرف التربوي:</Text>
         <TextInput value={search} onChangeText={setSearch} placeholder="بحث عن عائلة…" placeholderTextColor={colors.muted}
           style={{ backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: isRTL ? "right" : "left", borderWidth: 1, borderColor: colors.border }} />
       </View>

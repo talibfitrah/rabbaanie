@@ -9,7 +9,7 @@ import { trpc } from "@/lib/trpc";
 const ROLES = [
   { key: "user", ar: "مستخدم", color: "#6B7280" },
   { key: "parent", ar: "والد", color: "#0891B2" },
-  { key: "specialist", ar: "متخصص", color: "#E65100" },
+  { key: "specialist", ar: "مشرف تربوي", color: "#E65100" },
   { key: "moderator", ar: "مشرف", color: "#7C3AED" },
   { key: "admin", ar: "مدير", color: "#2563EB" },
   { key: "super_admin", ar: "مالك", color: "#059669" },

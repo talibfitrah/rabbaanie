@@ -101,7 +101,7 @@ export default function FindSpecialistScreen() {
           <View style={s.loadingContainer}>
             <ActivityIndicator size="large" color={colors.primary} />
             <Text style={[s.loadingText, { color: colors.muted }]}>
-              {tx(lang, "Specialist zoeken...", "Finding specialist...", "جاري البحث عن متخصص...")}
+              {tx(lang, "Pedagogisch begeleider zoeken...", "Finding educational supervisor...", "جاري البحث عن مشرف تربوي...")}
             </Text>
           </View>
         )}
@@ -117,7 +117,7 @@ export default function FindSpecialistScreen() {
             <Text style={{ color: matchType === "city" ? "#2E7D32" : "#E65100", fontSize: 12 }}>
               {matchType === "city"
                 ? tx(lang, "Gevonden in jouw stad", "Found in your city", "تم العثور في مدينتك")
-                : tx(lang, "Dichtstbijzijnde specialist", "Nearest specialist", "أقرب متخصص")}
+                : tx(lang, "Dichtstbijzijnde pedagogisch begeleider", "Nearest educational supervisor", "أقرب مشرف تربوي")}
             </Text>
           </View>
         )}
@@ -131,7 +131,7 @@ export default function FindSpecialistScreen() {
               </View>
               <View style={{ flex: 1, marginLeft: isRTL ? 0 : 12, marginRight: isRTL ? 12 : 0 }}>
                 <Text style={[s.specialistName, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
-                  {spec.displayName || spec.user?.name || tx(lang, "Specialist", "Specialist", "متخصص")}
+                  {spec.displayName || spec.user?.name || tx(lang, "Pedagogisch begeleider", "Educational Supervisor", "مشرف تربوي")}
                 </Text>
                 <View style={[s.locationRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <MaterialIcons name="location-on" size={14} color={colors.muted} />
@@ -183,7 +183,7 @@ export default function FindSpecialistScreen() {
             <View style={[s.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <TouchableOpacity
                 style={[s.chatBtn, { backgroundColor: "#2E7D32" }]}
-                onPress={() => openChat(spec.userId || spec.user?.id, spec.displayName || spec.user?.name || "Specialist", spec.functionRoles)}
+                onPress={() => openChat(spec.userId || spec.user?.id, spec.displayName || spec.user?.name || "Educational Supervisor", spec.functionRoles)}
               >
                 <MaterialIcons name="chat" size={18} color="#fff" />
                 <Text style={s.chatBtnText}>
@@ -212,9 +212,9 @@ export default function FindSpecialistScreen() {
             <MaterialIcons name="info-outline" size={24} color="#E65100" />
             <Text style={[s.fallbackTitle, { textAlign: isRTL ? "right" : "left" }]}>
               {tx(lang,
-                "Geen specialist beschikbaar in jouw regio",
-                "No specialist available in your region",
-                "لا يوجد متخصص متاح في منطقتك"
+                "Geen pedagogisch begeleider beschikbaar in jouw regio",
+                "No educational supervisor available in your region",
+                "لا يوجد مشرف تربوي متاح في منطقتك"
               )}
             </Text>
             <Text style={[s.fallbackDesc, { textAlign: isRTL ? "right" : "left" }]}>
@@ -233,7 +233,7 @@ export default function FindSpecialistScreen() {
                   onPress={() => callPhone(fp.phone)}
                 >
                   <View style={{ flex: 1 }}>
-                    <Text style={s.phoneName}>{fp.name || "Specialist"}</Text>
+                    <Text style={s.phoneName}>{fp.name || "Educational Supervisor"}</Text>
                     <Text style={s.phoneLocation}>{[fp.city, fp.country].filter(Boolean).join(", ")}</Text>
                     <Text style={s.phoneNumber}>{fp.phone}</Text>
                   </View>
@@ -243,9 +243,9 @@ export default function FindSpecialistScreen() {
             ) : (
               <Text style={[s.noPhoneText, { textAlign: isRTL ? "right" : "left" }]}>
                 {tx(lang,
-                  "Er zijn momenteel geen specialisten geregistreerd. Probeer het later opnieuw.",
-                  "There are currently no specialists registered. Please try again later.",
-                  "لا يوجد متخصصون مسجلون حالياً. يرجى المحاولة لاحقاً."
+                  "Er zijn momenteel geen pedagogisch begeleiders geregistreerd. Probeer het later opnieuw.",
+                  "There are currently no educational supervisors registered. Please try again later.",
+                  "لا يوجد مشرفون تربويّون مسجلون حالياً. يرجى المحاولة لاحقاً."
                 )}
               </Text>
             )}

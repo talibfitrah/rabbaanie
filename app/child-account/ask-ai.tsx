@@ -30,6 +30,27 @@ interface Message {
 // of grepping the source for it. Swallows a createConversation failure so the
 // caller falls back to sendMessage's own error handling rather than throwing
 // mid-send.
+// Runs `action` only if no other call is already in flight through the same
+// ref. A second call arriving while the first hasn't returned yet (e.g. a
+// fast double-tap during resolveConversationId's network round trip) is a
+// no-op instead of a second concurrent send -- closing the gap a plain
+// `isLoading` state check can't: state only reflects the double-tap's second
+// call once React has re-rendered, but a ref mutation is visible to every
+// closure immediately. Exported so tests can drive the real guard, not a
+// reimplementation of it.
+export async function runExclusive(
+  inFlight: { current: boolean },
+  action: () => Promise<void>,
+): Promise<void> {
+  if (inFlight.current) return;
+  inFlight.current = true;
+  try {
+    await action();
+  } finally {
+    inFlight.current = false;
+  }
+}
+
 export async function resolveConversationId(
   currentId: number | null,
   childAccountId: number,
@@ -71,6 +92,7 @@ export default function ChildAskAIScreen() {
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<number | null>(null);
   const scrollRef = useRef<ScrollView>(null);
+  const isSendingRef = useRef(false);
 
   const textAlign = isRTL ? ("right" as const) : ("left" as const);
   const flexDir = isRTL ? ("row-reverse" as const) : ("row" as const);
@@ -109,28 +131,30 @@ export default function ChildAskAIScreen() {
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return;
-    const userMsg = input.trim();
-    setInput("");
-    setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
-    setIsLoading(true);
-    setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
+    await runExclusive(isSendingRef, async () => {
+      const userMsg = input.trim();
+      setInput("");
+      setMessages((prev) => [...prev, { role: "user", content: userMsg }]);
+      setIsLoading(true);
+      setTimeout(() => scrollRef.current?.scrollToEnd({ animated: true }), 100);
 
-    const activeConversationId = await resolveConversationId(
-      conversationId,
-      accountId,
-      createConversationMutation.mutateAsync,
-    );
-    if (activeConversationId && activeConversationId !== conversationId) {
-      setConversationId(activeConversationId);
-    }
+      const activeConversationId = await resolveConversationId(
+        conversationId,
+        accountId,
+        createConversationMutation.mutateAsync,
+      );
+      if (activeConversationId && activeConversationId !== conversationId) {
+        setConversationId(activeConversationId);
+      }
 
-    sendMutation.mutate({
-      childAccountId: accountId,
-      message: userMsg,
-      conversationId: activeConversationId || 0,
-      childAge:
-        typeof ageGroup === "string" ? parseInt(ageGroup) || 0 : ageGroup || 0,
-      childGender: gender === "female" ? "meisje" : "jongen",
+      sendMutation.mutate({
+        childAccountId: accountId,
+        message: userMsg,
+        conversationId: activeConversationId || 0,
+        childAge:
+          typeof ageGroup === "string" ? parseInt(ageGroup) || 0 : ageGroup || 0,
+        childGender: gender === "female" ? "meisje" : "jongen",
+      });
     });
   };
 

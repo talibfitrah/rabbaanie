@@ -129,7 +129,7 @@ export default function NewsletterEditorScreen() {
                 onPress={() => setAudience(a)}
               >
                 <Text className={`text-xs font-medium ${audience === a ? "text-background" : "text-foreground"}`}>
-                  {a === "all" ? "Iedereen" : a === "parents" ? "Ouders" : a === "teachers" ? "Leraren" : "Specialisten"}
+                  {a === "all" ? "Iedereen" : a === "parents" ? "Ouders" : a === "teachers" ? "Leraren" : "Pedagogisch begeleiders"}
                 </Text>
               </TouchableOpacity>
             ))}

@@ -97,7 +97,7 @@ export default function SpecialistRegisterScreen() {
       });
       Alert.alert(
         "Geregistreerd!",
-        "Je bent nu geregistreerd als specialist. Je kunt nu het specialist-dashboard gebruiken.",
+        "Je bent nu geregistreerd als pedagogisch begeleider. Je kunt nu het pedagogisch-begeleider-dashboard gebruiken.",
         [{ text: "OK", onPress: () => router.replace("/specialist/dashboard" as any) }]
       );
     } catch (e: any) {
@@ -128,7 +128,7 @@ export default function SpecialistRegisterScreen() {
             <MaterialIcons name="arrow-back" size={24} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.foreground }]}>
-            Specialist Registratie
+            Pedagogisch begeleider Registratie
           </Text>
         </View>
 
@@ -141,7 +141,7 @@ export default function SpecialistRegisterScreen() {
               Uitnodigingscode
             </Text>
             <Text style={[styles.description, { color: colors.muted }]}>
-              Voer de uitnodigingscode in die je hebt ontvangen om je als specialist te registreren.
+              Voer de uitnodigingscode in die je hebt ontvangen om je als pedagogisch begeleider te registreren.
             </Text>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
@@ -284,7 +284,7 @@ export default function SpecialistRegisterScreen() {
               {loading ? (
                 <ActivityIndicator color="#fff" />
               ) : (
-                <Text style={styles.primaryBtnText}>Registreren als Specialist</Text>
+                <Text style={styles.primaryBtnText}>Registreren als Pedagogisch begeleider</Text>
               )}
             </TouchableOpacity>
           </View>

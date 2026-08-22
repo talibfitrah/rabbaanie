@@ -1409,9 +1409,9 @@ function PersonalAdviceScreenInner() {
             >
               {tx(
                 lang,
-                "Vraag aan een specialist",
-                "Ask a specialist",
-                "اسأل متخصصاً",
+                "Vraag aan een pedagogisch begeleider",
+                "Ask an educational supervisor",
+                "اسأل مشرف تربوي",
               )}
             </Text>
             <Text

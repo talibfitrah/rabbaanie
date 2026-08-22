@@ -37,7 +37,7 @@ const SEASONS = [
   "Geen specifiek seizoen",
 ];
 
-const AUDIENCES = ["Moeders", "Vaders", "Beide ouders", "Leraren", "Specialisten", "Tieners", "Algemeen"];
+const AUDIENCES = ["Moeders", "Vaders", "Beide ouders", "Leraren", "Pedagogisch begeleiders", "Tieners", "Algemeen"];
 
 const TONES = ["Warm & bemoedigend", "Informatief & educatief", "Spiritueel & reflectief", "Praktisch & direct", "Wetenschappelijk onderbouwd"];
 

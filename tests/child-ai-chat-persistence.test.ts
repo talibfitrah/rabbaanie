@@ -54,7 +54,7 @@ vi.mock("@/lib/trpc", () => ({ trpc: {} }));
 vi.mock("@/lib/app-usage-tracker", () => ({ startScreenTracking: vi.fn(), endScreenTracking: vi.fn() }));
 vi.mock("@/components/report-ai-content", () => ({ ReportAiContent: "ReportAiContent" }));
 
-import { resolveConversationId } from "@/app/child-account/ask-ai";
+import { resolveConversationId, runExclusive } from "@/app/child-account/ask-ai";
 
 const context = { req: {} as any, res: {} as any, user: { id: 7 } as any };
 const CHILD_ACCOUNT_ID = 99;
@@ -165,5 +165,59 @@ describe("child AI chat: persistence (job 2)", () => {
       "Vraag 2",
       "Wa alaykum salaam!",
     ]);
+  });
+});
+
+// Cubic P3: handleSend became async and awaits resolveConversationId (a
+// network createConversation) before sendMutation.mutate. Its top guard
+// (`if (!input.trim() || isLoading) return`) reads isLoading from that
+// render's closure, which can still be false during that await if a second
+// tap lands before React has committed the isLoading=true re-render -- so a
+// fast double-tap could fire createConversation twice, minting an extra
+// empty conversation. runExclusive is the synchronous (ref-based, not
+// state-based) guard handleSend wraps its body in; this drives the real
+// exported guard against the real resolveConversationId, not a
+// reimplementation of either.
+describe("ask-ai double-submit guard: runExclusive", () => {
+  it("ignores a second concurrent call that arrives while the first is still resolving its conversation id", async () => {
+    const inFlight = { current: false };
+    const createConversation = vi.fn(
+      () => new Promise<{ id?: number }>((resolve) => setTimeout(() => resolve({ id: 1 }), 10)),
+    );
+    let sent = 0;
+    const send = async () => {
+      await resolveConversationId(null, CHILD_ACCOUNT_ID, createConversation);
+      sent++;
+    };
+
+    // Both "taps" fire before either has resolved -- the real double-tap race.
+    await Promise.all([runExclusive(inFlight, send), runExclusive(inFlight, send)]);
+
+    expect(createConversation).toHaveBeenCalledTimes(1);
+    expect(sent).toBe(1);
+  });
+
+  it("allows a later send once the previous one has finished", async () => {
+    const inFlight = { current: false };
+    const createConversation = vi.fn(async () => ({ id: 1 }));
+    const send = async () => {
+      await resolveConversationId(null, CHILD_ACCOUNT_ID, createConversation);
+    };
+
+    await runExclusive(inFlight, send);
+    await runExclusive(inFlight, send);
+
+    expect(createConversation).toHaveBeenCalledTimes(2);
+  });
+
+  it("releases the guard even when the wrapped action throws, so a later tap is not permanently blocked", async () => {
+    const inFlight = { current: false };
+    const failing = async () => {
+      throw new Error("boom");
+    };
+
+    await expect(runExclusive(inFlight, failing)).rejects.toThrow("boom");
+
+    expect(inFlight.current).toBe(false);
   });
 });

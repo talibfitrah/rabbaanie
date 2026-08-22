@@ -35,7 +35,7 @@ export default function SpecialistChatScreen() {
   const flatListRef = useRef<FlatList>(null);
 
   const specialistId = parseInt(id || "0");
-  const specialistName = decodeURIComponent(name || "Specialist");
+  const specialistName = decodeURIComponent(name || "Educational Supervisor");
   // Only present when opened from find-specialist (chatting WITH a specialist).
   // Specialist-initiated chats with parents pass no roles and keep the generic
   // subtitle below — parents don't have a functionRole to show.
@@ -128,9 +128,9 @@ export default function SpecialistChatScreen() {
             <MaterialIcons name="chat-bubble-outline" size={48} color={colors.muted} />
             <Text style={[s.emptyText, { color: colors.muted, textAlign: isRTL ? "right" : "left" }]}>
               {tx(lang,
-                "Stuur een bericht om het gesprek te starten. De specialist kan jouw analyse en die van je kinderen inzien.",
-                "Send a message to start the conversation. The specialist can view your analysis and your children's analysis.",
-                "أرسل رسالة لبدء المحادثة. يمكن للمتخصص الاطلاع على تحليلك وتحليل أطفالك."
+                "Stuur een bericht om het gesprek te starten. De pedagogisch begeleider kan jouw analyse en die van je kinderen inzien.",
+                "Send a message to start the conversation. The educational supervisor can view your analysis and your children's analysis.",
+                "أرسل رسالة لبدء المحادثة. يمكن للمشرف التربوي الاطلاع على تحليلك وتحليل أطفالك."
               )}
             </Text>
           </View>
