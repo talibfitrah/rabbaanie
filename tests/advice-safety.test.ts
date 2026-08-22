@@ -6,6 +6,18 @@ import { stripMarkdownEmphasis } from "../server/advice";
 const invokeLLMMock = vi.hoisted(() => vi.fn());
 vi.mock("../server/_core/llm", () => ({ invokeLLM: invokeLLMMock }));
 
+// getSpouseAdvice (server/advice.ts) db dependencies — same three
+// tests/partner-profile-access.test.ts already stubs for this procedure.
+// getGeneralAdvice/getWeekPlan/generateTreatmentPlan/getQuickTips (this
+// file's other tests) never call db.*, so mocking it wholesale here is safe.
+const dbMocks = vi.hoisted(() => ({
+  getPartnersOfUser: vi.fn(),
+  getSpouseInteractionData: vi.fn(),
+  getRecentDiagnosticSignals: vi.fn(),
+  createSpouseAdvice: vi.fn(),
+}));
+vi.mock("../server/db", () => dbMocks);
+
 import { adviceRouter } from "../server/advice";
 
 // --- Defect 2 (cosmetic): server-side strip is the guarantee, prompt bans are ---
@@ -322,5 +334,120 @@ describe("ai-chat.ts SYSTEM_PROMPTS carry the SCRIPTURE CITATION RULE (round-7 P
   });
   it("en SYSTEM_PROMPTS entry forbids reciting hadith or ayah from memory", () => {
     expect(langBlocks[LANG_MARKERS[2]]).toContain(RULE_EN);
+  });
+});
+
+// --- Spouse-advice addressing fix: the prompt used to embed ctx.user.name
+// (Latin script, e.g. "Suhayb Salam") directly into the Arabic-language
+// prompt, framed in 3rd person ("suggestions for [name]..."). The model
+// re-transliterated the Latin name back into Arabic and got it wrong
+// (سهيب instead of صهيب), shown on the user's OWN advice screen. Fix: no
+// name in the prompt at all; address the user in 2nd person; refer to the
+// partner only by a gendered relationship term derived from the user's
+// own gender (same column-then-JSON precedence as resolveGender in
+// server/routers.ts). Static check first (source no longer embeds the
+// name variables); runtime checks prove the actual rendered prompt. ---
+describe("getSpouseAdvice: prompt no longer embeds ctx.user.name (static)", () => {
+  const source = fs.readFileSync(path.join(__dirname, "../server/advice.ts"), "utf-8");
+  const start = source.indexOf("getSpouseAdvice: protectedProcedure");
+  const end = source.indexOf("getSpouseAdviceHistory: protectedProcedure");
+  if (start === -1 || end === -1) throw new Error("getSpouseAdvice block markers not found");
+  const block = source.slice(start, end);
+
+  it("no longer interpolates the raw user/partner name into the prompt", () => {
+    expect(block).not.toContain("${myName}");
+    expect(block).not.toContain("${partnerName}");
+  });
+
+  it("instructs 2nd-person addressing with no name, in all three languages", () => {
+    expect(block).toContain('خاطب المستخدم دائماً بصيغة المخاطب "أنت"، ولا تذكر اسمه أو اسم الشريك إطلاقاً');
+    expect(block).toContain('ADDRESSING RULE (binding): Always address the reader directly as "you"');
+    expect(block).toContain('AANSPREEKREGEL (bindend): Spreek de lezer altijd rechtstreeks aan met "je"');
+  });
+});
+
+describe("getSpouseAdvice: 2nd-person addressing + gendered partner term (runtime)", () => {
+  beforeEach(() => {
+    invokeLLMMock.mockReset();
+    dbMocks.getPartnersOfUser.mockReset();
+    dbMocks.getSpouseInteractionData.mockReset();
+    dbMocks.getRecentDiagnosticSignals.mockReset();
+    dbMocks.createSpouseAdvice.mockReset();
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "1. Test\n- doe iets aardigs" } }] });
+    dbMocks.getPartnersOfUser.mockResolvedValue([{
+      id: 2, name: "Partner", partnershipId: 55, partnershipConfirmed: true, profileData: {},
+    }]);
+  });
+
+  function ctxFor(name: string, gender: string | undefined | null, language = "ar") {
+    return {
+      req: {} as any,
+      res: {} as any,
+      user: { id: 1, name, language, gender, profileData: {} } as any,
+    };
+  }
+
+  function promptText() {
+    const call = invokeLLMMock.mock.calls[0][0] as { messages: { role: string; content: string }[] };
+    return call.messages.map((m) => m.content).join("\n");
+  }
+
+  it("male user, Arabic: no Latin name in the prompt, partner named زوجتك (your wife)", async () => {
+    await adviceRouter.createCaller(ctxFor("Suhayb Salam", "man", "ar")).getSpouseAdvice({ language: "ar" });
+    const text = promptText();
+    expect(text).not.toContain("Suhayb Salam");
+    expect(text).toContain("زوجتك");
+    expect(text).not.toContain("زوجك");
+    expect(text).not.toContain("شريكك");
+  });
+
+  it("female user, Arabic: no Latin name in the prompt, partner named زوجك (your husband)", async () => {
+    await adviceRouter.createCaller(ctxFor("Fatima Zahra", "vrouw", "ar")).getSpouseAdvice({ language: "ar" });
+    const text = promptText();
+    expect(text).not.toContain("Fatima Zahra");
+    expect(text).toContain("زوجك");
+    expect(text).not.toContain("زوجتك");
+  });
+
+  it("unknown gender, Arabic: falls back to the neutral شريكك (your partner)", async () => {
+    await adviceRouter.createCaller(ctxFor("No Gender", undefined, "ar")).getSpouseAdvice({ language: "ar" });
+    const text = promptText();
+    expect(text).toContain("شريكك");
+    expect(text).not.toContain("زوجتك");
+    expect(text).not.toContain("زوجك");
+  });
+
+  it("gender resolved from the profileData JSON copy when the users.gender column is missing (resolveGender fallback)", async () => {
+    const ctx = {
+      req: {} as any,
+      res: {} as any,
+      user: {
+        id: 1, name: "Column Missing", language: "ar", gender: null,
+        profileData: { parentProfile: { gender: "vrouw" } },
+      } as any,
+    };
+    await adviceRouter.createCaller(ctx).getSpouseAdvice({ language: "ar" });
+    expect(promptText()).toContain("زوجك");
+  });
+
+  it("male user, English: no Latin name in the prompt, partner named 'your wife'", async () => {
+    await adviceRouter.createCaller(ctxFor("Suhayb Salam", "man", "en")).getSpouseAdvice({ language: "en" });
+    const text = promptText();
+    expect(text).not.toContain("Suhayb Salam");
+    expect(text).toContain("your wife");
+    expect(text).not.toContain("your husband");
+  });
+
+  it("male user, Dutch: no Latin name in the prompt, partner named 'je vrouw'", async () => {
+    await adviceRouter.createCaller(ctxFor("Suhayb Salam", "man", "nl")).getSpouseAdvice({ language: "nl" });
+    const text = promptText();
+    expect(text).not.toContain("Suhayb Salam");
+    expect(text).toContain("je vrouw");
+    expect(text).not.toContain("je man");
   });
 });

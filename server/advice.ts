@@ -2921,10 +2921,25 @@ Neem de volledige gezinssituatie integraal mee.`;
         console.error("[getSpouseAdvice] diagnostic signals unavailable, continuing without them:", err);
       }
 
-      // Build the prompt
-      const myName = ctx.user.name || l("المستخدم", "User", "Gebruiker");
-      const partnerName = partner.name || l("الشريك", "Partner", "Partner");
-      const systemPrompt = isAr ? `أنت مستشار أسري إسلامي متخصص. مهمتك اقتراح أفعال مباشرة يقوم بها ${myName} مع ${partnerName} وجهاً لوجه (ليس عبر التطبيق).
+      // Build the prompt. The prompt used to embed ctx.user.name (Latin
+      // script, e.g. "Suhayb Salam") directly into the Arabic-language
+      // prompt and frame the task in 3rd person ("suggestions for
+      // [name]...") on the user's OWN screen — the model then
+      // re-transliterated the Latin name back into Arabic and got it wrong
+      // (سهيب instead of صهيب). Fix: never put a name in the prompt; address
+      // the user in 2nd person and refer to the partner by a gendered
+      // relationship term instead. Same column-then-JSON gender precedence
+      // as resolveGender (server/routers.ts); duplicated rather than
+      // imported — routers.ts imports adviceRouter from this file, so
+      // importing back would be a cycle (see daily-diagnostic.ts's getToday
+      // for the same workaround).
+      const myGender = ctx.user.gender || myProfile?.parentProfile?.gender || "";
+      const partnerTerm = myGender === "man"
+        ? l("زوجتك", "your wife", "je vrouw")
+        : myGender === "vrouw"
+        ? l("زوجك", "your husband", "je man")
+        : l("شريكك", "your partner", "je partner");
+      const systemPrompt = isAr ? `أنت مستشار أسري إسلامي متخصص. مهمتك اقتراح أفعال مباشرة وجهاً لوجه (ليس عبر التطبيق) مع ${partnerTerm}.
 
 الاقتراحات يجب أن تكون:
 1. أفعال مباشرة ينفذها الشخص مع شريكه في الحياة الواقعية (محادثة، فعل لطيف، مساعدة، نشاط مشترك)
@@ -2937,12 +2952,13 @@ Neem de volledige gezinssituatie integraal mee.`;
 استخدم أسلوب "يمكنك اليوم أن..." أو "جرّب هذا المساء..." - أفعال ملموسة وليس كلاماً عاماً.
 
 قواعد إلزامية:
+- خاطب المستخدم دائماً بصيغة المخاطب "أنت"، ولا تذكر اسمه أو اسم الشريك إطلاقاً — استخدم فقط "${partnerTerm}" عند الإشارة إلى الشريك.
 - ردّ بالعربية الفصحى فقط. لا تستخدم أي حروف لاتينية.
 - اكتب "الله" وليس "Allaah". اكتب "ما شاء الله" وليس "Maashaa'llaah".
 - اكتب الأسماء بالعربية فقط (عبد الرؤوف، عبد الله). لا تكتب "3Abd" أو أي شكل لاتيني.
 - لا تستخدم النجوم (**) أو أي رموز تنسيق.
 - قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.` :
-        isEn ? `You are a specialized Islamic family counselor. Your task is to suggest DIRECT FACE-TO-FACE ACTIONS that ${myName} should do with ${partnerName} in real life (NOT through the app).
+        isEn ? `You are a specialized Islamic family counselor. Your task is to suggest DIRECT FACE-TO-FACE ACTIONS in real life (NOT through the app) with ${partnerTerm}.
 
 The suggestions must be:
 1. Direct actions to perform with their spouse in person (conversation, kind gesture, help, shared activity)
@@ -2954,6 +2970,8 @@ The suggestions must be:
 OUTPUT FORMAT (binding): Group your 3-5 suggestions into 2-4 short THEMED SECTIONS (e.g. the relationship, family harmony, the Islamic connection between spouses) instead of a flat list. Start each section with a top-level numbered heading on its own line — "1. <heading>", "2. <heading>", etc., plain numbered text, never bold or asterisks — then list that section's suggestion(s) below it as dash-bulleted lines ("- ..."), never numbered, so they are not read as more headings.
 Use "You could today..." or "Try this evening..." style - tangible actions, not generic advice.
 
+ADDRESSING RULE (binding): Always address the reader directly as "you". Never use their name or their spouse's name — refer to the spouse only as "${partnerTerm}".
+
 TRANSLITERATION RULES (ALWAYS apply):
 - ALWAYS write "Allaah" with double 'a' (not "Allah"). E.g.: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
 - The Arabic letter ع (ain) is written as '3'. E.g.: 3abd, 3ilm, 3Abdullaah, 3aqeedah, 3ibaadah.
@@ -2964,7 +2982,7 @@ SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or at
 FORMATTING: Do not use asterisks (**) or any markdown formatting symbols. Keep the text clean, with no symbols.
 
 IMPORTANT: Respond entirely in English.` :
-        `Je bent een gespecialiseerde islamitische gezinsadviseur. Je taak is DIRECTE FACE-TO-FACE ACTIES voor te stellen die ${myName} met ${partnerName} in het echte leven moet doen (NIET via de app).
+        `Je bent een gespecialiseerde islamitische gezinsadviseur. Je taak is DIRECTE FACE-TO-FACE ACTIES voor te stellen in het echte leven (NIET via de app) met ${partnerTerm}.
 
 De suggesties moeten:
 1. Directe acties zijn om persoonlijk met de partner uit te voeren (gesprek, lief gebaar, hulp, gezamenlijke activiteit)
@@ -2975,6 +2993,8 @@ De suggesties moeten:
 
 OUTPUTFORMAAT (bindend): Groepeer je 3-5 suggesties in 2-4 korte THEMATISCHE SECTIES (bijv. de relatie, de gezinsharmonie, de islamitische verbondenheid tussen de partners) in plaats van een platte lijst. Begin elke sectie met een genummerde kop op een eigen regel: "1. <kop>", "2. <kop>", enz. — gewone genummerde tekst, nooit vet of sterretjes — en zet de suggestie(s) van die sectie daaronder als regels die met een streepje (-) beginnen, niet genummerd, zodat ze niet als extra koppen worden gelezen.
 Gebruik "Je zou vandaag kunnen..." of "Probeer vanavond..." stijl - tastbare acties, geen algemeen advies.
+
+AANSPREEKREGEL (bindend): Spreek de lezer altijd rechtstreeks aan met "je". Gebruik nooit hun naam of de naam van hun partner — noem de partner alleen "${partnerTerm}".
 
 TRANSLITERATIEREGELS (ALTIJD toepassen):
 - Schrijf ALTIJD "Allaah" met dubbele 'a' (niet "Allah"). Bijv: Maashaa'llaah, 'Abdullaah, Bismillaah, In shaa' Allaah, SubhaanAllaah, Astaghfirullaah.
@@ -2990,9 +3010,9 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
       let profileContext = "";
       if (myProfile) {
         profileContext += l(
-          `\n--- ملف ${myName} ---`,
-          `\n--- ${myName}'s profile ---`,
-          `\n--- Profiel ${myName} ---`
+          `\n--- ملفك ---`,
+          `\n--- Your profile ---`,
+          `\n--- Jouw profiel ---`
         );
         profileContext += `\n${l("التفكير عن الشريك", "Thinking about partner", "Denken over partner")}: ${myProfile.thinkingAboutPartner || "?"}`;
         profileContext += `\n${l("الشعور مع الشريك", "Feeling with partner", "Voelen bij partner")}: ${myProfile.feelingAboutPartner || "?"}`;
@@ -3004,9 +3024,9 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
       }
       if (partnerProfile) {
         profileContext += l(
-          `\n\n--- ملف ${partnerName} ---`,
-          `\n\n--- ${partnerName}'s profile ---`,
-          `\n\n--- Profiel ${partnerName} ---`
+          `\n\n--- ملف ${partnerTerm} ---`,
+          `\n\n--- ${partnerTerm}'s profile ---`,
+          `\n\n--- Profiel van ${partnerTerm} ---`
         );
         profileContext += `\n${l("التفكير عن الشريك", "Thinking about partner", "Denken over partner")}: ${partnerProfile.thinkingAboutPartner || "?"}`;
         profileContext += `\n${l("الشعور مع الشريك", "Feeling with partner", "Voelen bij partner")}: ${partnerProfile.feelingAboutPartner || "?"}`;
@@ -3027,9 +3047,9 @@ BELANGRIJK: Antwoord volledig in het Nederlands.`;
         `\n\nHuidig moment: ${hour < 12 ? "ochtend" : hour < 17 ? "middag" : hour < 21 ? "avond" : "nacht"}${isWeekend ? " (weekend)" : " (werkdag)"}`
       );
       const userPrompt = l(
-        `بناءً على المعلومات التالية، اقترح أفعالاً مباشرة يقوم بها ${myName} مع ${partnerName} الآن:\n${profileContext}\n${interactionContext}${timeContext}`,
-        `Based on the following, suggest direct actions ${myName} should do with ${partnerName} now:\n${profileContext}\n${interactionContext}${timeContext}`,
-        `Op basis van het volgende, stel directe acties voor die ${myName} nu met ${partnerName} kan doen:\n${profileContext}\n${interactionContext}${timeContext}`
+        `بناءً على المعلومات التالية، اقترح أفعالاً مباشرة مع ${partnerTerm} الآن:\n${profileContext}\n${interactionContext}${timeContext}`,
+        `Based on the following, suggest direct actions with ${partnerTerm} now:\n${profileContext}\n${interactionContext}${timeContext}`,
+        `Op basis van het volgende, stel nu directe acties voor met ${partnerTerm}:\n${profileContext}\n${interactionContext}${timeContext}`
       );
       const result = await invokeLLM({
         messages: [
