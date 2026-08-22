@@ -9,6 +9,7 @@ import { router, protectedProcedure } from "./_core/trpc";
 import { invokeLLM } from "./_core/llm";
 import * as db from "./db";
 import { NAME_FIDELITY_RULE } from "./name-fidelity";
+import { SOURCE_GROUNDING_RULE } from "./source-grounding";
 
 function notFound(): never {
   // Do not reveal whether another family owns the requested record.
@@ -413,6 +414,7 @@ REGELS:
 - Gebruik NOOIT westerse psychologische of filosofische termen. Gebruik alleen islamitische terminologie.
 - Schrijf "Allaah" in plaats van "Allah" en "Salaah" in plaats van "Salah"
 - REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${SOURCE_GROUNDING_RULE.nl}
 - ${NAME_FIDELITY_RULE.nl}`;
 
       // Build messages for LLM
@@ -661,6 +663,7 @@ REGELS:
 - Schrijf "Allaah" in plaats van "Allah" en "Salaah" in plaats van "Salah"
 - Antwoord in het Nederlands tenzij anders gevraagd
 - REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${SOURCE_GROUNDING_RULE.nl}
 - ${NAME_FIDELITY_RULE.nl}`;
       } else {
         // Spouse consultation
@@ -681,7 +684,8 @@ REGELS:
 - Gebruik islamitische terminologie: mawaddah, rahmah, qiwaamah, nushuz, mu'aasharah bil-ma'roef, etc.
 - Schrijf "Allaah" in plaats van "Allah" en "Salaah" in plaats van "Salah"
 - Antwoord in het Nederlands tenzij anders gevraagd
-- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.`;
+- REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+- ${SOURCE_GROUNDING_RULE.nl}`;
       }
 
       const llmMessages: any[] = [

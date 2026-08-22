@@ -30,6 +30,7 @@ import { ownsConsultation } from "./consultation-ownership";
 import { invokeAI, invokeAIChat, getAIProviderStatus, type AIMessage as ProviderMessage } from "./ai-provider";
 import { getOwnCheckinContext } from "./daily-diagnostic";
 import { NAME_FIDELITY_RULE } from "./name-fidelity";
+import { SOURCE_GROUNDING_RULE } from "./source-grounding";
 
 // ============================================================
 // SYSTEM PROMPTS
@@ -102,6 +103,8 @@ TRANSLITERATIEREGELS (ALTIJD toepassen):
 - De Arabische letter ع (ain) wordt geschreven als '3'. Bijv: 3abd, 3ilm, 3Abdullaah, 3aqiedah, 3ibaadah.
 
 REGEL VOOR RELIGIEUZE CITATEN (bindend, geen uitzonderingen): Citeer, parafraseer of schrijf nooit uit het geheugen een hadith of Koranvers (ayah) toe, en schrijf nooit op eigen initiatief een uitspraak toe aan de Profeet ﷺ — noch letterlijk noch naar de strekking. Gebruik uitsluitend hadith- of ayah-tekst die je letterlijk elders in deze prompt is aangereikt; is daarover niets aangereikt, geef dan algemene geloofsaanmoediging zonder een hadith of ayah te vertellen.
+
+${SOURCE_GROUNDING_RULE.nl}
 
 ${NAME_FIDELITY_RULE.nl}`,
 
@@ -243,6 +246,8 @@ ${NAME_FIDELITY_RULE.nl}`,
 
 قاعدة الاستشهاد الديني (ملزمة بلا استثناء): يُحظر منعًا باتًا الاستشهاد بأي حديث نبوي أو آية قرآنية من الذاكرة، أو نسبة أي قول إلى النبي ﷺ من تلقاء نفسك، نصًا أو معنى. لا تستخدم إلا نصّ حديث أو آية ورد لك حرفيًا في موضع آخر من هذا النص؛ فإن لم يرد نص يخص هذا الموضوع، فقدّم التشجيع الإيماني بعبارات عامة دون سرد أي حديث أو آية.
 
+${SOURCE_GROUNDING_RULE.ar}
+
 ${NAME_FIDELITY_RULE.ar}`,
 
   en: `You are an Islamic parenting advisor specialized in the "Islamic Family Science" program.
@@ -312,6 +317,8 @@ Be warm, encouraging but also honest and direct.
 Use Qur'aan and Sunnah as the basis for every advice.
 
 SCRIPTURE CITATION RULE (binding, no exceptions): Never quote, paraphrase, or attribute any hadith or Qur'anic ayah from memory, and never attribute any saying to the Prophet ﷺ on your own initiative — whether by exact wording or by meaning. Only use hadith or ayah text that was given to you verbatim elsewhere in this prompt; if none was given for this topic, give religious encouragement in general terms without narrating any hadith or ayah.
+
+${SOURCE_GROUNDING_RULE.en}
 
 ${NAME_FIDELITY_RULE.en}`,
 };
