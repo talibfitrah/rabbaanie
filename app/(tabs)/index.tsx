@@ -5,7 +5,7 @@ import { useRemoteConfig } from "@/hooks/use-remote-config";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete, type DailyCheckin } from "@/lib/store";
+import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
@@ -82,7 +82,7 @@ const PROGRESS_KEY = "@weekly_progress";
 export default function AlgemeenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { state, loading, saveDailyCheckin, rehydrateFromServer } = useAppState();
+  const { state, loading, rehydrateFromServer } = useAppState();
   const { t, language, isRTL, languageSelected } = useI18n();
   const lang = language as Lang;
   const remoteCfg = useRemoteConfig();
@@ -91,14 +91,10 @@ export default function AlgemeenScreen() {
   const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
-  // Daily check-in state
+  // Daily check-in state — todayCheckin still feeds the DailyDiagnosticCard
+  // reminder banner's content via todayMainTip below.
   const todayDateStr = currentTime.toISOString().slice(0, 10);
   const todayCheckin = state.dailyCheckins?.find((c) => c.date === todayDateStr);
-  const [checkinPrayer, setCheckinPrayer] = useState(todayCheckin?.prayer || "");
-  const [checkinMood, setCheckinMood] = useState(todayCheckin?.mood || "");
-  const [checkinSaved, setCheckinSaved] = useState(!!todayCheckin);
-  const [checkinDismissed, setCheckinDismissed] = useState(!!todayCheckin);
-  const [checkinShowConfirm, setCheckinShowConfirm] = useState(false);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const { isAuthenticated } = useAuth();
@@ -117,21 +113,6 @@ export default function AlgemeenScreen() {
       coParentsQuery.refetch();
     }
   }, [isAuthenticated]);
-
-  // Sync from store when loaded
-  useEffect(() => {
-    if (todayCheckin) {
-      setCheckinPrayer(todayCheckin.prayer);
-      setCheckinMood(todayCheckin.mood);
-      setCheckinSaved(true);
-      setCheckinDismissed(true);
-    }
-  }, [todayCheckin?.prayer, todayCheckin?.mood]);
-
-  const handleCheckinAnswer = (type: "prayer" | "mood", value: string) => {
-    if (type === "prayer") setCheckinPrayer(value);
-    if (type === "mood") setCheckinMood(value);
-  };
 
   const showToast = (msg: string, type: "success" | "info" | "error" = "success") => {
     setToastMessage(msg);
@@ -192,24 +173,6 @@ export default function AlgemeenScreen() {
       setSyncing(false);
       setTimeout(() => setSyncResult(null), 4000);
     }
-  };
-
-  const handleCheckinSubmit = async () => {
-    if (!checkinPrayer || !checkinMood) return;
-    const checkin: DailyCheckin = {
-      date: todayDateStr,
-      prayer: checkinPrayer,
-      mood: checkinMood,
-      timestamp: new Date().toISOString(),
-    };
-    await saveDailyCheckin(checkin);
-    setCheckinSaved(true);
-    setCheckinShowConfirm(true);
-    LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut);
-    setTimeout(() => {
-      setCheckinDismissed(true);
-      setCheckinShowConfirm(false);
-    }, 2000);
   };
 
   const reloadPrayerData = useCallback(() => {
@@ -552,7 +515,7 @@ export default function AlgemeenScreen() {
             >
               <MaterialIcons name={currentTime.getHours() < 15 ? "wb-sunny" : "nights-stay"} size={14} color={currentTime.getHours() < 15 ? "#F59E0B" : "#5E35B1"} />
               <Text style={[s.adhkarText, { color: currentTime.getHours() < 15 ? "#92400E" : "#4A148C" }]}>
-                {currentTime.getHours() < 15 ? tx(lang, "Ochtendadhkaar", "Morning adhkaar", "أذكار الصباح") : tx(lang, "Avondadhkaar", "Evening adhkaar", "أذكار المساء")}
+                {currentTime.getHours() < 15 ? tx(lang, "Onthoud ochtend-adhkaar", "Remember morning adhkaar", "تذكّر أذكار الصباح") : tx(lang, "Onthoud avond-adhkaar", "Remember evening adhkaar", "تذكّر أذكار المساء")}
               </Text>
             </Pressable>
             <Pressable
@@ -560,7 +523,7 @@ export default function AlgemeenScreen() {
               style={({ pressed }) => [s.adhkarChip, { backgroundColor: "#E8F5E9" }, pressed && { opacity: 0.7 }]}
             >
               <MaterialIcons name="mosque" size={14} color="#1B4332" />
-              <Text style={[s.adhkarText, { color: "#1B4332" }]}>{tx(lang, "Na gebed", "After prayer", "بعد الصلاة")}</Text>
+              <Text style={[s.adhkarText, { color: "#1B4332" }]}>{tx(lang, "Onthoud adhkaar na gebed", "Remember post-prayer adhkaar", "تذكّر أذكار بعد الصلاة")}</Text>
             </Pressable>
           </View>
         </Pressable>
@@ -574,129 +537,11 @@ export default function AlgemeenScreen() {
         </Pressable>
       )}
 
-      {/* ═══════════ TODAY'S TIP + DAILY CHECK-IN (MERGED) ═══════════ */}
-      {!checkinDismissed ? (
-        <View style={s.checkinSection}>
-          {/* Today's tip inside check-in */}
-          <View style={s.tipBanner}>
-            <MaterialIcons name="lightbulb" size={18} color="#C4A35A" />
-            <Text style={s.tipBannerText}>{todayMainTip}</Text>
-          </View>
-          {/* Confirmation banner */}
-          {checkinShowConfirm && (
-            <View style={s.checkinConfirmBanner}>
-              <MaterialIcons name="check-circle" size={20} color="#1B4332" />
-              <Text style={s.checkinConfirmText}>
-                {tx(lang, "Barak Allaahu fiek voor het antwoord", "Barak Allaahu feek for your answer", "بارك الله فيك على الإجابة")}
-              </Text>
-            </View>
-          )}
-
-          {/* Prayer question */}
-          <View style={s.checkinCard}>
-            <Text style={s.checkinTitle}>
-              {tx(lang, "Hoe was uw gebed vandaag?", "How was your prayer today?", "كيف كانت صلاتك اليوم؟")}
-            </Text>
-            <View style={s.checkinOptions}>
-              {[
-                { value: "alle_5_op_tijd", label: tx(lang, "Alle 5 op tijd", "All 5 on time", "الخمس في وقتها") },
-                { value: "sommige_gemist", label: tx(lang, "Sommige gemist", "Some missed", "بعضها فاتني") },
-                { value: "fajr_gemist", label: tx(lang, "Fajr gemist", "Fajr missed", "فاتتني الفجر") },
-                { value: "werk_eraan", label: tx(lang, "Ik werk eraan", "I'm working on it", "أعمل على ذلك") },
-              ].map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => handleCheckinAnswer("prayer", opt.value)}
-                  style={({ pressed }) => [
-                    s.checkinOption,
-                    checkinPrayer === opt.value && s.checkinOptionSelected,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <View style={[s.checkinRadio, checkinPrayer === opt.value && s.checkinRadioSelected]}>
-                    {checkinPrayer === opt.value && <MaterialIcons name="check" size={12} color="#FFFFFF" />}
-                  </View>
-                  <Text style={[s.checkinOptionText, checkinPrayer === opt.value && s.checkinOptionTextSelected]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Mood question */}
-          <View style={s.checkinCard}>
-            <Text style={s.checkinTitle}>
-              {tx(lang, "Hoe voelt u zich vandaag?", "How do you feel today?", "كيف تشعر اليوم؟")}
-            </Text>
-            <View style={s.checkinOptions}>
-              {[
-                { value: "energiek", label: tx(lang, "Energiek", "Energetic", "نشيط") },
-                { value: "rustig", label: tx(lang, "Rustig", "Calm", "هادئ") },
-                { value: "moe", label: tx(lang, "Moe", "Tired", "متعب") },
-                { value: "gestrest", label: tx(lang, "Gestrest", "Stressed", "متوتر") },
-              ].map((opt) => (
-                <Pressable
-                  key={opt.value}
-                  onPress={() => handleCheckinAnswer("mood", opt.value)}
-                  style={({ pressed }) => [
-                    s.checkinOption,
-                    checkinMood === opt.value && s.checkinOptionSelected,
-                    pressed && { opacity: 0.7 },
-                  ]}
-                >
-                  <View style={[s.checkinRadio, checkinMood === opt.value && s.checkinRadioSelected]}>
-                    {checkinMood === opt.value && <MaterialIcons name="check" size={12} color="#FFFFFF" />}
-                  </View>
-                  <Text style={[s.checkinOptionText, checkinMood === opt.value && s.checkinOptionTextSelected]}>
-                    {opt.label}
-                  </Text>
-                </Pressable>
-              ))}
-            </View>
-          </View>
-
-          {/* Submit button - only active when both questions answered */}
-          <Pressable
-            onPress={handleCheckinSubmit}
-            disabled={!checkinPrayer || !checkinMood}
-            style={({ pressed }) => [
-              s.checkinSubmitBtn,
-              (!checkinPrayer || !checkinMood) && s.checkinSubmitBtnDisabled,
-              pressed && checkinPrayer && checkinMood && { opacity: 0.8, transform: [{ scale: 0.97 }] },
-            ]}
-          >
-            <MaterialIcons name="check-circle" size={18} color={checkinPrayer && checkinMood ? "#FFFFFF" : "#9CA3AF"} />
-            <Text style={[s.checkinSubmitText, (!checkinPrayer || !checkinMood) && s.checkinSubmitTextDisabled]}>
-              {tx(lang, "Beantwoord", "Submit", "إرسال")}
-            </Text>
-          </Pressable>
-        </View>
-      ) : (
-        /* Collapsed summary after answering - tip banner full-width + tappable */
-        <View style={[s.checkinSection, { marginHorizontal: 16, marginBottom: 16, gap: 8 }]}>
-          <Pressable
-            onPress={() => router.push("/details/tips-today" as any)}
-            style={({ pressed }) => [s.tipBanner, { marginHorizontal: 0, marginBottom: 0 }, pressed && { opacity: 0.85 }]}
-          >
-            <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
-            <Text style={[s.tipBannerText, { flex: 1 }]} numberOfLines={3}>{todayMainTip}</Text>
-            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#C4A35A" />
-          </Pressable>
-          <View style={[s.checkinDismissedCard, { marginHorizontal: 0, marginBottom: 0 }]}>
-            <MaterialIcons name="check-circle" size={16} color="#1B4332" />
-            <Text style={s.checkinDismissedText} numberOfLines={2}>
-              {tx(lang, "Dagelijkse check-in voltooid", "Daily check-in completed", "تم إكمال المراجعة اليومية")}
-            </Text>
-          </View>
-        </View>
-      )}
-
       {/* ═══════════ DAILY DIAGNOSTIC (prayer/psychological/physical/children) ═══════════ */}
-      {/* Only after the existing prayer/mood check-in above is dismissed for
-          today — showing both at once puts two "how was your prayer today"
-          style prompts on screen together. */}
-      {isAuthenticated && checkinDismissed && <DailyDiagnosticCard lang={lang} isRTL={isRTL} />}
+      {/* Sole daily self check-in card now — the separate prayer/mood form and
+          its tip banner (previously rendered here) were merged into this one
+          card, which shows today's tip as a reminder banner in its open state. */}
+      {isAuthenticated && <DailyDiagnosticCard lang={lang} isRTL={isRTL} reminder={todayMainTip} />}
 
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
@@ -991,33 +836,12 @@ const s = StyleSheet.create({
   noPrayerText: { flex: 1, fontSize: 13, color: "#6B7B72", textAlign: "center", marginHorizontal: 12 },
   adhkarRow: { flexDirection: "row", gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E8ECE9" },
   adhkarChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 6, borderRadius: 8 },
-  adhkarText: { fontSize: 11, fontWeight: "700" },
+  adhkarText: { fontSize: 11, fontWeight: "700", flexShrink: 1 },
 
-  // Tip banner
-  tipBanner: { flexDirection: "row", alignItems: "center", gap: 8, marginHorizontal: 16, marginBottom: 16, paddingVertical: 10, paddingHorizontal: 14, backgroundColor: "#FFFBF0", borderRadius: 12, borderWidth: 1, borderColor: "#C4A35A30" },
-  tipBannerText: { flex: 1, fontSize: 12, color: "#78350F", fontWeight: "600" },
-
-  // Daily check-in
-  checkinSection: { marginHorizontal: 16, marginBottom: 16 },
-  checkinConfirmBanner: { flexDirection: "row", alignItems: "center", gap: 8, backgroundColor: "#E8F5E9", borderRadius: 12, paddingVertical: 12, paddingHorizontal: 14, marginBottom: 12, borderWidth: 1, borderColor: "#1B433230" },
-  checkinConfirmText: { flex: 1, fontSize: 13, fontWeight: "700", color: "#1B4332" },
-  checkinCard: { backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1.5, borderColor: "#E8ECE9", padding: 14, marginBottom: 10, shadowColor: "#000", shadowOpacity: 0.03, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
-  checkinTitle: { fontSize: 14, fontWeight: "700", color: "#1B4332", textAlign: "center", marginBottom: 10 },
-  checkinOptions: { gap: 0, borderRadius: 10, borderWidth: 1, borderColor: "#E8ECE9", overflow: "hidden" as const },
-  checkinOption: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, paddingVertical: 12, paddingHorizontal: 14, borderBottomWidth: 1, borderBottomColor: "#E8ECE9", backgroundColor: "#FFFFFF" },
-  checkinOptionSelected: { backgroundColor: "#E8F5E9" },
-  checkinRadio: { width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: "#CBD5E1", alignItems: "center" as const, justifyContent: "center" as const },
-  checkinRadioSelected: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
-  checkinOptionText: { fontSize: 14, fontWeight: "500", color: "#374151" },
-  checkinOptionTextSelected: { fontWeight: "700", color: "#1B4332" },
+  // Daily check-in (checkinAnswered/checkinAnsweredText: pre-existing dead
+  // code, never rendered by any JSX even before this change — left as-is)
   checkinAnswered: { flexDirection: "row" as const, alignItems: "center" as const, gap: 4, marginTop: 8, justifyContent: "center" as const },
   checkinAnsweredText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
-  checkinSubmitBtn: { flexDirection: "row" as const, alignItems: "center" as const, justifyContent: "center" as const, gap: 8, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 14, marginTop: 4 },
-  checkinSubmitBtnDisabled: { backgroundColor: "#E8ECE9" },
-  checkinSubmitText: { fontSize: 15, fontWeight: "700", color: "#FFFFFF" },
-  checkinSubmitTextDisabled: { color: "#9CA3AF" },
-  checkinDismissedCard: { flexDirection: "row" as const, alignItems: "center" as const, gap: 10, backgroundColor: "#E8F5E9", borderRadius: 12, paddingVertical: 14, paddingHorizontal: 16, borderWidth: 1, borderColor: "#1B433220" },
-  checkinDismissedText: { fontSize: 14, fontWeight: "600", color: "#1B4332" },
 
   // Section headers
   sectionHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, marginBottom: 12, gap: 8 },

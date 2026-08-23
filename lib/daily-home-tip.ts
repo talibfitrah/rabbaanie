@@ -67,5 +67,5 @@ export function selectDailyHomeTip(params: {
     );
   }
 
-  return tx(lang, "Vergeet ochtend- en avondadhkaar niet", "Don't forget morning and evening adhkaar", "لا تنسَ أذكار الصباح والمساء");
+  return tx(lang, "Herinnering: ochtend- en avondadhkaar", "Reminder: morning and evening adhkaar", "تذكير: أذكار الصباح والمساء");
 }

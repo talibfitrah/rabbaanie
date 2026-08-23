@@ -16,6 +16,8 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 interface Props {
   lang: Lang;
   isRTL: boolean;
+  /** Today's home-tip text, shown as a reminder banner in the open state only. */
+  reminder?: string;
 }
 
 /**
@@ -43,7 +45,7 @@ export function buildReviewSelections(
  * being on screen (`never-spend-openrouter-credit`). It stays disabled until
  * the user explicitly taps to open today's check-in.
  */
-export function DailyDiagnosticCard({ lang, isRTL }: Props) {
+export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
   const utils = trpc.useUtils();
   const [started, setStarted] = useState(false);
   // Tapping the answered "done" card opens this back up to review the day's
@@ -110,7 +112,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
       >
         <MaterialIcons name="edit-calendar" size={18} color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {tx(lang, "Uw dagelijkse zelfregistratie", "Your daily self check-in", "مراجعتك اليومية")}
+          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
         </Text>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
       </Pressable>
@@ -169,10 +171,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
       >
         <MaterialIcons name="check-circle" size={16} color="#1B4332" />
         <Text style={[s.doneText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {/* Deliberately distinct from index.tsx's own check-in completion text
-              (also "تم إكمال المراجعة اليومية") — the two cards can be on screen
-              back to back and must not look like a duplicated/glitched string. */}
-          {tx(lang, "Extra dagregistratie voltooid", "Extra daily entry completed", "تمت إضافة بيانات اليوم")}
+          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
         </Text>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
       </Pressable>
@@ -194,6 +193,12 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
 
   return (
     <View style={s.section}>
+      {reminder ? (
+        <View style={[s.reminderBanner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
+          <Text style={[s.reminderText, { textAlign: lang === "ar" ? "right" : "left" }]}>{reminder}</Text>
+        </View>
+      ) : null}
       {locked ? (
         <Pressable
           onPress={() => setReviewing(false)}
@@ -313,6 +318,8 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
 
 const s = StyleSheet.create({
   section: { marginHorizontal: 16, marginBottom: 16 },
+  reminderBanner: { alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#FFFBF0", borderRadius: 10, borderWidth: 1, borderColor: "#C4A35A30", marginBottom: 10 },
+  reminderText: { flex: 1, fontSize: 12, color: "#78350F", fontWeight: "600" },
   title: { fontSize: 14, fontWeight: "700", color: "#1B4332", marginBottom: 4 },
   notice: { fontSize: 11, lineHeight: 16, color: "#52796F", marginBottom: 10 },
   card: {
