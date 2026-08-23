@@ -673,7 +673,15 @@ function PersonalAdviceScreenInner() {
   // Children summary with exact ages
   const childrenSummary = useMemo(() => {
     if (!state.children || state.children.length === 0) return null;
-    return state.children.map((c: any) => ({
+    // Oldest first (birth order). A missing/invalid birthDate parses to NaN;
+    // map that — and only that, never a valid 0 epoch — to Infinity so
+    // age-unknown children sort to the bottom, not to the top on a NaN compare.
+    const ordered = [...state.children].sort((a: any, b: any) => {
+      const ta = new Date(a.birthDate).getTime();
+      const tb = new Date(b.birthDate).getTime();
+      return (Number.isNaN(ta) ? Infinity : ta) - (Number.isNaN(tb) ? Infinity : tb);
+    });
+    return ordered.map((c: any) => ({
       name: c.name || tx(lang, "Kind", "Child", "طفل"),
       age: c.birthDate
         ? calculateExactAge(c.birthDate, lang)
@@ -1114,7 +1122,12 @@ function PersonalAdviceScreenInner() {
             <View
               key={i}
               style={{
-                flexDirection: isRTL ? "row-reverse" : "row",
+                // Native RTL is forced app-wide (I18nManager.forceRTL), so a
+                // plain "row" already renders right-to-left; "row-reverse"
+                // double-flipped the icon to the LEFT. Plain "row" = icon on
+                // the RIGHT for Arabic (the reversed alignment Daa3iyah asked
+                // for). Same fix as the daily cards in v1.5.18.
+                flexDirection: "row",
                 alignItems: "center",
                 gap: 6,
                 marginBottom: 3,

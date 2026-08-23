@@ -46,7 +46,10 @@ export function buildReviewSelections(
  */
 export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   const utils = trpc.useUtils();
-  const [started, setStarted] = useState(false);
+  // Seed from autoOpen: the card is only mounted (by DailyDuoRow) once its
+  // half was tapped, so starting "started" avoids a one-frame flash of the
+  // pre-start teaser. Standalone use (no autoOpen) keeps the old false start.
+  const [started, setStarted] = useState(!!autoOpen);
   // autoOpen is only passed once DailyDuoRow has already mounted this card
   // in response to an explicit tap, so this pre-starts the fetch exactly
   // like a manual tap would — `enabled: started` below still gates
@@ -178,7 +181,11 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
 
   const { date, questions, answers, source } = data;
 
-  if (answers && !reviewing) {
+  // !autoOpen: when DailyDuoRow mounts this card in response to a tap, skip
+  // the compact "done" teaser — it would render a SECOND «المراجعة الشخصية»
+  // line under the one just tapped, forcing a second tap. Fall straight
+  // through to the locked review below instead.
+  if (answers && !reviewing && !autoOpen) {
     return (
       <Pressable
         onPress={() => {
@@ -224,10 +231,14 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
     <View style={s.section}>
       {locked ? (
         <Pressable
-          onPress={() => setReviewing(false)}
-          style={({ pressed }) => [s.reviewHeader, { flexDirection: "row" }, pressed && { opacity: 0.7 }]}
+          onPress={autoOpen ? undefined : () => setReviewing(false)}
+          disabled={autoOpen}
+          style={({ pressed }) => [s.reviewHeader, { flexDirection: "row" }, pressed && !autoOpen && { opacity: 0.7 }]}
         >
-          <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />
+          {/* In autoOpen (duo-row) mode the card can't collapse itself — the
+              duo-row half is the toggle — so the back chevron would be a dead
+              control. Hide it there. */}
+          {!autoOpen && <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />}
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.title, { marginBottom: 0 }]}>
             {tx(lang, "Uw antwoorden van vandaag", "Your answers today", "إجاباتك اليوم")}
