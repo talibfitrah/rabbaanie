@@ -2,7 +2,6 @@ import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
-import { router } from "expo-router";
 import { ReportAiContent } from "@/components/report-ai-content";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
@@ -17,8 +16,6 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 interface Props {
   lang: Lang;
   isRTL: boolean;
-  /** Today's home-tip text, shown as a reminder banner in the open state only. */
-  reminder?: string;
 }
 
 /**
@@ -46,7 +43,7 @@ export function buildReviewSelections(
  * being on screen (`never-spend-openrouter-credit`). It stays disabled until
  * the user explicitly taps to open today's check-in.
  */
-export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
+export function DailyDiagnosticCard({ lang, isRTL }: Props) {
   const utils = trpc.useUtils();
   const [started, setStarted] = useState(false);
   // Tapping the answered "done" card opens this back up to review the day's
@@ -108,7 +105,16 @@ export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
   if (!started && !alreadyAnsweredToday) {
     return (
       <Pressable
-        onPress={() => setStarted(true)}
+        onPress={() => {
+          setStarted(true);
+          // Explicit open: refetch fresh instead of trusting whatever this
+          // session's 5-minute staleTime cache (or a persisted cache from an
+          // earlier day) still holds, so a server-side question change shows
+          // up immediately. `enabled: started` (still false a moment ago)
+          // means this row was never "active" for invalidate() to refetch on
+          // its own — it only takes effect once `started` flips true above.
+          utils.dailyDiagnostic.getToday.invalidate();
+        }}
         style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="edit-calendar" size={18} color="#1B4332" />
@@ -167,7 +173,21 @@ export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
   if (answers && !reviewing) {
     return (
       <Pressable
-        onPress={() => setReviewing(true)}
+        onPress={() => {
+          // This is the actual stale-cache path: an answered-today state can
+          // come entirely from the persisted cache with `started` still
+          // false (see the alreadyAnsweredToday comment above) — enabled
+          // never became true this session, so getToday never fetched.
+          // setReviewing alone would review stale cached questions forever;
+          // started must also flip so `enabled: started` turns on and the
+          // invalidate below actually refetches instead of no-op'ing on a
+          // disabled query. started has no other effect once already
+          // answered (the teaser condition above already requires
+          // !alreadyAnsweredToday, which is false here regardless).
+          setStarted(true);
+          setReviewing(true);
+          utils.dailyDiagnostic.getToday.invalidate();
+        }}
         style={({ pressed }) => [s.doneCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="check-circle" size={16} color="#1B4332" />
@@ -194,16 +214,6 @@ export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
 
   return (
     <View style={s.section}>
-      {reminder ? (
-        <Pressable
-          onPress={() => router.push("/details/tips-today" as any)}
-          style={({ pressed }) => [s.reminderBanner, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
-        >
-          <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
-          <Text style={[s.reminderText, { textAlign: lang === "ar" ? "right" : "left" }]}>{reminder}</Text>
-          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#C4A35A" />
-        </Pressable>
-      ) : null}
       {locked ? (
         <Pressable
           onPress={() => setReviewing(false)}
@@ -323,8 +333,6 @@ export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
 
 const s = StyleSheet.create({
   section: { marginHorizontal: 16, marginBottom: 16 },
-  reminderBanner: { alignItems: "center", gap: 8, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: "#FFFBF0", borderRadius: 10, borderWidth: 1, borderColor: "#C4A35A30", marginBottom: 10 },
-  reminderText: { flex: 1, fontSize: 12, color: "#78350F", fontWeight: "600" },
   title: { fontSize: 14, fontWeight: "700", color: "#1B4332", marginBottom: 4 },
   notice: { fontSize: 11, lineHeight: 16, color: "#52796F", marginBottom: 10 },
   card: {

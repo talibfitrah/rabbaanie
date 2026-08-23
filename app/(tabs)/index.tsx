@@ -19,7 +19,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
-import { selectDailyHomeTip } from "@/lib/daily-home-tip";
+import { DailyDeedsCard } from "@/components/daily-deeds-card";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -91,10 +91,6 @@ export default function AlgemeenScreen() {
   const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
-  // Daily check-in state — todayCheckin still feeds the DailyDiagnosticCard
-  // reminder banner's content via todayMainTip below.
-  const todayDateStr = currentTime.toISOString().slice(0, 10);
-  const todayCheckin = state.dailyCheckins?.find((c) => c.date === todayDateStr);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const { isAuthenticated } = useAuth();
@@ -359,12 +355,6 @@ export default function AlgemeenScreen() {
     });
   }, [state.children, completedGoals, lang]);
 
-  // Today's main tip — Friday/Mon/Thu keep their fixed Islamic-calendar tips;
-  // other days now also reflect today's check-in (lib/daily-home-tip.ts).
-  const todayMainTip = useMemo(() => {
-    return selectDailyHomeTip({ dayOfWeek: currentTime.getDay(), checkin: todayCheckin, lang });
-  }, [currentTime.getDay(), todayCheckin, lang]);
-
   if (loading) {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
@@ -538,10 +528,12 @@ export default function AlgemeenScreen() {
       )}
 
       {/* ═══════════ DAILY DIAGNOSTIC (prayer/psychological/physical/children) ═══════════ */}
-      {/* Sole daily self check-in card now — the separate prayer/mood form and
-          its tip banner (previously rendered here) were merged into this one
-          card, which shows today's tip as a reminder banner in its open state. */}
-      {isAuthenticated && <DailyDiagnosticCard lang={lang} isRTL={isRTL} reminder={todayMainTip} />}
+      {/* Sole daily self check-in card — the separate prayer/mood form that
+          used to render here was merged into this one card. */}
+      {isAuthenticated && <DailyDiagnosticCard lang={lang} isRTL={isRTL} />}
+
+      {/* ═══════════ DAILY DEEDS (separate, interactive checklist) ═══════════ */}
+      {isAuthenticated && <DailyDeedsCard lang={lang} isRTL={isRTL} />}
 
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
