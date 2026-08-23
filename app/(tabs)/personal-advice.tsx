@@ -152,7 +152,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -189,7 +189,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -406,7 +406,7 @@ function AdviceSection({
     >
       <View
         style={{
-          flexDirection: isRTL ? "row-reverse" : "row",
+          flexDirection: "row",
           alignItems: "center",
         }}
       >
@@ -415,7 +415,7 @@ function AdviceSection({
           style={({ pressed }) => [
             {
               flex: 1,
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               padding: 16,
               gap: 12,
@@ -848,7 +848,7 @@ function PersonalAdviceScreenInner() {
 
         <View
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "center",
             gap: 10,
             marginBottom: 16,
@@ -928,7 +928,7 @@ function PersonalAdviceScreenInner() {
                 >
                   <View
                     style={{
-                      flexDirection: isRTL ? "row-reverse" : "row",
+                      flexDirection: "row",
                       alignItems: "center",
                       padding: 14,
                       gap: 10,
@@ -1036,7 +1036,7 @@ function PersonalAdviceScreenInner() {
 
       <View
         style={{
-          flexDirection: isRTL ? "row-reverse" : "row",
+          flexDirection: "row",
           alignItems: "center",
           gap: 10,
           marginBottom: 12,
@@ -1171,7 +1171,7 @@ function PersonalAdviceScreenInner() {
               <View
                 key={i}
                 style={{
-                  flexDirection: isRTL ? "row-reverse" : "row",
+                  flexDirection: "row",
                   alignItems: "flex-start",
                   gap: 8,
                   marginTop: 8,
@@ -1223,7 +1223,7 @@ function PersonalAdviceScreenInner() {
             {
               opacity: pressed ? 0.6 : 1,
               padding: 8,
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 6,
               backgroundColor: colors.surface,
@@ -1341,7 +1341,7 @@ function PersonalAdviceScreenInner() {
           onPress={() => router.push("/ai-chat")}
           style={({ pressed }) => [
             {
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#E8F5E9",
@@ -1398,7 +1398,7 @@ function PersonalAdviceScreenInner() {
           }}
           style={({ pressed }) => [
             {
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#FFF3E0",
