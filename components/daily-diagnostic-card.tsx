@@ -2,6 +2,7 @@ import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
+import { router } from "expo-router";
 import { ReportAiContent } from "@/components/report-ai-content";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
@@ -194,10 +195,14 @@ export function DailyDiagnosticCard({ lang, isRTL, reminder }: Props) {
   return (
     <View style={s.section}>
       {reminder ? (
-        <View style={[s.reminderBanner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Pressable
+          onPress={() => router.push("/details/tips-today" as any)}
+          style={({ pressed }) => [s.reminderBanner, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        >
           <MaterialIcons name="lightbulb" size={16} color="#C4A35A" />
           <Text style={[s.reminderText, { textAlign: lang === "ar" ? "right" : "left" }]}>{reminder}</Text>
-        </View>
+          <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#C4A35A" />
+        </Pressable>
       ) : null}
       {locked ? (
         <Pressable
