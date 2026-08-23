@@ -1,0 +1,28 @@
+components/daily-duo-row.tsx
+  s_478a74ba440251::t_a82be2ac355ae7 1-74
+app/(tabs)/index.tsx
+  s_478a74ba440251::t_276901c15fb196 21
+  s_478a74ba440251::t_46c5effb2e5251 529-532
+components/daily-deeds-card.tsx
+  s_478a74ba440251::t_4f0694981c3bc9 128
+components/daily-diagnostic-card.tsx
+  s_478a74ba440251::t_502cad6f5656eb 19
+  s_478a74ba440251::t_4f0694981c3bc9 126,146,169,199,228,271,301
+  s_478a74ba440251::t_82209a2f55b161 47,50-56
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6299ea258e48bf1aa51977b7ed7db7b969661563",
+  "prompts": {},
+  "sessions": {
+    "s_478a74ba440251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7594d31-4406-4fd1-a3c3-d1293bc74bce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
