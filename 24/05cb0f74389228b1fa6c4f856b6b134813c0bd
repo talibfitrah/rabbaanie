@@ -1,0 +1,24 @@
+components/daily-diagnostic-card.tsx
+  s_478a74ba440251::t_4ee28fd5efafc6 49-52
+  s_478a74ba440251::t_f285724bb68709 184-188
+  s_478a74ba440251::t_ad0bf55a2be83c 234-236,238-241
+app/(tabs)/personal-advice.tsx
+  s_478a74ba440251::t_6af7c1f6b4394a 676-683
+  s_478a74ba440251::t_5e8cfca9d147c1 1124-1129
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2405cb0f74389228b1fa6c4f856b6b134813c0bd",
+  "prompts": {},
+  "sessions": {
+    "s_478a74ba440251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7594d31-4406-4fd1-a3c3-d1293bc74bce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
