@@ -16,6 +16,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 interface Props {
   lang: Lang;
   isRTL: boolean;
+  autoOpen?: boolean;
 }
 
 /**
@@ -43,9 +44,16 @@ export function buildReviewSelections(
  * being on screen (`never-spend-openrouter-credit`). It stays disabled until
  * the user explicitly taps to open today's check-in.
  */
-export function DailyDiagnosticCard({ lang, isRTL }: Props) {
+export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   const utils = trpc.useUtils();
   const [started, setStarted] = useState(false);
+  // autoOpen is only passed once DailyDuoRow has already mounted this card
+  // in response to an explicit tap, so this pre-starts the fetch exactly
+  // like a manual tap would — `enabled: started` below still gates
+  // getToday, so nothing fetches until that tap happens.
+  useEffect(() => {
+    if (autoOpen) setStarted(true);
+  }, [autoOpen]);
   // Tapping the answered "done" card opens this back up to review the day's
   // answers — never a new fetch/generation (todayQuery stays driven by
   // `started`/its own cache; this flag only switches which JSX renders).
@@ -115,7 +123,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
           // its own — it only takes effect once `started` flips true above.
           utils.dailyDiagnostic.getToday.invalidate();
         }}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="edit-calendar" size={18} color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -135,7 +143,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     // an instant cache read — a bare `return null` here made the card
     // silently vanish for that whole window with no feedback.
     return (
-      <View style={[s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <View style={[s.teaserCard, { flexDirection: "row" }]}>
         <ActivityIndicator size="small" color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]}>
           {tx(lang, "Bezig met laden...", "Loading...", "جارٍ التحميل...")}
@@ -158,7 +166,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     return (
       <Pressable
         onPress={() => todayQuery.refetch()}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="error-outline" size={18} color="#B91C1C" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -188,7 +196,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
           setReviewing(true);
           utils.dailyDiagnostic.getToday.invalidate();
         }}
-        style={({ pressed }) => [s.doneCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.doneCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="check-circle" size={16} color="#1B4332" />
         <Text style={[s.doneText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -217,7 +225,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
       {locked ? (
         <Pressable
           onPress={() => setReviewing(false)}
-          style={({ pressed }) => [s.reviewHeader, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [s.reviewHeader, { flexDirection: "row" }, pressed && { opacity: 0.7 }]}
         >
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
@@ -260,7 +268,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
                   onPress={locked ? undefined : () => setSelected((prev) => ({ ...prev, [q.category]: { label: opt.label, tone: opt.tone } }))}
                   style={({ pressed }) => [
                     s.option,
-                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                    { flexDirection: "row" },
                     isSelected && s.optionSelected,
                     pressed && !locked && { opacity: 0.7 },
                   ]}
@@ -290,7 +298,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
         />
       )}
       {locked ? (
-        <View style={[s.lockedNotice, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[s.lockedNotice, { flexDirection: "row" }]}>
           <MaterialIcons name="lock-outline" size={14} color="#52796F" />
           <Text style={[s.lockedNoticeText, { textAlign: lang === "ar" ? "right" : "left" }]}>
             {tx(

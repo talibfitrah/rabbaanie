@@ -125,7 +125,7 @@ export function DailyDeedsCard({ lang, isRTL }: Props) {
         <Pressable
           key={deed.id}
           onPress={() => toggleMutation.mutate({ deedId: deed.id, done: !deed.done })}
-          style={({ pressed }) => [s.row, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [s.row, { flexDirection: "row" }, pressed && { opacity: 0.7 }]}
         >
           <View style={[s.checkbox, deed.done && s.checkboxChecked]}>
             {deed.done && <MaterialIcons name="check" size={14} color="#fff" />}

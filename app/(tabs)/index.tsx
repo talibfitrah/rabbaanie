@@ -18,8 +18,7 @@ import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
-import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
-import { DailyDeedsCard } from "@/components/daily-deeds-card";
+import { DailyDuoRow } from "@/components/daily-duo-row";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -527,13 +526,10 @@ export default function AlgemeenScreen() {
         </Pressable>
       )}
 
-      {/* ═══════════ DAILY DIAGNOSTIC (prayer/psychological/physical/children) ═══════════ */}
-      {/* Sole daily self check-in card — the separate prayer/mood form that
-          used to render here was merged into this one card. */}
-      {isAuthenticated && <DailyDiagnosticCard lang={lang} isRTL={isRTL} />}
-
-      {/* ═══════════ DAILY DEEDS (separate, interactive checklist) ═══════════ */}
-      {isAuthenticated && <DailyDeedsCard lang={lang} isRTL={isRTL} />}
+      {/* ═══════════ DAILY DUO (personal review + daily deeds, collapsed) ═══════════ */}
+      {/* Two halves in one row — each expands its full card (DailyDiagnosticCard /
+          DailyDeedsCard) below the row when tapped. See daily-duo-row.tsx. */}
+      {isAuthenticated && <DailyDuoRow lang={lang} isRTL={isRTL} />}
 
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
