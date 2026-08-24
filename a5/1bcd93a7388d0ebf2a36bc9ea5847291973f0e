@@ -1,0 +1,22 @@
+app/admin/email.tsx
+  s_478a74ba440251::t_8418871aed57db 108
+  s_478a74ba440251::t_5d5062f33e4e27 1-107,109-261
+app/admin/panel.tsx
+  s_478a74ba440251::t_97250ef5b5927f 47-48,50-51
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a51bcd93a7388d0ebf2a36bc9ea5847291973f0e",
+  "prompts": {},
+  "sessions": {
+    "s_478a74ba440251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7594d31-4406-4fd1-a3c3-d1293bc74bce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
