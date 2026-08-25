@@ -61,7 +61,16 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   // answers — never a new fetch/generation (todayQuery stays driven by
   // `started`/its own cache; this flag only switches which JSX renders).
   const [reviewing, setReviewing] = useState(false);
-  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang }, { enabled: started });
+  // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
+  // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
+  // by lib/query-persistence.ts on app boot — which stamps a fresh
+  // `dataUpdatedAt`, defeating the 5-minute staleTime check) satisfies
+  // today's mount with no network call at all. Folding today's date into the
+  // input makes it part of the query key too, so a new day is a genuine
+  // cache MISS — a stale key simply cannot answer it (see server/
+  // daily-diagnostic.ts getToday's own comment on why it accepts `date`).
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang, date: todayKey }, { enabled: started });
   const submitMutation = trpc.dailyDiagnostic.submitAnswers.useMutation({
     onSuccess: () => utils.dailyDiagnostic.getToday.invalidate(),
     // A rejected submit (e.g. the card was showing a stale/unpersisted
@@ -79,13 +88,13 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   // tapping for no reason. Only reset when the date or the actual option
   // labels change — e.g. an error-triggered refetch that lands a DIFFERENT
   // question set, or a plain UTC-midnight rollover while the screen is open.
-  // The query cache outlives a day boundary — a card left mounted overnight,
-  // or a cache restored on relaunch, still holds YESTERDAY's row. Everything
-  // derived from it must be date-checked: a stale "completed" would hide
-  // today's check-in permanently, and stale questions would be submitted
-  // against today and rejected by submitAnswers' exact-option match. UTC to
-  // match the server's day key (server/daily-diagnostic.ts).
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // The query cache outlives a day boundary — a cache restored on relaunch
+  // (now structurally excluded from THIS key by the `date` input above, but
+  // kept here as defense in depth) or a card left mounted overnight without
+  // ever re-rendering could still hold YESTERDAY's row. Everything derived
+  // from it must be date-checked: a stale "completed" would hide today's
+  // check-in permanently, and stale questions would be submitted against
+  // today and rejected by submitAnswers' exact-option match.
   const data = todayQuery.data?.date === todayKey ? todayQuery.data : undefined;
 
   const questionsSignature = data
