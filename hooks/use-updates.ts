@@ -1,10 +1,11 @@
 import { useEffect, useSyncExternalStore } from "react";
-import { Alert, Platform } from "react-native";
+import { Alert, Linking, Platform } from "react-native";
 import * as Application from "expo-application";
 import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import { evaluateLatest, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
+import { APP_PACKAGE } from "../constants/app-identity";
 
 // Our own update manifest, served from the app's server (no third-party/GitHub).
 const LATEST_JSON_URL = "https://api.rabbaanie.com/downloads/latest.json";
@@ -30,6 +31,59 @@ export const INSTALLED_VERSION =
 // the matching code paths dark so nothing can attempt an install it cannot do.
 // Settings reads it to hide the update controls entirely.
 export const UPDATER_ENABLED = Constants.expoConfig?.extra?.distribution === "github";
+
+// True exactly when the Play hand-off below is offered. Exported because the
+// Settings section TITLE and the button must read the same flag: gating the
+// button on Android while leaving the title unconditional puts "App Updates"
+// over a bare version number on web and iOS, which is the dishonesty the
+// title's original conditional existed to prevent.
+//
+// Android-only, and not merely "not the sideload channel": `expo export
+// --platform web` builds with distribution "play" too, and there market://
+// resolves to nothing while react-native-web's openURL does not even reject,
+// so the https fallback could not fire either.
+export const PLAY_UPDATE_HANDOFF =
+  !UPDATER_ENABLED && Platform.OS === "android";
+
+// The Play build still has to be updatable — "no in-app updater" is a policy
+// constraint on the MECHANISM, not permission to leave the user stranded. Play
+// distributes its own updates, so its listing is the sanctioned destination,
+// and it is already what components/version-block-screen.tsx opens when the
+// server refuses a build as too old.
+//
+// market:// hands off to the installed Play app directly. It is the only form
+// that works on a device with Play but no browser (a TV box), and the https
+// form is the fallback for the reverse — openURL REJECTS an unhandled scheme
+// rather than returning false, so the catch is the whole fallback mechanism.
+//
+// The last catch is NOT swallowed. A button that silently does nothing is the
+// same dead end this function exists to remove, only quieter — and both URLs
+// can genuinely fail together on a Play-flavoured build sideloaded onto a
+// device with no Play services and no browser.
+export async function openPlayStoreListing() {
+  try {
+    await Linking.openURL(`market://details?id=${APP_PACKAGE}`);
+    return;
+  } catch {
+    // Play app absent or disabled — fall through to the web listing.
+  }
+  try {
+    await Linking.openURL(
+      `https://play.google.com/store/apps/details?id=${APP_PACKAGE}`,
+    );
+    return;
+  } catch {
+    // Neither Play nor a browser could take it.
+  }
+  Alert.alert(
+    tx("Google Play", "Google Play", "Google Play"),
+    tx(
+      "Google Play kon niet worden geopend. Werk de app bij via de Play Store op dit apparaat.",
+      "Google Play could not be opened. Update the app from the Play Store on this device.",
+      "تعذّر فتحُ Google Play. حدِّث التطبيقَ من متجر Play على هذا الجهاز.",
+    ),
+  );
+}
 
 export interface UpdateState {
   isChecking: boolean;
@@ -191,9 +245,19 @@ export async function checkForUpdate(silent: boolean = false) {
             "التحديثات غير متاحة في وضع التطوير."
           )
         );
+      } else if (PLAY_UPDATE_HANDOFF) {
+        // The same flag Settings reads, not a re-derived `Platform.OS ===
+        // "android"`. That spelling is equivalent here ONLY because __DEV__ is
+        // handled in the branch above, so reordering these branches or adding a
+        // third channel would silently decouple the very sites the flag exists
+        // to keep together. This
+        // used to fall through to the message below and tell an Android user
+        // that updates are Android-only. Settings hides its updater button, but
+        // that was never the only caller: a push of type app_update calls this
+        // directly (hooks/use-push-notifications.ts), so the dead end was
+        // reachable by the one path that exists to announce a new version.
+        await openPlayStoreListing();
       } else {
-        // Non-Android, non-dev. The Play build cannot land here — Settings hides
-        // the only control that calls this — so there is no Play-specific branch.
         Alert.alert(
           tx("Niet beschikbaar", "Not Available", "غير متاح"),
           tx(

@@ -162,9 +162,13 @@ export function usePushNotifications(isAuthenticated: boolean) {
         }
 
         if (data?.type === "app_update") {
-          // New-version push: re-check our own manifest (which re-validates the
-          // download URL) and show the standard "update available" dialog. The
-          // push payload's version is never trusted to drive the download.
+          // New-version push. On the sideload channel this re-checks our own
+          // manifest (which re-validates the download URL) and shows the
+          // standard "update available" dialog; the push payload's version is
+          // never trusted to drive the download. On the Play channel
+          // checkForUpdate returns before any fetch and opens the Play listing
+          // instead — this tap is the one entry point that made the Play
+          // build's missing updater visible, so it must not dead-end.
           checkForUpdate(false);
           return;
         }

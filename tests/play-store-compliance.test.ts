@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
-import { describe, expect, it, vi } from "vitest";
+import { afterAll, describe, expect, it, vi } from "vitest";
 
 /**
  * Guards for the Google Play policy requirements that live in client code.
@@ -753,5 +753,208 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     const mapping = chat.slice(from, chat.indexOf("\n", from));
     expect(mapping, "must clear uri").toMatch(/uri:\s*""/);
     expect(mapping, "must clear dataUrl as well as uri").toMatch(/dataUrl:\s*undefined/);
+  });
+});
+
+/**
+ * "No in-app updater on Play" is not the same as "no way to update on Play".
+ *
+ * Two entry points ask this app to update itself and only one of them was ever
+ * gated. Settings hides its button (UPDATER_ENABLED), but a push notification
+ * of type app_update calls checkForUpdate() directly
+ * (hooks/use-push-notifications.ts) — so on the Play build the call fell into
+ * the branch meant for non-Android platforms and told an Android user
+ * "Updates are only available in the Android app", with no way forward.
+ *
+ * Play's own listing is the sanctioned route, and the one this app already
+ * uses when the server refuses a build as too old
+ * (components/version-block-screen.tsx). Both entry points open it now.
+ */
+describe("Play-friendly update path", () => {
+  const loadUpdates = async (distribution: string, os = "android") => {
+    vi.resetModules();
+    vi.stubGlobal("__DEV__", false);
+    const openURL = vi.fn(async (_url: string) => true);
+    const alert = vi.fn();
+    vi.doMock("expo-constants", () => ({
+      default: { expoConfig: { extra: { distribution }, version: "1.6.0" } },
+    }));
+    vi.doMock("react-native", () => ({
+      Alert: { alert },
+      Linking: { openURL },
+      Platform: { OS: os },
+    }));
+    vi.doMock("expo-application", () => ({ nativeApplicationVersion: "1.6.0" }));
+    // Nothing on the Play path touches the filesystem or the installer intent;
+    // these exist only so the module's imports resolve.
+    vi.doMock("expo-file-system/legacy", () => ({}));
+    vi.doMock("expo-intent-launcher", () => ({}));
+    return { mod: await import("@/hooks/use-updates"), openURL, alert };
+  };
+
+  // loadUpdates' doMock of "react-native" OVERRIDES the file-level vi.mock at
+  // the top of this file, and a doMock outlives the test that registered it.
+  // Today that is invisible only because this describe is last — a describe
+  // appended below would silently receive this three-property stub instead of
+  // the file's, and fail for a reason that has nothing to do with it.
+  afterAll(() => {
+    // Restored, not unmocked: vi.doUnmock disables the file-level vi.mock too,
+    // and the real react-native package ships untranspiled, so the next import
+    // dies on a parse error instead of falling back. These two factories
+    // deliberately mirror the ones at the top of this file — vi.mock is hoisted
+    // above every declaration, so there is no shared const to point both at.
+    vi.doMock("react-native", () => ({ Platform: { OS: "android" } }));
+    vi.doMock("expo-constants", () => ({
+      default: { expoConfig: { extra: { distribution: "play" } } },
+    }));
+    // These three have no file-level mock, so removing them outright is right.
+    for (const m of [
+      "expo-application",
+      "expo-file-system/legacy",
+      "expo-intent-launcher",
+    ]) {
+      vi.doUnmock(m);
+    }
+    vi.unstubAllGlobals();
+    vi.resetModules();
+  });
+
+  it("sends a Play user to the store listing instead of a dead end", async () => {
+    const { mod, openURL, alert } = await loadUpdates("play");
+    expect(mod.UPDATER_ENABLED).toBe(false);
+    await mod.checkForUpdate(false);
+    // The exact listing URL, not merely one containing the package id:
+    // "https://example.com/com.rabbaanie.app.apk" satisfies a substring match
+    // while being precisely the off-Play download this channel must never open.
+    expect(openURL).toHaveBeenCalledTimes(1);
+    expect(openURL.mock.calls[0][0]).toBe(
+      "market://details?id=com.rabbaanie.app",
+    );
+    // And no alert: the message it used to show was factually wrong on the
+    // very platform it was shown on.
+    expect(alert).not.toHaveBeenCalled();
+  });
+
+  it("does not yank a Play user into the store from a background check", async () => {
+    const { mod, openURL } = await loadUpdates("play");
+    await mod.checkForUpdate(true);
+    expect(openURL).not.toHaveBeenCalled();
+  });
+
+  it("falls back to the web listing when the Play app cannot take the intent", async () => {
+    // Linking.openURL REJECTS an unhandled scheme rather than resolving false,
+    // so the catch IS the fallback. Without this test the whole second openURL
+    // could be deleted and every other test here would still pass — verified
+    // by deleting it.
+    const { mod, openURL } = await loadUpdates("play");
+    openURL.mockImplementation(async (url: string) => {
+      if (url.startsWith("market:")) throw new Error("no activity found");
+      return true;
+    });
+    await mod.openPlayStoreListing();
+    expect(openURL).toHaveBeenCalledTimes(2);
+    expect(openURL.mock.calls[1][0]).toBe(
+      "https://play.google.com/store/apps/details?id=com.rabbaanie.app",
+    );
+  });
+
+  it("says so when neither Play nor a browser can open the listing", async () => {
+    // A button that silently does nothing is the same dead end this change
+    // exists to remove, only quieter. Reachable for real: a Play-flavoured
+    // build sideloaded onto a device with no Play services and no browser.
+    const { mod, openURL, alert } = await loadUpdates("play");
+    openURL.mockImplementation(async () => {
+      throw new Error("no activity found");
+    });
+    await mod.openPlayStoreListing();
+    expect(openURL).toHaveBeenCalledTimes(2);
+    expect(alert).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves the sideload updater intact", async () => {
+    // Presence, not only absence. A Play-only fix that switched the updater
+    // off everywhere would satisfy every check above and strand the sideload
+    // channel, whose ONLY update path is the in-app APK download.
+    const { mod, openURL } = await loadUpdates("github");
+    expect(mod.UPDATER_ENABLED).toBe(true);
+    // And the Play hand-off must not leak onto this channel: a sideload user
+    // sent to a Play listing for an app Play does not carry is a dead end, and
+    // the APK updater is their only route. 404 = "no manifest yet", the
+    // cheapest path through checkForUpdate that touches no network.
+    vi.stubGlobal("fetch", async () => ({ status: 404, ok: false }));
+    await mod.checkForUpdate(false);
+    expect(openURL).not.toHaveBeenCalled();
+    vi.unstubAllGlobals();
+  });
+
+  it("offers the hand-off on the Play build and nowhere it cannot work", async () => {
+    // The invariant, not a spelling of it: asserting the JSX condition as a
+    // string breaks the day Prettier wraps it and the tempting fix is to
+    // loosen the string, which deletes the guard. So the gate is an exported
+    // boolean and this reads the boolean.
+    expect((await loadUpdates("play", "android")).mod.PLAY_UPDATE_HANDOFF).toBe(
+      true,
+    );
+    // Not merely "not the sideload channel": `expo export --platform web`
+    // builds with distribution "play" too, and there market:// resolves to
+    // nothing while react-native-web's openURL does not even reject, so not
+    // even the https fallback fires.
+    expect((await loadUpdates("play", "web")).mod.PLAY_UPDATE_HANDOFF).toBe(
+      false,
+    );
+    expect((await loadUpdates("github", "android")).mod.PLAY_UPDATE_HANDOFF).toBe(
+      false,
+    );
+  });
+
+  it("gives the Play build a visible control, not just a version number", () => {
+    // Whitespace-stripped before matching, so a Prettier reflow of these
+    // deeply-indented JSX expressions cannot fail a test whose behaviour has
+    // not changed — that failure has exactly one tempting fix, loosening the
+    // string, which deletes the guard. Reordering the operands would still
+    // fail, but that is a deliberate edit, not something a formatter does.
+    const settings = read("app/(tabs)/settings.tsx").replace(/\s+/g, "");
+
+    // A control has to actually RENDER. One occurrence of the identifier is
+    // just the import, which proves nothing; a SECOND is a use. Counted rather
+    // than matched against `onPress={()=>openPlayStoreListing()}`, because
+    // `onPress={openPlayStoreListing}` is a behaviour-preserving refactor that
+    // would fail a spelling match — and the tempting fix for that failure is to
+    // loosen the string, which removes the guard. Not the button's label
+    // either: coupling a policy guard to a translation breaks on a copy edit.
+    expect(
+      settings.split("openPlayStoreListing").length - 1,
+      "openPlayStoreListing is imported but never used - no control renders",
+    ).toBeGreaterThanOrEqual(2);
+
+    // And the section TITLE must read the same flag as the control. Gating the
+    // button on Android while leaving the title unconditional puts "App
+    // Updates" over a bare version number on web and iOS, which is what the
+    // title's original conditional existed to prevent.
+    expect(settings).toContain("UPDATER_ENABLED||PLAY_UPDATE_HANDOFF");
+    expect(settings).toContain("{PLAY_UPDATE_HANDOFF&&(");
+  });
+});
+
+/**
+ * This describe exists to be LAST, and to fail if the one above it leaks.
+ *
+ * loadUpdates() calls vi.doMock("react-native", ...), which overrides the
+ * file-level vi.mock for every import that follows and outlives the test that
+ * registered it. Without the afterAll above, a describe appended below this
+ * point silently receives loadUpdates' Alert/Linking/Platform stub instead of
+ * the file's, and fails for a reason that has nothing to do with it.
+ */
+describe("react-native mock does not leak past the update tests", () => {
+  it("restores the file-level mock for anything appended below", async () => {
+    const RN: any = await import("react-native");
+    expect(RN.Platform.OS).toBe("android");
+    // vitest throws on an export the mock does not define, rather than
+    // returning undefined — so the throw IS the assertion that loadUpdates'
+    // richer stub is gone.
+    expect(
+      () => RN.Linking,
+      "loadUpdates' react-native stub leaked past its own describe",
+    ).toThrow(/No "Linking" export/);
   });
 });

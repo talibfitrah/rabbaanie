@@ -64,7 +64,7 @@ import {
 import { useThemeContext } from "@/lib/theme-provider";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
-import { useUpdates, UPDATER_ENABLED } from "@/hooks/use-updates";
+import { useUpdates, UPDATER_ENABLED, PLAY_UPDATE_HANDOFF, openPlayStoreListing } from "@/hooks/use-updates";
 import { formatSubscriptionRemaining, useSubscription } from "@/hooks/use-subscription";
 import * as Clipboard from "expo-clipboard";
 import { openBrowserAsync } from "expo-web-browser";
@@ -2042,12 +2042,14 @@ export default function SettingsScreen() {
         </SettingsCollapsible>
       )}
 
-      {/* App Updates Section — in the Play build the updater controls are gone
-          (Play does the updating), so the section is titled for what it still
-          shows rather than promising updates it does not perform. */}
+      {/* App Updates Section — both channels update, by different mechanisms:
+          the sideload build downloads an APK itself, the Play build hands off
+          to Play. Titled for whether a control actually renders below, not for
+          the channel: on web and iOS neither one does, and "App Updates" over a
+          bare version number promises something that is not there. */}
       <SettingsCollapsible
         title={
-          UPDATER_ENABLED
+          UPDATER_ENABLED || PLAY_UPDATE_HANDOFF
             ? (language === "ar" ? "تحديث التطبيق" : isEn ? "App Updates" : "App-updates")
             : (language === "ar" ? "إصدار التطبيق" : isEn ? "App Version" : "App-versie")
         }
@@ -3080,6 +3082,34 @@ function UpdateSection({ colors, language, isRTL, isEn }: { colors: any; languag
           )}
         </View>
       </View>
+
+      {/* Play cannot be given the APK updater, but it must still be given a
+          way out — hiding the control and leaving a bare version number is how
+          "no in-app updater" turns into "no update". Play's own listing is the
+          sanctioned route and does the version comparison itself.
+
+          Same flag the title above reads, so the two can never disagree. */}
+      {PLAY_UPDATE_HANDOFF && (
+        <Pressable
+          onPress={() => openPlayStoreListing()}
+          style={({ pressed }) => [{
+            backgroundColor: colors.primary,
+            borderRadius: 12,
+            paddingVertical: 16,
+            paddingHorizontal: 20,
+            flexDirection: isRTL ? "row-reverse" : "row",
+            alignItems: "center",
+            justifyContent: "center",
+            gap: 10,
+            opacity: pressed ? 0.8 : 1,
+          }]}
+        >
+          <MaterialIcons name="shop" size={20} color="#fff" />
+          <Text style={{ fontSize: 15, fontWeight: "700", color: "#fff" }}>
+            {tx("Bijwerken via Google Play", "Update in Google Play", "التحديث عبر Google Play")}
+          </Text>
+        </Pressable>
+      )}
 
       {/* Update controls exist only in the sideload build — the Play build is
           updated by Play itself and must not offer its own updater. */}
