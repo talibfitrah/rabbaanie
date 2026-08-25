@@ -159,8 +159,8 @@ for FEATURE in screen.portrait camera camera.autofocus location location.gps loc
   fi
 done
 
-# The only REQUIRED permission asserted here, and the only check that fails for
-# something being absent rather than present. `android.permissions` in
+# The only REQUIRED permission asserted here. Like the device-reach loop above,
+# it fails for something being absent rather than present. `android.permissions` in
 # app.config.ts is a restrictive allow-list and blockedPermissions emits
 # tools:node="remove", so a merge-order change or a future edit could strip the
 # billing permission that expo-iap contributes from its own manifest. Nothing

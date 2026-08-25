@@ -113,7 +113,11 @@ describe("device compatibility", () => {
     // list on every prebuild.
     const once = await applyToManifest({});
     const firstCount = once["uses-feature"].length;
-    expect(firstCount).toBe(6);
+    // Guards the vacuous pass (0 === 0 if the mod wrote nothing) without
+    // pinning the list length here — the names themselves are asserted above,
+    // and duplicating the count would fail this test for an unrelated reason
+    // the day a seventh feature is added.
+    expect(firstCount).toBeGreaterThan(0);
 
     // Feed a COPY back in, and compare against a count captured beforehand.
     // The mod mutates the manifest in place and returns the same reference, so

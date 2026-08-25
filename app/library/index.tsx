@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from "react";
 import { View, Text, SectionList, Pressable, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { Image } from "expo-image";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
@@ -37,13 +38,32 @@ export default function LibraryScreen() {
   const colors = useColors();
   const { language, isRTL } = useI18n();
   const router = useRouter();
-  // Measured per render, not once at import. The app is no longer
-  // portrait-locked, and this drives a fixed two-up grid: a width captured
-  // before a rotation leaves the pair either clipped past the right edge
-  // (landscape -> portrait) or hugging the left with a dead gap (portrait ->
-  // landscape). The image height is derived from it too.
+  // Measured per render, not once at import: the app is no longer
+  // portrait-locked, and a width captured before a rotation leaves the row
+  // either clipped past the right edge (landscape -> portrait) or hugging the
+  // left with a dead gap (portrait -> landscape).
+  //
+  // The column count has to follow the width too. Held at two, the tablet this
+  // change unlocks landscape for (1280dp) gave 616dp cards whose covers are
+  // CARD_WIDTH * 1.3 = 801dp — taller than the 800dp viewport, so a single
+  // cover filled the screen. ~320dp per column keeps a cover near 390dp there
+  // and leaves phone portrait (411dp -> 2) exactly as it was.
+  // Insets, not just the window: ScreenContainer wraps this in a SafeAreaView
+  // with edges ["top","left","right"], so the row's real box is narrower than
+  // the window by left+right. Those are 0 in portrait, which is why measuring
+  // the window alone was fine before — but landscape is exactly what this
+  // change unlocks, and there a cutout or gesture inset runs 27-48dp. Cards
+  // default to flexShrink: 0, so the trailing one would simply be clipped.
   const { width } = useWindowDimensions();
-  const CARD_WIDTH = (width - 48) / 2;
+  const insets = useSafeAreaInsets();
+  // The row box: window minus the safe-area sides, minus the container's own
+  // paddingHorizontal: 16 each side.
+  const rowWidth = width - insets.left - insets.right - 32;
+  const COLUMNS = Math.max(2, Math.round(rowWidth / 320));
+  // COLUMNS cards separated by COLUMNS-1 gaps of 16, which justifyContent
+  // "space-between" produces. At COLUMNS=2 and no insets this is the original
+  // (width - 48) / 2.
+  const CARD_WIDTH = (rowWidth - (COLUMNS - 1) * 16) / COLUMNS;
   const lang = (language || "ar") as Lang;
 
   // Server-managed books (added at runtime) merged with the bundled ones.
@@ -86,6 +106,8 @@ export default function LibraryScreen() {
 
   const renderBook = ({ item }: { item: any }) => (
     <Pressable
+      // Rows are built with .map now, so the element needs its own key.
+      key={item.id}
       onPress={() => router.push(`/library/${item.id}` as any)}
       style={({ pressed }) => [{
         width: CARD_WIDTH,
@@ -138,14 +160,18 @@ export default function LibraryScreen() {
   );
 
   // Render two books per row in section
-  const renderSectionItem = ({ item, index, section }: { item: any; index: number; section: any }) => {
-    // Only render on even indices (we'll render pairs)
-    if (index % 2 !== 0) return null;
-    const nextItem = section.data[index + 1];
+  const renderSectionItem = ({ index, section }: { item: any; index: number; section: any }) => {
+    // Render one row per COLUMNS-sized chunk; the rest return null.
+    if (index % COLUMNS !== 0) return null;
+    const row = section.data.slice(index, index + COLUMNS);
     return (
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", paddingHorizontal: 0 }}>
-        {renderBook({ item })}
-        {nextItem ? renderBook({ item: nextItem }) : <View style={{ width: CARD_WIDTH }} />}
+        {row.map((book: any) => renderBook({ item: book }))}
+        {/* Keep a short last row left-aligned instead of space-between
+            spreading its cards across the full width. */}
+        {Array.from({ length: COLUMNS - row.length }, (_, i) => (
+          <View key={`gap-${i}`} style={{ width: CARD_WIDTH }} />
+        ))}
       </View>
     );
   };
