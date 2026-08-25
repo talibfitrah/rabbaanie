@@ -1,5 +1,5 @@
 import React, { useEffect } from "react";
-import { View, Image, Text, StyleSheet, Dimensions } from "react-native";
+import { View, Image, Text, StyleSheet, useWindowDimensions } from "react-native";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -10,13 +10,20 @@ import Animated, {
   runOnJS,
 } from "react-native-reanimated";
 
-const { width, height } = Dimensions.get("window");
-
 interface AnimatedSplashProps {
   onFinish: () => void;
 }
 
 export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
+  // Sized from the SHORTER edge, and measured per render rather than once at
+  // import. Scaling 0.45 off width alone was safe only while the app was
+  // portrait-locked; in landscape width is the long edge, so a 360x800 phone
+  // launched sideways read width=800 and drew a 360dp logo into a 360dp-tall
+  // viewport, clipping the wordmark and crescent below it. Math.min leaves
+  // portrait byte-identical (min IS width there) and fixes landscape.
+  const { width, height } = useWindowDimensions();
+  const shortEdge = Math.min(width, height);
+  const logoSize = shortEdge * 0.45;
   // Animation values
   const logoScale = useSharedValue(0.6);
   const logoOpacity = useSharedValue(0);
@@ -86,7 +93,7 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
       <Animated.View style={[styles.logoContainer, logoAnimatedStyle]}>
         <Image
           source={require("@/assets/images/icon.png")}
-          style={styles.logo}
+          style={{ width: logoSize, height: logoSize, borderRadius: logoSize / 2 }}
           resizeMode="contain"
         />
       </Animated.View>
@@ -98,7 +105,7 @@ export function AnimatedSplash({ onFinish }: AnimatedSplashProps) {
 
       {/* Crescent ornament */}
       <Animated.View style={[styles.crescentContainer, crescentAnimatedStyle]}>
-        <View style={styles.dividerLine}>
+        <View style={[styles.dividerLine, { width: shortEdge * 0.4 }]}>
           <View style={styles.lineLeft} />
           <Text style={styles.crescentIcon}>☽</Text>
           <View style={styles.lineRight} />
@@ -126,11 +133,6 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     marginBottom: 24,
   },
-  logo: {
-    width: width * 0.45,
-    height: width * 0.45,
-    borderRadius: (width * 0.45) / 2,
-  },
   arabicContainer: {
     alignItems: "center",
     marginBottom: 12,
@@ -148,7 +150,6 @@ const styles = StyleSheet.create({
   dividerLine: {
     flexDirection: "row",
     alignItems: "center",
-    width: width * 0.4,
   },
   lineLeft: {
     flex: 1,

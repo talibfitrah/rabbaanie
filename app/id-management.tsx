@@ -274,7 +274,11 @@ export default function IdManagementScreen() {
 
       {/* QR Code Modal */}
       <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
-        <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)", justifyContent: "center", alignItems: "center" }}>
+        {/* ScrollView: fixed-height card + landscape clips the close button. See components/prayer-popup-modal.tsx. */}
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
+        >
           <View style={{ backgroundColor: colors.background, borderRadius: 20, padding: 32, alignItems: "center", width: 300, gap: 16 }}>
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: "center" }}>
               {qrLabel}
@@ -297,7 +301,7 @@ export default function IdManagementScreen() {
               <Text style={{ color: colors.foreground, fontWeight: "600" }}>Sluiten / Close / إغلاق</Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </Modal>
     </ScreenContainer>
   );

@@ -10,12 +10,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Modal, Pressable, StyleSheet, Dimensions, Platform } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export interface PopupNotification {
   id: string;
@@ -71,7 +69,13 @@ export function PrayerPopupModal({
       statusBarTranslucent
       onRequestClose={onDismiss}
     >
-      <View style={st.overlay}>
+      {/* ScrollView, not View: the modal's content is a fixed ~396dp stack and
+          the app is no longer portrait-locked, so in phone landscape the
+          overlay offers only ~312-364dp. Centred in a plain View the overflow
+          is symmetric and clipChildren cuts BOTH action buttons off-screen,
+          leaving an undismissable reminder with no reachable control. flexGrow
+          keeps it centred whenever it does fit. */}
+      <ScrollView style={st.overlayScroll} contentContainerStyle={st.overlay}>
         <View style={st.modalContainer}>
           {/* Icon */}
           <View style={[st.iconCircle, { backgroundColor: rulingBgColor }]}>
@@ -142,7 +146,7 @@ export function PrayerPopupModal({
             )}
           </View>
         </View>
-      </View>
+      </ScrollView>
     </Modal>
   );
 }
@@ -234,15 +238,26 @@ export function usePopupNotifications() {
 // ============ STYLES ============
 
 const st = StyleSheet.create({
-  overlay: {
+  overlayScroll: {
     flex: 1,
     backgroundColor: "rgba(0, 0, 0, 0.6)",
+  },
+  overlay: {
+    // flexGrow, not flex: on a contentContainerStyle `flex: 1` would pin the
+    // content to the viewport height and defeat scrolling entirely.
+    flexGrow: 1,
     justifyContent: "center",
     alignItems: "center",
     padding: 24,
   },
   modalContainer: {
-    width: Math.min(SCREEN_WIDTH - 48, 380),
+    // The overlay's content container has padding 24, so "100%" here IS the
+    // screen width - 48.
+    // Same result as the Math.min it replaces, but resolved at layout time
+    // instead of once at import: the app is no longer portrait-locked, and a
+    // width captured before a rotation overflows the window after it.
+    width: "100%",
+    maxWidth: 380,
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 28,
