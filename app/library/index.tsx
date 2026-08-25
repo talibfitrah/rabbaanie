@@ -1,5 +1,5 @@
 import { useState, useMemo, useEffect } from "react";
-import { View, Text, SectionList, Pressable, Dimensions } from "react-native";
+import { View, Text, SectionList, Pressable, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { Image } from "expo-image";
 import { useColors } from "@/hooks/use-colors";
@@ -33,13 +33,17 @@ const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string
 // Category order
 const CATEGORY_ORDER = ["الهدايات", "قيادة النفس", "الفطرة", "التوحيد", "النصيحة", "الطرق التربوية", "الزواج", "تربية الولد", "الدعوة", "السنن الكونية"];
 
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
-const CARD_WIDTH = (SCREEN_WIDTH - 48) / 2;
-
 export default function LibraryScreen() {
   const colors = useColors();
   const { language, isRTL } = useI18n();
   const router = useRouter();
+  // Measured per render, not once at import. The app is no longer
+  // portrait-locked, and this drives a fixed two-up grid: a width captured
+  // before a rotation leaves the pair either clipped past the right edge
+  // (landscape -> portrait) or hugging the left with a dead gap (portrait ->
+  // landscape). The image height is derived from it too.
+  const { width } = useWindowDimensions();
+  const CARD_WIDTH = (width - 48) / 2;
   const lang = (language || "ar") as Lang;
 
   // Server-managed books (added at runtime) merged with the bundled ones.

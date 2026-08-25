@@ -10,12 +10,10 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Modal, Pressable, StyleSheet, Dimensions, Platform } from "react-native";
+import { View, Text, Modal, Pressable, StyleSheet, Platform } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
-
-const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 export interface PopupNotification {
   id: string;
@@ -242,7 +240,12 @@ const st = StyleSheet.create({
     padding: 24,
   },
   modalContainer: {
-    width: Math.min(SCREEN_WIDTH - 48, 380),
+    // overlay is flex:1 with padding 24, so "100%" here IS screen width - 48.
+    // Same result as the Math.min it replaces, but resolved at layout time
+    // instead of once at import: the app is no longer portrait-locked, and a
+    // width captured before a rotation overflows the window after it.
+    width: "100%",
+    maxWidth: 380,
     backgroundColor: "#FFFFFF",
     borderRadius: 24,
     padding: 28,

@@ -250,6 +250,69 @@ const withAdhanSoundResources: ConfigPlugin = (config) =>
     },
   ]);
 
+// Google Play filters a device out when the app REQUIRES hardware the device
+// lacks, and Play INFERS those requirements — from the permissions declared,
+// and from the activities themselves — rather than reading a declaration.
+// Every inferred feature defaults to required, so a device missing any one of
+// them never sees the listing. Verified with
+// `aapt2 dump badging` on the 1.5.7 release APK: camera and location were both
+// implied and required, which excluded every camera-less or GPS-less device —
+// all mains-powered TV hardware and Wi-Fi-only tablets among them.
+//
+// Neither is actually required. The app runs with no camera (QR scanning and
+// photo attachments are optional paths) and with no GPS (mosques.tsx and
+// settings.tsx both offer manual city selection). Declaring that changes no
+// behaviour and removes no permission — it only stops Play filtering.
+//
+// The list is Google's "Permissions that Imply Feature Requirements" table,
+// which is broader than what aapt2 prints: aapt2 reports only the parent of
+// each pair, while Play filters on the children too. CAMERA implies camera and
+// camera.autofocus; ACCESS_FINE_LOCATION implies location.gps;
+// ACCESS_COARSE_LOCATION implies location.network; both imply location.
+//
+// screen.portrait is in the list even though `orientation` is now "default",
+// and it has to be. Unlocking MainActivity is NOT sufficient on its own: the
+// implication is "one or more activities have specified a portrait
+// orientation", and ML Kit merges its own locked activity into the manifest —
+//
+//   unspecified  com.rabbaanie.app.MainActivity
+//   portrait     ...mlkit.vision.codescanner.internal.GmsBarcodeScanningDelegateActivity
+//
+// which kept screen.portrait implied, and required, on a build where
+// MainActivity was already unlocked. Verified with `aapt2 dump badging`; the
+// entry below is what actually clears it, because an explicit declaration
+// overrides an implied requirement. This is the largest exclusion of the set —
+// it alone accounted for all 3,037 TV devices. It costs nothing at runtime and
+// does not re-letterbox anything: the bars came from MainActivity, which stays
+// unspecified, and tests/device-compatibility.test.ts keeps it that way.
+const OPTIONAL_FEATURES = [
+  "android.hardware.screen.portrait",
+  "android.hardware.camera",
+  "android.hardware.camera.autofocus",
+  "android.hardware.location",
+  "android.hardware.location.gps",
+  "android.hardware.location.network",
+];
+
+const withOptionalHardwareFeatures: ConfigPlugin = (config) =>
+  withAndroidManifest(config, (modConfig) => {
+    const manifest = modConfig.modResults.manifest as any;
+    // Filter first: prebuild MERGES into an existing
+    // android/AndroidManifest.xml rather than regenerating it, so appending
+    // unconditionally would duplicate every entry on each prebuild. Only our
+    // own names are dropped, so a feature a dependency declares survives.
+    const existing = (manifest["uses-feature"] ?? []).filter(
+      (item: any) => !OPTIONAL_FEATURES.includes(item.$?.["android:name"]),
+    );
+    manifest["uses-feature"] = [
+      ...existing,
+      ...OPTIONAL_FEATURES.map((name) => ({
+        $: { "android:name": name, "android:required": "false" },
+      })),
+    ];
+    return modConfig;
+  });
+
 // APP_VERSION comes from the release tag in CI (see release.yml); the fallback
 // applies to local dev builds only. The shipped lineage is ahead of what the
 // original updater plan assumed (it said "continues from Manus 1.1.29"): the
@@ -283,7 +346,16 @@ const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
   version: APP_VERSION,
-  orientation: "portrait",
+  // Not "portrait". A locked MainActivity is letterboxed on every large screen
+  // — measured at 510px of black down each side of a 1920x1200 tablet, with
+  // the app reporting itself as a 600x800dp phone. targetSdk 36 also means
+  // Android 16 ignores the lock above 600dp regardless, so the wide layout
+  // arrives with or without this line.
+  //
+  // This alone does NOT restore the devices Play filtered out: the implied
+  // screen.portrait feature comes from ANY locked activity, and a dependency
+  // still merges one in. See OPTIONAL_FEATURES below — that is what clears it.
+  orientation: "default",
   icon: "./assets/images/icon.png",
   // Play builds use Google Play services for certificate-bound native sign-in,
   // so they expose no interceptable OAuth custom-scheme intent. The general
@@ -376,6 +448,7 @@ const config: ExpoConfig = {
     // only lists serializable plugin references.
     withPlayMonitoringDisabled as any,
     withAdhanSoundResources as any,
+    withOptionalHardwareFeatures as any,
     [
       "react-native-android-widget/app.plugin",
       {

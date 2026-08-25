@@ -108,6 +108,57 @@ if grep -q 'LocationTaskService' "$MANTXT"; then
   fail "expo-location's LocationTaskService is present — that is a location foreground service the app never starts"
 fi
 
+# --- Device reach --------------------------------------------------------
+# Play filters a device out when the app REQUIRES hardware it lacks, and Play
+# INFERS those requirements instead of reading them: from the permissions for
+# camera and location, and from any portrait-locked activity for
+# screen.portrait. Left inferred, that set excluded all 3,037 TV devices plus
+# every camera-less or GPS-less tablet. app.config.ts declares them optional,
+# which overrides the implication; this asserts the declaration survived into
+# the artifact, the same way BILLING is asserted below.
+#
+# A config plugin that stops matching, or a CI prebuild from a clean tree after
+# the plugin was renamed, drops the entries with no signal at all — the app
+# still builds, installs and runs, it just reaches fewer devices. Nothing else
+# in this app declares a uses-feature, so the name being present is the plugin
+# having run.
+#
+# screen.portrait must not be "tidied away" on the reasoning that orientation
+# is no longer locked — it was measured still implied on a build where
+# MainActivity was already unspecified. See OPTIONAL_FEATURES in app.config.ts.
+#
+# Two things are NOT checked here, and both are deliberate rather than
+# oversights — read them before trusting this block further than it goes.
+#
+#   1. The screenOrientation attribute. Its value is a plain string in an AAB's
+#      protobuf manifest but a compiled enum int in an APK's binary XML, so the
+#      extraction above sees it in one container and never in the other, and
+#      aapt2 cannot open an AAB at all. A check that silently cannot fire on
+#      APKs is worse than none. Guarded at its source instead, by
+#      tests/device-compatibility.test.ts, and Expo's own withOrientation mod
+#      rewrites that attribute from app.config.ts on every prebuild — so there
+#      is no stale-manifest path around it.
+#   2. The android:required VALUE. It is a compiled boolean in both container
+#      formats, so it is absent from the `strings` output entirely — only the
+#      NAME below is greppable. A flip to required="true", whether by edit or
+#      by the manifest merger OR-ing in a library's own required="true" entry,
+#      would pass this loop. The name being present still proves the plugin
+#      ran, which is the silent-drop failure this guards; it does not prove the
+#      entry is optional. `aapt2 dump badging` on an APK is the check that
+#      distinguishes them (uses-feature-not-required: vs uses-feature:).
+#
+# Anchored at the end of the name: a bare substring match for
+# android.hardware.camera is satisfied by android.hardware.camera.autofocus,
+# and android.hardware.location by .gps/.network — so dropping either of the
+# two broadest entries, the ones Play actually filters camera-less and
+# GPS-less devices on, would still read clean. Not anchored with grep -x: the
+# extracted string pool carries stray leading bytes on some entries.
+for FEATURE in screen.portrait camera camera.autofocus location location.gps location.network; do
+  if ! grep -qE "android\.hardware\.$FEATURE([^.a-zA-Z0-9]|\$)" "$MANTXT"; then
+    fail "android.hardware.$FEATURE is not declared — Play will imply it as required and filter out every device that lacks it"
+  fi
+done
+
 # The only REQUIRED permission asserted here, and the only check that fails for
 # something being absent rather than present. `android.permissions` in
 # app.config.ts is a restrictive allow-list and blockedPermissions emits
