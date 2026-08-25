@@ -1,0 +1,25 @@
+tests/daily-cards-day-scoped.test.ts
+  s_478a74ba440251::t_0e9261ca317c9f 1-92
+server/daily-diagnostic.ts
+  s_478a74ba440251::t_5de9294e2fbe5e 555-561
+components/daily-diagnostic-card.tsx
+  s_478a74ba440251::t_5de9294e2fbe5e 64-73,91-97
+components/daily-deeds-card.tsx
+  s_478a74ba440251::t_5de9294e2fbe5e 45-50,52,63-64,66,94-105,108-110,118
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "48f01c49e6ca5d13e315e48e2b2366441a8aff7f",
+  "prompts": {},
+  "sessions": {
+    "s_478a74ba440251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7594d31-4406-4fd1-a3c3-d1293bc74bce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
