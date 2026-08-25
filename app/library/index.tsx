@@ -43,26 +43,28 @@ export default function LibraryScreen() {
   // either clipped past the right edge (landscape -> portrait) or hugging the
   // left with a dead gap (portrait -> landscape).
   //
-  // The column count has to follow the width too. Held at two, the tablet this
-  // change unlocks landscape for (1280dp) gave 616dp cards whose covers are
-  // CARD_WIDTH * 1.3 = 801dp — taller than the 800dp viewport, so a single
-  // cover filled the screen. ~320dp per column keeps a cover near 390dp there
-  // and leaves phone portrait (411dp -> 2) exactly as it was.
   // Insets, not just the window: ScreenContainer wraps this in a SafeAreaView
   // with edges ["top","left","right"], so the row's real box is narrower than
   // the window by left+right. Those are 0 in portrait, which is why measuring
   // the window alone was fine before — but landscape is exactly what this
   // change unlocks, and there a cutout or gesture inset runs 27-48dp. Cards
   // default to flexShrink: 0, so the trailing one would simply be clipped.
-  const { width } = useWindowDimensions();
+  const { width, height } = useWindowDimensions();
   const insets = useSafeAreaInsets();
   // The row box: window minus the safe-area sides, minus the container's own
   // paddingHorizontal: 16 each side.
   const rowWidth = width - insets.left - insets.right - 32;
-  const COLUMNS = Math.max(2, Math.round(rowWidth / 320));
+  // Bounded by HEIGHT as well as width, because the thing that overflows is the
+  // cover (CARD_WIDTH * 1.3), not the row. A width-only rule reads 2 columns on
+  // an 800x360dp phone in landscape and draws a 489dp cover into a 360dp
+  // viewport — the same defect as the tablet, on the more common device.
+  // ~320dp is the widest a card should get; on a short viewport the cap falls
+  // out of the height instead.
+  const maxCardWidth = Math.min(320, height * 0.45);
+  const COLUMNS = Math.max(2, Math.ceil(rowWidth / maxCardWidth));
   // COLUMNS cards separated by COLUMNS-1 gaps of 16, which justifyContent
   // "space-between" produces. At COLUMNS=2 and no insets this is the original
-  // (width - 48) / 2.
+  // (width - 48) / 2, which is what every phone in portrait still gets.
   const CARD_WIDTH = (rowWidth - (COLUMNS - 1) * 16) / COLUMNS;
   const lang = (language || "ar") as Lang;
 

@@ -4248,10 +4248,11 @@ export default function FamilyScreen() {
         animationType="fade"
         onRequestClose={() => setQrModalVisible(false)}
       >
-        <View
-          style={{
-            flex: 1,
-            backgroundColor: "rgba(0,0,0,0.6)",
+        {/* ScrollView: fixed-height card + landscape clips the close button. See components/prayer-popup-modal.tsx. */}
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }}
+          contentContainerStyle={{
+            flexGrow: 1,
             justifyContent: "center",
             alignItems: "center",
           }}
@@ -4315,7 +4316,7 @@ export default function FamilyScreen() {
               </Text>
             </TouchableOpacity>
           </View>
-        </View>
+        </ScrollView>
       </Modal>
     </View>
   );

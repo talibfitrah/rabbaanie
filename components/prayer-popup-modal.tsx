@@ -251,7 +251,8 @@ const st = StyleSheet.create({
     padding: 24,
   },
   modalContainer: {
-    // overlay is flex:1 with padding 24, so "100%" here IS screen width - 48.
+    // The overlay's content container has padding 24, so "100%" here IS the
+    // screen width - 48.
     // Same result as the Math.min it replaces, but resolved at layout time
     // instead of once at import: the app is no longer portrait-locked, and a
     // width captured before a rotation overflows the window after it.
