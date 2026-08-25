@@ -1,0 +1,35 @@
+server/db.ts
+  ai_agent 3717-3722,3780-3802,3808-3812,3875-3881,3883,3887-3889,3938-3940,3962-3968,4105-4112,4136-4141
+server/routers.ts
+  s_d920963ea6fc87::t_999a21113c3e3f 2265-2267,2269-2274,2289-2294,2298-2312,2325-2340,2342-2346,2378-2393,2400-2402,2683-2696,2702-2705,2956,2992-3009
+app/(tabs)/messages.tsx
+  s_d920963ea6fc87::t_999a21113c3e3f 90-96,663,891,993-997,1436,1440-1466
+app/(tabs)/family.tsx
+  s_d920963ea6fc87::t_999a21113c3e3f 1620-1632,1913-1930,2198-2201,3056-3059
+package.json
+  s_d920963ea6fc87::t_999a21113c3e3f 17
+tests/spouse-visibility-disclosure.test.ts
+  s_d920963ea6fc87::t_999a21113c3e3f 1-57
+app/spouse-profile.tsx
+  s_d920963ea6fc87::t_999a21113c3e3f 67-81,184-193,332-333,341-342,371-372
+local-docs/FINDINGS-1.5.7-deferred.md
+  ai_agent 1-135
+tests/partner-profile-access.test.ts
+  s_d920963ea6fc87::t_999a21113c3e3f 36,2187,2189,2195-2200,2202-2206,2213-2215,2218,2220-2224,2227,2230-2238,2240-2243,2245,2247-2248,2251,2253,2600-2606,2610-2619,2633-2634,2694-2857
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "dabf5038b7db151adba09232ca97125bd667c767",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

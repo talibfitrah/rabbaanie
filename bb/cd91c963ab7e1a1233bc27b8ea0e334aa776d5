@@ -1,0 +1,43 @@
+modules/iqamah-alarm/android/src/main/AndroidManifest.xml
+  s_d920963ea6fc87::t_56658d90e7d197 1-21
+modules/iqamah-alarm/android/src/main/java/expo/modules/iqamahalarm/IqamahAlarmStore.kt
+  s_d920963ea6fc87::t_56658d90e7d197 1-85
+modules/iqamah-alarm/src/index.ts
+  s_d920963ea6fc87::t_56658d90e7d197 1-93
+modules/iqamah-alarm/android/build.gradle
+  s_d920963ea6fc87::t_56658d90e7d197 1-45
+modules/iqamah-alarm/package.json
+  s_d920963ea6fc87::t_56658d90e7d197 1-9
+app/permissions-setup.tsx
+  s_d920963ea6fc87::t_56658d90e7d197 8-9,134-164,228-229,247-251
+modules/iqamah-alarm/android/src/main/java/expo/modules/iqamahalarm/IqamahAlarmModule.kt
+  s_d920963ea6fc87::t_56658d90e7d197 1-93
+tests/alarm-permission-status.test.ts
+  s_d920963ea6fc87::t_56658d90e7d197 1-26
+tests/iqamah-silence-native.test.ts
+  s_d920963ea6fc87::t_56658d90e7d197 1-156
+lib/alarm-permission-status.ts
+  s_d920963ea6fc87::t_56658d90e7d197 1-19
+lib/iqamah-silence.ts
+  s_d920963ea6fc87::t_56658d90e7d197 21-25,123-132,155-160,188-193,279-286,291-302,318-339,341-342,349-365,390-396
+modules/iqamah-alarm/expo-module.config.json
+  s_d920963ea6fc87::t_56658d90e7d197 1-6
+modules/iqamah-alarm/android/src/main/java/expo/modules/iqamahalarm/IqamahAlarmReceiver.kt
+  s_d920963ea6fc87::t_56658d90e7d197 1-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bbcd91c963ab7e1a1233bc27b8ea0e334aa776d5",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

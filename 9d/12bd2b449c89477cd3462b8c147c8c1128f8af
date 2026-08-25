@@ -1,0 +1,23 @@
+lib/auth-context.tsx
+  s_d920963ea6fc87::t_eee9e4ee2aaee8 134-146,161
+tests/logout-clears-cached-data.test.ts
+  s_d920963ea6fc87::t_8db6c117c55d6d 95-132
+tests/partner-profile-access.test.ts
+  s_d920963ea6fc87::t_b18c534081194a 2362-2435
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9d12bd2b449c89477cd3462b8c147c8c1128f8af",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
