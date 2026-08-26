@@ -16,6 +16,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 interface Props {
   lang: Lang;
   isRTL: boolean;
+  autoOpen?: boolean;
 }
 
 /**
@@ -43,14 +44,33 @@ export function buildReviewSelections(
  * being on screen (`never-spend-openrouter-credit`). It stays disabled until
  * the user explicitly taps to open today's check-in.
  */
-export function DailyDiagnosticCard({ lang, isRTL }: Props) {
+export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   const utils = trpc.useUtils();
-  const [started, setStarted] = useState(false);
+  // Seed from autoOpen: the card is only mounted (by DailyDuoRow) once its
+  // half was tapped, so starting "started" avoids a one-frame flash of the
+  // pre-start teaser. Standalone use (no autoOpen) keeps the old false start.
+  const [started, setStarted] = useState(!!autoOpen);
+  // autoOpen is only passed once DailyDuoRow has already mounted this card
+  // in response to an explicit tap, so this pre-starts the fetch exactly
+  // like a manual tap would — `enabled: started` below still gates
+  // getToday, so nothing fetches until that tap happens.
+  useEffect(() => {
+    if (autoOpen) setStarted(true);
+  }, [autoOpen]);
   // Tapping the answered "done" card opens this back up to review the day's
   // answers — never a new fetch/generation (todayQuery stays driven by
   // `started`/its own cache; this flag only switches which JSX renders).
   const [reviewing, setReviewing] = useState(false);
-  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang }, { enabled: started });
+  // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
+  // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
+  // by lib/query-persistence.ts on app boot — which stamps a fresh
+  // `dataUpdatedAt`, defeating the 5-minute staleTime check) satisfies
+  // today's mount with no network call at all. Folding today's date into the
+  // input makes it part of the query key too, so a new day is a genuine
+  // cache MISS — a stale key simply cannot answer it (see server/
+  // daily-diagnostic.ts getToday's own comment on why it accepts `date`).
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang, date: todayKey }, { enabled: started });
   const submitMutation = trpc.dailyDiagnostic.submitAnswers.useMutation({
     onSuccess: () => utils.dailyDiagnostic.getToday.invalidate(),
     // A rejected submit (e.g. the card was showing a stale/unpersisted
@@ -68,13 +88,13 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
   // tapping for no reason. Only reset when the date or the actual option
   // labels change — e.g. an error-triggered refetch that lands a DIFFERENT
   // question set, or a plain UTC-midnight rollover while the screen is open.
-  // The query cache outlives a day boundary — a card left mounted overnight,
-  // or a cache restored on relaunch, still holds YESTERDAY's row. Everything
-  // derived from it must be date-checked: a stale "completed" would hide
-  // today's check-in permanently, and stale questions would be submitted
-  // against today and rejected by submitAnswers' exact-option match. UTC to
-  // match the server's day key (server/daily-diagnostic.ts).
-  const todayKey = new Date().toISOString().slice(0, 10);
+  // The query cache outlives a day boundary — a cache restored on relaunch
+  // (now structurally excluded from THIS key by the `date` input above, but
+  // kept here as defense in depth) or a card left mounted overnight without
+  // ever re-rendering could still hold YESTERDAY's row. Everything derived
+  // from it must be date-checked: a stale "completed" would hide today's
+  // check-in permanently, and stale questions would be submitted against
+  // today and rejected by submitAnswers' exact-option match.
   const data = todayQuery.data?.date === todayKey ? todayQuery.data : undefined;
 
   const questionsSignature = data
@@ -105,12 +125,21 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
   if (!started && !alreadyAnsweredToday) {
     return (
       <Pressable
-        onPress={() => setStarted(true)}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        onPress={() => {
+          setStarted(true);
+          // Explicit open: refetch fresh instead of trusting whatever this
+          // session's 5-minute staleTime cache (or a persisted cache from an
+          // earlier day) still holds, so a server-side question change shows
+          // up immediately. `enabled: started` (still false a moment ago)
+          // means this row was never "active" for invalidate() to refetch on
+          // its own — it only takes effect once `started` flips true above.
+          utils.dailyDiagnostic.getToday.invalidate();
+        }}
+        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="edit-calendar" size={18} color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {tx(lang, "Uw dagelijkse zelfregistratie", "Your daily self check-in", "مراجعتك اليومية")}
+          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
         </Text>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
       </Pressable>
@@ -126,7 +155,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     // an instant cache read — a bare `return null` here made the card
     // silently vanish for that whole window with no feedback.
     return (
-      <View style={[s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+      <View style={[s.teaserCard, { flexDirection: "row" }]}>
         <ActivityIndicator size="small" color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]}>
           {tx(lang, "Bezig met laden...", "Loading...", "جارٍ التحميل...")}
@@ -149,7 +178,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     return (
       <Pressable
         onPress={() => todayQuery.refetch()}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="error-outline" size={18} color="#B91C1C" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -161,18 +190,33 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
 
   const { date, questions, answers, source } = data;
 
-  if (answers && !reviewing) {
+  // !autoOpen: when DailyDuoRow mounts this card in response to a tap, skip
+  // the compact "done" teaser — it would render a SECOND «المراجعة الشخصية»
+  // line under the one just tapped, forcing a second tap. Fall straight
+  // through to the locked review below instead.
+  if (answers && !reviewing && !autoOpen) {
     return (
       <Pressable
-        onPress={() => setReviewing(true)}
-        style={({ pressed }) => [s.doneCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
+        onPress={() => {
+          // This is the actual stale-cache path: an answered-today state can
+          // come entirely from the persisted cache with `started` still
+          // false (see the alreadyAnsweredToday comment above) — enabled
+          // never became true this session, so getToday never fetched.
+          // setReviewing alone would review stale cached questions forever;
+          // started must also flip so `enabled: started` turns on and the
+          // invalidate below actually refetches instead of no-op'ing on a
+          // disabled query. started has no other effect once already
+          // answered (the teaser condition above already requires
+          // !alreadyAnsweredToday, which is false here regardless).
+          setStarted(true);
+          setReviewing(true);
+          utils.dailyDiagnostic.getToday.invalidate();
+        }}
+        style={({ pressed }) => [s.doneCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="check-circle" size={16} color="#1B4332" />
         <Text style={[s.doneText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {/* Deliberately distinct from index.tsx's own check-in completion text
-              (also "تم إكمال المراجعة اليومية") — the two cards can be on screen
-              back to back and must not look like a duplicated/glitched string. */}
-          {tx(lang, "Extra dagregistratie voltooid", "Extra daily entry completed", "تمت إضافة بيانات اليوم")}
+          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
         </Text>
         <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
       </Pressable>
@@ -196,10 +240,14 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
     <View style={s.section}>
       {locked ? (
         <Pressable
-          onPress={() => setReviewing(false)}
-          style={({ pressed }) => [s.reviewHeader, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
+          onPress={autoOpen ? undefined : () => setReviewing(false)}
+          disabled={autoOpen}
+          style={({ pressed }) => [s.reviewHeader, { flexDirection: "row" }, pressed && !autoOpen && { opacity: 0.7 }]}
         >
-          <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />
+          {/* In autoOpen (duo-row) mode the card can't collapse itself — the
+              duo-row half is the toggle — so the back chevron would be a dead
+              control. Hide it there. */}
+          {!autoOpen && <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />}
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.title, { marginBottom: 0 }]}>
             {tx(lang, "Uw antwoorden van vandaag", "Your answers today", "إجاباتك اليوم")}
@@ -240,7 +288,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
                   onPress={locked ? undefined : () => setSelected((prev) => ({ ...prev, [q.category]: { label: opt.label, tone: opt.tone } }))}
                   style={({ pressed }) => [
                     s.option,
-                    { flexDirection: isRTL ? "row-reverse" : "row" },
+                    { flexDirection: "row" },
                     isSelected && s.optionSelected,
                     pressed && !locked && { opacity: 0.7 },
                   ]}
@@ -270,7 +318,7 @@ export function DailyDiagnosticCard({ lang, isRTL }: Props) {
         />
       )}
       {locked ? (
-        <View style={[s.lockedNotice, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <View style={[s.lockedNotice, { flexDirection: "row" }]}>
           <MaterialIcons name="lock-outline" size={14} color="#52796F" />
           <Text style={[s.lockedNoticeText, { textAlign: lang === "ar" ? "right" : "left" }]}>
             {tx(

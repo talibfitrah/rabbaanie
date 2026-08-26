@@ -552,7 +552,13 @@ async function getOrCreateToday(userId: number, date: string, gender: Gender, la
 export const dailyDiagnosticRouter = router({
   /** Today's question set for the caller — curated, always non-empty, no model call. */
   getToday: protectedProcedure
-    .input(z.object({ lang: z.enum(["nl", "en", "ar"]).optional() }).optional())
+    // `date` is accepted but never read below — the server always computes
+    // its own todayKey() authoritatively; a client-supplied date must never
+    // decide what "today" means. It exists so the CLIENT can fold today's
+    // date into this query's cache key (components/daily-diagnostic-card.tsx)
+    // — a new calendar day is then a genuine cache miss instead of silently
+    // reusing yesterday's cached response (see that file's own comment).
+    .input(z.object({ lang: z.enum(["nl", "en", "ar"]).optional(), date: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
     // ponytail: UTC calendar day, not the user's own local day — this app
     // has users across many timezones and no per-user timezone is stored

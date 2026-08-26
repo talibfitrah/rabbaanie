@@ -763,6 +763,50 @@ describe("getSpouseAdvice — full-access direction now feeds the partner's actu
 });
 
 // ============================================================
+// Change B: getSpouseAdvice also folds in the REQUESTER's OWN recent
+// daily-diagnostic tone (getOwnCheckinContext), mirroring the self-advisors'
+// usage (e.g. advice.ts:~1044). Both the partner's coarse signal and the
+// requester's own are unconditional (never gated by hasFullAnswerAccess),
+// but come from two textually distinct headers (buildPartnerSignalContext
+// vs buildOwnSignalContext) so the prompt never confuses whose signal is
+// whose.
+// ============================================================
+describe("getSpouseAdvice folds in the requester's OWN recent check-in tone (change B)", () => {
+  it("includes the requester's own check-in signal in the prompt, alongside the partner's", async () => {
+    dbMocks.getPartnersOfUser.mockResolvedValue([
+      { id: 2, name: "Partner", profileData: {}, partnershipConfirmed: true },
+    ]);
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {}, childrenData: [],
+    });
+    // context() below resolves to requester id 1; the partner above is id 2.
+    // getOwnCheckinContext and the pre-existing partner-signal block both
+    // call db.getRecentDiagnosticSignals — distinguish them by first arg.
+    dbMocks.getRecentDiagnosticSignals.mockImplementation((userId: number) => {
+      if (userId === 2) return Promise.resolve([{ answers: [{ category: "prayer", label: "x", tone: "positive" }] }]);
+      if (userId === 1) return Promise.resolve([{ answers: [{ category: "psychological", label: "y", tone: "needs_support" }] }]);
+      return Promise.resolve([]);
+    });
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "advice" } }] });
+
+    await adviceRouter.createCaller(context()).getSpouseAdvice({ language: "ar" });
+
+    expect(dbMocks.getRecentDiagnosticSignals).toHaveBeenCalledWith(1, 7); // the requester
+    expect(dbMocks.getRecentDiagnosticSignals).toHaveBeenCalledWith(2, 7); // the partner (pre-existing)
+
+    const sentPrompt = JSON.stringify(invokeLLMMock.mock.calls[0][0]);
+    // Partner's coarse signal (pre-existing, unconditional):
+    expect(sentPrompt).toContain("الصلاة");
+    expect(sentPrompt).toContain("بحالة جيدة");
+    // The requester's OWN signal (new) under its own distinct header:
+    expect(sentPrompt).toContain("إشاراتك الذاتية");
+    expect(sentPrompt).toContain("الحالة النفسية");
+    expect(sentPrompt).toContain("بحاجة إلى دعم");
+  });
+});
+
+// ============================================================
 // VULNERABILITY (item 5): getSpouseAdvice drew on partner.profileData,
 // dailyCheckins, and environments with zero partnershipConfirmed check —
 // an unconfirmed "partner" (a pending invite the shared-children legacy
