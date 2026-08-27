@@ -95,7 +95,7 @@ else
     echo "Could not read $SIG / $SF from $ART — refusing to ship unverified" >&2
     exit 1
   fi
-  if ! openssl cms -verify -inform DER -in "$TMP/sig.der" -content "$TMP/sig.sf" -noverify -out /dev/null 2>/dev/null; then
+  if ! openssl cms -verify -binary -inform DER -in "$TMP/sig.der" -content "$TMP/sig.sf" -noverify -out /dev/null 2>/dev/null; then
     fail "$SIG does not verify over $SF — this signature block was not produced over this bundle's signature file"
   fi
   CERT_SHA256=$(openssl pkcs7 -inform DER -in "$TMP/sig.der" -print_certs 2>/dev/null \
