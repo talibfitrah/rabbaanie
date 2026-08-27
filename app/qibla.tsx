@@ -230,7 +230,9 @@ export default function QiblaScreen() {
             typeof data.trueHeading === "number" && data.trueHeading >= 0
               ? data.trueHeading
               : data.magHeading;
-          if (typeof raw !== "number" || Number.isNaN(raw)) return;
+          // magHeading is also negative when the OS marks it invalid — dropping
+          // the sample beats rendering (-1+360)%360 as a confident 359°.
+          if (typeof raw !== "number" || Number.isNaN(raw) || raw < 0) return;
           if (typeof data.accuracy === "number") setHeadingAccuracy(data.accuracy);
           applyHeading((raw + 360) % 360);
         });
