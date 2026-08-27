@@ -299,7 +299,7 @@ describe("checkEmail", () => {
   });
 
   it("accepts unfamiliar but structurally valid addresses (accept-by-default)", () => {
-    for (const e of ["名前@例え.みんな", "a@xn--fiqs8s", "q@a.b.c.d.museum"]) {
+    for (const e of ["名前@例え.みんな", "a@mail.xn--fiqs8s", "q@a.b.c.d.museum"]) {
       expect(checkEmail(e).ok).toBe(true);
     }
   });
