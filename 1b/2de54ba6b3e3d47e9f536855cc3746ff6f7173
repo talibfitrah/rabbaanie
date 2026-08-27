@@ -1,0 +1,20 @@
+app/ai-chat.tsx
+  s_834a18df15f160::t_c09b85423b08a1 342-356
+  s_834a18df15f160::t_4c2519c67ffd47 181-183,288-306
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1b2de54ba6b3e3d47e9f536855cc3746ff6f7173",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

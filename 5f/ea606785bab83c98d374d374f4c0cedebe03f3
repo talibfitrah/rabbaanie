@@ -1,0 +1,28 @@
+app/(tabs)/notification-settings.tsx
+  s_168adbdaf097e9::t_bc69fe2db640d7 139
+  s_168adbdaf097e9::t_f3b64acb35e445 406-429
+  s_168adbdaf097e9::t_61ad628f7a96a9 161
+  s_168adbdaf097e9::t_472e13beb8625b 189-209
+  s_168adbdaf097e9::t_99a462855000b7 33
+  s_168adbdaf097e9::t_28345e9d3d28ee 15-16
+lib/notifications.ts
+  s_168adbdaf097e9::t_342cc16e3c4df6 179-226
+lib/iqamah-silence.ts
+  s_168adbdaf097e9::t_81cee3be29060e 307-332
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5fea606785bab83c98d374d374f4c0cedebe03f3",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

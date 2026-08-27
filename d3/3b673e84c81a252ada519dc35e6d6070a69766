@@ -1,0 +1,23 @@
+app/library/index.tsx
+  s_168adbdaf097e9::t_c771319e066e24 20
+  s_168adbdaf097e9::t_2c76ae305c4dd0 33
+lib/book-data.ts
+  s_168adbdaf097e9::t_96f17cf8f41668 53
+  s_168adbdaf097e9::t_68651be8e85ce2 65
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d33b673e84c81a252ada519dc35e6d6070a69766",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

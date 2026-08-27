@@ -1,0 +1,28 @@
+lib/weekly-goals-notification.ts
+  s_834a18df15f160::t_7bd7eca4fc1787 5-7,130-158,163-164,168-176
+lib/plan-blocks.ts
+  s_834a18df15f160::t_9642234ce9864e 1-137
+components/treatment-plan-renderer.tsx
+  s_834a18df15f160::t_9642234ce9864e 9
+tests/treatment-renderer.test.ts
+  s_834a18df15f160::t_bfce57a788b8fa 4-8,51-52,56-57,61,75-77,81-83
+tests/advisor-plan-reminder-progress.test.ts
+  s_834a18df15f160::t_4a895b1ce6b194 39-47
+  s_834a18df15f160::t_826744729d4950 75,80-82,88-90,94-101,103,107-114
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d8f59553c7e878aa5920f2abc5cae62e70124657",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

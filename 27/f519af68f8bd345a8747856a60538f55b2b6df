@@ -1,0 +1,35 @@
+server/advice.ts
+  s_adb59677e30baa::t_4b1fcce601dce3 1518-1519
+  s_adb59677e30baa::t_3f6640781974fb 1485-1487
+  s_adb59677e30baa::t_579cf923fdedf3 1453-1457,1459-1462
+lib/weekplan-cache.ts
+  s_adb59677e30baa::t_3456d4f6cf535b 28-35,41,44-52
+app/child/weekplan.tsx
+  s_adb59677e30baa::t_5591c285a61f59 874-878
+  s_adb59677e30baa::t_8a4dd491e5c417 489-493
+  s_adb59677e30baa::t_436454b9335ec6 595
+lib/plan-owner.ts
+  s_adb59677e30baa::t_30774b1eb978c5 1
+tests/weekplan-freshness.test.ts
+  s_adb59677e30baa::t_9b49abbb756ecf 45-46,54-99
+  s_adb59677e30baa::t_9af9b87ce0b0d2 113-115
+tests/plan-progress.test.ts
+  s_adb59677e30baa::t_fed910ee28d801 85,87-89
+  s_adb59677e30baa::t_fe4c480fbbd999 98-111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "27f519af68f8bd345a8747856a60538f55b2b6df",
+  "prompts": {},
+  "sessions": {
+    "s_adb59677e30baa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b265ce5-6bcb-41ab-9034-5b560866feea",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

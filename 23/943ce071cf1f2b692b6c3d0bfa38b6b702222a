@@ -1,0 +1,45 @@
+package.json
+  s_1aa5a47f3719a6::t_28acd5e2d08e5a 3
+tests/play-store-compliance.test.ts
+  s_1aa5a47f3719a6::t_452593e585476b 918-928
+  s_1aa5a47f3719a6::t_0cf2c9c922e8b8 826-828,830-832,844-873,878,880-887
+  s_1aa5a47f3719a6::t_b9b5e02d3d55fb 911-917,929,932-935
+  s_1aa5a47f3719a6::t_f80adfb2823dd0 777
+  s_1aa5a47f3719a6::t_fa34452aba837f 758-773,775-776,778-784,786-794,822-825,829,833-843,874-877,879,888-889,910,959-960
+  s_1aa5a47f3719a6::t_ca38955d885105 3,795-800,811-821,936-938,950-951
+  s_1aa5a47f3719a6::t_e9b2f284db7ecb 801-810
+  s_1aa5a47f3719a6::t_bd5f95728a4500 939-949,952-958
+  s_1aa5a47f3719a6::t_b1d9685531dff2 774,785,890-909,930-931
+hooks/use-updates.ts
+  s_1aa5a47f3719a6::t_48f2c8181f43e7 2,8,48-57,63-65,67,86-87,254-258
+  s_1aa5a47f3719a6::t_62f1426eae9a1c 58-62,66,68-70,73-76,78-85
+  s_1aa5a47f3719a6::t_85cda540bfc19b 71-72,77
+  s_1aa5a47f3719a6::t_c505057bea0978 35-47
+  s_1aa5a47f3719a6::t_452593e585476b 248-253
+  s_1aa5a47f3719a6::t_0cf2c9c922e8b8 259
+app.config.ts
+  s_1aa5a47f3719a6::t_28acd5e2d08e5a 325
+app/(tabs)/settings.tsx
+  s_1aa5a47f3719a6::t_62f1426eae9a1c 3089-3090
+  s_1aa5a47f3719a6::t_cbd8829b856fb8 2045-2046,3086-3088,3093-3112
+  s_1aa5a47f3719a6::t_c505057bea0978 67,2047-2049,2052,3091-3092
+  s_1aa5a47f3719a6::t_fe4e7f695471ff 3113
+hooks/use-push-notifications.ts
+  s_1aa5a47f3719a6::t_b9b5e02d3d55fb 165-171
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "23943ce071cf1f2b692b6c3d0bfa38b6b702222a",
+  "prompts": {},
+  "sessions": {
+    "s_1aa5a47f3719a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4378c968-6e09-403c-a810-90cd71a3008b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

@@ -1,0 +1,30 @@
+components/prayer-popup-modal.tsx
+  s_1aa5a47f3719a6::t_f0e2432d15aa34 13,149,241,244-248
+  s_1aa5a47f3719a6::t_f5927400ca7acd 72-78
+tests/device-compatibility.test.ts
+  s_1aa5a47f3719a6::t_ec853cefe98cb8 116-120
+app/library/index.tsx
+  s_1aa5a47f3719a6::t_957cacd6a4d854 163-166,169-174
+  s_1aa5a47f3719a6::t_6fae7d88309a04 4
+  s_1aa5a47f3719a6::t_5cdbef44d81bf3 51-56,58-66
+  s_1aa5a47f3719a6::t_70ce73cb06bf41 109-110
+  s_1aa5a47f3719a6::t_8c464821cae830 41-50
+scripts/assert-play-artifact.sh
+  s_1aa5a47f3719a6::t_01eb0b61e81adb 162-163
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "038d17d261f7e7cebbfe2f516ff8b9e992849d45",
+  "prompts": {},
+  "sessions": {
+    "s_1aa5a47f3719a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4378c968-6e09-403c-a810-90cd71a3008b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

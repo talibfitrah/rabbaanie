@@ -1,0 +1,24 @@
+app/ai-chat.tsx
+  s_adb59677e30baa::t_39d9ce8d0d976c 343-347
+tests/consultation-ownership.test.ts
+  s_adb59677e30baa::t_4fa1b147602ab9 44-50
+  s_adb59677e30baa::t_8346195316138a 31-43,51
+server/ai-chat.ts
+  s_adb59677e30baa::t_5d828cca827ea6 737-739,745
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "527e4b2d4a8920927cf6eca5ebe64fed023288ba",
+  "prompts": {},
+  "sessions": {
+    "s_adb59677e30baa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b265ce5-6bcb-41ab-9034-5b560866feea",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+lib/fullscreen-notif.ts
+  s_168adbdaf097e9::t_525c8cd1820623 110,123
+  s_168adbdaf097e9::t_86a8347a3f7cb7 18
+app/(tabs)/notification-settings.tsx
+  s_168adbdaf097e9::t_4e2d78e4d0276e 203,209-211
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b93544ef43916ccb545b12e28fd5c1bda9981d05",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

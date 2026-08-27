@@ -1,0 +1,39 @@
+.github/workflows/release.yml
+  s_834a18df15f160::t_28b28465b10bcd 98
+app/register.tsx
+  s_834a18df15f160::t_28b28465b10bcd 21-24,35-36,68-69,71,74-76,110,206-224,226,228-230
+scripts/assert-sideload-artifact.sh
+  s_834a18df15f160::t_28b28465b10bcd 22-31,57-58,64,94-116,119-120,126-135,139-176,178-180,184-205,207-240,242-243,245-253,256
+app/login.tsx
+  s_834a18df15f160::t_28b28465b10bcd 59-62,208,210,213-216,230-247,255-272,275-277,657,694-734
+app/subscribe.tsx
+  s_834a18df15f160::t_28b28465b10bcd 503-513
+lib/google-oauth.ts
+  s_834a18df15f160::t_28b28465b10bcd 75-86,96-101,103-105,144-148,181-187
+tests/oauth-session-verification.test.ts
+  s_834a18df15f160::t_28b28465b10bcd 116-119
+tests/registration-contract.test.ts
+  s_834a18df15f160::t_28b28465b10bcd 1-86
+tests/google-pkce-signin.test.ts
+  s_834a18df15f160::t_28b28465b10bcd 130-132,143-230,360-364
+app/child/weekplan.tsx
+  s_834a18df15f160::t_28b28465b10bcd 587-600,602-617
+lib/registration.ts
+  s_834a18df15f160::t_28b28465b10bcd 1-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3ddba5314b84e44a5e0a89a23d39ec6a0ddde039",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

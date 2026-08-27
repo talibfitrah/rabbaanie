@@ -1,0 +1,25 @@
+server/consultation-ownership.ts
+  s_834a18df15f160::t_ecd121d680b1a9 1-31
+server/ai-chat.ts
+  s_834a18df15f160::t_f0065502889e3b 13
+server/db.ts
+  s_834a18df15f160::t_252d59f8468d96 4725-4739
+tests/consultation-ownership.test.ts
+  s_834a18df15f160::t_8c270f48c9549a 3,29-30,63-64,77-78,114-146
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0328f0398d2c0b92dafd381cf7aff159d9f53337",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,21 @@
+app/weather.tsx
+  s_168adbdaf097e9::t_2c8770e6a368b6 75
+  s_168adbdaf097e9::t_070abd3725680f 85-86
+  s_168adbdaf097e9::t_b4bb367ca6a0d5 64-71
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8cda0b753d2d38605a3f39e33b8e434db5aaa1fa",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

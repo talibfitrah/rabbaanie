@@ -1,0 +1,107 @@
+tests/consultation-archive.test.ts
+  s_34f20f3289accc::t_2b82b84d479006 6-7
+  s_34f20f3289accc::t_215ad812c94472 1-5,8-27,66-113
+  s_34f20f3289accc::t_a5433533419ee4 28-33,36-38,40-42,44-46,56-65
+  s_34f20f3289accc::t_1505be90a46b7e 34-35,39,43,47-55
+tests/phase8-features.test.ts
+  s_34f20f3289accc::t_dac5ea7f5d489e 12-13
+  s_34f20f3289accc::t_8def0603374783 87-88,90-92
+  s_34f20f3289accc::t_2b0e7e31ba3483 108-112,116-121
+server/ai-chat.ts
+  s_34f20f3289accc::t_863650821c2952 169-192,194
+  s_34f20f3289accc::t_21ff0a249be10c 704-707
+  s_34f20f3289accc::t_b6f6f2b9a8d2e0 708-711
+tests/consultation-ownership.test.ts
+  s_34f20f3289accc::t_bb1ac82ac1b5ed 69-83,87,89-91
+  s_34f20f3289accc::t_e8e9d7e691d00e 84-86,88
+components/treatment-plan-renderer.tsx
+  s_34f20f3289accc::t_0a76d51b4b7236 9
+  s_34f20f3289accc::t_5a48b0251cec60 106-109
+lib/plan-steps.ts
+  s_34f20f3289accc::t_d3325b72986e45 5,28-29,41,62,65-79,110,112-114
+  s_34f20f3289accc::t_f9bd4a49565780 57
+  s_34f20f3289accc::t_b74f290900ab8e 64
+  s_34f20f3289accc::t_15adc5209caff7 80-90,99,101
+  s_34f20f3289accc::t_4e8b94361ed03c 1-2
+  s_34f20f3289accc::t_15a6809fdca2be 91-98,100,102-105,111
+  s_34f20f3289accc::t_b8a29f1420f564 15,19,35,43-44,61
+  s_34f20f3289accc::t_c7b279bd39c186 30-34,39-40,46-47,50
+  s_34f20f3289accc::t_4e50e6b66f6c6e 3-4
+  s_34f20f3289accc::t_4467ec2a8e0d5a 14,20-27,45,52-56,60
+  s_34f20f3289accc::t_144c5a29ea9c6b 6-13,16-18,36-38,42,48-49,51,58-59,63
+  s_34f20f3289accc::t_5ebfad01f31eee 106-109
+tests/phase9-features.test.ts
+  s_34f20f3289accc::t_039b5892a06cf6 5-6
+  s_34f20f3289accc::t_5569a87bc6684e 101-102,104-106
+tests/plan-steps.test.ts
+  s_34f20f3289accc::t_3fe249a32e7f07 1-39,54-75,113-128,158-164
+  s_34f20f3289accc::t_ec411e7e904f06 76-98,112
+  s_34f20f3289accc::t_a6ef9fcc406d89 40-53
+  s_34f20f3289accc::t_a179483b33a035 99-111
+  s_34f20f3289accc::t_d93bbae52248fb 129-144
+  s_34f20f3289accc::t_4ef3aff28424d9 145-157
+tests/plan-heading.test.ts
+  s_34f20f3289accc::t_3f0d2d756fdbdc 2-23,32-37
+  s_34f20f3289accc::t_012a4a0bcece76 24-31
+lib/plan-heading.ts
+  s_34f20f3289accc::t_793ba76116b142 28-34
+  s_34f20f3289accc::t_cc1b3aa1a5fa94 20-27,35
+app/child/[id].tsx
+  s_34f20f3289accc::t_e0ecb4a15ab89a 156-158
+  s_34f20f3289accc::t_9bc90df58d5786 143-147
+  s_34f20f3289accc::t_923b8298a3c00a 154
+  s_34f20f3289accc::t_e7a184edba5367 180-181
+  s_34f20f3289accc::t_875f14aca5b36a 163-168
+  s_34f20f3289accc::t_db8b1fe9523ab4 387,406
+  s_34f20f3289accc::t_f9ebd0cdbd7a14 388
+  s_34f20f3289accc::t_a04090b1327866 117,127-129,136-142,148-151,155
+  s_34f20f3289accc::t_a64b73a10a7b15 118-126,152
+  s_34f20f3289accc::t_43fff49bb6f7f2 159-162
+  s_34f20f3289accc::t_a01b4f0ceb6a85 407
+  s_34f20f3289accc::t_56faa2de7103ee 60-67
+  s_34f20f3289accc::t_ccb2e943793a1f 425-426
+  s_34f20f3289accc::t_6c66d3b43d971e 169-176
+  s_34f20f3289accc::t_01621f0fc9736d 2279-2282,2285-2289
+  s_34f20f3289accc::t_ce7153a6db847d 130-135
+  s_34f20f3289accc::t_c05ac6599d925c 20-21
+  s_34f20f3289accc::t_83c05921f533a1 450-451
+  s_34f20f3289accc::t_f258bdbda0b492 59,68-88,90-111,153,177-179,182-189
+  s_34f20f3289accc::t_09e49cfaa30a78 1
+  s_34f20f3289accc::t_e09ae65fb8f97f 16-19,22
+  s_34f20f3289accc::t_b3f1c2e936aafe 344
+  s_34f20f3289accc::t_ed43ea0fa9f2e5 452-453
+  s_34f20f3289accc::t_ca78c5fd83837e 89
+  s_34f20f3289accc::t_74ed06eb4091f3 416-424
+  s_34f20f3289accc::t_19fa03b76bcfe4 112-116
+app/ai-chat.tsx
+  s_34f20f3289accc::t_213a5e65acb2c1 42
+  s_34f20f3289accc::t_13495c0684b4ee 667,750
+lib/consultation-archive.ts
+  s_34f20f3289accc::t_f30365b6580e07 18-19
+  s_34f20f3289accc::t_fbebf9c8a27bd3 37-40
+  s_34f20f3289accc::t_f2dfc4e6d81c2d 6-8
+  s_34f20f3289accc::t_931c0ebca7b68e 43,46,48-53
+  s_34f20f3289accc::t_f4906e70a651e8 1-5,9-17,20-24,57-69
+  s_34f20f3289accc::t_2357879bd88b9d 25-36,41-42,44-45,47,54-56
+tests/advisor-consultations.test.ts
+  s_34f20f3289accc::t_e1f2dfe4b60803 4-5
+  s_34f20f3289accc::t_f1a1bf24624222 43-44,46-51
+tests/advisor-plan-split.test.ts
+  s_34f20f3289accc::t_3e2062b2e98227 1-73
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "550289cf0e9997066d96dd79858e758784a172db",
+  "prompts": {},
+  "sessions": {
+    "s_34f20f3289accc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "3ec9cae7-36a1-4be3-8831-08a0beee56cf",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

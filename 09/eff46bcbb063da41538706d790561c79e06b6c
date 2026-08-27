@@ -1,0 +1,22 @@
+hooks/use-subscription.ts
+  s_630a2be95d1962::t_7e1956d1857776 13-22
+app/(tabs)/settings.tsx
+  s_630a2be95d1962::t_9929c54db2003c 67
+  s_630a2be95d1962::t_93c63456e98eeb 1056,2095
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "09eff46bcbb063da41538706d790561c79e06b6c",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

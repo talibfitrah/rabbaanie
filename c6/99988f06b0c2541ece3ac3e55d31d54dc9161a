@@ -1,0 +1,26 @@
+lib/i18n.tsx
+  s_168adbdaf097e9::t_d1cb5fd453586d 4
+  s_168adbdaf097e9::t_b6f003bc777daa 681-686
+  s_168adbdaf097e9::t_764862037d3956 722-723
+lib/language-sync.ts
+  s_168adbdaf097e9::t_4109ede9a73eec 1-33
+hooks/use-push-notifications.ts
+  s_168adbdaf097e9::t_3b780b4c003408 9
+  s_168adbdaf097e9::t_f494476afd0ebc 99-102
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c699988f06b0c2541ece3ac3e55d31d54dc9161a",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

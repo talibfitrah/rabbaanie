@@ -1,0 +1,19 @@
+tests/broadcast-audience.test.ts
+  s_6849767083e9dc::t_d76760aec42524 219-248
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "cace72751ee13ce87a8ec2c851b2492a2b8ad08d",
+  "prompts": {},
+  "sessions": {
+    "s_6849767083e9dc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "fc1ff81f-5071-40db-8a5d-da290ff9924f",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

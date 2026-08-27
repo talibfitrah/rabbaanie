@@ -1,0 +1,23 @@
+package.json
+  s_d920963ea6fc87::t_5f7c7d361c915e 3
+tests/partner-profile-access.test.ts
+  s_d920963ea6fc87::t_5f7c7d361c915e 2506,2519-2529
+server/db.ts
+  s_d920963ea6fc87::t_8882efd0bc2b9b 3621-3630,3633-3634,4262-4267,4283-4291,4297
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9a003cf3ff5ae6a7cc06ff3b0084f5981130766d",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

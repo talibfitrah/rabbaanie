@@ -1,0 +1,23 @@
+hooks/use-updates.ts
+  s_168adbdaf097e9::t_d5e1bfdcf2148a 20-23
+  s_168adbdaf097e9::t_29c02b1fa23884 289-300,302
+  s_168adbdaf097e9::t_07225bf806d812 4,7
+  s_168adbdaf097e9::t_0eade6a065a406 214-219
+  s_168adbdaf097e9::t_8aea5bf0d05623 244-252
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1991ec7a6d75ea437aef60b4d684cf07b4ef16ab",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,23 @@
+app/ai-chat.tsx
+  s_168adbdaf097e9::t_09b5665c7bda64 144-171
+  s_168adbdaf097e9::t_6e8c1082d74a8d 991
+  s_168adbdaf097e9::t_30cce13655bf08 27
+hooks/use-auto-translate.ts
+  s_168adbdaf097e9::t_41f3df3a5f1c9a 1-57
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "746af517bb80edd8fcb13fde0741289abae45b79",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,25 @@
+app/(tabs)/treatments.tsx
+  s_630a2be95d1962::t_962dae16c14dd4 25-27
+app/(tabs)/weekly.tsx
+  s_630a2be95d1962::t_f2671968623550 151-153
+app/(tabs)/settings.tsx
+  s_630a2be95d1962::t_c554f4eea8c6a4 2088-2093
+components/persistent-tab-bar.tsx
+  s_630a2be95d1962::t_313b12b95e9e3b 18-22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "6d540174acd53898238fb6ea3d608dbe1365eadb",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

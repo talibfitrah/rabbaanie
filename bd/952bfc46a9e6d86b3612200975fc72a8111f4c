@@ -1,0 +1,22 @@
+hooks/use-updates.ts
+  s_168adbdaf097e9::t_1802ff56c4dffe 73-77,81,92
+app.config.ts
+  s_168adbdaf097e9::t_c5ba26588c175e 46-48,50,52
+  s_168adbdaf097e9::t_aab7fae4eb08fe 49
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "bd952bfc46a9e6d86b3612200975fc72a8111f4c",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

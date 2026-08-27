@@ -1,0 +1,23 @@
+server/ai-provider.ts
+  s_c5359d7323af43::t_70b99602b36c2e 46
+server/_core/env.ts
+  s_c5359d7323af43::t_be5799cadc7612 11
+.env.example
+  s_c5359d7323af43::t_960f65f4710101 18-19,22
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.15",
+  "base_commit_sha": "fc60c4bf61b50e38852915da96acebd81f0dca0b",
+  "prompts": {},
+  "sessions": {
+    "s_c5359d7323af43": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2e2000e9-1736-462f-96c5-f8b94cdb05c0",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

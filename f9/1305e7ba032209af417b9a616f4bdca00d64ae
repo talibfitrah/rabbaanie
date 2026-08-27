@@ -1,0 +1,42 @@
+tests/daily-diagnostic-card.test.ts
+  s_d920963ea6fc87::t_d8d9894aaaad2b 1
+  s_d920963ea6fc87::t_0a2913d52b72d4 2-71
+components/daily-diagnostic-card.tsx
+  s_d920963ea6fc87::t_b36c0c42d17c01 272-308
+  s_d920963ea6fc87::t_539178f6848936 85-95
+  s_d920963ea6fc87::t_1eb6150cc747c0 49-52
+  s_d920963ea6fc87::t_95e65c1c38f542 164,166-169,177-178,182-193,197-212,220-229
+  s_d920963ea6fc87::t_6c6aecf0cd077a 383-393
+  s_d920963ea6fc87::t_1b71763685d15e 235,239-240,245
+  s_d920963ea6fc87::t_8e2f2d63a4d5ee 22-34
+app/(tabs)/messages.tsx
+  s_d920963ea6fc87::t_98cd6aebf73e33 769-775
+  s_d920963ea6fc87::t_5dcd0798eb9cf7 855-881
+  s_d920963ea6fc87::t_521959eab824af 745-747,759-767,777-779,781-786
+  s_d920963ea6fc87::t_2a912fe4760ac3 814
+  s_d920963ea6fc87::t_fcbb3ce86f8a8d 1119
+  s_d920963ea6fc87::t_dc657694c2afbb 768,776,780
+  s_d920963ea6fc87::t_96cb498a912361 40
+tests/partner-profile-toggle.test.ts
+  s_d920963ea6fc87::t_d3c35cade5bc74 1-48
+lib/partner-profile-toggle.ts
+  s_d920963ea6fc87::t_c7b4eeea2ba1eb 1-35
+package.json
+  s_d920963ea6fc87::t_d5b8424c942b45 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f91305e7ba032209af417b9a616f4bdca00d64ae",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

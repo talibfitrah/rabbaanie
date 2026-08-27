@@ -1,0 +1,26 @@
+server/db.ts
+  s_834a18df15f160::t_c2a7dc1f8a461f 4716-4772
+server/ai-chat.ts
+  s_834a18df15f160::t_dad8d3fbfe4c1c 728-729,731
+  s_834a18df15f160::t_174838a026d810 700,702-703,709-712,714-718
+  s_834a18df15f160::t_9dff0afece19e6 750-756
+app/ai-chat.tsx
+  s_834a18df15f160::t_1e2a42c48fd58e 313-317,319
+  s_834a18df15f160::t_f0e187c07d49ac 255-263,272
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "db7af27ab8c4d8f7737f009d17fb513c5bd639a1",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

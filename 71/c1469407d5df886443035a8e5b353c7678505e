@@ -1,0 +1,40 @@
+app/network.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 24,26,352-364
+  s_76c3ac66b00eaf::t_2729653effa24f 365
+tests/premium-gating.test.ts
+  s_76c3ac66b00eaf::t_af793d8627480a 1-59
+app/(tabs)/family-hub.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 34,46,577-588
+  s_76c3ac66b00eaf::t_acbbca18731c96 589-590
+app/ai-chat.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 26,174,1981-1994
+app/add-child.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 12,18,174-185
+  s_76c3ac66b00eaf::t_bf4bb46a8bc310 186-187
+app/(tabs)/messages.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 38,83,1608-1619
+  s_76c3ac66b00eaf::t_1101af5e08e726 1620-1621
+app/(tabs)/personal-advice.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 39,492,1508-1521
+app/child/environment.tsx
+  s_76c3ac66b00eaf::t_ae8e3c8b819a2e 10,257,553-564
+  s_76c3ac66b00eaf::t_9ee10c75fa9292 565-566
+package.json
+  s_76c3ac66b00eaf::t_de91626e8637c6 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "71c1469407d5df886443035a8e5b353c7678505e",
+  "prompts": {},
+  "sessions": {
+    "s_76c3ac66b00eaf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40cb8fea-c416-4c31-8cb1-ff4d6ff472c3",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

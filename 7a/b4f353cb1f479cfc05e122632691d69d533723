@@ -1,0 +1,25 @@
+app/admin/subscriptions.tsx
+  s_a47ab13558c857::t_f9feb0263e0322 10
+  s_a47ab13558c857::t_090f6824dde192 98-107
+  s_a47ab13558c857::t_3aa26d1c8033b1 41-44
+  s_a47ab13558c857::t_4cb1cfc53a01c6 230
+  s_a47ab13558c857::t_6e178b67803a3d 247
+  s_a47ab13558c857::t_686f0694b32b3e 249,258-275
+  s_a47ab13558c857::t_fef82ed033fe55 276
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7ab4f353cb1f479cfc05e122632691d69d533723",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

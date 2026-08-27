@@ -1,0 +1,52 @@
+app/admin/broadcast.tsx
+  s_d920963ea6fc87::t_f8edf5dec3fdc0 468
+  s_d920963ea6fc87::t_ad65a70da0daca 83-104,206-207,221-222,236-239,245-248,417-421,424-425,427-428,464-467,470,472-473,489-508
+  s_d920963ea6fc87::t_828e0b95087c60 242-244
+server/routers.ts
+  s_d920963ea6fc87::t_ad65a70da0daca 915-924,1261-1262,1271-1272,1277-1278,1281-1282,1298-1302
+scripts/send-recurring-broadcasts.ts
+  s_d920963ea6fc87::t_3f298ef0a4db7f 21
+  s_d920963ea6fc87::t_ad65a70da0daca 2-6,24
+  s_d920963ea6fc87::t_765f1b4db5e937 8-17
+  s_d920963ea6fc87::t_d03e4bdcbf3703 54-60
+server/broadcast-schedule.ts
+  s_d920963ea6fc87::t_ad65a70da0daca 7-19,23,28-31,42,44-50,52-58,77,80
+  s_d920963ea6fc87::t_f6ddc17e5ead20 62-74,78
+  s_d920963ea6fc87::t_7a3288a4f4c847 61
+  s_d920963ea6fc87::t_14d419c0555ac1 35-41,43
+drizzle/schema.ts
+  s_d920963ea6fc87::t_ad65a70da0daca 854-860,868-875,886-899
+tests/broadcast-schedule-admin.test.ts
+  s_d920963ea6fc87::t_ad65a70da0daca 40,51,55-56,65,69,71,75-83,96
+  s_d920963ea6fc87::t_2296358f2d187a 72-74
+tests/broadcast-schedule-due.test.ts
+  s_d920963ea6fc87::t_070d197fb7c3d2 37,41,47,50
+  s_d920963ea6fc87::t_ad65a70da0daca 4-16,19,21-24,28,31-32,40,43,56-57,60-61,66-67,70-71,75-88
+  s_d920963ea6fc87::t_d2c5501f56ba21 90-100
+  s_d920963ea6fc87::t_07a4a2b0e3b553 46,51
+server/db.ts
+  s_d920963ea6fc87::t_3e79ea28719277 3442-3443
+  s_d920963ea6fc87::t_ad65a70da0daca 129-130,3367-3368,3387-3388,3423-3441
+hooks/use-push-notifications.ts
+  s_d920963ea6fc87::t_ad65a70da0daca 214-231
+scripts/run-recurring-broadcasts.sh
+  s_d920963ea6fc87::t_ad65a70da0daca 7-9
+drizzle/postgres-broadcast-schedules-v2.sql
+  s_d920963ea6fc87::t_e92a933ded28f2 1-45
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "db675d6c61e26d6efa16ba796e86132d7a67426c",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

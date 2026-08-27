@@ -1,0 +1,27 @@
+lib/notifications.ts
+  s_168adbdaf097e9::t_282db8a2bcc59a 130-178
+app.config.ts
+  s_168adbdaf097e9::t_7cc6f19fbfc71a 85
+app/_layout.tsx
+  s_168adbdaf097e9::t_3e5c495fa6df45 357-360
+  s_168adbdaf097e9::t_609876eaec7d69 27
+app/permissions-setup.tsx
+  s_168adbdaf097e9::t_96895803e52c19 259-269
+  s_168adbdaf097e9::t_29f77f9c1d3ea8 135-149
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "20aa0776bfb5735cf33c2c1e33e33ddc89da950c",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,38 @@
+package.json
+  s_47f5d0fbd22ca6::t_694c53c108acab 17
+  s_47f5d0fbd22ca6::t_4cc5a549b63ca7 3
+tests/trigger-date-timezone.test.ts
+  s_47f5d0fbd22ca6::t_5fa6a07fcb33b4 41-44,70
+  s_47f5d0fbd22ca6::t_a4939dc298bc09 1,26-40
+  s_47f5d0fbd22ca6::t_70666940a316de 2-25,45-69,71-107
+  s_47f5d0fbd22ca6::t_958c3c6dbb8e63 108-138
+lib/tz-offset.ts
+  s_47f5d0fbd22ca6::t_a867f08a786de6 1-49
+lib/notifications.ts
+  s_47f5d0fbd22ca6::t_a867f08a786de6 4,551,900-902
+  s_47f5d0fbd22ca6::t_40282961930bbe 226,230-235
+  s_47f5d0fbd22ca6::t_bd62af64aa9fc0 429,433,459,463,488,492,657,661,766,770,870,874
+tests/notifications.test.ts
+  s_47f5d0fbd22ca6::t_3bfa44c3be4738 218-221,230
+lib/iqamah-silence.ts
+  s_47f5d0fbd22ca6::t_bd62af64aa9fc0 196,200,237,241
+  s_47f5d0fbd22ca6::t_a867f08a786de6 13,360
+app.config.ts
+  s_47f5d0fbd22ca6::t_57b7eb63f3facd 164
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "7cedcc57f2b48b8f1dbcaca19ba54884954f817d",
+  "prompts": {},
+  "sessions": {
+    "s_47f5d0fbd22ca6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "eff4e90f-580d-4819-9e70-eabcdcc6b55a",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

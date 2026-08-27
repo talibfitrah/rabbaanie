@@ -1,0 +1,36 @@
+server/db.ts
+  s_835671c30cfc16::t_0007031e73b3e5 3717-3739
+lib/auth-context.tsx
+  s_835671c30cfc16::t_c22b837e538401 219
+  s_835671c30cfc16::t_beba2ff37456b0 10,13
+  s_835671c30cfc16::t_e118e8948f4fd4 163-168
+  s_835671c30cfc16::t_dbcf73fc59a84a 29,128
+  s_835671c30cfc16::t_2bc5431b7f2db6 110-119
+tests/logout-clears-cached-data.test.ts
+  s_835671c30cfc16::t_01e38170785b8f 1-86
+server/routers.ts
+  s_835671c30cfc16::t_82392fa1ade2ff 1291
+  s_835671c30cfc16::t_1e01f022edc841 1369-1378
+tests/partner-profile-access.test.ts
+  s_835671c30cfc16::t_bbabc06708dcb7 1339-1371
+  s_835671c30cfc16::t_ebb239df6554ca 1849-1855
+  s_835671c30cfc16::t_5afe4919f2514b 1870-1891
+package.json
+  s_835671c30cfc16::t_c24f35ed3def6a 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "2aa1c7343f77d8124230d411ca06e830b72afecb",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

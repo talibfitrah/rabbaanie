@@ -1,0 +1,19 @@
+server/legal.ts
+  s_9fc7ebf73a86ff::t_ba99dc58b1d950 4,12-13,18-31,56-60,66-68,92-93,97-104,107-116,120-121,144-145,149-156,159-289,300-301,303-306,315-316,318-321,325-337
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "01cf539324bc618016fc3f22df0a768218392a97",
+  "prompts": {},
+  "sessions": {
+    "s_9fc7ebf73a86ff": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "a0fdfdea-a920-4db9-8c30-0d8878e2e6ab",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

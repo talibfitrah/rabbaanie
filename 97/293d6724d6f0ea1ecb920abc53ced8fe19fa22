@@ -1,0 +1,45 @@
+app/subscribe.tsx
+  s_76c3ac66b00eaf::t_1a82dc6b6cd7a3 68
+  s_76c3ac66b00eaf::t_f6dc79f0f139b6 9
+  s_76c3ac66b00eaf::t_10377ea4ae08b6 110
+  s_76c3ac66b00eaf::t_abd387299daeb5 99
+  s_76c3ac66b00eaf::t_e7e8f64f3d7d36 124
+  s_76c3ac66b00eaf::t_5ff9d544f6591f 137-141
+  s_76c3ac66b00eaf::t_48c6c811e92d8f 75
+app/login.tsx
+  s_76c3ac66b00eaf::t_cd30b6f9f61312 643-647,649,666-670,677-707
+tests/age-gate.test.ts
+  s_76c3ac66b00eaf::t_64296dc1662e88 134-163
+tests/subscription-auth.test.ts
+  s_76c3ac66b00eaf::t_4cf71629ff0170 1-16,21-68
+  s_76c3ac66b00eaf::t_49dbee1007ed5f 17-20
+  s_76c3ac66b00eaf::t_cab45d78e036f1 69-94
+package.json
+  s_76c3ac66b00eaf::t_2614ed4d2845a8 17
+lib/age-gate.tsx
+  s_76c3ac66b00eaf::t_23b627b139f633 43-46,48-51
+vitest.config.ts
+  s_76c3ac66b00eaf::t_18c13191f12665 1-13
+app/register.tsx
+  s_76c3ac66b00eaf::t_e1dd0ecef1656b 1-297
+hooks/use-subscription.ts
+  s_76c3ac66b00eaf::t_e12f432948e023 86
+  s_76c3ac66b00eaf::t_24dee54b0dc101 4,15-32
+  s_76c3ac66b00eaf::t_09a49f99f29601 5-14
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "97293d6724d6f0ea1ecb920abc53ced8fe19fa22",
+  "prompts": {},
+  "sessions": {
+    "s_76c3ac66b00eaf": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "40cb8fea-c416-4c31-8cb1-ff4d6ff472c3",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

@@ -1,0 +1,26 @@
+app/admin/users.tsx
+  s_168adbdaf097e9::t_cd50ea7610c071 77
+app/admin/list.tsx
+  s_168adbdaf097e9::t_4ee5c7bb801d42 49-53
+  s_168adbdaf097e9::t_1065e85cb02f78 37
+app/admin/user.tsx
+  s_168adbdaf097e9::t_bec78e99940282 69
+app/admin/create-specialist.tsx
+  s_168adbdaf097e9::t_d16355409eec3b 1-54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c0ba455b9941ca756ba14c34434fce6a527e3109",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

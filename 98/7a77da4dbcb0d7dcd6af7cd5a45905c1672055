@@ -1,0 +1,54 @@
+server/advice.ts
+  s_d920963ea6fc87::t_de5dac2d640717 3033-3034
+  s_d920963ea6fc87::t_af49c8015d57fa 5,2837-2841,2859-2861,3008-3017,3026-3032,3042-3044
+  s_d920963ea6fc87::t_4b6a2ee2e67b35 2842-2858,2862-2863
+  s_d920963ea6fc87::t_86de83fc602bd6 2864
+  s_d920963ea6fc87::t_97bd0ce89a82ff 3018-3025
+app/(tabs)/family.tsx
+  s_d920963ea6fc87::t_af49c8015d57fa 1659,1673-1674,1683,3455-3541
+  s_d920963ea6fc87::t_343af38d489d4e 3542
+  s_d920963ea6fc87::t_965f598745d1c9 1644-1651,1668,1670-1672
+  s_d920963ea6fc87::t_4cad01659a3578 1660-1667,1669
+server/db.ts
+  s_d920963ea6fc87::t_af49c8015d57fa 2276-2285,2289,3675-3680,3682-3684,3698-3711
+  s_d920963ea6fc87::t_e12640604ea222 3681,3685-3697,3718
+  s_d920963ea6fc87::t_e50375163d8aa2 3712-3717,3719-3724
+app/(tabs)/settings.tsx
+  s_d920963ea6fc87::t_af49c8015d57fa 73,209-246,2217-2255
+tests/diagnostic-rows-curated-only.test.ts
+  s_d920963ea6fc87::t_b211cd086f718d 1-78
+tests/daily-diagnostic.test.ts
+  s_d920963ea6fc87::t_c7d321579c270d 762-763
+  s_d920963ea6fc87::t_af49c8015d57fa 21-23,36,307-341,679-761
+tests/co-parents-shared-children-count.test.ts
+  s_d920963ea6fc87::t_3b6dc5b07b26c9 63-67
+  s_d920963ea6fc87::t_dedc68d0344533 1-62,68-115
+tests/partner-profile-access.test.ts
+  s_d920963ea6fc87::t_af49c8015d57fa 31-33,872-952
+  s_d920963ea6fc87::t_1d9638038749b8 953-955
+server/daily-diagnostic.ts
+  s_d920963ea6fc87::t_af49c8015d57fa 36-40,42-55,401-432
+  s_d920963ea6fc87::t_acb6bb54419372 433-435
+  s_d920963ea6fc87::t_06f24731a9cc73 41
+tests/dissolve-partner-location.test.ts
+  s_d920963ea6fc87::t_601bd686c5783e 1-41
+server/routers.ts
+  s_d920963ea6fc87::t_af49c8015d57fa 2753-2787,2799-2802
+  s_d920963ea6fc87::t_b0cbf1ede188d1 2788-2798
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "987a77da4dbcb0d7dcd6af7cd5a45905c1672055",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

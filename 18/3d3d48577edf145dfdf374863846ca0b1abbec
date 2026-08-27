@@ -1,0 +1,41 @@
+tests/bugfixes-batch.test.ts
+  s_fa6ae4295cb142::t_fdc111e4b46f60 284-288,291-294
+  s_fa6ae4295cb142::t_eb0b5c7dfbd3a5 239,244,273-283,295-297
+  s_fa6ae4295cb142::t_eaaea784ffeb34 339-340,359-364,367-372,375
+  s_fa6ae4295cb142::t_6f0f5e9abc8609 303-306,308-309,312,314
+  s_fa6ae4295cb142::t_c06484fea4efe7 336,351-358,365-366,373-374
+  s_fa6ae4295cb142::t_b9b24a621102fb 316-329,334,338,376
+  s_fa6ae4295cb142::t_da670c1db8d740 216-238,240-243,245-272,289-290,298-302,307,310-311,313,315,377
+  s_fa6ae4295cb142::t_236fd3fc4faf8e 341-350
+  s_fa6ae4295cb142::t_d70393596cdc51 330-333,335,337
+server/db.ts
+  s_fa6ae4295cb142::t_adcee6e59b44c1 2740,2752
+  s_fa6ae4295cb142::t_4d7ae432e392b1 2702-2726,2736,2739
+  s_fa6ae4295cb142::t_2495f227e6fe12 2737-2738
+  s_fa6ae4295cb142::t_cf48bb3ccee84d 2751
+  s_fa6ae4295cb142::t_0637f6f95e2d95 3270-3273
+app/sunnah.tsx
+  s_fa6ae4295cb142::t_b8791a55590de7 81
+  s_fa6ae4295cb142::t_da670c1db8d740 72-76,82-88
+app/child/share.tsx
+  s_fa6ae4295cb142::t_da670c1db8d740 178,190
+  s_fa6ae4295cb142::t_b063e783928c60 191
+  s_fa6ae4295cb142::t_159c3d81b7f08c 240
+  s_fa6ae4295cb142::t_96dee067bff8db 224-226
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "183d3d48577edf145dfdf374863846ca0b1abbec",
+  "prompts": {},
+  "sessions": {
+    "s_fa6ae4295cb142": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "e403c821-8b6e-484e-9444-f73bc6a84ec3",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+lib/app-version.test.ts
+  s_168adbdaf097e9::t_dbb00e3d7ceece 2
+  s_168adbdaf097e9::t_3fef8b1dd95a60 50-73
+hooks/use-updates.ts
+  s_168adbdaf097e9::t_8baef4d4fee552 6,11-13,17-20,32-37,39,50-58,63-64,68,72,79-86,96-97,122,125,131-149,159,172-173,177,181,221,224-225,227,236
+lib/app-version.ts
+  s_168adbdaf097e9::t_c0acfd61ba3c03 32-49
+app.config.ts
+  s_168adbdaf097e9::t_d6375ef0e2fd55 41-46
+  s_168adbdaf097e9::t_2b26d912884a73 52
+  s_168adbdaf097e9::t_ad0f5e9d9a610b 75
+.github/workflows/release.yml
+  s_168adbdaf097e9::t_e45fa8fba3b7b8 13-14,16
+  s_168adbdaf097e9::t_1698d866d48f82 19-21,23-24
+  s_168adbdaf097e9::t_58779f709cfdd7 36,38,43
+  s_168adbdaf097e9::t_0245363292e42f 78
+app/_layout.tsx
+  s_168adbdaf097e9::t_81ee1c11d9439d 482
+  s_168adbdaf097e9::t_51314dcb8f3550 24-25
+  s_168adbdaf097e9::t_971a3d008705e2 147-154
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c60ae99c2a7bcbd0ad801086e508ab75e6e0d276",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-fable-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

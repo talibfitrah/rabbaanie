@@ -1,0 +1,20 @@
+app.config.ts
+  s_1854e141f2b33f::t_eeac81f82b753d 111-113
+  s_1854e141f2b33f::t_374b62f6bee8b7 51-55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "09777da29daa8ffed43895631b50c3bbbea30054",
+  "prompts": {},
+  "sessions": {
+    "s_1854e141f2b33f": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c3567d07-3819-4126-869d-0afd3e60c003",
+        "model": "moonshotai/kimi-k3"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

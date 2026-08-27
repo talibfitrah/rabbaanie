@@ -1,0 +1,26 @@
+app/sunnah.tsx
+  s_168adbdaf097e9::t_2636da79e263ef 10-13,32-34,36,38-39,47-50,58-59,64,68,70-71,79,89,91,94-95,99-103,108,112,114,122-123,158-159,165,169,174,177-178,185,192-193
+components/treatment-plan-renderer.tsx
+  s_168adbdaf097e9::t_db667359dda44c 310,316,322,332,337
+  s_168adbdaf097e9::t_5fbe0c61b88a4a 275,288,293-294,298
+  s_168adbdaf097e9::t_1e05513ffe76f4 4-16
+  s_168adbdaf097e9::t_a06529dd66ee1a 205-206
+  s_168adbdaf097e9::t_f6b591cdc9f5ca 257-258
+  s_168adbdaf097e9::t_6006954aa7b4d6 358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f0ae4d6c1431255086877192b5754e7e0529fd53",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

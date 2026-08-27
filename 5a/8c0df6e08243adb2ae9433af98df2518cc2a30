@@ -1,0 +1,24 @@
+components/persistent-tab-bar.tsx
+  s_630a2be95d1962::t_3e4534b080c2d6 105-106
+app/(tabs)/settings.tsx
+  s_630a2be95d1962::t_5b0d407f415a9f 2084-2106
+app/_layout.tsx
+  s_630a2be95d1962::t_0e69750d54618f 806
+  s_630a2be95d1962::t_92cea3242fb490 914
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "5a8c0df6e08243adb2ae9433af98df2518cc2a30",
+  "prompts": {},
+  "sessions": {
+    "s_630a2be95d1962": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2dc32852-2400-4470-9153-0fa4a7d480b3",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

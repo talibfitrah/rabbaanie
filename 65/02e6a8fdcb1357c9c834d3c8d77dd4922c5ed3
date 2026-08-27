@@ -1,0 +1,21 @@
+tests/premium-gating.test.ts
+  s_ba3b157721f889::t_00128795ae65d1 51-67
+app/(tabs)/index.tsx
+  s_ba3b157721f889::t_3b6be2f211320f 810-814,816
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "6502e6a8fdcb1357c9c834d3c8d77dd4922c5ed3",
+  "prompts": {},
+  "sessions": {
+    "s_ba3b157721f889": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "73ccc38c-0ac5-4ba2-9d36-3f003f51c197",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

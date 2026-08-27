@@ -1,0 +1,25 @@
+tests/subscriber-info-contract.test.ts
+  s_6e45a795419267::t_5d8af97d1994f4 169-207
+app/subscribe.tsx
+  s_6e45a795419267::t_11b070aab0bd72 533-539
+  s_6e45a795419267::t_f759415c47c3fa 441-450
+app/(tabs)/family.tsx
+  s_6e45a795419267::t_5a13e873ded89c 3092-3102
+  s_6e45a795419267::t_7c1f13247a6ac8 2232-2249
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "2d736658605030e5e74f2c2137a640048b27e043",
+  "prompts": {},
+  "sessions": {
+    "s_6e45a795419267": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "894776a6-4c51-438f-a809-c0273351f6d5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

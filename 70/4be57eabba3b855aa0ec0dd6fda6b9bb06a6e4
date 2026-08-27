@@ -1,0 +1,21 @@
+docs/superpowers/plans/2026-07-23-apk-updater.md
+  s_168adbdaf097e9::t_6c6ab7f4e2ea2e 668-674
+.github/workflows/release.yml
+  s_168adbdaf097e9::t_52e23cf9218f35 1-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "704be57eabba3b855aa0ec0dd6fda6b9bb06a6e4",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-fable-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

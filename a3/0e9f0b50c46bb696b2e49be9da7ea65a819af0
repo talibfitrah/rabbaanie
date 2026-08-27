@@ -1,0 +1,98 @@
+lib/plan-text.ts
+  s_adb59677e30baa::t_0604cfa435f1c0 1-27
+lib/plan-owner.ts
+  s_adb59677e30baa::t_1024d6339b4f07 1-28
+lib/plan-progress.ts
+  s_adb59677e30baa::t_771ac2d82cfc51 1-41
+lib/device-id.ts
+  s_adb59677e30baa::t_f710b4a16d714e 1-12,14-17
+tests/plan-owner.test.ts
+  s_adb59677e30baa::t_3dd5a2885313ed 1-82
+server/advice.ts
+  s_adb59677e30baa::t_1e10329f46db73 1453-1456
+  s_adb59677e30baa::t_c0711d4ede3a4a 1457
+  s_adb59677e30baa::t_880ebc8c2f0c9a 1475-1492
+  s_adb59677e30baa::t_6c35e3d02766d6 1493-1500,1502,1504-1505
+  s_adb59677e30baa::t_fa67d52344d7af 1508
+app/ai-chat.tsx
+  s_adb59677e30baa::t_865d2c2d5b2d3d 41
+  s_adb59677e30baa::t_7556c9bf5a4473 237
+  s_adb59677e30baa::t_74a3065accd88b 343
+  s_adb59677e30baa::t_bc528e2bb8b8dd 402
+  s_adb59677e30baa::t_209308ce7a456a 448,486
+lib/plan-heading.ts
+  s_adb59677e30baa::t_eda57903667ae6 1-19
+components/treatment-plan-renderer.tsx
+  s_adb59677e30baa::t_52e7bc49e57f9e 8
+  s_adb59677e30baa::t_bbdd0fab8053eb 9
+  s_adb59677e30baa::t_1f9dc121692e61 10,264,284
+  s_adb59677e30baa::t_abcc9c009568ac 159-160
+  s_adb59677e30baa::t_e1d27c2e871272 340
+  s_adb59677e30baa::t_75fa9386781371 357-379
+server/db.ts
+  s_adb59677e30baa::t_d07e9e561c7c4b 876
+tests/treatment-renderer.test.ts
+  s_adb59677e30baa::t_995a99ad836fa4 59-61,63-65
+tests/weekplan-freshness.test.ts
+  s_adb59677e30baa::t_8cceb38af80b15 1-75
+lib/weekplan-cache.ts
+  s_adb59677e30baa::t_740c913d2f27c5 1-41
+tests/advisor-consultations.test.ts
+  s_adb59677e30baa::t_d75162e08eda62 1-28,60-71
+  s_adb59677e30baa::t_cf6e426ffb6159 29-59
+app/child/weekplan.tsx
+  s_adb59677e30baa::t_e2bf007450f5c2 24-28
+  s_adb59677e30baa::t_55152f0f09b06c 29-35
+  s_adb59677e30baa::t_36b30307ed90cc 459-463
+  s_adb59677e30baa::t_0f9c48ed83ca1f 464-470,472-478
+  s_adb59677e30baa::t_5d2b05ccf0dc25 486-508,514,517
+  s_adb59677e30baa::t_373fcd7b8a56b1 562,568-571
+  s_adb59677e30baa::t_d940bac92da32d 572-575
+  s_adb59677e30baa::t_c416b0a7a217dc 587-597
+  s_adb59677e30baa::t_74891bb6632887 868-906
+app/child/[id].tsx
+  s_adb59677e30baa::t_bce6c574216fb6 244,247,264
+  s_adb59677e30baa::t_868b6103f80b08 268-272
+  s_adb59677e30baa::t_4a0c0fdd1af26d 273-274
+  s_adb59677e30baa::t_d3e6e0d427b102 275-276
+  s_adb59677e30baa::t_71f51be0f74485 277-282,287,305-308
+  s_adb59677e30baa::t_276a07770a7341 283-286,288-304,309-311
+  s_adb59677e30baa::t_facd622467f20d 312-313
+  s_adb59677e30baa::t_90dae8143a8903 1993
+  s_adb59677e30baa::t_d65269de0ecee1 2216
+server/ai-chat.ts
+  s_adb59677e30baa::t_177e4cd8fbd42d 740,746-748
+  s_adb59677e30baa::t_68bd2756c7072e 766,769-773
+app/(tabs)/treatments.tsx
+  s_adb59677e30baa::t_16826087e27fd5 17-18
+  s_adb59677e30baa::t_67f15b12a53a9c 315-319
+tests/consultation-ownership.test.ts
+  s_adb59677e30baa::t_839573f5204257 1-11,14,18-68
+  s_adb59677e30baa::t_995279a1073c66 12-13,15-17
+tests/plan-heading.test.ts
+  s_adb59677e30baa::t_b08f73a0cd85ce 1-69
+app/child-profile/[id].tsx
+  s_adb59677e30baa::t_78a9990c5b1de1 8-9
+  s_adb59677e30baa::t_84885f15fa6604 655,666-670
+  s_adb59677e30baa::t_d03d3f88a39aa6 660,664
+tests/plan-progress.test.ts
+  s_adb59677e30baa::t_84a1d1da144699 1-106
+tests/plan-rendering.test.ts
+  s_adb59677e30baa::t_79cd7c7e059a2f 1-53
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a30e9f0b50c46bb696b2e49be9da7ea65a819af0",
+  "prompts": {},
+  "sessions": {
+    "s_adb59677e30baa": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7b265ce5-6bcb-41ab-9034-5b560866feea",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

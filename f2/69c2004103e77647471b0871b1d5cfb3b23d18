@@ -1,0 +1,20 @@
+docs/superpowers/specs/2026-08-06-admin-2fa-verification-screen-design.md
+  s_a47ab13558c857::t_c91852cfa534fb 1-54,56-82
+  s_a47ab13558c857::t_6686e223fd9ea8 55
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f269c2004103e77647471b0871b1d5cfb3b23d18",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "claude-sonnet-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

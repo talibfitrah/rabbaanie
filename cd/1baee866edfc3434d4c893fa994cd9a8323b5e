@@ -1,0 +1,25 @@
+app/ai-chat.tsx
+  s_834a18df15f160::t_e59e1fbeb57f14 1641-1650
+  s_834a18df15f160::t_cf7b643629fe02 44,618-622,624,643-645,648-651
+lib/consultation-docx.ts
+  s_834a18df15f160::t_e3ca0881af346f 1-44,50-65,67-74,76-195
+  s_834a18df15f160::t_2a44003b1dbd02 45-49,66,75
+tests/consultation-docx.test.ts
+  s_834a18df15f160::t_010da554043112 1-125
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "cd1baee866edfc3434d4c893fa994cd9a8323b5e",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

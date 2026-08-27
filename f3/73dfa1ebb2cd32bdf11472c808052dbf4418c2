@@ -1,0 +1,19 @@
+docs/superpowers/specs/2026-08-08-specialist-impact-measurement-design.md
+  s_a035e1675d6918::t_90d90832cb991d 1-86
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "f373dfa1ebb2cd32bdf11472c808052dbf4418c2",
+  "prompts": {},
+  "sessions": {
+    "s_a035e1675d6918": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c37d407c-248b-48b7-acaa-02f06279dbab",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

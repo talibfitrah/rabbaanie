@@ -1,0 +1,30 @@
+server/routers.ts
+  s_ae540d9f842a02::t_fa58b8adcb83b1 966-976
+server/_core/index.ts
+  s_ae540d9f842a02::t_ee57a9a5d16529 19
+  s_ae540d9f842a02::t_cda4f34a12eeff 74
+server/legal.ts
+  s_ae540d9f842a02::t_b96affdf0b7fa0 79
+  s_ae540d9f842a02::t_8afb159ca91ff6 117
+  s_ae540d9f842a02::t_71b626baf9a79d 1-78,80-116,118-167
+app/(tabs)/settings.tsx
+  s_ae540d9f842a02::t_76777c14af9e03 1953-1972
+  s_ae540d9f842a02::t_05f7dc57b07775 195-196
+  s_ae540d9f842a02::t_0466ff65168435 1002-1041
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.19",
+  "base_commit_sha": "a406a7d65e15040d6fbc8e1772cbb60c0f7c27e3",
+  "prompts": {},
+  "sessions": {
+    "s_ae540d9f842a02": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "2b03c9fb-df2f-4a99-a074-3162075d1c60",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

@@ -1,0 +1,27 @@
+tests/advisor-plan-reminder-progress.test.ts
+  s_834a18df15f160::t_7ce0dc96b1acb2 109-110,117
+  s_834a18df15f160::t_cb800840f67b7f 98-107,113
+app/(tabs)/weekly.tsx
+  s_834a18df15f160::t_8abbd368cc98d0 1150-1159,1256
+lib/weekly-goals-notification.ts
+  s_834a18df15f160::t_e3452a91f7ca4e 139-143,153-158
+app/ai-chat.tsx
+  s_834a18df15f160::t_8c68766b537016 532,546
+  s_834a18df15f160::t_7b3b7bb0aaf145 524,526-531,533-545,547-552,1222
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7d914f19ae80efaf006debfdb47b09b632804c28",
+  "prompts": {},
+  "sessions": {
+    "s_834a18df15f160": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4ade1937-3021-45d1-b119-496c192fb852",
+        "model": "claude-opus-5"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,37 @@
+server/daily-diagnostic.ts
+  s_d920963ea6fc87::t_3d163e560b5296 366-370,377-378,388-433
+tests/own-checkin-advice-context.test.ts
+  s_d920963ea6fc87::t_0b2bf28c3c1722 1-255
+server/advice.ts
+  s_d920963ea6fc87::t_b0351d348c937c 1829,1900,1931
+  s_d920963ea6fc87::t_7d843b46fef133 1038-1043
+  s_d920963ea6fc87::t_bd5f34f7c9b2da 1517,1526
+  s_d920963ea6fc87::t_34d65ee7d2e00c 2295
+  s_d920963ea6fc87::t_4d6cfcdd1553ff 2512,2591,2621
+  s_d920963ea6fc87::t_ce4f8854ef13f4 2023
+  s_d920963ea6fc87::t_4a81419fdb0e6c 5
+  s_d920963ea6fc87::t_847a2affb3a159 999
+server/ai-chat.ts
+  s_d920963ea6fc87::t_34a121d5c1152b 434-435
+  s_d920963ea6fc87::t_0f940adf31e367 483
+  s_d920963ea6fc87::t_ffe272e981414c 512-513
+  s_d920963ea6fc87::t_a4bee94dba1c98 31
+  s_d920963ea6fc87::t_7f54baed664b77 404
+  s_d920963ea6fc87::t_9d33f179b8e7b0 653,655-656
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "fedeb5a262fbd9236a3a5d7c48bd149bd02fbfa9",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

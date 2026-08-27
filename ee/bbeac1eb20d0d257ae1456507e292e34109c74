@@ -1,0 +1,26 @@
+app/(tabs)/treatments.tsx
+  s_168adbdaf097e9::t_f62de5507dc497 10
+  s_168adbdaf097e9::t_821597e095426a 71-73
+app/(tabs)/weekly.tsx
+  s_168adbdaf097e9::t_a19c28159b540a 14
+  s_168adbdaf097e9::t_0eaa018351bae5 374-376,378
+components/premium-notice.tsx
+  s_168adbdaf097e9::t_3bb806aa6ae592 31-58
+  s_168adbdaf097e9::t_e7ef517c98db2c 1
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "eebbeac1eb20d0d257ae1456507e292e34109c74",
+  "prompts": {},
+  "sessions": {
+    "s_168adbdaf097e9": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "d2974f1a-6cff-41b9-abff-07dd87fa75fd",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

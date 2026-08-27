@@ -1,0 +1,21 @@
+app.config.ts
+  s_835671c30cfc16::t_41275257ca74c3 262
+package.json
+  s_835671c30cfc16::t_41275257ca74c3 3
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "248938c653bdd86d6ac2d2a47a34091ba2670eb4",
+  "prompts": {},
+  "sessions": {
+    "s_835671c30cfc16": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1acb7e1c-86af-45e7-a9b0-d7b9a33d29dd",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

@@ -1,0 +1,43 @@
+tests/registration-contract.test.ts
+  s_4edd904afc89e5::t_c9b5fd2277d5ac 1-86
+tests/oauth-session-verification.test.ts
+  s_4edd904afc89e5::t_816691e8a60c2d 116-119
+app/register.tsx
+  s_4edd904afc89e5::t_b0867caef140a2 110
+  s_4edd904afc89e5::t_a049c7494c9b02 206-224,226,228-230
+  s_4edd904afc89e5::t_acc2449b9b109f 21-24
+  s_4edd904afc89e5::t_4348c0a5c68e26 35-36
+  s_4edd904afc89e5::t_5954c818b456ad 68-69,71,74-76
+tests/google-pkce-signin.test.ts
+  s_4edd904afc89e5::t_3690ab61e35992 140-173
+  s_4edd904afc89e5::t_355812a5c43ca9 303-307
+lib/google-oauth.ts
+  s_4edd904afc89e5::t_3b99db026a3c16 85-90,92-94
+  s_4edd904afc89e5::t_f9a76937d5c822 133-137
+lib/registration.ts
+  s_4edd904afc89e5::t_38317e1f8d4c21 30-31
+  s_4edd904afc89e5::t_0e07f82d62cfac 1-29,32-46
+app/login.tsx
+  s_4edd904afc89e5::t_d8ae790715108e 59-62
+  s_4edd904afc89e5::t_bbd1867d73ba07 208,210,213
+  s_4edd904afc89e5::t_320fde911821b7 227-236
+  s_4edd904afc89e5::t_2002424e8ecae5 244-261,264-266
+  s_4edd904afc89e5::t_bc0b9e85c2b0a3 683-723
+  s_4edd904afc89e5::t_ab4d5350a54300 646
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "d9de24f8908952e7dac43e8b56204407384f2942",
+  "prompts": {},
+  "sessions": {
+    "s_4edd904afc89e5": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b8155add-e6fd-4484-a91b-e029dd3bf2a9",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

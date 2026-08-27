@@ -1,0 +1,20 @@
+docs/superpowers/plans/2026-08-06-father-mother-permissions.md
+  s_a47ab13558c857::t_b78743489830f3 1-36,38-44,47-1202
+  s_a47ab13558c857::t_eabd1a34408ca9 37,45-46
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "803793ec8cee1279aa8105a7c45ad20dc54a5cbe",
+  "prompts": {},
+  "sessions": {
+    "s_a47ab13558c857": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "9413a0c1-5793-4d9f-8876-c7d71549297a",
+        "model": "unknown"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

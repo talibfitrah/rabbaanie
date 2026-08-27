@@ -1,0 +1,26 @@
+tests/app-context-sync.test.ts
+  s_d920963ea6fc87::t_49f5447a5d5bef 164-292
+  s_d920963ea6fc87::t_15bb74099b9973 45-52
+package.json
+  ai_agent 3
+lib/app-context.tsx
+  s_d920963ea6fc87::t_23feffc3208786 193-227,232-234,242-250
+  s_d920963ea6fc87::t_b832a3b73316d7 446
+  s_d920963ea6fc87::t_7c0ab5ccd617eb 192,228-231,235-241,251-350
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b11ba1ef89cde58c85883b41c87473188b586640",
+  "prompts": {},
+  "sessions": {
+    "s_d920963ea6fc87": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ee90bbd1-2bd3-48ef-b669-4e1674cba70d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
