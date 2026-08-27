@@ -179,6 +179,11 @@ export default function BroadcastScreen() {
   );
   const audienceQuery = trpc.admin.broadcastAudience.useQuery(audience);
   const matchedCount = audienceQuery.data?.count ?? 0;
+  // The notification can only reach users who actually hold a push token.
+  // matchedCount counts everyone the audience filter matches; deliverableCount
+  // is the subset that will truly receive it — the two diverge sharply for the
+  // "incomplete profile" segments, whose users mostly never enabled notifications.
+  const deliverableCount = audienceQuery.data?.deliverable ?? 0;
   const incompleteChildrenRecipients = (audienceQuery.data?.recipients || []).filter(
     (r) => r.incompleteChildren.length > 0,
   );
@@ -391,9 +396,16 @@ export default function BroadcastScreen() {
               {"تعذّر حساب عدد المستلمين — قد يصل الإشعار إلى جميع المستخدمين"}
             </Text>
           ) : (
-            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
-              {"سيصل الإشعار إلى " + matchedCount + " مستخدم"}
-            </Text>
+            <View style={{ alignItems: "center", gap: 2 }}>
+              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+                {"سيصل الإشعار إلى " + deliverableCount + " مستخدم"}
+              </Text>
+              {deliverableCount < matchedCount && (
+                <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center" }}>
+                  {"من أصل " + matchedCount + " مستهدفًا — لم يُفعّل الباقون الإشعارات في هواتفهم"}
+                </Text>
+              )}
+            </View>
           )}
         </View>
         <TouchableOpacity onPress={submit} disabled={send.isPending} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10, opacity: send.isPending ? 0.6 : 1 }}>
@@ -458,7 +470,7 @@ export default function BroadcastScreen() {
           <>
             {newScheduleCategory && (
               <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
-                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم"}
+                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.deliverable ?? "…") + " مستخدم"}
               </Text>
             )}
             {chipRow(
