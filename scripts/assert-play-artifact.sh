@@ -53,7 +53,40 @@ if ! grep -q '"childMonitoring":false' "$CFG"; then
   fail "childMonitoring is not disabled in the artifact's config"
 fi
 
-# --- 2. Permissions and manifest metadata -----------------------------------
+# --- 2. Signing certificate --------------------------------------------------
+# Stock Expo points the `release` buildType at signingConfigs.debug, so a bundle
+# built by hand with `./gradlew bundleRelease` and no injected signing is
+# silently DEBUG-signed and only Play's rejection tells you. play-release.yml
+# pins this same fingerprint for the builds IT produces; hand-built artifacts,
+# the ones this script exists for, had no such check until now.
+# openssl rather than keytool: keytool needs a JDK, which a box that only runs
+# the gate need not have — /usr/bin/keytool on macOS is a stub that prints
+# "Unable to locate a Java Runtime" and exits 1. A check that cannot fire is
+# worse than none, so read the certificate out of the PKCS#7 block directly.
+# Only a TOP-LEVEL META-INF/*.RSA is a jar signature; a bundled library's own
+# block under base/root/META-INF must not inflate the count. An artifact with
+# no such block at all (an APK signed only with v2/v3) is reported here rather
+# than waved through unchecked — every AAB carries a v1 signature.
+EXPECTED_SHA256="D8:1A:74:E9:72:03:8B:30:96:F7:A1:0B:81:17:44:A4:76:33:5F:98:CB:C5:BF:94:08:BA:23:3E:21:F3:5B:63"
+SIG=$(unzip -l "$ART" | awk '{print $NF}' | grep -E '^META-INF/[^/]+\.(RSA|DSA|EC)$')
+NSIG=$(printf '%s' "$SIG" | grep -c .)
+if [ "$NSIG" -ne 1 ]; then
+  # More than one means the debug key was added alongside the upload key; none
+  # means the artifact carries no verifiable signing identity at all.
+  fail "expected exactly 1 signer, found $NSIG: $(printf '%s' "$SIG" | tr '\n' ' ')"
+else
+  CERT_SHA256=$(unzip -p "$ART" "$SIG" | openssl pkcs7 -inform DER -print_certs 2>/dev/null \
+                | openssl x509 -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//')
+  if [ -z "$CERT_SHA256" ]; then
+    echo "Could not read the signing certificate from $ART — refusing to ship unverified" >&2
+    exit 1
+  fi
+  if [ "$CERT_SHA256" != "$EXPECTED_SHA256" ]; then
+    fail "signed with $CERT_SHA256, not the Rabbaanie upload certificate ($EXPECTED_SHA256)"
+  fi
+fi
+
+# --- 3. Permissions and manifest metadata -----------------------------------
 # A compiled AndroidManifest is NOT greppable as text. In an APK it is binary
 # XML whose string pool is UTF-16LE, so a plain `grep -a` finds nothing and the
 # gate would report a clean bill of health on a bundle that does declare
@@ -180,7 +213,7 @@ if grep -q 'com.rabbaanie.app.auth' "$MANTXT"; then
   fail "retired OAuth callback scheme is present in the Play build"
 fi
 
-# --- 3. Native monitoring code ----------------------------------------------
+# --- 4. Native monitoring code ----------------------------------------------
 # A blocked permission does not remove the module that asks for it; Play reads
 # the bytecode too.
 DEX="$TMP/dex.bin"
