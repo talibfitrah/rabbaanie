@@ -1249,18 +1249,31 @@ The default SSH key is rejected by GitHub; this alias is required.
 
 - [ ] **Step 4: Back up the production database, and verify the backup is non-empty before continuing.**
 
-- [ ] **Step 5: On the VM — pull, install if needed, build, restart**
+- [ ] **Step 5: On the VM — pull, then run the migration BEFORE restarting**
 
 ```
-git pull && npm run build && pm2 restart rabbaanie-api
-```
-
-- [ ] **Step 6: Run the migration, then the purge, in that order**
-
-```
+git pull
 npx tsx scripts/add-email-verified-column.ts
+```
+
+**Order is load-bearing (ledger ruling R1).** Once the new code is live, drizzle's
+`select()` on `users` includes `email_verified_at` in the SELECT list. Restart before the
+column exists and EVERY user query fails with "column does not exist" — a total outage, not
+a degradation. The migration script uses raw `d.execute(sql...)` only, so it runs safely
+against the old running code.
+
+Read its output: it prints the unverified count before and the verified count after. All 83
+live users must come back verified, or Task 7's guard drops everyone from every broadcast.
+
+- [ ] **Step 6: Now build, restart, and purge**
+
+```
+npm run build && pm2 restart rabbaanie-api
 npx tsx scripts/purge-probe-accounts.ts
 ```
+
+The purge prints every row it will take and ends with `users remaining: 83`. If it prints
+anything else, stop.
 
 Read the output of each. The migration prints the unverified count before and the verified count after; the purge prints every row it will take and ends with `users remaining: 83`. If either prints something else, stop.
 
