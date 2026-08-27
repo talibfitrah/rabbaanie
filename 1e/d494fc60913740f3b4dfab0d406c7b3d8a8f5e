@@ -1,0 +1,24 @@
+app/admin/email.tsx
+  s_4faf030e6758a6::t_42bcbeed5da1c1 16-18,28-32,52-72,74-75,77-94,97-98,100-111,114-116,154-155,160-161,163-165,168,170-173,175-176,178-183,187,189,191,195,197,199,203,205,207,210,231,236,266-270,275,277,280
+app/admin/email-settings.ts
+  s_4faf030e6758a6::t_e4e148cc6899bf 1-19,21-23,25-26,31,33-36,67,69-75
+  s_4faf030e6758a6::t_0f16e2c9175144 20,24,27-30,32,37,68,76-77
+tests/admin-email-settings-contract.test.ts
+  s_4faf030e6758a6::t_bbf770bfcd70c7 1,5-173
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1ed494fc60913740f3b4dfab0d406c7b3d8a8f5e",
+  "prompts": {},
+  "sessions": {
+    "s_4faf030e6758a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "67a193bd-6ead-4804-b3e0-c2813dfd59d5",
+        "model": "claude-opus-5"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
