@@ -5,6 +5,7 @@ import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useRouter } from "expo-router";
 import * as Location from "expo-location";
+import { Magnetometer } from "expo-sensors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, type SavedPrayerLocation, getCityAR, getCountryAR } from "@/lib/prayer-data";
 import { withTimeout } from "@/lib/location-utils";
@@ -187,7 +188,24 @@ export default function QiblaScreen() {
     }
 
     let sub: Location.LocationSubscription | null = null;
+    let magSub: ReturnType<typeof Magnetometer.addListener> | null = null;
     let cancelled = false;
+
+    // Smooth the rotation along the shortest arc — shared by both heading sources.
+    const applyHeading = (angle: number) => {
+      setHeading(angle);
+      const diff = angle - lastHeading.current;
+      let shortDiff = diff;
+      if (Math.abs(diff) > 180) shortDiff = diff > 0 ? diff - 360 : diff + 360;
+      const newVal = lastHeading.current + shortDiff;
+      lastHeading.current = newVal;
+      Animated.timing(animatedHeading, {
+        toValue: newVal,
+        duration: 150,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    };
 
     (async () => {
       try {
@@ -201,35 +219,44 @@ export default function QiblaScreen() {
               ? data.trueHeading
               : data.magHeading;
           if (typeof raw !== "number" || Number.isNaN(raw)) return;
-          const angle = (raw + 360) % 360;
-          setHeading(angle);
           if (typeof data.accuracy === "number") setHeadingAccuracy(data.accuracy);
-
-          // Smooth the rotation along the shortest arc.
-          const diff = angle - lastHeading.current;
-          let shortDiff = diff;
-          if (Math.abs(diff) > 180) shortDiff = diff > 0 ? diff - 360 : diff + 360;
-          const newVal = lastHeading.current + shortDiff;
-          lastHeading.current = newVal;
-          Animated.timing(animatedHeading, {
-            toValue: newVal,
-            duration: 150,
-            easing: Easing.out(Easing.quad),
-            useNativeDriver: true,
-          }).start();
+          applyHeading((raw + 360) % 360);
         });
         if (cancelled && sub) {
           sub.remove();
           sub = null;
         }
       } catch (_) {
-        setSensorAvailable(false);
+        // iOS's watchDeviceHeading throws when location permission is denied — and
+        // a user with a manually saved city never needs to grant it. Fall back to
+        // the raw magnetometer: tilt-sensitive and magnetic-north (the pre-fix
+        // behavior), but a working compass beats a "sensor unavailable" screen.
+        try {
+          if (!(await Magnetometer.isAvailableAsync())) {
+            if (!cancelled) setSensorAvailable(false);
+            return;
+          }
+          if (cancelled) return;
+          Magnetometer.setUpdateInterval(100);
+          magSub = Magnetometer.addListener(({ x, y }) => {
+            let angle = Math.atan2(y, x) * (180 / Math.PI);
+            angle = (90 - angle + 360) % 360;
+            applyHeading(angle);
+          });
+          if (cancelled && magSub) {
+            magSub.remove();
+            magSub = null;
+          }
+        } catch {
+          if (!cancelled) setSensorAvailable(false);
+        }
       }
     })();
 
     return () => {
       cancelled = true;
       if (sub) sub.remove();
+      if (magSub) magSub.remove();
     };
   }, []);
 

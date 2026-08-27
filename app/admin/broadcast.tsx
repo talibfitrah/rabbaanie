@@ -183,7 +183,9 @@ export default function BroadcastScreen() {
   // matchedCount counts everyone the audience filter matches; deliverableCount
   // is the subset that will truly receive it — the two diverge sharply for the
   // "incomplete profile" segments, whose users mostly never enabled notifications.
-  const deliverableCount = audienceQuery.data?.deliverable ?? 0;
+  // ?? count: never print "0 users" just because an older API omits the field —
+  // degrade to the matched count, which is what the label showed before.
+  const deliverableCount = audienceQuery.data?.deliverable ?? audienceQuery.data?.count ?? 0;
   const incompleteChildrenRecipients = (audienceQuery.data?.recipients || []).filter(
     (r) => r.incompleteChildren.length > 0,
   );
@@ -470,7 +472,7 @@ export default function BroadcastScreen() {
           <>
             {newScheduleCategory && (
               <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
-                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.deliverable ?? "…") + " مستخدم"}
+                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.deliverable ?? newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم"}
               </Text>
             )}
             {chipRow(

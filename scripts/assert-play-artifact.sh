@@ -73,7 +73,15 @@ NSIG=$(printf '%s' "$SIG" | grep -c .)
 if [ "$NSIG" -ne 1 ]; then
   # More than one means the debug key was added alongside the upload key; none
   # means the artifact carries no verifiable signing identity at all.
-  fail "expected exactly 1 signer, found $NSIG: $(printf '%s' "$SIG" | tr '\n' ' ')"
+  if [ "$NSIG" -eq 0 ]; then
+    # Deliberately fail-closed: a v2/v3-only signed APK carries no v1 block, and
+    # this check cannot read a v2/v3 certificate without apksigner. Every AAB
+    # carries a v1 signature, so on the artifact this gate is written for the
+    # count is never legitimately 0.
+    fail "no v1/JAR signature block found (v2/v3-only APK?) — the signer identity cannot be verified here; gate an .aab, or verify the APK with apksigner"
+  else
+    fail "expected exactly 1 signer, found $NSIG: $(printf '%s' "$SIG" | tr '\n' ' ')"
+  fi
 else
   CERT_SHA256=$(unzip -p "$ART" "$SIG" | openssl pkcs7 -inform DER -print_certs 2>/dev/null \
                 | openssl x509 -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//')
