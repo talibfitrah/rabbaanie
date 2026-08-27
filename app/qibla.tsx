@@ -208,6 +208,18 @@ export default function QiblaScreen() {
     };
 
     (async () => {
+      // No magnetometer means no heading by EITHER source (sensor fusion needs
+      // it too) — keep the old up-front detection so those devices get the
+      // honest "sensor unavailable" message instead of a frozen needle.
+      try {
+        if (!(await Magnetometer.isAvailableAsync())) {
+          if (!cancelled) setSensorAvailable(false);
+          return;
+        }
+      } catch {
+        if (!cancelled) setSensorAvailable(false);
+        return;
+      }
       try {
         // trueHeading needs location for the declination; harmless if already granted.
         await Location.requestForegroundPermissionsAsync();
@@ -232,10 +244,6 @@ export default function QiblaScreen() {
         // the raw magnetometer: tilt-sensitive and magnetic-north (the pre-fix
         // behavior), but a working compass beats a "sensor unavailable" screen.
         try {
-          if (!(await Magnetometer.isAvailableAsync())) {
-            if (!cancelled) setSensorAvailable(false);
-            return;
-          }
           if (cancelled) return;
           Magnetometer.setUpdateInterval(100);
           magSub = Magnetometer.addListener(({ x, y }) => {
