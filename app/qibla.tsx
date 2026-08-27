@@ -193,6 +193,7 @@ export default function QiblaScreen() {
 
     // Smooth the rotation along the shortest arc — shared by both heading sources.
     const applyHeading = (angle: number) => {
+      if (cancelled) return; // a queued native event can land after unmount
       setHeading(angle);
       const diff = angle - lastHeading.current;
       let shortDiff = diff;
@@ -222,7 +223,11 @@ export default function QiblaScreen() {
       }
       try {
         // trueHeading needs location for the declination; harmless if already granted.
-        await Location.requestForegroundPermissionsAsync();
+        // Android's watchDeviceHeading resolves and then never delivers a sample when
+        // location is denied (iOS throws), so treat a denial as the throw ourselves —
+        // otherwise the fallback below never runs and the needle freezes at north.
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") throw new Error("location permission not granted");
         sub = await Location.watchHeadingAsync((data) => {
           // trueHeading is -1 when the OS can't resolve declination (no location);
           // fall back to magHeading, which the OS still tilt-compensates.
@@ -232,7 +237,7 @@ export default function QiblaScreen() {
               : data.magHeading;
           // magHeading is also negative when the OS marks it invalid — dropping
           // the sample beats rendering (-1+360)%360 as a confident 359°.
-          if (typeof raw !== "number" || Number.isNaN(raw) || raw < 0) return;
+          if (!Number.isFinite(raw) || raw < 0) return;
           if (typeof data.accuracy === "number") setHeadingAccuracy(data.accuracy);
           applyHeading((raw + 360) % 360);
         });
@@ -249,6 +254,7 @@ export default function QiblaScreen() {
           if (cancelled) return;
           Magnetometer.setUpdateInterval(100);
           magSub = Magnetometer.addListener(({ x, y }) => {
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
             let angle = Math.atan2(y, x) * (180 / Math.PI);
             angle = (90 - angle + 360) % 360;
             applyHeading(angle);
