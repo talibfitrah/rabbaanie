@@ -3362,12 +3362,27 @@ export default function FamilyScreen() {
             <View style={{ gap: 10 }}>
               {/* Partner's daily check-in status */}
               {(() => {
-                const pCheckins = fullPartnerProfile?.dailyCheckins || [];
+                // Array.isArray, not `|| []`: this blob is partner-written
+                // through z.any(), and a non-array is truthy, so `|| []` would
+                // pass it to .find below and crash this screen. Same guard as
+                // server/advice.ts and lib/advice-period.ts.
+                const pCheckins = Array.isArray(fullPartnerProfile?.dailyCheckins)
+                  ? fullPartnerProfile.dailyCheckins
+                  : [];
+                // Nothing writes this array any more (its only writer went
+                // with commit ad8189f), so on an updated partner it is empty
+                // and the panel below would state "not completed today" and
+                // "0/7 this week" about someone using the app daily. An empty
+                // array is now absence of data, not absence of activity — say
+                // nothing. Partners still on an older build DO write it, so
+                // the block itself has to keep working for them.
+                if (pCheckins.length === 0) return null;
                 const today = new Date().toISOString().slice(0, 10);
                 const todayCheckin = pCheckins.find(
-                  (c: any) => c.date === today,
+                  (c: any) => c && c.date === today,
                 );
                 const recentCheckins = pCheckins.filter((c: any) => {
+                  if (!c) return false; // entries are partner-written too
                   const d = new Date(c.date);
                   const now = new Date();
                   return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
@@ -3542,10 +3557,15 @@ export default function FamilyScreen() {
 
               {/* Partner's daily tip interaction */}
               {(() => {
-                const pTips = fullPartnerProfile?.dailyTipCompletions || [];
+                // Same partner-written z.any() blob, same guard as the
+                // check-in block above: `|| []` lets a non-array through.
+                const pTips = Array.isArray(fullPartnerProfile?.dailyTipCompletions)
+                  ? fullPartnerProfile.dailyTipCompletions
+                  : [];
                 const today = new Date().toISOString().slice(0, 10);
-                const todayTips = pTips.filter((t: any) => t.date === today);
+                const todayTips = pTips.filter((t: any) => t && t.date === today);
                 const weekTips = pTips.filter((t: any) => {
+                  if (!t) return false;
                   const d = new Date(t.date);
                   const now = new Date();
                   return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000;

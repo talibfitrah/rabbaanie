@@ -103,3 +103,30 @@ export function adviceDiagnosticSig(state: any): string {
     ])
   );
 }
+
+/**
+ * The check-ins actually dated within the last 7 days, for the payload field
+ * the advice prompts label "last 7 days" / "laatste 7 dagen".
+ *
+ * Nothing writes state.dailyCheckins any more (its only writer went with
+ * commit ad8189f), so the positional `slice(-7)` the call sites used returned
+ * the last 7 entries EVER — on a frozen array, potentially months old, handed
+ * to the model as this week's behaviour. Filtering on the date says nothing
+ * rather than something false, and still works for users on an older build
+ * that does write the array. Same window app/(tabs)/family.tsx uses for the
+ * partner's check-in panel.
+ *
+ * An unparseable date is dropped: it cannot be shown to be recent.
+ */
+export function checkinsLast7Days<T extends { date: string }>(
+  checkins: readonly T[] | null | undefined,
+): T[] {
+  // Array.isArray, not `?? []`: app-context.tsx:182 fills this from the
+  // server's z.any() profileData blob with `|| []`, which passes a non-array
+  // (an object, a number) straight through. Such a value is not nullish, so
+  // `?? []` would hand it to .filter and throw. Mirrors server/advice.ts.
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+  if (!Array.isArray(checkins)) return [];
+  // `c &&`: the entries come from the same untyped blob as the array does.
+  return checkins.filter((c) => c && new Date(c.date).getTime() > cutoff);
+}

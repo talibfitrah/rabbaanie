@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useState } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { I18nManager, Platform } from "react-native";
+import { Alert, I18nManager, Platform } from "react-native";
 import { syncLanguageToServer } from "@/lib/language-sync";
 
 // ============ TRANSLATIONS ============
@@ -648,6 +648,68 @@ const I18nContext = createContext<I18nContextType | null>(null);
 const LANGUAGE_STORAGE_KEY = "@app_language";
 const LANGUAGE_SELECTED_KEY = "@app_language_selected";
 
+/**
+ * I18nManager.forceRTL only takes effect on the NEXT launch: react-native's
+ * I18nManager.js snapshots `isRTL` when the bundle loads and never writes it
+ * back, so the running session keeps the direction it started with. This app
+ * cannot reload itself to close that gap — expo-updates is not a dependency,
+ * and the updater in hooks/use-updates.ts downloads and installs APKs, which
+ * cannot restart a JS bundle. So a language change that flips the direction
+ * leaves the session half-flipped: `textAlign` and the chevrons follow this
+ * module's own `isRTL` immediately, while every plain `flexDirection: "row"`
+ * still lays out left-to-right. Say so, rather than ship a mixed layout with
+ * no explanation.
+ *
+ * `sessionIsRTL` is I18nManager.isRTL — the direction actually in force right
+ * now, not the one being stored. Null when nothing flips (nl <-> en, or
+ * re-picking the language already running), because a prompt on a switch that
+ * changes nothing is what teaches users to dismiss the real one.
+ *
+ * Pure and exported so it is assertable without a renderer (none is installed
+ * in this project — see tests/i18n-rtl-restart.test.ts), same reasoning as
+ * components/daily-deeds-card.tsx's toggleDeedDone.
+ */
+export function rtlRestartNotice(
+  lang: Language,
+  sessionIsRTL: boolean,
+): { title: string; body: string } | null {
+  if ((lang === "ar") === sessionIsRTL) return null;
+  return {
+    ar: { title: "أعد تشغيل التطبيق", body: "تم حفظ اللغة. أغلق التطبيق وافتحه من جديد ليكتمل تغيير اتجاه الشاشة." },
+    en: { title: "Restart required", body: "Your language is saved. Close and reopen the app to finish switching the layout direction." },
+    nl: { title: "Herstart vereist", body: "Uw taal is opgeslagen. Sluit de app en open hem opnieuw om de lay-outrichting volledig te wijzigen." },
+  }[lang];
+}
+
+/**
+ * Store the layout direction `lang` requires, and return the session-gap
+ * notice (or null) for it.
+ *
+ * The write is UNCONDITIONAL, and that is the point. `I18nManager.isRTL` is a
+ * bundle-load snapshot: it does not track forceRTL calls made earlier in the
+ * same session. Gating the write on it — which is what testing the notice for
+ * null amounted to — meant a second flip back within one session wrote
+ * nothing: pick Arabic (flag becomes true, restart alert shown), change your
+ * mind back to Dutch (the snapshot still reads false, so the notice is null),
+ * restart as instructed, and the app comes up right-to-left with Dutch text.
+ * forceRTL/allowRTL are idempotent setters, so writing every time is free.
+ *
+ * The manager is a parameter so this is assertable without a renderer (none is
+ * installed here) — see tests/i18n-rtl-restart.test.ts.
+ */
+export function applyRTLForLanguage(
+  lang: Language,
+  manager: Pick<typeof I18nManager, "isRTL" | "forceRTL" | "allowRTL">,
+): { title: string; body: string } | null {
+  const shouldBeRTL = lang === "ar";
+  // Read the snapshot BEFORE writing: the notice describes the gap between the
+  // direction on screen right now and the one being stored.
+  const notice = rtlRestartNotice(lang, manager.isRTL);
+  manager.forceRTL(shouldBeRTL);
+  manager.allowRTL(shouldBeRTL);
+  return notice;
+}
+
 export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [loaded, setLoaded] = useState(false);
@@ -703,12 +765,15 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     setLanguageSelected(true);
     await AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, lang);
     await AsyncStorage.setItem(LANGUAGE_SELECTED_KEY, "true");
-    // Set RTL for Arabic
+    // Set RTL for Arabic. The flag write and the warning are decided in one
+    // place (applyRTLForLanguage) so they can never disagree — but they are
+    // NOT the same condition: the direction is stored every time, while the
+    // notice fires only when this session's own direction differs from it.
     const shouldBeRTL = lang === "ar";
-    if (I18nManager.isRTL !== shouldBeRTL) {
-      I18nManager.forceRTL(shouldBeRTL);
-      I18nManager.allowRTL(shouldBeRTL);
-    }
+    const restart = applyRTLForLanguage(lang, I18nManager);
+    // Web flips live below (document.dir), so only native has a gap to warn
+    // about.
+    if (restart && Platform.OS !== "web") Alert.alert(restart.title, restart.body);
     if (Platform.OS === "web" && typeof document !== "undefined") {
       document.documentElement.dir = shouldBeRTL ? "rtl" : "ltr";
     }

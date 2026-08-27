@@ -1,5 +1,6 @@
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useQueryClient } from "@tanstack/react-query";
 import { trpc } from "@/lib/trpc";
 
 type Lang = "nl" | "en" | "ar";
@@ -23,7 +24,6 @@ interface DailyDeedsToday {
 
 interface Props {
   lang: Lang;
-  isRTL: boolean;
 }
 
 type ToggleVars = { deedId: string; done: boolean };
@@ -49,19 +49,26 @@ type ToggleVars = { deedId: string; done: boolean };
 // unknown keys rather than rejecting them, so an extra field the server
 // never declared is simply ignored, not an error.
 interface DailyDeedsHookApi {
-  getToday: { useQuery: (input: { lang: Lang; date: string }) => { data: DailyDeedsToday | undefined; isError: boolean } };
+  getToday: {
+    useQuery: (input: { lang: Lang; date: string }) => {
+      data: DailyDeedsToday | undefined;
+      isLoading: boolean;
+      isError: boolean;
+      error: unknown;
+      refetch: () => void;
+    };
+  };
   toggle: {
     useMutation: (opts: {
-      onMutate: (vars: ToggleVars) => Promise<{ previous: DailyDeedsToday | undefined }>;
-      onError: (err: unknown, vars: ToggleVars, ctx: { previous: DailyDeedsToday | undefined } | undefined) => void;
-      onSuccess: () => void;
-    }) => { mutate: (vars: ToggleVars) => void };
+      onMutate: (vars: ToggleVars) => Promise<void>;
+      onError: (err: unknown, vars: ToggleVars) => void;
+      onSettled: () => Promise<void> | void;
+    }) => { mutate: (vars: ToggleVars) => void; isPending: boolean; isError: boolean; variables: ToggleVars | undefined };
   };
 }
 interface DailyDeedsUtilsApi {
   getToday: {
     cancel: (input: { lang: Lang; date: string }) => Promise<void>;
-    getData: (input: { lang: Lang; date: string }) => DailyDeedsToday | undefined;
     setData: (
       input: { lang: Lang; date: string },
       updater: DailyDeedsToday | undefined | ((old: DailyDeedsToday | undefined) => DailyDeedsToday | undefined)
@@ -88,9 +95,10 @@ export function toggleDeedDone(deeds: Deed[], deedId: string, done: boolean): De
  * so — unlike that card's getToday — there is no per-fetch generation cost
  * to guard against and this fetches on mount with no `enabled` gate.
  */
-export function DailyDeedsCard({ lang, isRTL }: Props) {
+export function DailyDeedsCard({ lang }: Props) {
   const dailyDeeds = trpc as unknown as { dailyDeeds: DailyDeedsHookApi };
   const utils = trpc.useUtils() as unknown as { dailyDeeds: DailyDeedsUtilsApi };
+  const queryClient = useQueryClient();
   // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
   // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
   // by lib/query-persistence.ts on app boot — which stamps a fresh
@@ -106,29 +114,84 @@ export function DailyDeedsCard({ lang, isRTL }: Props) {
   const toggleMutation = dailyDeeds.dailyDeeds.toggle.useMutation({
     onMutate: async ({ deedId, done }) => {
       await utils.dailyDeeds.getToday.cancel({ lang, date: todayKey });
-      const previous = utils.dailyDeeds.getToday.getData({ lang, date: todayKey });
       utils.dailyDeeds.getToday.setData({ lang, date: todayKey }, (old) =>
         old ? { ...old, deeds: toggleDeedDone(old.deeds, deedId, done) } : old
       );
-      return { previous };
     },
-    // Roll back the optimistic flip if the server rejects it — otherwise a
-    // failed toggle would stay stuck showing the wrong checked state.
-    onError: (_err, _vars, ctx) => {
-      if (ctx?.previous) utils.dailyDeeds.getToday.setData({ lang, date: todayKey }, ctx.previous);
+    // Refetch rather than restore a snapshot: a snapshot of the WHOLE response
+    // taken in onMutate is stale the moment ANOTHER deed's toggle succeeds
+    // against it, and writing it back un-checks a deed the server has already
+    // saved. The server is the only thing that knows the real state after a
+    // failure, so ask it — but only once nothing else is on the wire. A
+    // refetch answers with what the server has, and the server has not been
+    // told yet about a toggle that is still in flight, so settling on EVERY
+    // toggle un-checks its peers — the same bug from the other side.
+    // query-core awaits onSettled before marking this mutation done, so it
+    // still counts itself: 1 means "I am the last one". The failed flip is
+    // surfaced to the user below either way.
+    // ponytail: isMutating() is unfiltered, so an unrelated mutation anywhere
+    // in the app also defers this settle. That is the safe direction — the
+    // optimistic state simply stays until the next refetch — whereas a
+    // mutationKey filter would ride on tRPC's internal key shape and, once it
+    // stopped matching, would silently never settle at all.
+    // Undo THIS deed's flip, and only this one. onSettled below reconciles
+    // against the server, but only when nothing else is mutating anywhere in
+    // the app — so a failed toggle could otherwise sit on screen showing a
+    // state the server rejected until the card unmounts. Reverting the single
+    // deed by the same pure transform that flipped it is safe where restoring
+    // a whole-response snapshot is not: a peer toggle the server has already
+    // accepted is left exactly as it is.
+    onError: (_err, { deedId, done }) => {
+      utils.dailyDeeds.getToday.setData({ lang, date: todayKey }, (old) =>
+        old ? { ...old, deeds: toggleDeedDone(old.deeds, deedId, !done) } : old
+      );
     },
-    onSuccess: () => utils.dailyDeeds.getToday.invalidate(),
+    onSettled: () => {
+      if (queryClient.isMutating() === 1) return utils.dailyDeeds.getToday.invalidate();
+    },
   });
 
-  // Same reasoning as daily-diagnostic-card.tsx's isError/NOT_FOUND branch:
-  // this procedure not existing on the server yet (client/server ship as
-  // separate steps) is the expected case while the server side lands, and
-  // this card is optional/below-the-fold — so any query error (not just
-  // NOT_FOUND) simply renders nothing rather than an error state to fix.
-  if (todayQuery.isError) return null;
+  // The deeds list is only mounted once its half of the duo row is tapped, so
+  // a bare `return null` here read as a dead control for the whole fetch —
+  // and permanently, if it failed. Same three states the sibling card renders
+  // (daily-diagnostic-card.tsx), in the same order.
+  if (todayQuery.isLoading) {
+    return (
+      <View style={[s.card, s.statusRow]}>
+        <ActivityIndicator size="small" color="#1B4332" />
+        <Text style={[s.statusText, { textAlign: lang === "ar" ? "right" : "left" }]}>
+          {tx(lang, "Bezig met laden...", "Loading...", "جارٍ التحميل...")}
+        </Text>
+      </View>
+    );
+  }
+
+  // NOT_FOUND is the one error worth staying silent about: it means the
+  // procedure isn't deployed on this server yet (client and server for this
+  // feature ship as separate steps), so a "tap to retry" could never succeed.
+  if (todayQuery.isError && (todayQuery.error as any)?.data?.code === "NOT_FOUND") return null;
 
   const data = todayQuery.data;
-  if (!data) return null;
+  // `deeds` is checked, not trusted: DailyDeedsToday above is hand-written and
+  // cast in with `as unknown as`, so nothing type-checks the real response. On
+  // the home tab a malformed one would throw out of `data.deeds.map` and take
+  // the screen down; the retry card below is the fallback this file already
+  // renders for every other failure.
+  if (todayQuery.isError || !data || !Array.isArray(data.deeds)) {
+    return (
+      <Pressable
+        onPress={() => todayQuery.refetch()}
+        style={({ pressed }) => [s.card, s.statusRow, pressed && { opacity: 0.85 }]}
+      >
+        <MaterialIcons name="error-outline" size={18} color="#B91C1C" />
+        <Text style={[s.statusText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
+          {tx(lang, "Laden mislukt, tik om opnieuw te proberen", "Failed to load, tap to retry", "فشل التحميل، اضغط لإعادة المحاولة")}
+        </Text>
+      </Pressable>
+    );
+  }
+
+  const pendingDeedId = toggleMutation.isPending ? toggleMutation.variables?.deedId : undefined;
 
   return (
     <View style={s.card}>
@@ -141,6 +204,7 @@ export function DailyDeedsCard({ lang, isRTL }: Props) {
       {data.deeds.map((deed) => (
         <Pressable
           key={deed.id}
+          disabled={pendingDeedId === deed.id}
           onPress={() => toggleMutation.mutate({ deedId: deed.id, done: !deed.done })}
           style={({ pressed }) => [s.row, { flexDirection: "row" }, pressed && { opacity: 0.7 }]}
         >
@@ -152,6 +216,11 @@ export function DailyDeedsCard({ lang, isRTL }: Props) {
           </Text>
         </Pressable>
       ))}
+      {toggleMutation.isError && (
+        <Text style={[s.errorText, { textAlign: lang === "ar" ? "right" : "left" }]}>
+          {tx(lang, "Verzenden mislukt, probeer opnieuw", "Failed to send, please try again", "تعذّر الإرسال، حاول مرة أخرى")}
+        </Text>
+      )}
     </View>
   );
 }
@@ -173,4 +242,7 @@ const s = StyleSheet.create({
   checkboxChecked: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
   label: { flex: 1, fontSize: 14, fontWeight: "500", color: "#374151" },
   labelDone: { color: "#9CA3AF", textDecorationLine: "line-through" },
+  statusRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  statusText: { flex: 1, fontSize: 14, fontWeight: "700", color: "#1B4332" },
+  errorText: { fontSize: 12, fontWeight: "600", color: "#B91C1C", marginTop: 8 },
 });

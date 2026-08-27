@@ -15,8 +15,6 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 
 interface Props {
   lang: Lang;
-  isRTL: boolean;
-  autoOpen?: boolean;
 }
 
 /**
@@ -39,28 +37,21 @@ export function buildReviewSelections(
  * text, only a category+tone summary — are what the spouse-advice AI reads
  * about the OTHER person (see server/daily-diagnostic.ts).
  *
- * getToday can trigger a paid generation call the first time it's fetched
- * for the day, so it must never fire as a side effect of this card simply
- * being on screen (`never-spend-openrouter-credit`). It stays disabled until
- * the user explicitly taps to open today's check-in.
+ * getToday is free to call and safe to call again. Production builds the
+ * question set as a pure function of date+gender+lang+hasPartner and stores
+ * it with source "curated" — there is no model call on that path — and its
+ * get-or-create is idempotent, deliberately reading hasConfirmedPartner
+ * rather than getPartnerOfUser so that merely opening the check-in cannot
+ * create a partnership as a side effect. Checked against the production tree
+ * (talibfitrah/rabbaanie-api server/daily-diagnostic.ts), not this repo's
+ * server/ — see CLAUDE.md "Two repos". So this card carries no placement
+ * constraint: the fetch below needs no `enabled` gate. An earlier revision of
+ * this comment claimed the first fetch of the day spent model credit and that
+ * the card must therefore never be rendered eagerly; that stopped being true
+ * when the curated bank replaced the generated set.
  */
-export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
+export function DailyDiagnosticCard({ lang }: Props) {
   const utils = trpc.useUtils();
-  // Seed from autoOpen: the card is only mounted (by DailyDuoRow) once its
-  // half was tapped, so starting "started" avoids a one-frame flash of the
-  // pre-start teaser. Standalone use (no autoOpen) keeps the old false start.
-  const [started, setStarted] = useState(!!autoOpen);
-  // autoOpen is only passed once DailyDuoRow has already mounted this card
-  // in response to an explicit tap, so this pre-starts the fetch exactly
-  // like a manual tap would — `enabled: started` below still gates
-  // getToday, so nothing fetches until that tap happens.
-  useEffect(() => {
-    if (autoOpen) setStarted(true);
-  }, [autoOpen]);
-  // Tapping the answered "done" card opens this back up to review the day's
-  // answers — never a new fetch/generation (todayQuery stays driven by
-  // `started`/its own cache; this flag only switches which JSX renders).
-  const [reviewing, setReviewing] = useState(false);
   // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
   // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
   // by lib/query-persistence.ts on app boot — which stamps a fresh
@@ -70,13 +61,26 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
   // cache MISS — a stale key simply cannot answer it (see server/
   // daily-diagnostic.ts getToday's own comment on why it accepts `date`).
   const todayKey = new Date().toISOString().slice(0, 10);
-  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang, date: todayKey }, { enabled: started });
+  // staleTime 0 is the freshness rule that used to be a mount effect calling
+  // invalidate(). Mount is the explicit open, and without it the card can
+  // render a same-day cached-but-unanswered review up to 5 minutes stale (the
+  // app-wide staleTime in app/_layout.tsx) — longer from the persisted cache,
+  // which lib/query-persistence.ts restores with a fresh dataUpdatedAt — and
+  // let the user submit a question set the server no longer accepts, only
+  // refetching once that submit has already failed. Expressed as this query's
+  // own option rather than an effect: refetchOnMount then does it, so the open
+  // is one fetch instead of a mount fetch plus an invalidate-driven second
+  // one, and no OTHER language's or day's cached entry is touched to do it.
+  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang, date: todayKey }, { staleTime: 0 });
   const submitMutation = trpc.dailyDiagnostic.submitAnswers.useMutation({
-    onSuccess: () => utils.dailyDiagnostic.getToday.invalidate(),
+    // Keyed, like every other cache operation here: a bare invalidate() clears
+    // this procedure for every language and every day it has cached, and only
+    // today's own entry is what a submit changed.
+    onSuccess: () => utils.dailyDiagnostic.getToday.invalidate({ lang, date: todayKey }),
     // A rejected submit (e.g. the card was showing a stale/unpersisted
     // fallback) leaves the card showing questions that can never be saved.
     // Refetch so the next tap works against whatever is actually current.
-    onError: () => utils.dailyDiagnostic.getToday.invalidate(),
+    onError: () => utils.dailyDiagnostic.getToday.invalidate({ lang, date: todayKey }),
   });
 
   const [selected, setSelected] = useState<Record<string, { label: string; tone: DiagnosticTone }>>({});
@@ -102,57 +106,15 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
     : "";
   useEffect(() => {
     setSelected({});
-    // Same overnight-mount hazard the comment above already guards
-    // `selected` against, one layer up: if the card was left open in review
-    // mode (reviewing=true) and the day rolls over while still mounted, the
-    // NEW day's fresh answers=null content lands here too. Nothing in this
-    // effect resets `reviewing` on its own — a signature change is exactly
-    // the marker that whatever was being reviewed no longer matches what's
-    // on screen, so this is also the point that must clear it. Left unset,
-    // reviewing would still read true once the user later submits THIS new
-    // day's answers, skipping straight past the compact "done" card to the
-    // locked review view for a submission that just happened.
-    setReviewing(false);
   }, [questionsSignature]);
-
-  // A disabled useQuery still hands back whatever the query cache already
-  // holds, so an answered check-in keeps showing its completed state when the
-  // user returns to the home screen instead of reverting to a teaser that
-  // invites a check-in already done. This reads the cache only — it never
-  // enables the fetch, so it cannot trigger a generation.
-  const alreadyAnsweredToday = data?.answers != null;
-
-  if (!started && !alreadyAnsweredToday) {
-    return (
-      <Pressable
-        onPress={() => {
-          setStarted(true);
-          // Explicit open: refetch fresh instead of trusting whatever this
-          // session's 5-minute staleTime cache (or a persisted cache from an
-          // earlier day) still holds, so a server-side question change shows
-          // up immediately. `enabled: started` (still false a moment ago)
-          // means this row was never "active" for invalidate() to refetch on
-          // its own — it only takes effect once `started` flips true above.
-          utils.dailyDiagnostic.getToday.invalidate();
-        }}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
-      >
-        <MaterialIcons name="edit-calendar" size={18} color="#1B4332" />
-        <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
-        </Text>
-        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
-      </Pressable>
-    );
-  }
 
   // `!data && isFetching` is the day-rollover case: the cache holds a stale
   // date so `data` is undefined, but isLoading is false because a cached
   // entry exists. Without it the card flashes its "failed, tap to retry"
   // state while today's fetch is still in flight.
   if (todayQuery.isLoading || (!data && todayQuery.isFetching)) {
-    // The first fetch of the day can be a multi-second generation call, not
-    // an instant cache read — a bare `return null` here made the card
+    // Still a network round-trip, not an instant cache read (staleTime 0 means
+    // an open always waits on one) — a bare `return null` here made the card
     // silently vanish for that whole window with no feedback.
     return (
       <View style={[s.teaserCard, { flexDirection: "row" }]}>
@@ -190,42 +152,9 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
 
   const { date, questions, answers, source } = data;
 
-  // !autoOpen: when DailyDuoRow mounts this card in response to a tap, skip
-  // the compact "done" teaser — it would render a SECOND «المراجعة الشخصية»
-  // line under the one just tapped, forcing a second tap. Fall straight
-  // through to the locked review below instead.
-  if (answers && !reviewing && !autoOpen) {
-    return (
-      <Pressable
-        onPress={() => {
-          // This is the actual stale-cache path: an answered-today state can
-          // come entirely from the persisted cache with `started` still
-          // false (see the alreadyAnsweredToday comment above) — enabled
-          // never became true this session, so getToday never fetched.
-          // setReviewing alone would review stale cached questions forever;
-          // started must also flip so `enabled: started` turns on and the
-          // invalidate below actually refetches instead of no-op'ing on a
-          // disabled query. started has no other effect once already
-          // answered (the teaser condition above already requires
-          // !alreadyAnsweredToday, which is false here regardless).
-          setStarted(true);
-          setReviewing(true);
-          utils.dailyDiagnostic.getToday.invalidate();
-        }}
-        style={({ pressed }) => [s.doneCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
-      >
-        <MaterialIcons name="check-circle" size={16} color="#1B4332" />
-        <Text style={[s.doneText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
-          {tx(lang, "Persoonlijke evaluatie", "Personal review", "المراجعة الشخصية")}
-        </Text>
-        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color="#1B4332" />
-      </Pressable>
-    );
-  }
-
   // Reached two ways: filling in today's not-yet-answered check-in (answers
-  // is null), or reviewing an already-answered one (answers is non-null and
-  // reviewing is true — the only way past the early return above). Answers
+  // is null), or reviewing an already-answered one (answers is non-null —
+  // an explicit open of a finished day lands straight here). Answers
   // are final once submitted (server/daily-diagnostic.ts submitAnswers
   // rejects any second submission for the same day, by design — the
   // spouse-advice signal may already have been read from it), so review mode
@@ -238,21 +167,15 @@ export function DailyDiagnosticCard({ lang, isRTL, autoOpen }: Props) {
 
   return (
     <View style={s.section}>
+      {/* The locked header is a label, not a control: the card cannot
+          collapse itself — the duo-row half that mounted it is the toggle. */}
       {locked ? (
-        <Pressable
-          onPress={autoOpen ? undefined : () => setReviewing(false)}
-          disabled={autoOpen}
-          style={({ pressed }) => [s.reviewHeader, { flexDirection: "row" }, pressed && !autoOpen && { opacity: 0.7 }]}
-        >
-          {/* In autoOpen (duo-row) mode the card can't collapse itself — the
-              duo-row half is the toggle — so the back chevron would be a dead
-              control. Hide it there. */}
-          {!autoOpen && <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={18} color="#1B4332" />}
+        <View style={[s.reviewHeader, { flexDirection: "row" }]}>
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.title, { marginBottom: 0 }]}>
             {tx(lang, "Uw antwoorden van vandaag", "Your answers today", "إجاباتك اليوم")}
           </Text>
-        </Pressable>
+        </View>
       ) : (
         <Text style={[s.title, { textAlign: lang === "ar" ? "right" : "left" }]}>
           {tx(lang, "Hoe was uw dag vandaag?", "How was your day today?", "كيف كان يومك اليوم؟")}
@@ -414,20 +337,6 @@ const s = StyleSheet.create({
     marginBottom: 16,
   },
   teaserText: { flex: 1, fontSize: 14, fontWeight: "700", color: "#1B4332" },
-  doneCard: {
-    flexDirection: "row",
-    alignItems: "center",
-    gap: 10,
-    backgroundColor: "#E8F5E9",
-    borderRadius: 12,
-    paddingVertical: 14,
-    paddingHorizontal: 16,
-    borderWidth: 1,
-    borderColor: "#1B433220",
-    marginHorizontal: 16,
-    marginBottom: 16,
-  },
-  doneText: { flex: 1, fontSize: 14, fontWeight: "600", color: "#1B4332" },
   reviewHeader: { alignItems: "center", gap: 8, marginBottom: 4 },
   lockedNotice: {
     alignItems: "center",

@@ -680,7 +680,19 @@ export default function NotificationSettingsScreen() {
           <ToggleRow label={getLabel("قيام الليل", "Qiyaam al-Layl", "Qiyaam al-Layl")} enabled={islamicPrefs.qiyamAlLayl.enabled} onToggle={() => handleIslamicToggle("qiyamAlLayl")} colors={colors} isRTL={isRTL} icon="dark-mode" iconColor="#1E3A5F" />
         </SectionCollapsible>
 
-        {/* === SECTION 5: Weekly Reminder === */}
+        {/* === SECTION 5: Daily Check-in === */}
+        <SectionCollapsible title={getLabel("التقييم اليومي", "Daily Check-in", "Dagelijkse check-in")} icon="today" iconColor="#0891B2" colors={colors} isRTL={isRTL}>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 10, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
+            {getLabel(
+              "تذكير يومي لإكمال مراجعتك الشخصية في الصفحة الرئيسية.",
+              "Daily reminder to complete your personal review on the home tab.",
+              "Dagelijkse herinnering om uw persoonlijke evaluatie op het startscherm af te ronden."
+            )}
+          </Text>
+          <ToggleRow label={getLabel("التقييم اليومي", "Daily check-in reminder", "Dagelijkse check-in-herinnering")} enabled={checkinPrefs.enabled} onToggle={handleCheckinToggle} colors={colors} isRTL={isRTL} icon="today" iconColor="#0891B2" />
+        </SectionCollapsible>
+
+        {/* === SECTION 6: Weekly Reminder === */}
         <SectionCollapsible title={getLabel("التذكير الأسبوعي", "Weekly Reminder", "Wekelijkse Herinnering")} icon="event" iconColor="#2563EB" colors={colors} isRTL={isRTL}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 10, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
             {getLabel(
@@ -690,10 +702,9 @@ export default function NotificationSettingsScreen() {
             )}
           </Text>
           <ToggleRow label={getLabel("تفعيل التذكير الأسبوعي", "Enable Weekly Reminder", "Wekelijkse herinnering inschakelen")} enabled={weeklyPrefs.enabled} onToggle={handleWeeklyToggle} colors={colors} isRTL={isRTL} icon="event" iconColor="#2563EB" />
-          <ToggleRow label={getLabel("التقييم اليومي", "Daily check-in reminder", "Dagelijkse check-in-herinnering")} enabled={checkinPrefs.enabled} onToggle={handleCheckinToggle} colors={colors} isRTL={isRTL} icon="event" iconColor="#2563EB" />
         </SectionCollapsible>
 
-        {/* === SECTION 6: Display Modes === */}
+        {/* === SECTION 7: Display Modes === */}
         <SectionCollapsible title={getLabel("طريقة عرض الإشعارات", "Notification Display Mode", "Weergavemodus notificaties")} icon="layers" iconColor="#8B5CF6" colors={colors} isRTL={isRTL}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
             {getLabel(

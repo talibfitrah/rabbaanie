@@ -2895,8 +2895,29 @@ Neem de volledige gezinssituatie integraal mee.`;
 
       // === NEW: Daily checkins from partner ===
       const partnerPD = partnerInteractions.profileData as any;
-      if (partnerPD?.dailyCheckins?.length > 0) {
-        const recentCheckins = partnerPD.dailyCheckins.slice(-7);
+      // Dated window, not `slice(-7)`: the header below says "last 7 days",
+      // and a partner whose array stopped growing would otherwise have
+      // months-old entries presented as this week's. Mirrors
+      // checkinsLast7Days in lib/advice-period.ts (server never imports lib/).
+      // Array.isArray, not `?? []`: profileData is stored through z.any()
+      // (server/routers.ts:1366), so the PARTNER decides this blob's shape.
+      // A non-array (`{}`, a number, a string) is not nullish, so `?? []`
+      // would hand it straight to .filter and throw — a 500 on this user's
+      // request, caused by data the other user wrote.
+      const checkinCutoff = Date.now() - 7 * 24 * 60 * 60 * 1000;
+      const storedCheckins = Array.isArray(partnerPD?.dailyCheckins) ? partnerPD.dailyCheckins : [];
+      // `c &&` for the same reason: the entries are partner-written too, and
+      // the dated window reads `.date` off every one of them where the old
+      // slice(-7) only touched the last seven. A primitive entry needs no
+      // guard — `(5).date` is undefined and NaN fails the comparison.
+      const recentCheckins = storedCheckins.filter(
+        (c: any) => c && new Date(c.date).getTime() > checkinCutoff,
+      );
+      // Guard on the WINDOW, not the raw array: with entries that are all
+      // older than the cutoff, the header still rendered with blank values,
+      // telling the model the partner logged nothing this week. That is a
+      // claim, not silence.
+      if (recentCheckins.length > 0) {
         const prayerSummary = recentCheckins.map((c: any) => c.prayer).filter(Boolean);
         const moodSummary = recentCheckins.map((c: any) => c.mood).filter(Boolean);
         interactionContext += l(
@@ -2916,7 +2937,10 @@ Neem de volledige gezinssituatie integraal mee.`;
       }
 
       // === NEW: Daily tip completions from partner ===
-      if (partnerPD?.dailyTipCompletions?.length > 0) {
+      // Array.isArray, not `?.length > 0`: profileData is partner-written
+      // through z.any(), and a string passes a length test — reporting its
+      // character count as a number of completed tips.
+      if (Array.isArray(partnerPD?.dailyTipCompletions) && partnerPD.dailyTipCompletions.length > 0) {
         const recentTips = partnerPD.dailyTipCompletions.slice(-10);
         interactionContext += l(
           `\n\n--- نصائح يومية أكملها الشريك: ${recentTips.length} نصيحة مؤخراً ---`,
@@ -2932,7 +2956,9 @@ Neem de volledige gezinssituatie integraal mee.`;
       }
 
       // === NEW: Partner's environments (child analysis) ===
-      if (partnerPD?.environments?.length > 0) {
+      // Same: a string passes `?.length > 0` and then throws on .map —
+      // an uncaught 500 on THIS user's request, from data the partner wrote.
+      if (Array.isArray(partnerPD?.environments) && partnerPD.environments.length > 0) {
         const envCount = partnerPD.environments.length;
         const envChildren = partnerPD.environments.map((e: any) => e.childName || "طفل").join("، ");
         interactionContext += l(
@@ -2949,7 +2975,8 @@ Neem de volledige gezinssituatie integraal mee.`;
       }
 
       // === NEW: Shared children info ===
-      if (partnerInteractions.childrenData?.length > 0) {
+      // Same shape, same .map below.
+      if (Array.isArray(partnerInteractions.childrenData) && partnerInteractions.childrenData.length > 0) {
         const childrenInfo = partnerInteractions.childrenData.map((c: any) => {
           const age = c.birthDate ? Math.floor((Date.now() - new Date(c.birthDate).getTime()) / (365.25 * 24 * 60 * 60 * 1000)) : "?";
           const hasEnv = c.environmentData ? "نعم" : "لا";

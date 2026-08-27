@@ -15,12 +15,12 @@ import { join } from "path";
  *
  * Fix: fold today's UTC date into the query input, so it's also part of the
  * cache key — a new day is then a genuine cache MISS, not a same-key
- * overwrite. Every call site that reads/writes that same cache entry
- * (getData/setData/cancel, both mutation call sites) must carry the same
- * `date` or the optimistic-update UX silently breaks against an entry
- * nobody reads. Anchored on identifiers, not full-file search or exact
- * formatting — a reformat must not defeat this; only removing `date` from
- * the actual call should.
+ * overwrite. Every call site that addresses that same cache entry
+ * (cancel/getData/setData) must carry the same `date` or the
+ * optimistic-update UX silently breaks against an entry nobody reads.
+ * Anchored on identifiers, not full-file search or exact formatting — a
+ * reformat must not defeat this; only removing `date` from the actual call
+ * should.
  */
 const DIAGNOSTIC = readFileSync(
   join(__dirname, "..", "components", "daily-diagnostic-card.tsx"),
@@ -65,28 +65,29 @@ describe("DailyDeedsCard.getToday — query input and every cache read/write it 
     expect(args).toMatch(/\bdate\s*:/);
   });
 
-  it("the optimistic-update onMutate handler's cancel/getData/setData all target the same dated key", () => {
-    const at = DEEDS.indexOf("onMutate: async ({ deedId, done }) => {");
+  // Anchored on the mutation call's own identifier chain and then scanned for
+  // whatever cache operations it contains — not on handler source text like
+  // `onError: (_err, _vars, ctx) => {`, which a prettier pass or a parameter
+  // rename turns into a -1 and a failure that says nothing about dating.
+  // Scanning the whole block also covers operations added later for free.
+  it("every keyed cache operation inside the toggle mutation targets the same dated key", () => {
+    const at = DEEDS.indexOf("dailyDeeds.dailyDeeds.toggle.useMutation");
     expect(at).toBeGreaterThan(-1);
-    const cancelAt = DEEDS.indexOf("getToday.cancel", at);
-    const getDataAt = DEEDS.indexOf("getToday.getData", at);
-    const setDataAt = DEEDS.indexOf("getToday.setData", at);
-    expect(cancelAt).toBeGreaterThan(at);
-    expect(getDataAt).toBeGreaterThan(cancelAt);
-    expect(setDataAt).toBeGreaterThan(getDataAt);
-    expect(callArgsAfter(DEEDS, cancelAt)).toMatch(/\bdate\s*:/);
-    expect(callArgsAfter(DEEDS, getDataAt)).toMatch(/\bdate\s*:/);
-    expect(callArgsAfter(DEEDS, setDataAt)).toMatch(/\bdate\s*:/);
-  });
+    const block = callArgsAfter(DEEDS, at);
 
-  // Presence in BOTH mutation outcomes, not just the happy path: a fix that
-  // dates onMutate's setData but not onError's rollback would leave the
-  // rollback silently writing into a cache entry nobody reads.
-  it("the onError rollback's setData also targets the same dated key", () => {
-    const onErrorAt = DEEDS.indexOf("onError: (_err, _vars, ctx) => {");
-    expect(onErrorAt).toBeGreaterThan(-1);
-    const setDataAt = DEEDS.indexOf("getToday.setData", onErrorAt);
-    expect(setDataAt).toBeGreaterThan(onErrorAt);
-    expect(callArgsAfter(DEEDS, setDataAt)).toMatch(/\bdate\s*:/);
+    // Presence, not only dating: the optimistic write and the post-failure
+    // refetch are the two halves of this cache contract, and a mutation that
+    // quietly lost either would otherwise satisfy the loop below vacuously.
+    expect(block).toMatch(/getToday\.setData/);
+    expect(block).toMatch(/getToday\.invalidate/);
+
+    // `invalidate()` deliberately takes no input (it clears the procedure,
+    // every day's key); every operation that DOES address one entry must
+    // address today's.
+    const keyed = [...block.matchAll(/getToday\.(?:cancel|getData|setData)\b/g)];
+    expect(keyed.length).toBeGreaterThan(0);
+    for (const m of keyed) {
+      expect(callArgsAfter(block, m.index!)).toMatch(/\bdate\s*:/);
+    }
   });
 });

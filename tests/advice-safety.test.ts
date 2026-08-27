@@ -451,3 +451,153 @@ describe("getSpouseAdvice: 2nd-person addressing + gendered partner term (runtim
     expect(text).not.toContain("je man");
   });
 });
+
+// The block is headed "last 7 days" but its guard tested the UNFILTERED array,
+// so a partner whose dailyCheckins array stopped growing months ago (nothing
+// writes it any more — see lib/advice-period.ts checkinsLast7Days) still
+// produced `--- Partner's daily check-ins (last 7 days) ---\nPrayer: \nMood: `.
+// Blank values under that header assert to the model that the partner logged
+// nothing THIS WEEK, which is a claim, not silence. Same call this branch
+// already made for the partner panel in app/(tabs)/family.tsx: an empty array
+// is absence of data, not absence of activity — say nothing.
+describe("getSpouseAdvice: the partner check-in block reports the 7-day window, not the array", () => {
+  const HEADER = "Partner's daily check-ins (last 7 days)";
+  const dayKey = (daysAgo: number) =>
+    new Date(Date.now() - daysAgo * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+
+  function runWith(dailyCheckins: unknown) {
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: { dailyCheckins }, childrenData: [],
+    });
+    return adviceRouter
+      .createCaller({ req: {} as any, res: {} as any, user: { id: 1, name: "U", language: "en", gender: "man", profileData: {} } as any })
+      .getSpouseAdvice({ language: "en" });
+  }
+
+  function promptText() {
+    const call = invokeLLMMock.mock.calls[0][0] as { messages: { role: string; content: string }[] };
+    return call.messages.map((m) => m.content).join("\n");
+  }
+
+  beforeEach(() => {
+    invokeLLMMock.mockReset();
+    dbMocks.getPartnersOfUser.mockReset();
+    dbMocks.getSpouseInteractionData.mockReset();
+    dbMocks.getRecentDiagnosticSignals.mockReset();
+    dbMocks.createSpouseAdvice.mockReset();
+    dbMocks.getRecentDiagnosticSignals.mockResolvedValue([]);
+    dbMocks.createSpouseAdvice.mockResolvedValue(1);
+    invokeLLMMock.mockResolvedValue({ choices: [{ message: { content: "1. Test\n- doe iets aardigs" } }] });
+    dbMocks.getPartnersOfUser.mockResolvedValue([{
+      id: 2, name: "Partner", partnershipId: 55, partnershipConfirmed: true, profileData: {},
+    }]);
+  });
+
+  it("omits the block when every stored check-in falls outside the window", async () => {
+    await runWith([
+      { date: "2025-11-01", prayer: "alle_5_op_tijd", mood: "rustig" },
+      { date: "2025-11-02", prayer: "sommige_gemist", mood: "moe" },
+    ]);
+    expect(promptText()).not.toContain(HEADER);
+  });
+
+  // Presence, not only absence: a guard that merely deleted the block would
+  // satisfy the test above while silently dropping a real signal.
+  it("still emits the block, with its values, when a check-in falls inside the window", async () => {
+    await runWith([
+      { date: "2025-11-01", prayer: "OLD_PRAYER", mood: "OLD_MOOD" },
+      { date: dayKey(1), prayer: "alle_5_op_tijd", mood: "rustig" },
+    ]);
+    const text = promptText();
+    expect(text).toContain(HEADER);
+    expect(text).toContain("alle_5_op_tijd");
+    expect(text).toContain("rustig");
+    expect(text).not.toContain("OLD_PRAYER");
+  });
+
+  it("omits the block when the partner has no check-ins at all", async () => {
+    await runWith([]);
+    expect(promptText()).not.toContain(HEADER);
+  });
+
+  // profileData is stored through z.any() (server/routers.ts:1366), so the
+  // PARTNER controls this blob's shape and it need not be an array. The
+  // original `?.length > 0` guard skipped a non-array by accident; filtering
+  // it directly would throw `.filter is not a function` — a 500 on the OTHER
+  // user's advice request, triggered by data the partner wrote.
+  it.each([[{}], [5], [true], ["not-an-array"]])(
+    "skips a non-array dailyCheckins (%p) instead of throwing",
+    async (stored) => {
+      await expect(runWith(stored)).resolves.toBeDefined();
+      expect(promptText()).not.toContain(HEADER);
+    },
+  );
+
+  // The ELEMENTS are partner-controlled too, and the dated window reads
+  // `.date` off every one of them — where the old `slice(-7)` only ever
+  // touched the last seven. A null entry anywhere in the stored history is
+  // the same cross-user 500.
+  it("drops null/garbage entries and still reports the real ones", async () => {
+    await runWith([null, undefined, 42, { date: dayKey(2), prayer: "fajr_gemist", mood: "moe" }]);
+    const text = promptText();
+    expect(text).toContain(HEADER);
+    expect(text).toContain("fajr_gemist");
+  });
+
+  it("omits the block when every entry is garbage", async () => {
+    await expect(runWith([null, undefined])).resolves.toBeDefined();
+    expect(promptText()).not.toContain(HEADER);
+  });
+
+  // The whole profileData blob is partner-written through z.any(), not just
+  // dailyCheckins. Every `?.length > 0` test in this procedure passes for a
+  // STRING, so any sibling block that then calls .map/.slice is the same
+  // cross-user 500. Asserted as a class, so hardening one block at a time
+  // cannot look finished.
+  describe.each([
+    ["environments", "envs-as-a-string", "Partner has not completed any child environment analysis"],
+    ["dailyTipCompletions", "tips-as-a-string", "Partner has not completed any daily tips recently"],
+  ])("%s stored as a non-array", (field, value, nothingToReport) => {
+    it("does not throw, and takes the 'nothing to report' branch", async () => {
+      dbMocks.getSpouseInteractionData.mockResolvedValue({
+        goals: [], conversations: [], messages: [], childrenData: [],
+        profileData: { [field]: value },
+      });
+      await expect(
+        adviceRouter
+          .createCaller({ req: {} as any, res: {} as any, user: { id: 1, name: "U", language: "en", gender: "man", profileData: {} } as any })
+          .getSpouseAdvice({ language: "en" }),
+      ).resolves.toBeDefined();
+      // A string survives .slice()/.length, so "no crash" is not enough: the
+      // model must not be told the partner completed 10 of anything.
+      expect(promptText()).toContain(nothingToReport);
+    });
+  });
+
+  it("does not throw when childrenData is a non-array", async () => {
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [], profileData: {},
+      childrenData: "kids-as-a-string",
+    });
+    await expect(
+      adviceRouter
+        .createCaller({ req: {} as any, res: {} as any, user: { id: 1, name: "U", language: "en", gender: "man", profileData: {} } as any })
+        .getSpouseAdvice({ language: "en" }),
+    ).resolves.toBeDefined();
+  });
+
+  // Presence: real arrays must still be described to the model.
+  it("still reports real environments and children", async () => {
+    dbMocks.getSpouseInteractionData.mockResolvedValue({
+      goals: [], conversations: [], messages: [],
+      profileData: { environments: [{ childName: "Ahmad" }] },
+      childrenData: [{ name: "Ahmad", birthDate: "2018-01-01" }],
+    });
+    await adviceRouter
+      .createCaller({ req: {} as any, res: {} as any, user: { id: 1, name: "U", language: "en", gender: "man", profileData: {} } as any })
+      .getSpouseAdvice({ language: "en" });
+    const text = promptText();
+    expect(text).toContain("Child environment analyses completed by partner: 1");
+    expect(text).toContain("Ahmad");
+  });
+});

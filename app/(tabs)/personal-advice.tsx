@@ -22,7 +22,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { adviceStillFresh, adviceDiagnosticSig } from "@/lib/advice-period";
+import { adviceStillFresh, adviceDiagnosticSig, checkinsLast7Days } from "@/lib/advice-period";
 import {
   loadAnimationEnabled,
   loadFavorites,
@@ -628,10 +628,10 @@ function PersonalAdviceScreenInner() {
           season,
           language,
           dailyCheckin:
-            state.dailyCheckins?.find(
+            checkinsLast7Days(state.dailyCheckins).find(
               (c: any) => c.date === now.toISOString().slice(0, 10),
             ) || null,
-          recentCheckins: (state.dailyCheckins || []).slice(-7),
+          recentCheckins: checkinsLast7Days(state.dailyCheckins),
           unresolvedIssues,
           childrenEnvironments: (state.children || []).map((c: any) => {
             const env = (state.environments || []).find(
@@ -773,10 +773,10 @@ function PersonalAdviceScreenInner() {
           hijriDay: hijri.day,
           dayOfWeek: now.getDay(),
           dailyCheckin:
-            state.dailyCheckins?.find(
+            checkinsLast7Days(state.dailyCheckins).find(
               (c) => c.date === now.toISOString().slice(0, 10),
             ) || null,
-          recentCheckins: (state.dailyCheckins || []).slice(-7),
+          recentCheckins: checkinsLast7Days(state.dailyCheckins),
           childrenEnvironments: state.children.map((c) => ({
             childName: c.name,
             education: (c as any).education || "",

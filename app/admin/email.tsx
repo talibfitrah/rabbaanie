@@ -6,30 +6,16 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
+import { emailSettingsFromRow, isEmailSettingsRow, type EmailSettingsInput } from "./email-settings";
 
 // ─── Article-email digest admin ─────────────────────────────────────────
 // Mirrors the website /dashboard «البريد» tab. admin.getEmailSettings /
 // updateEmailSettings / sendDigest / previewDigest / emailLog are live on
 // prod but not yet in this repo's server/routers.ts — same repo↔prod lag
 // broadcast.tsx already works around for listSchedules/sendLog by casting
-// trpc.admin to any, done identically here.
-type EmailSettings = {
-  autoSendWeekly: boolean;
-  audience: string;
-  appUrl: string;
-  siteUrl: string;
-  subscribeUrl: string;
-  subjectAr: string; subjectNl: string; subjectEn: string;
-  introAr: string; introNl: string; introEn: string;
-  closingAr: string; closingNl: string; closingEn: string;
-};
-
-const EMPTY_SETTINGS: EmailSettings = {
-  autoSendWeekly: false, audience: "", appUrl: "", siteUrl: "", subscribeUrl: "",
-  subjectAr: "", subjectNl: "", subjectEn: "",
-  introAr: "", introNl: "", introEn: "",
-  closingAr: "", closingNl: "", closingEn: "",
-};
+// trpc.admin to any, done identically here. Because the casts erase the
+// types, every shape this screen relies on is pinned against the production
+// repo in ./email-settings.ts and tests/admin-email-settings-contract.test.ts.
 
 export default function EmailDigestScreen() {
   const colors = useColors();
@@ -39,23 +25,19 @@ export default function EmailDigestScreen() {
   const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
   const align: "right" | "left" = isRTL ? "right" : "left";
 
-  const [settings, setSettings] = useState<EmailSettings>(EMPTY_SETTINGS);
-  const setField = (patch: Partial<EmailSettings>) => setSettings((s) => ({ ...s, ...patch }));
+  // null until the row loads: there is no blank default to accidentally save
+  // over the copy the website owns (every field is written unconditionally —
+  // rabbaanie-api server/article-email.ts:283-306).
+  const [form, setForm] = useState<EmailSettingsInput | null>(null);
+  const setField = (patch: Partial<EmailSettingsInput>) => setForm((s) => (s ? { ...s, ...patch } : s));
 
   const settingsQuery = (trpc.admin as any).getEmailSettings.useQuery();
+  // A response that arrived but is not the row this screen knows how to map is
+  // treated as a failed load, NOT as an empty row: mapping it yields a blank
+  // form whose Save would overwrite the production copy. See isEmailSettingsRow.
+  const rowUnusable = settingsQuery.data != null && !isEmailSettingsRow(settingsQuery.data);
   useEffect(() => {
-    const d = settingsQuery.data;
-    if (!d) return;
-    setSettings({
-      autoSendWeekly: !!d.autoSendWeekly,
-      audience: d.audience || "",
-      appUrl: d.appUrl || "",
-      siteUrl: d.siteUrl || "",
-      subscribeUrl: d.subscribeUrl || "",
-      subjectAr: d.subjectAr || "", subjectNl: d.subjectNl || "", subjectEn: d.subjectEn || "",
-      introAr: d.introAr || "", introNl: d.introNl || "", introEn: d.introEn || "",
-      closingAr: d.closingAr || "", closingNl: d.closingNl || "", closingEn: d.closingEn || "",
-    });
+    if (isEmailSettingsRow(settingsQuery.data)) setForm(emailSettingsFromRow(settingsQuery.data));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsQuery.data]);
 
@@ -67,23 +49,71 @@ export default function EmailDigestScreen() {
     onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر الحفظ.", "Opslaan is mislukt.", "Could not save.")),
   });
 
+  // auto_send_weekly gates a real mass-mail: the VM's Sunday 19:00 cron
+  // (rabbaanie-api scripts/weekly-digest.ts:12-18) sends to every user unless
+  // this is false. Turning it on gets the same confirmation as "send to all";
+  // turning it off is safe and needs none.
+  const toggleWeekly = () => {
+    if (!form) return;
+    if (form.autoSendWeekly) return setField({ autoSendWeekly: false });
+    Alert.alert(
+      L3("تفعيل الإرسال الأسبوعيّ", "Wekelijks verzenden inschakelen", "Enable weekly auto-send"),
+      L3(
+        "سيُرسَل البريد تلقائيًّا إلى جميع المستخدمين كلّ أحد دون تأكيدٍ آخر. هل تريد التفعيل؟",
+        "De nieuwsbrief gaat dan elke zondag automatisch naar alle gebruikers, zonder verdere bevestiging. Inschakelen?",
+        "The digest will then go automatically to every user each Sunday, with no further confirmation. Enable it?",
+      ),
+      [
+        { text: L3("إلغاء", "Annuleren", "Cancel"), style: "cancel" },
+        { text: L3("تفعيل", "Inschakelen", "Enable"), style: "destructive", onPress: () => setField({ autoSendWeekly: true }) },
+      ],
+    );
+  };
+
   // ─── Preview: the articles the next send would include ─────────────────
+  // previewDigest returns a bare array of { id, title, createdAt }; `title`
+  // is already resolved server-side (rabbaanie-api server/routers.ts:1630-1638).
   const previewQuery = (trpc.admin as any).previewDigest.useQuery();
-  const previewArticles: any[] = Array.isArray(previewQuery.data)
-    ? previewQuery.data
-    : Array.isArray(previewQuery.data?.articles)
-      ? previewQuery.data.articles
-      : [];
-  const previewCount = previewQuery.data?.count ?? previewArticles.length;
-  const articleTitle = (a: any) => a.title || a.titleAr || a.titleNl || a.titleEn || a.name || `#${a.id ?? ""}`;
+  const previewArticles: any[] = previewQuery.data ?? [];
+
+  // ─── Send log ────────────────────────────────────────────────────────
+  // getEmailLog returns camelCase { id, mode, recipientCount, status, sentAt }
+  // (rabbaanie-api server/article-email.ts:400-412).
+  const logQuery = (trpc.admin as any).emailLog.useQuery();
+  const log: any[] = logQuery.data ?? [];
+  const modeLabel = (m: string) => (m === "test" ? L3("تجربة", "Test", "Test") : m === "all" ? L3("للجميع", "Iedereen", "Everyone") : m);
+  const statusLabel = (s: string) => {
+    // The four statuses article-email.ts:368-372 actually writes.
+    const known: Record<string, string> = {
+      sent: L3("أُرسلت", "Verzonden", "Sent"),
+      partial: L3("أُرسلت جزئيًّا", "Deels verzonden", "Partially sent"),
+      failed: L3("فشلت", "Mislukt", "Failed"),
+      empty: L3("لا مستلمين", "Geen ontvangers", "No recipients"),
+    };
+    return known[s] || s;
+  };
 
   // ─── Send now (test / all) ───────────────────────────────────────────
+  // sendDigest resolves to { recipientCount, articleCount }
+  // (rabbaanie-api server/article-email.ts:311-313).
   const sendMutation = (trpc.admin as any).sendDigest.useMutation({
-    onSuccess: (r: any) =>
+    onSuccess: (r: any, vars: any) => {
+      logQuery.refetch();
+      // "send to all" with nothing new is a logged no-op, not a send
+      // (article-email.ts:324-330) — saying "sent" would invite a retry.
+      if (vars?.mode === "all" && !r?.articleCount) {
+        return Alert.alert(
+          L3("لم يُرسَل شيء", "Niets verzonden", "Nothing sent"),
+          L3("لا توجد مقالاتٌ جديدة منذ آخر إرسال.", "Er zijn geen nieuwe artikelen sinds de vorige verzending.", "There are no new articles since the last send."),
+        );
+      }
+      const n = r?.recipientCount ?? 0;
+      const a = r?.articleCount ?? 0;
       Alert.alert(
         L3("تم الإرسال", "Verzonden", "Sent"),
-        L3(`أُرسلت النشرة إلى ${r?.sent ?? 0} مستلم.`, `De nieuwsbrief is verzonden naar ${r?.sent ?? 0} ontvangers.`, `The digest was sent to ${r?.sent ?? 0} recipients.`),
-      ),
+        L3(`أُرسلت النشرة إلى ${n} مستلمًا (${a} مقالة).`, `De nieuwsbrief is verzonden naar ${n} ontvangers (${a} artikelen).`, `The digest was sent to ${n} recipients (${a} articles).`),
+      );
+    },
     onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر الإرسال.", "Verzenden is mislukt.", "Could not send.")),
   });
   const sendTest = () => sendMutation.mutate({ mode: "test" });
@@ -96,20 +126,6 @@ export default function EmailDigestScreen() {
         { text: L3("إرسال", "Verzenden", "Send"), style: "destructive", onPress: () => sendMutation.mutate({ mode: "all" }) },
       ],
     );
-  };
-
-  // ─── Send log ────────────────────────────────────────────────────────
-  const logQuery = (trpc.admin as any).emailLog.useQuery();
-  const log: any[] = logQuery.data || [];
-  const modeLabel = (m: string) => (m === "test" ? L3("تجربة", "Test", "Test") : m === "all" ? L3("للجميع", "Iedereen", "Everyone") : m);
-  const statusLabel = (s: string) => {
-    const known: Record<string, string> = {
-      sent: L3("أُرسلت", "Verzonden", "Sent"),
-      success: L3("نجحت", "Gelukt", "Succeeded"),
-      failed: L3("فشلت", "Mislukt", "Failed"),
-      error: L3("فشلت", "Mislukt", "Failed"),
-    };
-    return known[s] || s;
   };
 
   const inputStyle = { backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, textAlign: align, borderWidth: 1, borderColor: colors.border, marginTop: 6 };
@@ -131,62 +147,67 @@ export default function EmailDigestScreen() {
           )}
         </Text>
 
-        {settingsQuery.isLoading ? (
-          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
-        ) : settingsQuery.isError ? (
+        {settingsQuery.isError || rowUnusable ? (
           <Text style={{ color: colors.error, textAlign: "center", paddingVertical: 20, lineHeight: 22 }}>
             {L3("تعذّر تحميل إعدادات البريد.", "Kon e-mailinstellingen niet laden.", "Could not load email settings.")}
           </Text>
+        ) : !form ? (
+          <ActivityIndicator color={colors.primary} style={{ marginVertical: 20 }} />
         ) : (
           <>
             {label(L3("الإرسال التلقائي الأسبوعي", "Wekelijks automatisch verzenden", "Weekly auto-send"))}
             <TouchableOpacity
-              onPress={() => setField({ autoSendWeekly: !settings.autoSendWeekly })}
-              style={{ alignSelf: isRTL ? "flex-end" : "flex-start", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: settings.autoSendWeekly ? colors.primary : colors.surface, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1, borderColor: settings.autoSendWeekly ? colors.primary : colors.border, marginTop: 8 }}
+              onPress={toggleWeekly}
+              style={{ alignSelf: isRTL ? "flex-end" : "flex-start", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: form.autoSendWeekly ? colors.primary : colors.surface, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1, borderColor: form.autoSendWeekly ? colors.primary : colors.border, marginTop: 8 }}
             >
-              <MaterialIcons name={settings.autoSendWeekly ? "check-box" : "check-box-outline-blank"} size={15} color={settings.autoSendWeekly ? "#fff" : colors.muted} />
-              <Text style={{ fontSize: 12, fontWeight: "700", color: settings.autoSendWeekly ? "#fff" : colors.foreground }}>
-                {settings.autoSendWeekly ? L3("مفعّل", "Actief", "Active") : L3("متوقف", "Inactief", "Inactive")}
+              <MaterialIcons name={form.autoSendWeekly ? "check-box" : "check-box-outline-blank"} size={15} color={form.autoSendWeekly ? "#fff" : colors.muted} />
+              <Text style={{ fontSize: 12, fontWeight: "700", color: form.autoSendWeekly ? "#fff" : colors.foreground }}>
+                {form.autoSendWeekly ? L3("مفعّل", "Actief", "Active") : L3("متوقف", "Inactief", "Inactive")}
               </Text>
             </TouchableOpacity>
+            {hint(L3("عند التفعيل تُرسَل النشرة تلقائيًّا كلّ أحد إلى جميع المستخدمين.", "Indien actief gaat de nieuwsbrief elke zondag automatisch naar alle gebruikers.", "When active the digest goes automatically to every user each Sunday."))}
 
+            {/* Audience is stored but never applied: mode:'all' mails every
+                user whose account is not deleted and who has not unsubscribed
+                (rabbaanie-api server/article-email.ts:339-348). Read-only, like
+                the website's single-option <select> (web-dashboard.ts:728). */}
             {label(L3("الجمهور المستهدف", "Doelgroep", "Audience"))}
-            <TextInput value={settings.audience} onChangeText={(v) => setField({ audience: v })} placeholderTextColor={colors.muted} style={inputStyle} />
+            <Text style={{ ...inputStyle, color: colors.muted }}>{L3("جميع المستخدمين", "Alle gebruikers", "All users")}</Text>
+            {hint(L3("لا يمكن تضييق الجمهور؛ تصل النشرة إلى كلّ مَن لم يُلغِ الاشتراك.", "De doelgroep is niet te beperken; iedereen die zich niet heeft uitgeschreven ontvangt de nieuwsbrief.", "The audience cannot be narrowed; everyone who has not unsubscribed receives the digest."))}
 
-            {label(L3("الموضوع", "Onderwerp", "Subject"))}
-            {hint("العربية")}
-            <TextInput value={settings.subjectAr} onChangeText={(v) => setField({ subjectAr: v })} placeholderTextColor={colors.muted} style={inputStyle} />
-            {hint("Nederlands")}
-            <TextInput value={settings.subjectNl} onChangeText={(v) => setField({ subjectNl: v })} placeholderTextColor={colors.muted} style={inputStyle} />
-            {hint("English")}
-            <TextInput value={settings.subjectEn} onChangeText={(v) => setField({ subjectEn: v })} placeholderTextColor={colors.muted} style={inputStyle} />
+            {/* No subject editor: the digest subject is a fixed per-language
+                constant (DIGEST_SUBJECT, rabbaanie-api
+                server/article-email.ts:90-94, returned at :274). The stored
+                subject_ar/nl/en columns are written but never read, so this
+                screen carries them through untouched instead of offering
+                three controls that change nothing. */}
 
             {label(L3("المقدّمة", "Inleiding", "Intro"))}
             {hint("العربية")}
-            <TextInput value={settings.introAr} onChangeText={(v) => setField({ introAr: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.introAr} onChangeText={(v) => setField({ introAr: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
             {hint("Nederlands")}
-            <TextInput value={settings.introNl} onChangeText={(v) => setField({ introNl: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.introNl} onChangeText={(v) => setField({ introNl: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
             {hint("English")}
-            <TextInput value={settings.introEn} onChangeText={(v) => setField({ introEn: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.introEn} onChangeText={(v) => setField({ introEn: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
 
             {label(L3("الخاتمة", "Afsluiting", "Closing"))}
             {hint("العربية")}
-            <TextInput value={settings.closingAr} onChangeText={(v) => setField({ closingAr: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.closingAr} onChangeText={(v) => setField({ closingAr: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
             {hint("Nederlands")}
-            <TextInput value={settings.closingNl} onChangeText={(v) => setField({ closingNl: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.closingNl} onChangeText={(v) => setField({ closingNl: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
             {hint("English")}
-            <TextInput value={settings.closingEn} onChangeText={(v) => setField({ closingEn: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
+            <TextInput value={form.closingEn} onChangeText={(v) => setField({ closingEn: v })} multiline placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 80, textAlignVertical: "top" }} />
 
             {label(L3("الروابط", "Links", "Links"))}
             {hint(L3("رابط التطبيق", "App-link", "App link"))}
-            <TextInput value={settings.appUrl} onChangeText={(v) => setField({ appUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
+            <TextInput value={form.appUrl} onChangeText={(v) => setField({ appUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
             {hint(L3("رابط الموقع", "Website-link", "Site link"))}
-            <TextInput value={settings.siteUrl} onChangeText={(v) => setField({ siteUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
+            <TextInput value={form.siteUrl} onChangeText={(v) => setField({ siteUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
             {hint(L3("رابط الاشتراك", "Abonneerlink", "Subscribe link"))}
-            <TextInput value={settings.subscribeUrl} onChangeText={(v) => setField({ subscribeUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
+            <TextInput value={form.subscribeUrl} onChangeText={(v) => setField({ subscribeUrl: v })} autoCapitalize="none" keyboardType="url" placeholderTextColor={colors.muted} style={inputStyle} />
 
             <TouchableOpacity
-              onPress={() => updateMutation.mutate(settings)}
+              onPress={() => updateMutation.mutate(form)}
               disabled={updateMutation.isPending}
               style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 18, opacity: updateMutation.isPending ? 0.6 : 1 }}
             >
@@ -207,12 +228,12 @@ export default function EmailDigestScreen() {
         ) : (
           <>
             <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, textAlign: align, marginTop: 8 }}>
-              {L3(`ستتضمّن النشرةُ ${previewCount} مقالات`, `Deze nieuwsbrief bevat ${previewCount} artikelen.`, `This digest will include ${previewCount} articles.`)}
+              {L3(`ستتضمّن النشرةُ ${previewArticles.length} مقالات`, `Deze nieuwsbrief bevat ${previewArticles.length} artikelen.`, `This digest will include ${previewArticles.length} articles.`)}
             </Text>
             {previewArticles.length > 0 && (
               <View style={{ marginTop: 8, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 6 }}>
                 {previewArticles.map((a: any, i: number) => (
-                  <Text key={a.id ?? i} style={{ fontSize: 12, color: colors.foreground, textAlign: align }}>{"• " + articleTitle(a)}</Text>
+                  <Text key={a.id ?? i} style={{ fontSize: 12, color: colors.foreground, textAlign: align }}>{"• " + a.title}</Text>
                 ))}
               </View>
             )}
@@ -242,16 +263,21 @@ export default function EmailDigestScreen() {
         {hint(L3("عمليات الإرسال السابقة، نوعها، وعدد من وصلتهم.", "Eerdere verzendingen, hun soort en het aantal ontvangers.", "Past sends, their mode, and how many recipients each reached."))}
         <View style={{ gap: 8, marginTop: 8 }}>
           {logQuery.isLoading && <ActivityIndicator size="small" color={colors.muted} />}
+          {logQuery.isError && (
+            <Text style={{ fontSize: 12, color: colors.error, textAlign: align }}>
+              {L3("تعذّر تحميل سجلّ الإرسال.", "Kon het verzendlog niet laden.", "Could not load the send log.")}
+            </Text>
+          )}
           {log.map((l: any, i: number) => (
             <View key={l.id ?? i} style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <View>
                 <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, textAlign: align }}>{modeLabel(l.mode) + " · " + statusLabel(l.status)}</Text>
-                <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginTop: 2 }}>{new Date(l.sentAt ?? l.createdAt).toLocaleString(language)}</Text>
+                <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginTop: 2 }}>{new Date(l.sentAt).toLocaleString(language)}</Text>
               </View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>{(l.recipientCount ?? l.sent ?? 0) + " " + L3("مستلمًا", "ontvangers", "recipients")}</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>{(l.recipientCount ?? 0) + " " + L3("مستلمًا", "ontvangers", "recipients")}</Text>
             </View>
           ))}
-          {!logQuery.isLoading && log.length === 0 && (
+          {!logQuery.isLoading && !logQuery.isError && log.length === 0 && (
             <Text style={{ fontSize: 12, color: colors.muted, textAlign: align }}>{L3("لا توجد عمليات إرسال بعد.", "Nog geen verzendingen.", "No sends yet.")}</Text>
           )}
         </View>

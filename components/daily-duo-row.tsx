@@ -22,8 +22,8 @@ interface Props {
  * deeds), replacing what used to be two separate full-width cards on the
  * home screen. Both halves below are static — no data query in this
  * component — so nothing loads on the home mount. Tapping a half mounts the
- * matching full card, which is what starts its own fetch (see
- * DailyDiagnosticCard's `autoOpen` prop and its cost-guard comment).
+ * matching full card, which is what starts its own fetch — mounting it IS
+ * the tap (see DailyDiagnosticCard's cost-guard comment).
  */
 export function DailyDuoRow({ lang, isRTL }: Props) {
   const [open, setOpen] = useState<"review" | "deeds" | null>(null);
@@ -52,8 +52,8 @@ export function DailyDuoRow({ lang, isRTL }: Props) {
           <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={16} color="#C4A35A" />
         </Pressable>
       </View>
-      {open === "review" && <DailyDiagnosticCard lang={lang} isRTL={isRTL} autoOpen />}
-      {open === "deeds" && <DailyDeedsCard lang={lang} isRTL={isRTL} />}
+      {open === "review" && <DailyDiagnosticCard lang={lang} />}
+      {open === "deeds" && <DailyDeedsCard lang={lang} />}
     </>
   );
 }
