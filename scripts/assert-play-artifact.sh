@@ -83,7 +83,22 @@ if [ "$NSIG" -ne 1 ]; then
     fail "expected exactly 1 signer, found $NSIG: $(printf '%s' "$SIG" | tr '\n' ' ')"
   fi
 else
-  CERT_SHA256=$(unzip -p "$ART" "$SIG" | openssl pkcs7 -inform DER -print_certs 2>/dev/null \
+  # The certificate alone only proves the block CONTAINS that key. Verify the
+  # block's signature over its .SF, so it proves the key SIGNED this bundle's
+  # signature file. -noverify skips chain validation (the cert is self-signed),
+  # not the signature itself. The entry digests beneath the .SF are checked by
+  # Play at upload; this gate exists to catch the wrong key before that.
+  SF="${SIG%.*}.SF"
+  unzip -p "$ART" "$SIG" > "$TMP/sig.der" 2>/dev/null
+  unzip -p "$ART" "$SF"  > "$TMP/sig.sf"  2>/dev/null
+  if [ ! -s "$TMP/sig.der" ] || [ ! -s "$TMP/sig.sf" ]; then
+    echo "Could not read $SIG / $SF from $ART — refusing to ship unverified" >&2
+    exit 1
+  fi
+  if ! openssl cms -verify -inform DER -in "$TMP/sig.der" -content "$TMP/sig.sf" -noverify -out /dev/null 2>/dev/null; then
+    fail "$SIG does not verify over $SF — this signature block was not produced over this bundle's signature file"
+  fi
+  CERT_SHA256=$(openssl pkcs7 -inform DER -in "$TMP/sig.der" -print_certs 2>/dev/null \
                 | openssl x509 -noout -fingerprint -sha256 2>/dev/null | sed 's/^.*=//')
   if [ -z "$CERT_SHA256" ]; then
     echo "Could not read the signing certificate from $ART — refusing to ship unverified" >&2
