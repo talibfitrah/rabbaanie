@@ -617,6 +617,16 @@ describe("Play policy surfaces", () => {
     expect(read("scripts/assert-play-artifact.sh")).toContain("LocationTaskService");
   });
 
+  it("pins the same upload certificate in the hand-built gate and the CI workflow", () => {
+    // The pin exists in both because CI cannot run the script's openssl path
+    // and the script cannot read CI secrets; nothing else stops them drifting.
+    const pin = (text: string) => text.match(/EXPECTED_SHA256[=:]\s*"([0-9A-F:]{95})"/)?.[1];
+    const script = pin(read("scripts/assert-play-artifact.sh"));
+    const workflow = pin(read(".github/workflows/play-release.yml"));
+    expect(script).toBeTruthy();
+    expect(workflow).toBe(script);
+  });
+
   it("shows no screen-time figures anywhere on the Play build", () => {
     const monitor = read("app/child-account/parent-monitor.tsx");
     // Not just the Apps tab. `totalAppUsageSeconds` also fed a usage-time tile,
