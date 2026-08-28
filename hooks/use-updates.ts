@@ -5,6 +5,7 @@ import Constants from "expo-constants";
 import * as FileSystem from "expo-file-system/legacy";
 import * as IntentLauncher from "expo-intent-launcher";
 import { evaluateLatest, isNewerVersion, type PendingUpdate } from "@/lib/app-version";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 import { APP_PACKAGE } from "../constants/app-identity";
 
 // Our own update manifest, served from the app's server (no third-party/GitHub).
@@ -25,12 +26,65 @@ const FLAG_GRANT_READ_URI_PERMISSION = 1;
 export const INSTALLED_VERSION =
   Application.nativeApplicationVersion ?? Constants.expoConfig?.version ?? "0.0.0";
 
+/**
+ * The version identity every API request carries. Spread this rather than
+ * writing X-App-Version by hand, so a new call site cannot ship half of it.
+ *
+ * X-App-Platform is the missing half of a real hazard. The server compares
+ * X-App-Version against ONE global minVersion (lib/app-version.ts
+ * isVersionRefused) and, with no platform on the request, cannot scope that
+ * minimum to Android even if it wanted to. app/_layout.tsx renders
+ * VersionBlockScreen ahead of every other gate, undismissable, with one button
+ * — so raising minVersion to retire an old Android build hard-blocks every
+ * older iOS install too, and on iOS that button opens a site carrying no iOS
+ * download and (until the first submission mints an App Store ID) no store link
+ * either. That is a stranded user, and a reviewer on an older build is one of
+ * them.
+ *
+ * Sending the header does not fix it on its own — `rabbaanie-api` has to key
+ * minVersion by platform and read this, defaulting to "do not block" for a
+ * platform with no minimum configured. It is sent now because its absence is
+ * what makes that server change impossible, and because a header the server
+ * ignores costs nothing ON NATIVE, where fetch has no CORS. The web target is
+ * the caveat, and this repo cannot settle it: a custom header forces a preflight
+ * against Access-Control-Allow-Headers, and the only allowlist visible here
+ * (server/_core/index.ts) lists neither X-App-Platform NOR the X-App-Version
+ * that has always been sent — but that file is not what runs in production (see
+ * *Two repos* in CLAUDE.md), so it proves nothing either way. What is true: this
+ * header rides the same preflight X-App-Version already needed, so it adds no
+ * new requirement. If a web build fails CORS, add both to the API's allowlist.
+ * Until BOTH halves ship: do not raise minVersion for an
+ * Android release.
+ */
+export const CLIENT_VERSION_HEADERS: Record<string, string> = {
+  "X-App-Version": INSTALLED_VERSION,
+  // Native only. A custom header must be named individually in the API's
+  // Access-Control-Allow-Headers, and React Native's fetch has no CORS — so on
+  // native this is free, while on web it would widen a preflight against an
+  // allowlist this repo cannot see (server/_core/index.ts is not what runs in
+  // production). If that allowlist enumerates headers rather than using "*",
+  // adding one breaks EVERY browser call. There is nothing to gain against
+  // that: X-App-Platform exists so minVersion can be scoped per store, and web
+  // is not a store — a browser reloads to the current build by definition. The
+  // server must therefore treat a request with no platform as "do not block",
+  // which is the same default it needs for any platform with no minimum set.
+  ...(Platform.OS === "web" ? {} : { "X-App-Platform": Platform.OS }),
+};
+
 // Google Play forbids an app distributed on Play from updating itself by any
 // mechanism other than Play's own. The Play build therefore ships without
 // REQUEST_INSTALL_PACKAGES (see DISTRIBUTION in app.config.ts) — this flag keeps
 // the matching code paths dark so nothing can attempt an install it cannot do.
 // Settings reads it to hide the update controls entirely.
-export const UPDATER_ENABLED = Constants.expoConfig?.extra?.distribution === "github";
+//
+// Read through the shared channel rather than expo-constants a second time.
+// The direct config read was true on an iOS build made with
+// APP_DISTRIBUTION=github, and Settings gates its download controls on this
+// flag ALONE with no platform check — so that build offered an iPhone user an
+// APK the device cannot install. DISTRIBUTION_CHANNEL resolves iOS to "apple"
+// before it ever looks at the configured value, which makes the impossibility
+// structural instead of a coincidence of how iOS happens to be built today.
+export const UPDATER_ENABLED = DISTRIBUTION_CHANNEL === "github";
 
 // True exactly when the Play hand-off below is offered. Exported because the
 // Settings section TITLE and the button must read the same flag: gating the
@@ -256,8 +310,26 @@ export async function checkForUpdate(silent: boolean = false) {
         // that was never the only caller: a push of type app_update calls this
         // directly (hooks/use-push-notifications.ts), so the dead end was
         // reachable by the one path that exists to announce a new version.
+        //
+        // The third channel that warning anticipated has now arrived, and it
+        // decoupled nothing: PLAY_UPDATE_HANDOFF already requires
+        // Platform.OS === "android", which no "apple" build can satisfy, so
+        // the two arms are mutually exclusive and this one still fires in
+        // exactly the cases Settings renders its button for.
         await openPlayStoreListing();
       } else {
+        // Web and iOS. The wording — that in-app updating is Android-only — is
+        // true for both: the sideload APK updater is the only in-app mechanism
+        // this app has. iOS reaches this only in theory, because nothing there
+        // calls this function at all: Settings wraps its updater in
+        // `UPDATER_ENABLED &&`, false off the github channel, and the push path
+        // returns null before it can call.
+        //
+        // An "apple" arm naming the App Store used to sit above this one. It was
+        // removed as dead code: eight lines that never executed. If iOS ever
+        // does reach here — someone enabling push, or widening UPDATER_ENABLED —
+        // this string needs an App Store arm, and by then the numeric App Store
+        // ID will exist so it can deep-link instead of merely naming the store.
         Alert.alert(
           tx("Niet beschikbaar", "Not Available", "غير متاح"),
           tx(

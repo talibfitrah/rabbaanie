@@ -5,6 +5,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { migrateLegacyTaskKeys, displayBlocks } from "@/lib/plan-blocks";
 import { cleanTreatmentText, canonicalPlanText } from "@/lib/plan-text";
 import { planProgressKey } from "@/lib/plan-progress";
+import { enqueue } from "@/lib/notification-queue";
 
 // ============ CONSTANTS ============
 
@@ -51,6 +52,9 @@ export async function setupWeeklyGoalsChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(WEEKLY_GOALS_CHANNEL_ID, {
     name: "أهداف أسبوعية / Weekly Goals",
     importance: Notifications.AndroidImportance.HIGH,
+    // Android-only. iOS has no notification channels at all, so every scheduled
+    // content below carries its own matching sound; without one it arrives silent
+    // and nothing throws. See tests/adhan-ios-sound.test.ts.
     sound: "default",
   });
 }
@@ -61,7 +65,14 @@ export async function setupWeeklyGoalsChannel(): Promise<void> {
  * Schedule a daily recurring notification with the current weekly goal.
  * Reads the current goals from AsyncStorage and picks the appropriate one for today.
  */
-export async function scheduleWeeklyGoalsNotification(
+export function scheduleWeeklyGoalsNotification(
+  language: "nl" | "en" | "ar" = "ar"
+): Promise<boolean> {
+  return enqueue(() => scheduleWeeklyGoalsInner(language));
+}
+
+/** The pass itself. Callers must hold the shared queue — see above. */
+async function scheduleWeeklyGoalsInner(
   language: "nl" | "en" | "ar" = "ar"
 ): Promise<boolean> {
   if (Platform.OS === "web") return false;
@@ -91,7 +102,7 @@ export async function scheduleWeeklyGoalsNotification(
         body,
         data: { type: WEEKLY_GOALS_TYPE, url: "/(tabs)/weekly", showPopup: true, ruling: "مستحب" },
         ...(Platform.OS === "android" ? { channelId: WEEKLY_GOALS_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-        ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+        ...(Platform.OS === "ios" ? { sound: "default" } : {}),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,

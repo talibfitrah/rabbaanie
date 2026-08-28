@@ -34,7 +34,13 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
 }));
 // publicFetch also reads the app version from here for X-App-Version — same
 // stub the other transport-layer suites use, so this doesn't reach expo-*.
-vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
+vi.mock("@/hooks/use-updates", () => ({
+  INSTALLED_VERSION: "1.5.1",
+  CLIENT_VERSION_HEADERS: {
+    "X-App-Version": "1.5.1",
+    "X-App-Platform": "android",
+  },
+}));
 
 import {
   completeNativeGoogleSignIn,
@@ -60,11 +66,19 @@ describe("certificate-bound Android Google sign-in", () => {
     mocks.signIn.mockResolvedValue({ type: "cancelled", data: null });
 
     await expect(freshSignIn()).resolves.toBeNull();
-    expect(mocks.configure).toHaveBeenCalledWith({
-      webClientId:
-        "546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o.apps.googleusercontent.com",
-      offlineAccess: false,
-    });
+    // objectContaining, not an exact literal: configure() also carries
+    // `iosClientId` once GOOGLE_IOS_CLIENT_ID is filled in, and an exact match
+    // here would turn pasting that id into a red CI run with a failure that
+    // says nothing about the real cause. What must hold either way is that the
+    // audience stays the WEB client — that is the single value the API
+    // verifies the ID token against, on both platforms.
+    expect(mocks.configure).toHaveBeenCalledWith(
+      expect.objectContaining({
+        webClientId:
+          "546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o.apps.googleusercontent.com",
+        offlineAccess: false,
+      }),
+    );
     expect(mocks.hasPlayServices).toHaveBeenCalledWith({
       showPlayServicesUpdateDialog: true,
     });
@@ -366,8 +380,22 @@ describe("certificate-bound Android Google sign-in", () => {
     // the empty parens made a signature change look like a security regression.
     expect(login).toContain("completeNativeGoogleSignIn(");
     expect(login).not.toContain("openAuthSessionAsync");
-    expect(config).toContain("scheme: isGithubBuild ? env.scheme : undefined");
     expect(identity).not.toContain("GOOGLE_AUTH_REDIRECT_URI");
+
+    // This used to assert `scheme: isGithubBuild ? env.scheme : undefined`.
+    // That expression crashed every iOS build on launch — expo-linking throws
+    // "Cannot make a deep link into a standalone app with no custom scheme
+    // defined" the moment the bundle starts — and this assertion was one of
+    // the two that held it in place, by pinning the CONFIG VALUE rather than
+    // what ends up in the artifact.
+    //
+    // The Play invariant is unchanged and is enforced where it belongs: the
+    // Android manifest mod filters every intent-filter carrying a retired
+    // scheme, and scripts/assert-play-artifact.sh fails the build if the
+    // scheme survives into the AAB. A scheme string in the JS manifest
+    // intercepts nothing; an intent-filter does.
+    expect(config).toContain("scheme: env.scheme");
+    expect(config).not.toContain("isGithubBuild ? env.scheme");
   });
 
   it("requires server-side Google signature and audience verification", () => {
@@ -376,6 +404,104 @@ describe("certificate-bound Android Google sign-in", () => {
     expect(server).toContain("googleTokenVerifier.verifyIdToken");
     expect(server).toContain("audience");
     expect(server).toContain("payload.email_verified !== true");
+  });
+});
+
+/**
+ * iOS Google sign-in: the client id, and the button that depends on it.
+ *
+ * The button was hidden on iOS by `Platform.OS === "android"` since de65aa6,
+ * and could not have worked if shown: GoogleSignin.configure() REJECTS on iOS
+ * with neither `iosClientId` nor a GoogleService-Info.plist present
+ * (RNGoogleSignin.mm:78), and that rejection surfaces on the user's first tap
+ * because signIn() awaits the stored config promise (GoogleSignin.ts:55).
+ *
+ * So visibility and capability have to move together. These pin both halves.
+ */
+describe("iOS Google sign-in", () => {
+  const WEB =
+    "546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o.apps.googleusercontent.com";
+  const IOS = "546852827424-someiosclient.apps.googleusercontent.com";
+
+  it("sends iosClientId once one exists, and OMITS it until then", async () => {
+    // Both states are real shipping states, and the wrong one is silent in
+    // each direction. Omitting the key on iOS breaks sign-in; sending "" is
+    // worse than omitting, because the native check is a truthiness test on
+    // the bridged value — an empty string still takes the branch and hands
+    // GIDSignIn no client id at all.
+    for (const iosClientId of ["", IOS]) {
+      vi.resetModules();
+      vi.clearAllMocks();
+      vi.doMock("../constants/app-identity", () => ({
+        APP_PACKAGE: "com.rabbaanie.app",
+        APP_SCHEME: "rabbaanie",
+        GOOGLE_WEB_CLIENT_ID: WEB,
+        GOOGLE_IOS_CLIENT_ID: iosClientId,
+      }));
+      const { completeNativeGoogleSignIn: freshSignIn } = await import(
+        "../lib/google-oauth"
+      );
+      mocks.hasPlayServices.mockResolvedValue(true);
+      mocks.signOut.mockResolvedValue(undefined);
+      mocks.signIn.mockResolvedValue({ type: "cancelled", data: null });
+
+      await expect(freshSignIn()).resolves.toBeNull();
+
+      const passed = mocks.configure.mock.calls[0][0];
+      expect(passed.webClientId, `webClientId with ios="${iosClientId}"`).toBe(
+        WEB,
+      );
+      // `in`, not a value comparison: {iosClientId: undefined} passes an
+      // equality check against an object that omits the key, and undefined is
+      // exactly what a spread of the wrong shape would produce.
+      expect(
+        "iosClientId" in passed,
+        `iosClientId key present with ios="${iosClientId}"`,
+      ).toBe(iosClientId !== "");
+      if (iosClientId) expect(passed.iosClientId).toBe(IOS);
+    }
+    vi.doUnmock("../constants/app-identity");
+  });
+
+  it("shows the sign-in button per capability, not per platform", () => {
+    // Whitespace-normalised for the reason the sibling scanners give: a
+    // multi-token source match goes red on correct code the day prettier
+    // breaks the line differently, and the tempting fix for that is to loosen
+    // the pattern, which deletes the guard.
+    const login = readFileSync("app/login.tsx", "utf8").replace(/\s+/g, " ");
+
+    // Presence, so this cannot pass by matching nothing: the gate exists, it
+    // is the one the button is wrapped in, and it has an iOS branch.
+    expect(login).toContain("const GOOGLE_SIGN_IN_AVAILABLE =");
+    expect(login).toContain("{GOOGLE_SIGN_IN_AVAILABLE && (");
+    expect(login).toContain(
+      'Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID !== ""',
+    );
+    // ...and absence of the gate that hid it. Scoped to the JSX conditional
+    // rather than the whole file, because Platform.OS === "android" is a
+    // legitimate thing to write elsewhere in a login screen.
+    expect(login).not.toContain('{Platform.OS === "android" && (');
+  });
+
+  it("derives the iOS URL scheme instead of spelling it out", () => {
+    const config = readFileSync("app.config.ts", "utf8").replace(/\s+/g, " ");
+
+    // The literal that was there was the reversed WEB client id — a scheme no
+    // iOS OAuth client will ever redirect to. Writing it out a second time is
+    // what let it drift from the id it is supposed to mirror, so the guard is
+    // that it is never written out at all.
+    // Prefix followed by a DIGIT, not the bare prefix: reversedClientId builds
+    // that prefix in a template literal and names it in its docstring, both of
+    // which are the derivation working, not drifting. Every real client id
+    // starts with the numeric project id, so a pasted literal always matches.
+    expect(
+      config,
+      "app.config.ts hard-codes a reversed client id again — derive it from " +
+        "the constant with reversedClientId() so the two cannot drift",
+    ).not.toMatch(/com\.googleusercontent\.apps\.\d/);
+    expect(config).toMatch(
+      /iosUrlScheme:\s*reversedClientId\(\s*GOOGLE_IOS_CLIENT_ID\s*\|\|\s*GOOGLE_WEB_CLIENT_ID\s*,?\s*\)/,
+    );
   });
 });
 

@@ -1,3 +1,27 @@
+> ## ⚠ STALE — this is not how Rabbaanie is deployed
+>
+> This file arrived in the initial import (`4fecbd9`) and has never been edited
+> since. It describes the original Manus scaffold — note the old product name
+> "Opvoedadvies" used throughout.
+>
+> **What is actually true:** production is a *different repository*,
+> `talibfitrah/rabbaanie-api`, running under pm2 as `rabbaanie-api` on a VM,
+> serving `api.rabbaanie.com`. No Docker, no Railway, no Render. The deploy path
+> and the account that owns it are deliberately not written here — see *Two
+> repos* in `CLAUDE.md` for why, and read them from the gitignored `.env`.
+>
+> **Do not run the `docker-compose.yml` below.** It provisions Postgres 16, while
+> this repo's code is MySQL (`drizzle-orm/mysql2`, `dialect: "mysql"`). The stack
+> comes up and then fails on every query.
+>
+> **The API and schema tables below are out of date.** Measured 2026-08-26:
+> production exports 55 database functions this repo has never had
+> (subscriptions, coupons, billing, feedback). The endpoint and table lists here
+> predate all of it.
+>
+> Kept for historical reference. `Dockerfile`, `docker-compose.yml`, and
+> `.dockerignore` came from the same import and still sit alongside it.
+
 # Opvoedadvies — Deployment & Portability Guide
 
 ## Architecture Overview

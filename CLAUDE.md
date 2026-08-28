@@ -1,8 +1,66 @@
 # Rabbaanie — Claude Developer Guide
 
-Rabbaanie (ربّانيّ) — an ad-free, family-oriented Islamic app. **Expo / React Native** client (`app/`, `components/`) + a **Node / Drizzle** backend under `server/`. Repo: `git@github.com:talibfitrah/rabbaanie.git` (branch `main`). Working checkout lives on the VM at `~/Development/rabbaanie`.
+Rabbaanie (ربّانيّ) — an ad-free, family-oriented Islamic app. **Expo / React Native** client (`app/`, `components/`) + a **Node / Drizzle** backend under `server/`. Repo: `git@github.com:talibfitrah/rabbaanie.git` (branch `main`). **This is the client repo; it is not what runs in production** — see *Two repos* below.
 
 > Internal reference docs live in `local-docs/` (gitignored — not versioned).
+
+---
+
+## Two repos — this one is NOT what runs in production (MANDATORY)
+
+`server/db.ts` tells readers to "see CLAUDE.md on the repo/VM divergence". This is that section.
+
+| | this repo | production |
+|---|---|---|
+| GitHub | `talibfitrah/rabbaanie` | `talibfitrah/rabbaanie-api` |
+| branch | `main` | `master` |
+| database | **MySQL** (`mysql2`, `mysql-core`) | **Postgres** (`node-postgres`, `pg-core`) |
+| `drizzle.config.ts` | `dialect: "mysql"` | `dialect: "postgresql"` |
+| runs where | nowhere | pm2 `rabbaanie-api` on the VM, serving `api.rabbaanie.com` |
+
+They are **separate repositories with no shared git history**. No branch, merge, or
+rebase reconciles them. Work crosses over by **hand-porting** — which is why
+`server/db.ts` here carries dialect-agnostic readers (`affectedRows`, `insertId`,
+`DUPLICATE_KEY_CODES`) and why `drizzle/postgres-*.sql` sits in a MySQL repo.
+
+**The dialect split is deliberate — do not "fix" it.** Do not migrate `main` to
+Postgres, and do not merge `origin/archive/develop-postgres-mirror`: it tries to make
+this repo mirror one that already exists, changes nothing in production, and
+reintroduces deleted Manus modules that `main` still imports.
+
+**Never conclude anything about live server behaviour by reading `server/` here.**
+Measured 2026-08-26 against the live tree: production exports **55** db functions this
+repo has never had — the entire subscription / coupon / billing / feedback surface
+(`grantOrExtendSubscription`, `redeemCoupon`, `isSubscribed`, `listCoupons`,
+`getSubscriptionByStripeId`, …) — while this repo has 6 production lacks. Procedures
+that are `publicProcedure` here are `protectedProcedure` there. Reviewing this repo
+alone produces confident false findings, including ones that look severe.
+Check the VM tree, or `curl api.rabbaanie.com`, before reporting a server bug.
+
+VM access is **two SSH hops**: a public NAS gateway, then the VM on its private
+LAN address behind it. Every value — host, port, user and password for both hops
+— is in the gitignored `.env`, as `NAS_SSH_HOST` / `NAS_SSH_PORT` /
+`NAS_SSH_USER` / `NAS_SSH_PASSWORD` for the first hop and the matching
+`VM_SERVER_IN_NAS_SSH_*` for the second. Read them from there; do not write any
+of them into a tracked file.
+
+The same rule covers the deploy path and the OS account that owns it. An
+earlier revision of the table above named both; they are the other half of an
+SSH credential pair for the box the paragraph below is about, and a file that
+states this rule and breaks it four lines up teaches the next reader to ignore
+it. The path is not secret — it predates this file, at `WORK_NOTES_AUTH.md:33`,
+committed in `4fecbd9` — so removing it here prevents no disclosure that has not
+already happened. It is removed anyway, because the rule has to be readable as
+absolute. Closing the historical copy needs a history rewrite and an account
+rename, which is a separate, coordinated decision.
+
+That includes this one. An earlier revision of this line spelled out the
+gateway hostname, its non-standard port, both usernames and the VM's LAN
+address. None of that is a credential on its own, but together it is the entire
+targeting half of an attack on the box that serves `api.rabbaanie.com` — and it
+would have been committed to a git remote, where it outlives any later edit.
+The `.env` indirection was already the pattern for the passwords; it is now the
+pattern for the endpoint too.
 
 ---
 

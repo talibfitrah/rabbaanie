@@ -58,17 +58,24 @@ const COMPLETE = {
 
 describe("subscriber info contract", () => {
   it("requires exactly the fields the server requires", () => {
-    expect([...REQUIRED_SUBSCRIBER_FIELDS].sort()).toEqual([...SERVER_REQUIRED_FIELDS].sort());
+    expect([...REQUIRED_SUBSCRIBER_FIELDS].sort()).toEqual(
+      [...SERVER_REQUIRED_FIELDS].sort(),
+    );
   });
 
   it("offers only marital statuses the server accepts", () => {
-    expect(MARITAL_OPTIONS.map((o) => o.value).sort()).toEqual([...SERVER_MARITAL_STATUSES].sort());
+    expect(MARITAL_OPTIONS.map((o) => o.value).sort()).toEqual(
+      [...SERVER_MARITAL_STATUSES].sort(),
+    );
   });
 
   it("sends every field the server requires", () => {
     const payload = buildSubscriberInfo(COMPLETE);
     for (const field of SERVER_REQUIRED_FIELDS) {
-      expect(payload[field as keyof typeof payload], `payload omits ${field}`).toBeTruthy();
+      expect(
+        payload[field as keyof typeof payload],
+        `payload omits ${field}`,
+      ).toBeTruthy();
     }
   });
 
@@ -93,7 +100,9 @@ describe("subscriber info contract", () => {
   });
 
   it("trims values so a space-only entry is not sent as real data", () => {
-    expect(buildSubscriberInfo({ ...COMPLETE, city: "  Utrecht  " }).city).toBe("Utrecht");
+    expect(buildSubscriberInfo({ ...COMPLETE, city: "  Utrecht  " }).city).toBe(
+      "Utrecht",
+    );
   });
 
   it("treats a space-only required field as incomplete", () => {
@@ -112,13 +121,18 @@ describe("subscriber info contract", () => {
   // not only for new ones.
   it("rejects the stale vocabulary still stored against existing subscribers", () => {
     for (const stale of ["married", "divorced", "single", "widowed"]) {
-      expect(isKnownMaritalStatus(stale), `${stale} must not prefill`).toBe(false);
+      expect(isKnownMaritalStatus(stale), `${stale} must not prefill`).toBe(
+        false,
+      );
     }
   });
 
   it("accepts every status the picker itself offers", () => {
     for (const option of MARITAL_OPTIONS) {
-      expect(isKnownMaritalStatus(option.value), `${option.value} must prefill`).toBe(true);
+      expect(
+        isKnownMaritalStatus(option.value),
+        `${option.value} must prefill`,
+      ).toBe(true);
     }
   });
 
@@ -130,16 +144,32 @@ describe("subscriber info contract", () => {
 
 // The refusal these fields can produce has to be visible where the user acted.
 describe("a refused purchase is visible where the user pressed", () => {
-  const screen = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
+  // Whitespace collapsed. Every anchor below is a multi-token SOURCE string
+  // ("play.purchase(); }}", "onPress={async () =>"), so all of them go red the
+  // day prettier breaks those lines differently — on code that is still
+  // correct. That happened. Collapsing runs of whitespace keeps each anchor
+  // exact and makes it independent of the formatter; the index comparisons
+  // below still hold, because collapsing preserves relative order. Loosening
+  // the anchors instead would have removed the placement guard, which IS the
+  // thing this describe exists to assert.
+  const screen = readFileSync(
+    join(__dirname, "..", "app/subscribe.tsx"),
+    "utf8",
+  ).replace(/\s+/g, " ");
 
   /** The onPress that actually reaches play.purchase(), found from the call
    *  outwards. Anchoring on the handler's opening characters is what let a
    *  statement inserted before its first `if` silently empty this slice. */
   function purchaseHandler(): string {
     const end = screen.indexOf("play.purchase(); }}");
-    expect(end, "play.purchase() call moved - anchor is stale").toBeGreaterThan(-1);
+    expect(end, "play.purchase() call moved - anchor is stale").toBeGreaterThan(
+      -1,
+    );
     const begin = screen.lastIndexOf("onPress={async () =>", end);
-    expect(begin, "no onPress handler encloses play.purchase()").toBeGreaterThan(-1);
+    expect(
+      begin,
+      "no onPress handler encloses play.purchase()",
+    ).toBeGreaterThan(-1);
     return screen.slice(begin, end);
   }
 
@@ -150,7 +180,11 @@ describe("a refused purchase is visible where the user pressed", () => {
     // device on the Play internal-testing build. Clearing that footer is still
     // allowed — stripped below — so only REPORTING to it fails this.
     const handler = purchaseHandler();
-    expect(handler).toContain("setPurchaseRefusal(L3(");
+    // Pattern, not literal: prettier inserts a space after the paren when it
+    // wraps a long call (`setPurchaseRefusal(\n  L3(` → `setPurchaseRefusal( L3(`),
+    // which collapsing whitespace cannot undo. The call and its argument are
+    // still asserted exactly; only the spacing between them is free.
+    expect(handler).toMatch(/setPurchaseRefusal\(\s*L3\(/);
     expect(
       handler.replace(/setMsg\(""\);/g, ""),
       "a refusal here must not be reported to the distant footer",
@@ -168,7 +202,10 @@ describe("a refused purchase is visible where the user pressed", () => {
 });
 
 describe("a redeemed coupon is answered where the user pressed", () => {
-  const screen = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
+  const screen = readFileSync(
+    join(__dirname, "..", "app/subscribe.tsx"),
+    "utf8",
+  );
 
   it("does not put the subscribe card between Redeem and its own outcome", () => {
     // redeem() reports every verdict through the shared `msg`. When the coupon

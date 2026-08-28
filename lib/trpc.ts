@@ -4,7 +4,7 @@ import superjson from "superjson";
 import type { AppRouter } from "@/server/routers";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
-import { INSTALLED_VERSION } from "@/hooks/use-updates";
+import { CLIENT_VERSION_HEADERS } from "@/hooks/use-updates";
 import { markIfVersionBlocked } from "@/lib/app-version";
 
 /**
@@ -30,7 +30,7 @@ export function createTRPCClient() {
         async headers() {
           const token = await Auth.getSessionToken();
           return {
-            "X-App-Version": INSTALLED_VERSION,
+            ...CLIENT_VERSION_HEADERS,
             ...(token ? { Authorization: `Bearer ${token}` } : {}),
           };
         },

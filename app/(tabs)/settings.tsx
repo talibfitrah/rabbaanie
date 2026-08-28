@@ -2639,8 +2639,14 @@ function PersonalAdviceSettings({ colors, language, isRTL, router }: { colors: a
         </View>
       )}
 
-      {/* Widget toggle (Android only) */}
-      {Platform.OS !== "web" && (
+      {/* Widget toggle. The comment said "Android only" long before the gate
+          did: showAdviceWidget returns immediately on any non-Android platform,
+          because the whole construct is sticky + autoDismiss — Android-only
+          fields standing in for a home-screen widget Expo cannot build. On iOS
+          the switch flipped, saveWidgetEnabled persisted, the UI showed it on,
+          and nothing ever appeared. Same dead-control class as the nature-sound
+          picker in notification-settings.tsx. */}
+      {Platform.OS === "android" && (
         <Pressable
           onPress={handleWidgetToggle}
           style={({ pressed }) => [{

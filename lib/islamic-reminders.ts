@@ -8,6 +8,8 @@ import {
   CALC_METHODS,
   type SavedPrayerLocation,
 } from "./prayer-data";
+import { scheduleDays } from "./notification-horizons";
+import { enqueue } from "./notification-queue";
 
 // ============ STORAGE KEYS ============
 
@@ -172,6 +174,9 @@ export async function setupIslamicRemindersChannel(): Promise<void> {
     name: "تذكيرات إسلامية / Islamic Reminders",
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 250, 250, 250],
+    // Android-only. iOS has no notification channels at all, so every scheduled
+    // content below carries its own matching sound; without one it arrives silent
+    // and nothing throws. See tests/adhan-ios-sound.test.ts.
     sound: "default",
     bypassDnd: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -205,10 +210,18 @@ export async function saveIslamicRemindersPrefs(prefs: IslamicRemindersPrefs): P
 // ============ SCHEDULING ============
 
 /**
- * Schedule all Islamic reminders for the next 7 days.
+ * Schedule all Islamic reminders for scheduleDays("islamic") days
+ * — 7 on Android, fewer on iOS (see lib/notification-horizons).
  * Cancels existing Islamic reminder notifications first (targeted).
  */
-export async function scheduleIslamicReminders(
+export function scheduleIslamicReminders(
+  language: "nl" | "en" | "ar" = "ar"
+): Promise<number> {
+  return enqueue(() => scheduleIslamicRemindersInner(language));
+}
+
+/** The pass itself. Callers must hold the shared queue — see above. */
+async function scheduleIslamicRemindersInner(
   language: "nl" | "en" | "ar" = "ar"
 ): Promise<number> {
   if (Platform.OS === "web") return 0;
@@ -251,7 +264,7 @@ export async function scheduleIslamicReminders(
           subtitle,
           data: { type: ISTIGHFAR_TYPE, url: "/details/adhkar?type=istighfar", showPopup: true, ruling: "سنة مؤكدة" },
           ...(Platform.OS === "android" ? { channelId: ISLAMIC_REMINDERS_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -279,7 +292,8 @@ export async function scheduleIslamicReminders(
       const method = CALC_METHODS.find((m) => m.id === methodId) || CALC_METHODS[0];
       const now = new Date();
 
-      for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+      const islamicDays = scheduleDays("islamic");
+      for (let dayOffset = 0; dayOffset < islamicDays; dayOffset++) {
         const date = new Date(now);
         date.setDate(date.getDate() + dayOffset);
 
@@ -310,6 +324,7 @@ export async function scheduleIslamicReminders(
                   body,
                   data: { type: MORNING_ADHKAR_TYPE, url: "/details/adhkar?type=morning", showPopup: true, ruling: "سنة مؤكدة" },
                   ...(Platform.OS === "android" ? { channelId: ISLAMIC_REMINDERS_CHANNEL_ID } : {}),
+                  ...(Platform.OS === "ios" ? { sound: "default" } : {}),
                 },
                 trigger: {
                   type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -348,6 +363,7 @@ export async function scheduleIslamicReminders(
                   body,
                   data: { type: EVENING_ADHKAR_TYPE, url: "/details/adhkar?type=evening", showPopup: true, ruling: "سنة مؤكدة" },
                   ...(Platform.OS === "android" ? { channelId: ISLAMIC_REMINDERS_CHANNEL_ID } : {}),
+                  ...(Platform.OS === "ios" ? { sound: "default" } : {}),
                 },
                 trigger: {
                   type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -411,6 +427,7 @@ export async function scheduleIslamicReminders(
                   body,
                   data: { type: QIYAM_TYPE, url: "/qiyam", showPopup: true, ruling: "سنة مؤكدة" },
                   ...(Platform.OS === "android" ? { channelId: ISLAMIC_REMINDERS_CHANNEL_ID } : {}),
+                  ...(Platform.OS === "ios" ? { sound: "default" } : {}),
                 },
                 trigger: {
                   type: Notifications.SchedulableTriggerInputTypes.DATE,

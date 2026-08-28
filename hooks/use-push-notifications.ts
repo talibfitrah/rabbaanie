@@ -99,6 +99,28 @@ export function usePushNotifications(isAuthenticated: boolean) {
       // is — ONLY if the user explicitly opted in (Settings toggle, default off).
       // Precise coordinates are personal data; uploading them without consent on
       // a child-focused EU app is not lawful, so this is gated and off by default.
+      //
+      // This is the only BACKGROUND path that sends a precise coordinate, and
+      // the only one whose upload the user gains nothing from — which is what
+      // makes a consent gate the right instrument here. The profile sync
+      // (lib/app-context.tsx syncToServer) used to send the same coordinate
+      // ungated and now strips it; see locationSettingsForSync there.
+      //
+      // It is NOT the only path that sends one. app/find-specialist.tsx:38-43
+      // reads state.locationSettings.latitude/longitude and passes them to
+      // trpc.specialist.findNearest on mount, with no gate.
+      // That path differs in kind: the user opened a screen whose whole
+      // function is proximity matching, and it degrades to city/country on its
+      // own (the query enables on `lat !== 0 || city !== ""`), so it is
+      // feature-inherent rather than incidental.
+      //
+      // What is NOT resolved is the privacy policy. server/legal.ts:129 says
+      // location is used "solely to calculate prayer times and the qibla
+      // direction"; specialist matching is neither, and App Review reads that
+      // text against observed behaviour. Either the policy widens to name
+      // specialist and mosque search, or find-specialist moves behind this same
+      // toggle and matches on city until it is on. That is a product and legal
+      // call, deliberately left open here rather than decided in a comment.
       try {
         const AsyncStorage = (await import("@react-native-async-storage/async-storage")).default;
         const shareLocation = (await AsyncStorage.getItem("@share_location_with_team")) === "true";

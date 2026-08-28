@@ -2,7 +2,7 @@ import "@/global.css";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { Stack, usePathname, useRouter, useSegments } from "expo-router";
 import { StatusBar } from "expo-status-bar";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
 import { Platform, BackHandler, View } from "react-native";
@@ -42,6 +42,7 @@ import {
   handleIqamahSilenceAction,
 } from "@/lib/iqamah-silence";
 import { deleteLegacyNotificationChannels } from "@/lib/notification-channels";
+import { rescheduleOnForeground } from "@/lib/notification-refresh";
 import {
   setupDailyAdviceChannel,
   scheduleDailyAdviceNotification,
@@ -75,7 +76,10 @@ import { refreshAllWidgets } from "@/widgets/widgetSync";
 if (Platform.OS === "android") {
   require("@/widgets/widgetTaskHandler");
 }
-import { loadUnifiedNotifPrefs, resolveShouldShowPopup } from "@/lib/notification-settings";
+import {
+  loadUnifiedNotifPrefs,
+  resolveShouldShowPopup,
+} from "@/lib/notification-settings";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
@@ -228,7 +232,10 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     segment === "permissions-setup";
   const profileDone = appLoading
     ? true
-    : isProfileComplete({ parentProfile: appState?.parentProfile, children: appState?.children });
+    : isProfileComplete({
+        parentProfile: appState?.parentProfile,
+        children: appState?.children,
+      });
   // permissionsSetupCompleted lives on AppState (lib/store.ts), not a
   // separate AsyncStorage key read once on AuthGate's mount — that was tried
   // first and needed a new special-cased re-read trigger for every path that
@@ -239,7 +246,9 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // parentProfile/onboardingCompleted. appLoading is treated as "done" the
   // same way profileDone above is, so this never flashes true before the
   // real per-account value has loaded.
-  const permissionsSetupDone = appLoading ? true : Boolean(appState?.permissionsSetupCompleted);
+  const permissionsSetupDone = appLoading
+    ? true
+    : Boolean(appState?.permissionsSetupCompleted);
 
   const pendingRedirect = resolvePendingRedirect({
     gateRedirect,
@@ -278,6 +287,20 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   // Takes priority over every other state: a build the server has refused
   // must not resolve auth, redirect, or render any other screen — there is
   // no route for it to recover into.
+  // Including on iOS, where the screen cannot currently offer a working update.
+  //
+  // This was briefly gated on BLOCK_SCREEN_CAN_REMEDY, to avoid stranding iOS
+  // users behind a button that cannot update them. That trade is worse, and the
+  // reason is what the server does either way: it returns 426 to EVERY call
+  // from a refused build. Suppressing the screen does not restore the app — it
+  // renders the normal UI over requests that all fail, with no message and no
+  // explanation. An app that silently shows nothing is a worse thing to put in
+  // front of a reviewer than one that says why it stopped.
+  //
+  // So the choice is between a loud dead end and a silent one, and loud wins.
+  // Neither is good, and neither is the fix: per-platform minVersion on the
+  // server is (§4b of the submission record, and CLIENT_VERSION_HEADERS in
+  // hooks/use-updates.ts, which sends the X-App-Platform it needs).
   if (versionBlocked) {
     SplashScreen.hideAsync().catch(() => {});
     return <VersionBlockScreen />;
@@ -323,11 +346,70 @@ function NotificationLifecycle({
 }) {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
+  // Finishing the permissions screen has to re-run this pass, and nothing else
+  // makes it. app/permissions-setup.tsx requests permission and then calls
+  // completePermissionsSetup(), which flips this flag and persists it — it
+  // touches none of the auth/age deps below, so before this the effect never
+  // re-ran and a first-run user who granted during onboarding got NOTHING
+  // scheduled until their next cold start. That is precisely the path App
+  // Review takes: install, grant, wait for a prayer.
+  //
+  // "SetupDone", not "Granted": permissions-setup calls
+  // completePermissionsSetup() on the way out whether or not anything was
+  // granted, so this flag is only a cue to re-run — it is NOT a permission
+  // check. The actual gate is inside initNotifications, which re-reads
+  // Notifications.getPermissionsAsync() and returns early. Naming it after a
+  // grant would read as a guard it is not.
+  //
+  // The flag rather than a callback out of permissions-setup, so scheduling
+  // keeps ONE entry point with the eligibility check below applied to it.
+  const { state: appState, loading: appLoading } = useAppState();
+  const permissionsSetupDone = appState.permissionsSetupCompleted;
+  // The CURRENT eligibility, not this run's copy of it. A pass takes ~120
+  // sequential OS round trips, so runs overlap in both directions and each
+  // needs a different answer:
+  //   - superseded by another ELIGIBLE run: must NOT clear (it would wipe the
+  //     newer pass's work — cancelAllScheduledNotificationsAsync is not on
+  //     lib/notification-queue.ts, so nothing orders it against those jobs);
+  //   - superseded by an INELIGIBLE run: MUST clear, because the new run's own
+  //     clear already ran and finished long before this slow pass did, so this
+  //     pass has been writing notifications after it.
+  // One shared ref answers both; keying on which run is current answers only
+  // the first and silently drops the second.
+  const eligibleRef = useRef(false);
 
   useEffect(() => {
-    if (Platform.OS === "web" || ageLoading || authLoading) return;
+    // appLoading matters as much as the other two. permissionsSetupCompleted
+    // starts false in defaultAppState and flips true when AppProvider hydrates,
+    // which normally lands AFTER auth — so without this the flag transitions on
+    // an ORDINARY cold start, tearing down and re-running a full scheduling
+    // pass (~120 OS round trips) every launch, not just after onboarding.
+    if (Platform.OS === "web" || ageLoading || authLoading || appLoading)
+      return;
 
-    let eligible = canUseNotifications(ageStatus, isAuthenticated);
+    const eligible = canUseNotifications(ageStatus, isAuthenticated);
+    eligibleRef.current = eligible;
+
+    // These deps are auth/age state, so this schedules once per process start —
+    // and iOS keeps apps resident for days, which silently expires the shortened
+    // horizons. Refill them on the first foreground of each new day, on the same
+    // `eligible`, so nothing is registered for an ineligible user.
+    // Returns the promise rather than swallowing it: rescheduleOnForeground
+    // stamps the day on SUCCESS now, so it has to be able to see a failure.
+    //
+    // The .finally mirrors the mount pass below, and for the same reason. A
+    // foreground pass takes ~120 sequential OS round trips; if the user signs
+    // out or trips the age gate midway, the effect re-runs and clears — but
+    // cancelAllScheduledNotificationsAsync is NOT on lib/notification-queue.ts,
+    // so that clear finishes long before this pass does and its remaining
+    // schedulers write notifications back for a signed-out or under-age user.
+    // Detaching the listener does not stop a pass already running.
+    const stopForegroundRefresh = rescheduleOnForeground(eligible, () =>
+      initialize().finally(() => {
+        if (!eligibleRef.current) clearNotifications().catch(() => {});
+      }),
+    );
+
     const clearNotifications = async () => {
       dismissPopup();
       await Promise.all([
@@ -343,7 +425,7 @@ function NotificationLifecycle({
           error,
         );
       });
-      return;
+      return stopForegroundRefresh;
     }
 
     initialize()
@@ -354,11 +436,30 @@ function NotificationLifecycle({
         );
       })
       .finally(() => {
-        if (!eligible) clearNotifications().catch(() => {});
+        // Reads the CURRENT eligibility, not this run's stale copy. The two
+        // overlap cases need opposite answers and this is the only value that
+        // distinguishes them — see the note on eligibleRef above. The ref holds
+        // the last SETTLED eligibility: the cleanup deliberately does not
+        // falsify it, so a run that bails at the loading guard cannot leave it
+        // stale-false and make this wipe an eligible user's schedule.
+        if (!eligibleRef.current) clearNotifications().catch(() => {});
       });
 
     return () => {
-      eligible = false;
+      // eligibleRef is deliberately NOT falsified here, so it always holds the
+      // last SETTLED eligibility rather than a transient false.
+      //
+      // Resetting it looked right and was wrong twice over. It made a run that
+      // bailed at the loading guard above leave the ref reading false, so an
+      // in-flight pass's .finally would cancelAllScheduledNotifications on a
+      // perfectly eligible user. And its stated purpose — "an in-flight pass
+      // still clears after itself on unmount" — describes a bug: an eligible
+      // user's scheduled notifications should SURVIVE teardown, not be wiped.
+      //
+      // Holding the last settled value answers all three overlaps correctly:
+      // superseded by an eligible run, no clear; by an ineligible one, clear;
+      // by a loading bail, unchanged.
+      stopForegroundRefresh();
     };
   }, [
     ageLoading,
@@ -367,6 +468,12 @@ function NotificationLifecycle({
     dismissPopup,
     initialize,
     isAuthenticated,
+    appLoading,
+    // Not read inside the effect — it is here only to re-trigger the pass when
+    // the permissions screen is finished. Schedulers serialise through
+    // lib/notification-queue.ts, but the cancel-all path does NOT, which is
+    // why the .finally above keys on the current eligibility.
+    permissionsSetupDone,
   ]);
 
   return null;
@@ -546,7 +653,9 @@ export default function RootLayout() {
       await setupWeeklyGoalsChannel();
       await setupIslamicRemindersChannel();
 
-      // Reschedule notifications on app launch (refreshes for next 7 days)
+      // Reschedule notifications on app launch. The horizon is per-platform:
+      // 7 days on Android, shorter on iOS, which drops silently past 64 pending
+      // requests across ALL the schedulers below — see lib/notification-horizons.
       await scheduleAllNotifications(lang);
       // NOTE: the battery-optimization exemption is intentionally NOT auto-fired
       // on launch. It dumped the user into a system settings screen 3.5s into
@@ -645,6 +754,17 @@ export default function RootLayout() {
       await registerWidgetBackgroundTask(bgStatus.intervalMinutes);
     } catch (err) {
       console.warn("Notification init error:", err);
+      // RETHROWN, not swallowed. Both callers already catch, and one of them
+      // needs to know: lib/notification-refresh.ts stamps the calendar day on
+      // SUCCESS, so a swallowed failure resolved, stamped the day, and made
+      // both its .catch and MAX_ATTEMPTS_PER_DAY unreachable in production —
+      // a retry that only the tests' injected mock could ever exercise.
+      //
+      // Concretely: a corrupt @prayer_location makes scheduleAllNotifications
+      // throw, the rest of the ten-scheduler sequence never runs, and at a
+      // 1-day iqamah / 3-day prayer horizon the user gets nothing until
+      // tomorrow — the exact failure stamping-on-success was written to stop.
+      throw err;
     }
   }, []);
 
@@ -715,113 +835,113 @@ export default function RootLayout() {
                   />
                   <AuthGate>
                     <View style={{ flex: 1 }}>
-                    <Stack
-                      screenOptions={{
-                        headerShown: false,
-                        gestureEnabled: true,
-                        gestureDirection: "horizontal",
-                        animation: "slide_from_right",
-                      }}
-                    >
-                      <Stack.Screen name="(tabs)" />
-                      <Stack.Screen name="onboarding" />
-                      <Stack.Screen
-                        name="language-select"
-                        options={{ gestureEnabled: false }}
-                      />
-                      <Stack.Screen
-                        name="child"
-                        options={{
+                      <Stack
+                        screenOptions={{
                           headerShown: false,
-                          animation: "slide_from_right",
-                        }}
-                      />
-                      <Stack.Screen
-                        name="child-account"
-                        options={{ headerShown: false }}
-                      />
-                      <Stack.Screen
-                        name="weather"
-                        options={{ animation: "slide_from_right" }}
-                      />
-                      <Stack.Screen
-                        name="sunnah"
-                        options={{ animation: "slide_from_right" }}
-                      />
-                      <Stack.Screen
-                        name="age-check"
-                        options={{ gestureEnabled: false }}
-                      />
-                      <Stack.Screen
-                        name="login"
-                        options={{ gestureEnabled: false }}
-                      />
-                      <Stack.Screen
-                        name="forgot-password"
-                        options={{
                           gestureEnabled: true,
-                          animation: "slide_from_bottom",
-                        }}
-                      />
-                      <Stack.Screen
-                        name="permissions-setup"
-                        options={{ gestureEnabled: false }}
-                      />
-                      <Stack.Screen
-                        name="oauth/callback"
-                        options={{ gestureEnabled: false }}
-                      />
-                      <Stack.Screen
-                        name="details"
-                        options={{
-                          presentation: "modal",
-                          animation: "slide_from_bottom",
-                        }}
-                      />
-                      <Stack.Screen
-                        name="ai-chat"
-                        options={{
-                          presentation: "modal",
-                          animation: "slide_from_bottom",
-                        }}
-                      />
-                      <Stack.Screen
-                        name="chat-notes"
-                        options={{
-                          presentation: "modal",
-                          animation: "slide_from_bottom",
-                        }}
-                      />
-                      <Stack.Screen name="network" />
-                      <Stack.Screen name="find-specialist" />
-                      <Stack.Screen name="id-management" />
-                      <Stack.Screen name="qr-scanner" />
-                      <Stack.Screen name="specialist-chat" />
-                      <Stack.Screen name="specialist" />
-                      <Stack.Screen name="newsletter" />
-                      <Stack.Screen name="content" />
-                      <Stack.Screen name="admin" />
-                      <Stack.Screen name="library" />
-                      <Stack.Screen name="community" />
-                      <Stack.Screen
-                        name="child-profile"
-                        options={{
-                          headerShown: false,
+                          gestureDirection: "horizontal",
                           animation: "slide_from_right",
                         }}
-                      />
-                      <Stack.Screen name="spouse-profile" />
-                      <Stack.Screen name="emotion-path" />
-                      <Stack.Screen name="qibla" />
-                      <Stack.Screen name="qiyam" />
-                      <Stack.Screen
-                        name="add-child"
-                        options={{
-                          headerShown: false,
-                          animation: "slide_from_right",
-                        }}
-                      />
-                    </Stack>
+                      >
+                        <Stack.Screen name="(tabs)" />
+                        <Stack.Screen name="onboarding" />
+                        <Stack.Screen
+                          name="language-select"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                          name="child"
+                          options={{
+                            headerShown: false,
+                            animation: "slide_from_right",
+                          }}
+                        />
+                        <Stack.Screen
+                          name="child-account"
+                          options={{ headerShown: false }}
+                        />
+                        <Stack.Screen
+                          name="weather"
+                          options={{ animation: "slide_from_right" }}
+                        />
+                        <Stack.Screen
+                          name="sunnah"
+                          options={{ animation: "slide_from_right" }}
+                        />
+                        <Stack.Screen
+                          name="age-check"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                          name="login"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                          name="forgot-password"
+                          options={{
+                            gestureEnabled: true,
+                            animation: "slide_from_bottom",
+                          }}
+                        />
+                        <Stack.Screen
+                          name="permissions-setup"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                          name="oauth/callback"
+                          options={{ gestureEnabled: false }}
+                        />
+                        <Stack.Screen
+                          name="details"
+                          options={{
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
+                        />
+                        <Stack.Screen
+                          name="ai-chat"
+                          options={{
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
+                        />
+                        <Stack.Screen
+                          name="chat-notes"
+                          options={{
+                            presentation: "modal",
+                            animation: "slide_from_bottom",
+                          }}
+                        />
+                        <Stack.Screen name="network" />
+                        <Stack.Screen name="find-specialist" />
+                        <Stack.Screen name="id-management" />
+                        <Stack.Screen name="qr-scanner" />
+                        <Stack.Screen name="specialist-chat" />
+                        <Stack.Screen name="specialist" />
+                        <Stack.Screen name="newsletter" />
+                        <Stack.Screen name="content" />
+                        <Stack.Screen name="admin" />
+                        <Stack.Screen name="library" />
+                        <Stack.Screen name="community" />
+                        <Stack.Screen
+                          name="child-profile"
+                          options={{
+                            headerShown: false,
+                            animation: "slide_from_right",
+                          }}
+                        />
+                        <Stack.Screen name="spouse-profile" />
+                        <Stack.Screen name="emotion-path" />
+                        <Stack.Screen name="qibla" />
+                        <Stack.Screen name="qiyam" />
+                        <Stack.Screen
+                          name="add-child"
+                          options={{
+                            headerShown: false,
+                            animation: "slide_from_right",
+                          }}
+                        />
+                      </Stack>
                     </View>
                     <PersistentTabBar />
                   </AuthGate>

@@ -68,6 +68,7 @@ export function PrayerPopupModal({
       animationType="fade"
       statusBarTranslucent
       onRequestClose={onDismiss}
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
     >
       {/* ScrollView, not View: the modal's content is a fixed ~396dp stack and
           the app is no longer portrait-locked, so in phone landscape the

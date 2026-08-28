@@ -273,7 +273,8 @@ export default function IdManagementScreen() {
       </ScrollView>
 
       {/* QR Code Modal */}
-      <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}>
+      <Modal visible={qrModalVisible} transparent animationType="fade" onRequestClose={() => setQrModalVisible(false)}
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
         {/* ScrollView: fixed-height card + landscape clips the close button. See components/prayer-popup-modal.tsx. */}
         <ScrollView
           style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }}

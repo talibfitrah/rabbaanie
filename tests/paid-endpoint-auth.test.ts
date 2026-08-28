@@ -24,7 +24,13 @@ const getSessionToken = vi.fn();
 vi.mock("@/lib/_core/auth", () => ({ getSessionToken: () => getSessionToken() }));
 // authedFetch now reads the app's version for X-App-Version from here — same
 // stub the other transport-layer suites use, so this doesn't reach expo-*.
-vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
+vi.mock("@/hooks/use-updates", () => ({
+  INSTALLED_VERSION: "1.5.1",
+  CLIENT_VERSION_HEADERS: {
+    "X-App-Version": "1.5.1",
+    "X-App-Platform": "android",
+  },
+}));
 
 describe("authedFetch", () => {
   let fetchMock: ReturnType<typeof vi.fn>;

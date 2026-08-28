@@ -23,6 +23,8 @@ import {
 // for why the killed-app case needs a native AlarmManager + BroadcastReceiver
 // instead of the expo-notifications listeners below.
 import * as IqamahAlarmNative from "../modules/iqamah-alarm/src";
+import { scheduleDays } from "./notification-horizons";
+import { enqueue } from "./notification-queue";
 
 // ============ STORAGE KEYS ============
 
@@ -88,6 +90,9 @@ async function setupIqamahChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(IQAMAH_CHANNEL_ID, {
     name: "إسكات الإقامة / Iqamah Silence",
     importance: Notifications.AndroidImportance.MAX,
+    // Android-only. iOS has no notification channels at all, so every scheduled
+    // content below carries its own matching sound; without one it arrives silent
+    // and nothing throws. See tests/adhan-ios-sound.test.ts.
     sound: "default",
     bypassDnd: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -99,11 +104,19 @@ async function setupIqamahChannel(): Promise<void> {
 // ============ SCHEDULING ============
 
 /**
- * Schedule iqamah silence notifications/actions for the next 7 days.
+ * Schedule iqamah silence notifications/actions for scheduleDays("iqamah")
+ * days — 7 on Android, trimmed hardest on iOS (see lib/notification-horizons).
  * On Android: schedules a notification that triggers the silence action.
  * On iOS: schedules a reminder notification to manually silence.
  */
-export async function scheduleIqamahSilence(
+export function scheduleIqamahSilence(
+  language: "nl" | "en" | "ar" = "nl"
+): Promise<number> {
+  return enqueue(() => scheduleIqamahSilenceInner(language));
+}
+
+/** The pass itself. Callers must hold the shared queue — see above. */
+async function scheduleIqamahSilenceInner(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<number> {
   if (Platform.OS === "web") return 0;
@@ -165,7 +178,11 @@ export async function scheduleIqamahSilence(
     nl: { fajr: "Fajr", dhuhr: "Dhuhr", asr: "Asr", maghrib: "Maghrib", isha: "Isha" },
   };
 
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+  // iOS is remind-only here (see remindOnly below) and this loop is the app's
+  // heaviest scheduler at 10 requests a day, so it takes the deepest trim under
+  // the 64-request iOS cap. Android keeps its 7 days.
+  const iqamahDays = scheduleDays("iqamah");
+  for (let dayOffset = 0; dayOffset < iqamahDays; dayOffset++) {
     const date = new Date(now);
     date.setDate(date.getDate() + dayOffset);
 
@@ -193,14 +210,46 @@ export async function scheduleIqamahSilence(
 
       const prayerName = PRAYER_NAMES[language][prayer];
 
+      /**
+       * Only Android actually silences anything. Apple exposes no programmatic
+       * ringer control, so handleIqamahSilenceAction and restorePhoneSound both
+       * return immediately off Android and these two notifications ARE the whole
+       * feature there — the reminder the settings screen already promises ("On
+       * iOS, a reminder is sent instead of auto-silence (Apple restriction)").
+       *
+       * So the copy has to ASK for the silence rather than report it. The
+       * Android wording below announces a completed action, and shipping that
+       * text to iOS states something that never happened — worse now than it
+       * used to be, because these carry interruptionLevel timeSensitive and a
+       * sound, so the false claim pierces Focus and Do Not Disturb to announce
+       * itself. Making an untrue statement louder is the wrong direction.
+       *
+       * Written as `!== "android"` rather than `=== "ios"` to match the platform
+       * guards this file already uses, and because the reminder wording is the
+       * safe default anywhere the ringer cannot be driven.
+       */
+      const remindOnly = Platform.OS !== "android";
+
       // Schedule silence notification
-      const silenceTitle = language === "ar"
+      const silenceTitle = remindOnly
+        ? language === "ar"
+          ? `🔕 حان وقت الإقامة - ${prayerName}`
+          : language === "en"
+          ? `🔕 Iqamah time - ${prayerName}`
+          : `🔕 Iqamah-tijd - ${prayerName}`
+        : language === "ar"
         ? `🔇 إسكات الهاتف - إقامة ${prayerName}`
         : language === "en"
         ? `🔇 Phone silenced - ${prayerName} Iqamah`
         : `🔇 Telefoon gedempt - ${prayerName} Iqamah`;
 
-      const silenceBody = language === "ar"
+      const silenceBody = remindOnly
+        ? language === "ar"
+          ? `أسكت هاتفك الآن لصلاة ${prayerName}. سنذكّرك بعد ${prefs.silenceDurationMinutes} دقائق.`
+          : language === "en"
+          ? `Silence your phone now for ${prayerName} prayer. We'll remind you in ${prefs.silenceDurationMinutes} min.`
+          : `Zet je telefoon nu op stil voor ${prayerName} gebed. Over ${prefs.silenceDurationMinutes} min herinneren we je.`
+        : language === "ar"
         ? `تم إسكات الهاتف تلقائياً لمدة ${prefs.silenceDurationMinutes} دقائق لصلاة ${prayerName}`
         : language === "en"
         ? `Phone auto-silenced for ${prefs.silenceDurationMinutes} min for ${prayerName} prayer`
@@ -220,7 +269,7 @@ export async function scheduleIqamahSilence(
               ruling: "واجب",
             },
             ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
-            ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+            ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const, sound: "default" } : {}),
           },
           trigger: {
             channelId: IQAMAH_CHANNEL_ID,
@@ -236,13 +285,29 @@ export async function scheduleIqamahSilence(
       // Schedule restore notification (silence + duration)
       const restoreDate = new Date(iqamahDate.getTime() + prefs.silenceDurationMinutes * 60 * 1000);
 
-      const restoreTitle = language === "ar"
+      // Still fires on iOS, with the claim removed: the user silenced the phone
+      // by hand a few minutes ago on this platform, so the end of the period is
+      // exactly when they need prompting to undo it. Dropping it would leave
+      // them muted with no cue — see the note on remindOnly above.
+      const restoreTitle = remindOnly
+        ? language === "ar"
+          ? `🔔 انتهت مدة الإقامة`
+          : language === "en"
+          ? `🔔 Iqamah period ended`
+          : `🔔 Iqamah-periode voorbij`
+        : language === "ar"
         ? `🔔 تم إعادة صوت الهاتف`
         : language === "en"
         ? `🔔 Phone ringer restored`
         : `🔔 Telefoongeluid hersteld`;
 
-      const restoreBody = language === "ar"
+      const restoreBody = remindOnly
+        ? language === "ar"
+          ? `انتهت المدة بعد صلاة ${prayerName}. يمكنك إعادة صوت هاتفك.`
+          : language === "en"
+          ? `The silence period after ${prayerName} prayer is over. You can turn your ringer back on.`
+          : `De stilteperiode na ${prayerName} gebed is voorbij. Je kunt je beltoon weer aanzetten.`
+        : language === "ar"
         ? `انتهت فترة الإسكات بعد صلاة ${prayerName}`
         : language === "en"
         ? `Silence period ended after ${prayerName} prayer`
@@ -261,7 +326,7 @@ export async function scheduleIqamahSilence(
               ruling: "مستحب",
             },
             ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-            ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
+            ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const, sound: "default" } : {}),
           },
           trigger: {
             channelId: IQAMAH_CHANNEL_ID,

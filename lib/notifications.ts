@@ -11,6 +11,39 @@ import {
   type CalcMethod,
   type PrayerTimesResult,
 } from "./prayer-data";
+import { ADHAN_SOUND_IDS } from "./adhan-sound-ids.js";
+import { scheduleDays } from "./notification-horizons";
+import { enqueue } from "./notification-queue";
+
+/*
+ * WHICH notifications may set interruptionLevel: "timeSensitive" — and why most
+ * of this app's may not.
+ *
+ * The entitlement (com.apple.developer.usernotifications.time-sensitive, granted
+ * in app.config.ts) has to be justified to Apple when the capability is enabled
+ * on the App ID, and review looks at how it is actually used. Apple's bar is
+ * information that requires immediate attention. A sweep once applied the level
+ * to all 17 notification sites in this app; 12 of them were habit nudges with no
+ * time window at all — daily advice, spouse advice, seven iman/tarbiya
+ * reminders, daily istighfar, the weekly reminder and the weekly-goal reminder.
+ * "Take 15 minutes for your children now" piercing Do Not Disturb is exactly the
+ * pattern that gets the capability questioned, and the justification is one
+ * claim for the whole app: over-claim on the nudges and the prayer case goes
+ * with it.
+ *
+ * So the level is scoped to what a prayer app can defend, all of it anchored to
+ * a real clock:
+ *
+ *   lib/notifications.ts   prayer reminder (fard, ruling واجب), the adhan test
+ *                          notification, morning and evening adhkaar
+ *   lib/iqamah-silence.ts  the iqamah reminder
+ *
+ * Everything else keeps its `sound` and drops to the default level. Note the
+ * shape when editing: `sound` and `interruptionLevel` travel together in one
+ * iOS spread, and dropping the whole spread would take the sound with it — that
+ * is the silent-iOS-notification bug tests/adhan-ios-sound.test.ts exists to
+ * catch. Remove the level, keep the sound.
+ */
 // ============ STORAGE KEYS ============
 
 export const NOTIFICATION_PREFS_KEY = "@notification_prefs";
@@ -87,6 +120,47 @@ export const NATURE_SOUND_OPTIONS: { id: NatureSoundOption; nameAr: string; name
 // withAdhanSoundResources config plugin in app.config.ts).
 export function prayerChannelId(sound: AdhanSoundOption): string {
   return `prayer_times_v3_${sound}`;
+}
+
+/**
+ * The bundled CAF that iOS plays for a given adhan choice. iOS takes its sound
+ * from the notification CONTENT — channels are an Android-only concept and
+ * `trigger.channelId` is ignored there — so while the channel above is all
+ * Android needs, iOS needs this on every request or it gets nothing. It really
+ * is nothing, not a fallback chime: expo-notifications only assigns
+ * `content.sound` inside an `if let sound = sound` guard, so an absent field
+ * leaves UNNotificationContent.sound nil, and nil means silence.
+ *
+ * Basename only — `UNNotificationSound(named:)` resolves it against the app
+ * bundle, where the expo-notifications plugin puts the files it collects by
+ * mapping over ADHAN_SOUND_IDS. Both halves derive from the same id, so they
+ * cannot drift.
+ *
+ * `.caf` because UNNotificationSound rejects `.mp3` outright; the MP3s stay put
+ * for the Android res/raw copy that withAdhanSoundResources makes. Adding a
+ * 4th sound therefore means shipping a CAF too, and keeping it under iOS's
+ * 30-second ceiling — past that iOS silently substitutes the default sound.
+ * takbeer_2 and takbeer_3 are trimmed to 29.9s for exactly that reason.
+ */
+function adhanSoundFile(sound: AdhanSoundOption): string {
+  // The stored preference is NOT validated on the way in: loadNotificationPrefs
+  // clamps minutesBefore but spreads whatever else is in @notification_prefs
+  // over the defaults, so an id that has since been renamed or removed arrives
+  // here as a string that no longer resolves in the bundle. UNNotificationSound
+  // does not throw on a name it cannot find — iOS silently plays nothing, which
+  // is the exact failure this whole change exists to eliminate, and the one
+  // failure mode with no log to find it by. An unknown id falls back to the
+  // default rather than shipping silence. No stale ids exist today; this is the
+  // guard for the day a 4th sound replaces a 3rd.
+  // Checked against ADHAN_SOUND_IDS, not ADHAN_SOUND_OPTIONS. The IDS list is
+  // what actually drives bundling — withAdhanSoundResources and
+  // withIosAdhanSounds both map over it, and assert-ios-artifact.sh reads it —
+  // so it is the only list that answers "is there a file with this name in the
+  // bundle". Validating against OPTIONS would accept a 4th sound added to the
+  // picker but not to IDS, return a filename nothing ships, and produce exactly
+  // the silence this guard exists to prevent.
+  const known = (ADHAN_SOUND_IDS as readonly string[]).includes(sound);
+  return `adhan_${known ? sound : DEFAULT_NOTIFICATION_PREFS.adhanSound}.caf`;
 }
 const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
 const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
@@ -225,7 +299,7 @@ export async function sendTestNotification(
       ...(Platform.OS === "android"
         ? { priority: Notifications.AndroidNotificationPriority.MAX }
         : {}),
-      ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+      ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const, sound: adhanSoundFile(adhanSound) } : {}),
     },
     // Immediate delivery, but still on the chosen adhan's channel. `channelId`
     // has no slot on the content — expo reads it from the TRIGGER, and the
@@ -372,24 +446,17 @@ const ADHKAAR_TYPE = "adhkaar";
 const SCHEDULE_ALL_OWN_TYPES: readonly string[] = [PRAYER_TYPE, ADHKAAR_TYPE];
 
 /**
- * Schedule notifications for the next 7 days based on prayer times.
+ * Schedule prayer and adhkaar notifications based on prayer times, for as many
+ * days as scheduleDays("prayer") allows on this platform (7 on Android; fewer on
+ * iOS, which caps the app at 64 pending requests — see lib/notification-horizons).
  * Cancels this module's own prayer and adhkaar notifications first, and only
  * those.
  *
- * Serialized through a module-level queue: read-cancel-schedule is not atomic,
- * and a settings toggle racing the boot-path call used to interleave two runs
- * into double-scheduled alarms. The queue makes the later call wait and then
- * re-run from scratch, so the end state is the LAST call's output.
+ * Serialized through the shared scheduler queue: read-cancel-schedule is not
+ * atomic, and a settings toggle racing the boot-path call used to interleave two
+ * runs into double-scheduled alarms. The queue makes the later call wait and
+ * then re-run from scratch, so the end state is the LAST call's output.
  */
-let scheduleAllQueue: Promise<unknown> = Promise.resolve();
-
-/** Runs `job` after everything already queued, and keeps the queue unbroken. */
-function enqueue<T>(job: () => Promise<T>): Promise<T> {
-  const run = scheduleAllQueue.then(job);
-  scheduleAllQueue = run.catch(() => {});
-  return run;
-}
-
 export function scheduleAllNotifications(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<number> {
@@ -455,8 +522,10 @@ async function scheduleAllNotificationsInner(
   let scheduledCount = 0;
   const now = new Date();
 
-  // Schedule for next 7 days
-  for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
+  // Schedule for the next scheduleDays("prayer") days — 7 on Android, fewer on
+  // iOS, which caps the whole app at 64 pending requests (notification-horizons).
+  const prayerDays = scheduleDays("prayer");
+  for (let dayOffset = 0; dayOffset < prayerDays; dayOffset++) {
     const date = new Date(now);
     date.setDate(date.getDate() + dayOffset);
 
@@ -486,7 +555,7 @@ async function scheduleAllNotificationsInner(
             body: content.body,
             data: { type: PRAYER_TYPE, prayer, showPopup: true, ruling: "واجب" },
             ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
-            ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+            ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const, sound: adhanSoundFile(prefs.adhanSound) } : {}),
           },
           trigger: {
             channelId: prayerChannelId(prefs.adhanSound),
@@ -516,7 +585,7 @@ async function scheduleAllNotificationsInner(
               body: content.body,
               data: { type: ADHKAAR_TYPE, adhkaarType: "morning", showPopup: true, ruling: "سنة مؤكدة" },
               ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-              ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+              ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const, sound: "default" } : {}),
             },
             trigger: {
             channelId: ADHKAAR_CHANNEL_ID,
@@ -545,7 +614,7 @@ async function scheduleAllNotificationsInner(
               body: content.body,
               data: { type: ADHKAAR_TYPE, adhkaarType: "evening", showPopup: true, ruling: "سنة مؤكدة" },
               ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-              ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+              ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const, sound: "default" } : {}),
             },
             trigger: {
             channelId: ADHKAAR_CHANNEL_ID,
@@ -564,9 +633,13 @@ async function scheduleAllNotificationsInner(
   // Keeps the daily advice notification in step with the active language. It no
   // longer needs *restoring* (the cancel above leaves it alone), but several
   // callers change language and re-run only this function.
+  //
+  // The UNQUEUED pass, not the exported wrapper: we already hold the shared
+  // scheduler queue, and re-entering it here would wait on a job that cannot
+  // finish until this function returns.
   try {
-    const { scheduleDailyAdviceNotification } = await import("./daily-advice-notification");
-    await scheduleDailyAdviceNotification(language);
+    const { scheduleDailyAdviceUnqueued } = await import("./daily-advice-notification");
+    await scheduleDailyAdviceUnqueued(language);
   } catch (_) {}
 
   return scheduledCount;
@@ -667,7 +740,14 @@ export async function saveWeeklyReminderPrefs(prefs: WeeklyReminderPrefs): Promi
  * Uses a weekly trigger that fires on the specified day/time.
  * Includes the number of unfinished goals in the notification body.
  */
-export async function scheduleWeeklyReminder(
+export function scheduleWeeklyReminder(
+  language: "nl" | "en" | "ar" = "nl",
+  unfinishedCount?: number
+): Promise<boolean> {
+  return enqueue(() => scheduleWeeklyReminderInner(language, unfinishedCount));
+}
+
+async function scheduleWeeklyReminderInner(
   language: "nl" | "en" | "ar" = "nl",
   unfinishedCount?: number
 ): Promise<boolean> {
@@ -716,7 +796,7 @@ export async function scheduleWeeklyReminder(
         body,
         data: { type: "weekly_reminder", url: "/(tabs)/weekly", showPopup: true, ruling: "مستحب" },
         ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-        ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+        ...(Platform.OS === "ios" ? { sound: "default" } : {}),
       },
       trigger: {
             channelId: WEEKLY_CHANNEL_ID,
@@ -784,7 +864,13 @@ export async function recordAppOpened(): Promise<void> {
  * Schedule a push notification that fires 24 hours from now.
  * If the user opens the app again before then, this will be cancelled and rescheduled.
  */
-export async function scheduleInactivityReminder(
+export function scheduleInactivityReminder(
+  language: "nl" | "en" | "ar" = "nl"
+): Promise<void> {
+  return enqueue(() => scheduleInactivityReminderInner(language));
+}
+
+async function scheduleInactivityReminderInner(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<void> {
   if (Platform.OS === "web") return;
@@ -825,7 +911,7 @@ export async function scheduleInactivityReminder(
         body,
         data: { type: "inactivity_reminder", url: "/(tabs)", showPopup: true, ruling: "مستحب" },
         ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-        ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
+        ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const, sound: "default" } : {}),
       },
       trigger: {
             channelId: INACTIVITY_CHANNEL_ID,
@@ -858,7 +944,13 @@ export async function recordGoalCompleted(): Promise<void> {
  * If the user completes a goal, call recordGoalCompleted() which will reset the timer.
  * This function should be called on app launch and after each goal completion.
  */
-export async function scheduleGoalsIncompleteReminder(
+export function scheduleGoalsIncompleteReminder(
+  language: "nl" | "en" | "ar" = "nl"
+): Promise<void> {
+  return enqueue(() => scheduleGoalsIncompleteReminderInner(language));
+}
+
+async function scheduleGoalsIncompleteReminderInner(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<void> {
   if (Platform.OS === "web") return;
@@ -929,7 +1021,7 @@ export async function scheduleGoalsIncompleteReminder(
         body,
         data: { type: GOALS_INCOMPLETE_TYPE, url: "/(tabs)/weekly", showPopup: true, ruling: "مستحب" },
         ...(Platform.OS === "android" ? { priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-        ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const } : {}),
+        ...(Platform.OS === "ios" ? { interruptionLevel: "active" as const, sound: "default" } : {}),
       },
       trigger: {
             channelId: GOALS_INCOMPLETE_CHANNEL_ID,

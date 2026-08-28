@@ -13,6 +13,16 @@ import { afterAll, describe, expect, it, vi } from "vitest";
 
 const root = join(__dirname, "..");
 const read = (p: string) => readFileSync(join(root, p), "utf8");
+// Whitespace-collapsed variant, for assertions that match a multi-token SOURCE
+// pattern. Those go red the day prettier breaks a line differently — on code
+// that is still correct — and the tempting fix, loosening the pattern until it
+// matches, deletes the guard instead. Collapsing runs of whitespace keeps the
+// pattern exact and makes it formatter-independent.
+//
+// NOT applied to read() itself: several assertions here strip `//` comments
+// line by line, and removing the newlines breaks that. Use readFlat only where
+// the assertion is about a code shape rather than about line structure.
+const readFlat = (p: string) => read(p).replace(/\s+/g, " ");
 
 // The real package ships untranspiled and vitest cannot parse it.
 vi.mock("expo-constants", () => ({
@@ -21,7 +31,10 @@ vi.mock("expo-constants", () => ({
 vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
 vi.mock("@/hooks/use-subscription", () => ({
   invalidateSubscriptionCache: () => {},
-  subscriptionFetch: async () => ({ ok: true, json: async () => ({ ok: true }) }),
+  subscriptionFetch: async () => ({
+    ok: true,
+    json: async () => ({ ok: true }),
+  }),
 }));
 
 describe("Play Billing offer selection", () => {
@@ -77,11 +90,27 @@ describe("Play Billing offer selection", () => {
 });
 
 describe("payment channel separation", () => {
-  it("keeps Stripe checkout off the Play build", () => {
+  it("keeps Stripe checkout off every store build", () => {
     const subscribe = read("app/subscribe.tsx");
-    // Linking out to Stripe from a Play build is a link to a payment method
-    // other than Play billing — grounds for removal, not just rejection.
-    expect(subscribe).toContain('if (DISTRIBUTION_CHANNEL === "play") return;');
+    // Linking out to Stripe from a store build is a link to a payment method
+    // other than that store's billing — grounds for removal under both
+    // Google's and Apple's payments policies, not just rejection.
+    //
+    // Asserted as "denies unless github", never as "denies when play". The
+    // earlier spelling pinned `=== "play"` and was correct for exactly as long
+    // as those were the only two channels: adding "apple" left this assertion
+    // green while the guard it protects had stopped firing on the strictest
+    // platform of the three. A guard that cannot fail is not a guard, so pin
+    // the property — default-deny — rather than one enumerated channel.
+    expect(subscribe).toMatch(
+      /if \(DISTRIBUTION_CHANNEL !== "github"\) return;/,
+    );
+    // The fail-open spelling must not come back, in any channel's name.
+    expect(subscribe).not.toMatch(
+      /if \(DISTRIBUTION_CHANNEL === "[a-z]+"\) return;/,
+    );
+    // Presence too: the sideload build must KEEP its Stripe button. A check
+    // that only forbids would pass just as happily if the button were deleted.
     expect(subscribe).toContain('DISTRIBUTION_CHANNEL === "github" ? (');
   });
 
@@ -109,7 +138,9 @@ describe("payment channel separation", () => {
     // A purchase that failed verification once and succeeds on the retry would
     // otherwise be granted a year of access AND auto-refunded by Google after
     // three days, because nothing ever acknowledged it.
-    expect(billing).toMatch(/for \(const purchase of owned \?\? \[\]\)\s*await settle\(purchase,\s*true\)/);
+    expect(billing).toMatch(
+      /for \(const purchase of owned \?\? \[\]\)\s*await settle\(purchase,\s*true\)/,
+    );
   });
 
   it("survives a network failure between paying and verifying", () => {
@@ -128,7 +159,10 @@ describe("payment channel separation", () => {
     // setError instead, staying green with this one deleted.
     const okStart = billing.indexOf("if (!ok) {");
     expect(okStart).toBeGreaterThan(-1);
-    const okBranch = billing.slice(okStart, billing.indexOf("iap.finishTransaction", okStart));
+    const okBranch = billing.slice(
+      okStart,
+      billing.indexOf("iap.finishTransaction", okStart),
+    );
     expect(okBranch).toContain('setError("verify_failed")');
   });
 
@@ -165,9 +199,15 @@ describe("payment channel separation", () => {
     // /status never succeeded hands its outcome, settled tokens and purchased
     // flag to the NEXT account, whose tag arrives as the same transition. The
     // uid changes exactly once per switch and never for a late tag.
-    expect(billing).toContain("usePlayBilling(accountTag: string | undefined, userId: number | undefined)");
-    expect(billing).toMatch(/markPurchased\(false\);\s*setError\(null\);\s*\}, \[userId\]\);/);
-    expect(read("app/subscribe.tsx")).toContain("usePlayBilling(status?.playAccountTag, uid)");
+    expect(billing).toContain(
+      "usePlayBilling(accountTag: string | undefined, userId: number | undefined)",
+    );
+    expect(billing).toMatch(
+      /markPurchased\(false\);\s*setError\(null\);\s*\}, \[userId\]\);/,
+    );
+    expect(read("app/subscribe.tsx")).toContain(
+      "usePlayBilling(status?.playAccountTag, uid)",
+    );
   });
 
   it("offers recovery only for failures that could actually resolve", () => {
@@ -180,7 +220,9 @@ describe("payment channel separation", () => {
     for (const reason of ["expired", "product_mismatch", "no_line_items"]) {
       expect(billing).toContain(`"${reason}"`);
     }
-    expect(billing).toContain('DEFINITIVE_REJECTIONS.has(reason) || reason.startsWith("state_")');
+    expect(billing).toContain(
+      'DEFINITIVE_REJECTIONS.has(reason) || reason.startsWith("state_")',
+    );
   });
 
   it("treats a verify that never answered like one that refused", () => {
@@ -196,7 +238,10 @@ describe("payment channel separation", () => {
     //   the has(token) early return and nothing happens at all.
     const catchAt = billing.indexOf("Losing connectivity right after paying");
     expect(catchAt).toBeGreaterThan(-1);
-    const block = billing.slice(catchAt, billing.indexOf("} finally {", catchAt));
+    const block = billing.slice(
+      catchAt,
+      billing.indexOf("} finally {", catchAt),
+    );
     expect(block).toContain("settledRef.current.delete(token);");
     expect(block).toContain('setOutcome("unverified");');
     expect(block).toContain('setError("verify_failed")');
@@ -214,7 +259,11 @@ describe("payment channel separation", () => {
     // purchase() must handle every state Play can already be in. requestPurchase
     // is only correct when Play holds nothing: in any other state it fails with
     // ITEM_ALREADY_OWNED and overwrites an accurate message with a wrong one.
-    for (const state of ['case "pending":', 'case "foreign":', 'case "unverified": {']) {
+    for (const state of [
+      'case "pending":',
+      'case "foreign":',
+      'case "unverified": {',
+    ]) {
       expect(billing).toContain(state);
     }
     // A resync that finds nothing must clear the state, or the button loops
@@ -245,8 +294,10 @@ describe("payment channel separation", () => {
     // product not sold in their country — both normal). `recoverable` is the
     // hook's separate signal for exactly that case.
     expect(billing).toContain("recoverable");
-    const screen = read("app/subscribe.tsx");
-    expect(screen).toContain('play.error === "verify_failed" || play.recoverable ? (');
+    const screen = readFlat("app/subscribe.tsx");
+    expect(screen).toContain(
+      'play.error === "verify_failed" || play.recoverable ? (',
+    );
     // A live purchase rejected as another account's must not be silent.
     // Bounded by the NEXT branch's marker rather than a character count: the
     // count version broke the moment a comment grew, and the tempting fix is to
@@ -256,11 +307,13 @@ describe("payment channel separation", () => {
     expect(foreignAt).toBeGreaterThan(-1);
     const nextBranchAt = billing.indexOf('setOutcome("unverified")', foreignAt);
     expect(nextBranchAt).toBeGreaterThan(foreignAt);
-    expect(billing.slice(foreignAt, nextBranchAt)).toContain('setError("purchase_foreign")');
+    expect(billing.slice(foreignAt, nextBranchAt)).toContain(
+      'setError("purchase_foreign")',
+    );
   });
 
   it("does not carry one account's subscriber details into another's purchase", () => {
-    const subscribe = read("app/subscribe.tsx");
+    const subscribe = readFlat("app/subscribe.tsx");
     // These fields gate infoComplete, which authorizes the Play purchase. Left
     // unguarded, a new user inherits the previous account's name/address/phone
     // and their membership is bought against someone else's details.
@@ -292,7 +345,17 @@ describe("payment channel separation", () => {
     // next user submits a status the server refuses.
     // setCoupon is in the list because a code typed under one account stayed in
     // the box across a switch and could be redeemed into the next one.
-    for (const cleared of ['setFirstName("")', 'setLastName("")', 'setMaritalStatus("")', 'setStreetHouseNumber("")', 'setCity("")', 'setCountry("")', "setExtras({})", "setInfoLoaded(false)", 'setCoupon("")']) {
+    for (const cleared of [
+      'setFirstName("")',
+      'setLastName("")',
+      'setMaritalStatus("")',
+      'setStreetHouseNumber("")',
+      'setCity("")',
+      'setCountry("")',
+      "setExtras({})",
+      "setInfoLoaded(false)",
+      'setCoupon("")',
+    ]) {
       expect(reset, `account switch must clear ${cleared}`).toContain(cleared);
     }
   });
@@ -301,7 +364,9 @@ describe("payment channel separation", () => {
     // Slow payment methods deliver a real token before money moves. Verifying
     // it fails server-side and then tells the user their payment "went through"
     // and they "will not be charged again" — both false.
-    expect(read("lib/play-billing.ts")).toContain('purchase?.purchaseState === "pending"');
+    expect(read("lib/play-billing.ts")).toContain(
+      'purchase?.purchaseState === "pending"',
+    );
   });
 
   it("requires subscriber details before opening Play's payment sheet", () => {
@@ -317,7 +382,7 @@ describe("payment channel separation", () => {
     // nothing else carries the fields to the server. Typing them and tapping
     // Subscribe without tapping Save used to buy a membership with no name,
     // address or phone on record.
-    const subscribeSrc = read("app/subscribe.tsx");
+    const subscribeSrc = readFlat("app/subscribe.tsx");
     expect(subscribeSrc).toContain("async function persistInfo()");
     // The erasure protection: persistInfo must consult what is already stored
     // and bail when that is unknown. Asserted inside persistInfo's own body and
@@ -325,7 +390,10 @@ describe("payment channel separation", () => {
     // regex would break on a behaviour-preserving edit, and the tempting repair
     // is to loosen it until it guards nothing.
     const persistStart = subscribeSrc.indexOf("async function persistInfo()");
-    const persistEnd = subscribeSrc.indexOf("async function saveInfo()", persistStart);
+    const persistEnd = subscribeSrc.indexOf(
+      "async function saveInfo()",
+      persistStart,
+    );
     expect(persistEnd).toBeGreaterThan(persistStart);
     const persist = subscribeSrc.slice(persistStart, persistEnd);
     expect(persist).toContain("await currentExtras()");
@@ -337,12 +405,16 @@ describe("payment channel separation", () => {
     // wrote the old details back over the ones just persisted.
     const extrasStart = subscribeSrc.indexOf("async function currentExtras()");
     expect(extrasStart).toBeGreaterThan(-1);
-    expect(subscribeSrc.slice(extrasStart, persistStart)).toContain("loadInfo(false)");
+    expect(subscribeSrc.slice(extrasStart, persistStart)).toContain(
+      "loadInfo(false)",
+    );
     // All three submits must build their body through the shared builder, and
     // none may reintroduce a flat `address`. Hand-building one of these bodies
     // is the precise drift that refused every payment path for five days, and
     // nothing else in the suite would notice it coming back.
-    expect((subscribeSrc.match(/buildSubscriberInfo\(fields,/g) || []).length).toBe(3);
+    expect(
+      (subscribeSrc.match(/buildSubscriberInfo\(fields,/g) || []).length,
+    ).toBe(3);
     expect(subscribeSrc).not.toMatch(/\baddress:/);
     // The result must be USED: a failed POST that still opens Play's sheet
     // reproduces the exact "membership with no details on record" this prevents.
@@ -358,9 +430,18 @@ describe("payment channel separation", () => {
     // below then passed against "" — the guard reporting success having checked
     // nothing. Found when a refusal message was routed to a different state.
     const pressEnd = subscribeSrc.indexOf("play.purchase(); }}");
-    expect(pressEnd, "play.purchase() call moved - anchor is stale").toBeGreaterThan(-1);
-    const pressStart = subscribeSrc.lastIndexOf("onPress={async () =>", pressEnd);
-    expect(pressStart, "no onPress handler encloses play.purchase()").toBeGreaterThan(-1);
+    expect(
+      pressEnd,
+      "play.purchase() call moved - anchor is stale",
+    ).toBeGreaterThan(-1);
+    const pressStart = subscribeSrc.lastIndexOf(
+      "onPress={async () =>",
+      pressEnd,
+    );
+    expect(
+      pressStart,
+      "no onPress handler encloses play.purchase()",
+    ).toBeGreaterThan(-1);
     const press = subscribeSrc.slice(pressStart, pressEnd);
     expect(press.length).toBeGreaterThan(0);
     // Inside the guarded block: a failed POST must return, never fall through.
@@ -371,7 +452,14 @@ describe("payment channel separation", () => {
     // through to Play's payment sheet.
     expect(press).toMatch(/if \(!saved\.ok\) \{[\s\S]*?return;\s*\}/);
     // And the ONLY thing allowed to skip that block is the retry condition.
-    expect(press).toContain('if (play.error !== "verify_failed" && !play.recoverable) {');
+    // Matched as a pattern, not a literal: collapsing whitespace is not enough
+    // here because prettier ADDS spaces inside the parens when it wraps a long
+    // condition (`if (\n  a && b\n)` → `if ( a && b )`). The content is still
+    // asserted exactly — both operands, the negation and the conjunction — only
+    // the spacing is free.
+    expect(press).toMatch(
+      /if \(\s*play\.error !== "verify_failed" && !play\.recoverable\s*\) \{/,
+    );
     expect(press).toContain("if (!infoComplete)");
   });
 
@@ -412,9 +500,14 @@ describe("payment channel separation", () => {
     // stayed green with this one removed. Found by baiting it.
     const okAt = billing.indexOf("if (!ok) {");
     expect(okAt).toBeGreaterThan(-1);
-    const verifyFailureBlock = billing.slice(okAt, billing.indexOf("iap.finishTransaction", okAt));
+    const verifyFailureBlock = billing.slice(
+      okAt,
+      billing.indexOf("iap.finishTransaction", okAt),
+    );
     expect(verifyFailureBlock).toContain("settledRef.current.delete(token);");
-    expect(billing).toMatch(/\}\s*catch\s*\{\s*settledRef\.current\.delete\(token\)/);
+    expect(billing).toMatch(
+      /\}\s*catch\s*\{\s*settledRef\.current\.delete\(token\)/,
+    );
   });
 
   it("gates child-home usage collection on the channel, not on luck", () => {
@@ -424,7 +517,9 @@ describe("payment channel separation", () => {
     // other thing stopping it is the native module being excluded from Gradle
     // autolinking — an accident of app.config.ts, not a stated invariant. Any
     // edit to withPlayMonitoringDisabled would silently switch collection on.
-    expect(home).toContain("if (CHILD_MONITORING_ENABLED && isNativeModuleAvailable()) {");
+    expect(home).toContain(
+      "if (CHILD_MONITORING_ENABLED && isNativeModuleAvailable()) {",
+    );
   });
 
   it("does not dedupe a pending purchase's token before it can settle", () => {
@@ -444,14 +539,22 @@ describe("payment channel separation", () => {
     // only screen that shows a child's access code / QR. If its three entry
     // points are ever channel-gated again, a Play parent can open the child
     // login and be asked for a code nothing in that build can issue.
-    expect(read("app/child-account/parent-monitor.tsx")).toContain("trpc.childAccount.create.useMutation");
-    for (const f of ["app/(tabs)/family.tsx", "app/(tabs)/weekly.tsx", "app/(tabs)/messages.tsx"]) {
+    expect(read("app/child-account/parent-monitor.tsx")).toContain(
+      "trpc.childAccount.create.useMutation",
+    );
+    for (const f of [
+      "app/(tabs)/family.tsx",
+      "app/(tabs)/weekly.tsx",
+      "app/(tabs)/messages.tsx",
+    ]) {
       const src = read(f);
       // Anchored on the link itself, not on a blanket ban of the flag name:
       // these are three of the app's largest screens and a future
       // monitoring-specific use of the flag in them would be legitimate.
       expect(src).toContain("child-account/parent-monitor?childId=");
-      expect(src).not.toMatch(/\{CHILD_MONITORING_ENABLED && \([\s\S]{0,400}child-account\/parent-monitor/);
+      expect(src).not.toMatch(
+        /\{CHILD_MONITORING_ENABLED && \([\s\S]{0,400}child-account\/parent-monitor/,
+      );
     }
   });
 
@@ -463,7 +566,7 @@ describe("payment channel separation", () => {
     expect(finishAt).toBeGreaterThan(verifyAt);
     // Finishing an unverified purchase acknowledges it to Google, which stops
     // the automatic refund and hands out entitlement the server never confirmed.
-    expect(billing).toContain('if (!ok) {');
+    expect(billing).toContain("if (!ok) {");
   });
 });
 
@@ -523,28 +626,39 @@ describe("Play policy surfaces", () => {
     // €12 shown while the offer loads — or permanently, when it cannot load —
     // is the Stripe price quoted to a Play user. That is the discrepancy this
     // whole change exists to remove, and a fallback quietly reintroduced it.
-    const playBranches = [...screen.matchAll(/play\.offer \? play\.offer\.displayPrice : "([^"]*)"/g)];
+    const playBranches = [
+      ...screen.matchAll(
+        /play\.offer \? play\.offer\.displayPrice : "([^"]*)"/g,
+      ),
+    ];
     expect(playBranches.length).toBeGreaterThan(0);
     for (const branch of playBranches) expect(branch[1]).not.toContain("€");
   });
 
   it("gives Play subscribers a link to manage their subscription", () => {
-    const screen = read("app/subscribe.tsx");
+    const screen = readFlat("app/subscribe.tsx");
     // Play's subscription guidance: the app "should include a link on a
     // settings or preferences screen that allows users to manage their
     // subscriptions". The purchase card's prose about where to cancel is not
     // that link, and it only renders before buying — a subscriber never sees it.
-    expect(screen).toContain("https://play.google.com/store/account/subscriptions");
+    expect(screen).toContain(
+      "https://play.google.com/store/account/subscriptions",
+    );
     // Sideload has no Play subscription to manage; its Stripe membership is
     // cancelled on the website, so the link must not render there.
-    const link = screen.slice(0, screen.indexOf("https://play.google.com/store/account/subscriptions"));
+    const link = screen.slice(
+      0,
+      screen.indexOf("https://play.google.com/store/account/subscriptions"),
+    );
     // Android too, not just the Play channel. DISTRIBUTION_CHANNEL fails closed
     // to "play" for anything not built as github, so an iOS or web build was
     // offering subscribers a link to manage a Google Play subscription they
     // cannot possibly hold.
-    expect(link.lastIndexOf('DISTRIBUTION_CHANNEL === "github" || Platform.OS !== "android" ? null : (')).toBeGreaterThan(
-      link.lastIndexOf("</View>"),
-    );
+    expect(
+      link.lastIndexOf(
+        'DISTRIBUTION_CHANNEL === "github" || Platform.OS !== "android" ? null : (',
+      ),
+    ).toBeGreaterThan(link.lastIndexOf("</View>"));
   });
 
   it("carries the not-a-medical-device disclaimer", () => {
@@ -610,11 +724,15 @@ describe("Play policy surfaces", () => {
     // is the widget refresh — so it is never started. Declared, it obliges a
     // Play Console foreground-service declaration for the location type, the
     // most closely scrutinised, with no truthful justification available.
-    expect(config).toContain("expo.modules.location.services.LocationTaskService");
+    expect(config).toContain(
+      "expo.modules.location.services.LocationTaskService",
+    );
     expect(config).toContain('"tools:node": "remove"');
     // And the artifact gate must check the removal actually survived, since a
     // config plugin that stops matching fails silently.
-    expect(read("scripts/assert-play-artifact.sh")).toContain("LocationTaskService");
+    expect(read("scripts/assert-play-artifact.sh")).toContain(
+      "LocationTaskService",
+    );
   });
 
   it("shows no screen-time figures anywhere on the Play build", () => {
@@ -634,18 +752,27 @@ describe("Play policy surfaces", () => {
     // parenthesis, then require every reference to fall inside one.
     const spans: Array<[number, number]> = [];
     const opener = "CHILD_MONITORING_ENABLED && (";
-    for (let i = monitor.indexOf(opener); i !== -1; i = monitor.indexOf(opener, i + 1)) {
+    for (
+      let i = monitor.indexOf(opener);
+      i !== -1;
+      i = monitor.indexOf(opener, i + 1)
+    ) {
       let depth = 0;
       for (let j = i + opener.length - 1; j < monitor.length; j++) {
         if (monitor[j] === "(") depth++;
         else if (monitor[j] === ")") {
           depth--;
-          if (depth === 0) { spans.push([i, j]); break; }
+          if (depth === 0) {
+            spans.push([i, j]);
+            break;
+          }
         }
       }
     }
     expect(spans.length).toBeGreaterThan(0);
-    const refs = [...monitor.matchAll(/totalAppUsageSeconds/g)].map((m) => m.index!);
+    const refs = [...monitor.matchAll(/totalAppUsageSeconds/g)].map(
+      (m) => m.index!,
+    );
     expect(refs.length).toBeGreaterThan(0);
     const ungated = refs
       .filter((at) => !spans.some(([open, close]) => at > open && at < close))
@@ -661,13 +788,19 @@ describe("Play policy surfaces", () => {
     // absent, which is an accident of the autolinking exclusion rather than a
     // decision, and child-account/home.tsx explicitly refuses to rely on it.
     // Each effect states the channel invariant itself.
-    const effects = [...screen.matchAll(/useEffect\(\(\) => \{/g)].map((m) => m.index!);
+    const effects = [...screen.matchAll(/useEffect\(\(\) => \{/g)].map(
+      (m) => m.index!,
+    );
     const probing = effects.filter((at) =>
-      /checkPermission\(\)|runNoticeGatedCollection|permissionGranted/.test(screen.slice(at, at + 700)),
+      /checkPermission\(\)|runNoticeGatedCollection|permissionGranted/.test(
+        screen.slice(at, at + 700),
+      ),
     );
     expect(probing.length).toBeGreaterThan(0);
     for (const at of probing) {
-      expect(screen.slice(at, at + 700)).toContain("if (!CHILD_MONITORING_ENABLED) return;");
+      expect(screen.slice(at, at + 700)).toContain(
+        "if (!CHILD_MONITORING_ENABLED) return;",
+      );
     }
     // Child mode itself ships on both channels — the child holds no account and
     // enters from a signed-in adult's session. Only PACKAGE_USAGE_STATS
@@ -679,9 +812,15 @@ describe("Play policy surfaces", () => {
     // account and shows its access code, so blocking it left the Play build
     // advertising child mode with no way to set it up.
     const monitor = read("app/child-account/parent-monitor.tsx");
-    expect(monitor).toMatch(/enabled:\s*CHILD_MONITORING_ENABLED && childAccountId > 0 && activeTab === "apps"/);
-    expect(monitor).toContain('CHILD_MONITORING_ENABLED && activeTab === "apps" && renderApps()');
-    expect(monitor).not.toContain("if (!CHILD_MONITORING_ENABLED) return <Redirect");
+    expect(monitor).toMatch(
+      /enabled:\s*CHILD_MONITORING_ENABLED && childAccountId > 0 && activeTab === "apps"/,
+    );
+    expect(monitor).toContain(
+      'CHILD_MONITORING_ENABLED && activeTab === "apps" && renderApps()',
+    );
+    expect(monitor).not.toContain(
+      "if (!CHILD_MONITORING_ENABLED) return <Redirect",
+    );
   });
 
   it("opens child mode on both channels, behind the adult session", () => {
@@ -692,7 +831,9 @@ describe("Play policy surfaces", () => {
     // back off the Play build. Matched on the routing expression rather than
     // the flag name, so the comment explaining the removal does not satisfy it.
     expect(gate).not.toContain('segment === "child-account"');
-    expect(gate).toContain('if (!isAuthenticated && !inAuthGroup) return "/login";');
+    expect(gate).toContain(
+      'if (!isAuthenticated && !inAuthGroup) return "/login";',
+    );
   });
 });
 
@@ -707,8 +848,12 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // first version measured a byte distance between the gate and
     // styles.attachButton, which is exactly the formatting-coupled assertion
     // that breaks on a reformat and tempts someone to loosen it.
-    expect(chat).toMatch(/const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github"/);
-    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
+    expect(chat).toMatch(
+      /const ATTACHMENTS_ENABLED = DISTRIBUTION_CHANNEL === "github"/,
+    );
+    expect(chat, "the attach MENU must be gated").toContain(
+      "{ATTACHMENTS_ENABLED && showAttachMenu &&",
+    );
     // Ordering, not layout. The previous regex required a newline and specific
     // indentation between the gate and <Pressable>, so a reformat would have
     // "failed" correct code — the coupled-to-formatting assertion this codebase
@@ -717,12 +862,16 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // Both specific elements, not a count. toBe(2) failed the moment a third
     // legitimately-gated element was added, which turns a guard into an
     // obstacle and invites someone to relax it.
-    expect(chat, "the attach MENU must be gated").toContain("{ATTACHMENTS_ENABLED && showAttachMenu &&");
-    expect(chat, "the attach TRIGGER must be gated").toContain("{ATTACHMENTS_ENABLED && (");
+    expect(chat, "the attach MENU must be gated").toContain(
+      "{ATTACHMENTS_ENABLED && showAttachMenu &&",
+    );
+    expect(chat, "the attach TRIGGER must be gated").toContain(
+      "{ATTACHMENTS_ENABLED && (",
+    );
     expect(chat.indexOf("styles.attachButton")).toBeGreaterThan(
       chat.indexOf("{ATTACHMENTS_ENABLED && ("),
     );
-    expect(chat).toContain('import { DISTRIBUTION_CHANNEL }');
+    expect(chat).toContain("import { DISTRIBUTION_CHANNEL }");
   });
 
   it("sends the picture, not its filename", () => {
@@ -749,10 +898,15 @@ describe("AI chat attachments are sideload-only and actually send the image", ()
     // to push the real line out of any fixed window, which is how the first
     // version of this test failed on correct code.
     const from = chat.indexOf("attachments: m.attachments?.map(");
-    expect(from, "the attachment sanitiser moved - anchor is stale").toBeGreaterThan(-1);
+    expect(
+      from,
+      "the attachment sanitiser moved - anchor is stale",
+    ).toBeGreaterThan(-1);
     const mapping = chat.slice(from, chat.indexOf("\n", from));
     expect(mapping, "must clear uri").toMatch(/uri:\s*""/);
-    expect(mapping, "must clear dataUrl as well as uri").toMatch(/dataUrl:\s*undefined/);
+    expect(mapping, "must clear dataUrl as well as uri").toMatch(
+      /dataUrl:\s*undefined/,
+    );
   });
 });
 
@@ -784,7 +938,9 @@ describe("Play-friendly update path", () => {
       Linking: { openURL },
       Platform: { OS: os },
     }));
-    vi.doMock("expo-application", () => ({ nativeApplicationVersion: "1.6.0" }));
+    vi.doMock("expo-application", () => ({
+      nativeApplicationVersion: "1.6.0",
+    }));
     // Nothing on the Play path touches the filesystem or the installer intent;
     // these exist only so the module's imports resolve.
     vi.doMock("expo-file-system/legacy", () => ({}));
@@ -902,9 +1058,9 @@ describe("Play-friendly update path", () => {
     expect((await loadUpdates("play", "web")).mod.PLAY_UPDATE_HANDOFF).toBe(
       false,
     );
-    expect((await loadUpdates("github", "android")).mod.PLAY_UPDATE_HANDOFF).toBe(
-      false,
-    );
+    expect(
+      (await loadUpdates("github", "android")).mod.PLAY_UPDATE_HANDOFF,
+    ).toBe(false);
   });
 
   it("gives the Play build a visible control, not just a version number", () => {

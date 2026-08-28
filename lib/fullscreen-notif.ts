@@ -14,7 +14,7 @@
  * demoted to an ordinary heads-up banner. scheduleFullScreenPrayer currently has
  * no callers; the only live surface is the diagnostic below, which reports this.
  */
-import Constants from "expo-constants";
+import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
 import notifee, {
   AndroidImportance,
   AndroidVisibility,
@@ -110,7 +110,15 @@ export async function fullScreenDiagReport(seconds = 8): Promise<string> {
   // below (which only mean "dispatched", not "shown centre-screen") aren't read
   // as success on a build where the permission is stripped and the notification
   // is demoted to a normal banner.
-  const isPlay = (Constants.expoConfig?.extra?.distribution ?? "play") === "play";
+  // Read through the shared channel, not from extra.distribution directly.
+  // This was the last place in the app deriving the channel for itself, and it
+  // began disagreeing the moment iOS started reporting "apple": the raw config
+  // value has no iOS entry, so an iPhone read "play" here while everything else
+  // read "apple". Unreachable today — the only caller returns on non-Android —
+  // but two spellings of one fact is how the version-block screen ended up
+  // sending iOS users to Google Play. Not "is play": anything that is not the
+  // sideload build has USE_FULL_SCREEN_INTENT stripped.
+  const isPlay = DISTRIBUTION_CHANNEL !== "github";
   L.push(
     isPlay
       ? "fullscreen=DISABLED (Play build strips USE_FULL_SCREEN_INTENT; expect a banner, not a centre-screen popup)"

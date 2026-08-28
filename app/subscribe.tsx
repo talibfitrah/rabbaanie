@@ -1,15 +1,36 @@
 import { useState, useEffect, useCallback, useRef } from "react";
-import { ScrollView, Text, View, TextInput, TouchableOpacity, ActivityIndicator, Linking, Alert, Platform } from "react-native";
+import {
+  ScrollView,
+  Text,
+  View,
+  TextInput,
+  TouchableOpacity,
+  ActivityIndicator,
+  Linking,
+  Alert,
+  Platform,
+} from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
-import { formatSubscriptionRemaining, invalidateSubscriptionCache, isPerpetualExpiry, subscriptionFetch } from "@/hooks/use-subscription";
-import { DISTRIBUTION_CHANNEL } from "@/lib/distribution";
+import {
+  formatSubscriptionRemaining,
+  invalidateSubscriptionCache,
+  isPerpetualExpiry,
+  subscriptionFetch,
+} from "@/hooks/use-subscription";
+import { DISTRIBUTION_CHANNEL, couponPolicyChannel } from "@/lib/distribution";
 import { usePlayBilling } from "@/lib/play-billing";
-import { MARITAL_OPTIONS, buildSubscriberInfo, isKnownMaritalStatus, isSubscriberInfoComplete, type SubscriberInfoExtras } from "@/lib/subscriber-info";
+import {
+  MARITAL_OPTIONS,
+  buildSubscriberInfo,
+  isKnownMaritalStatus,
+  isSubscriberInfoComplete,
+  type SubscriberInfoExtras,
+} from "@/lib/subscriber-info";
 
 /**
  * Annual subscription (msg 560/608): shows the member's status, lets them
@@ -22,10 +43,15 @@ export default function SubscribeScreen() {
   const insets = useSafeAreaInsets();
   const { user, isAuthenticated } = useAuth();
   const uid = (user as any)?.id as number | undefined;
-  const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
+  const L3 = (ar: string, nl: string, en: string) =>
+    language === "ar" ? ar : language === "en" ? en : nl;
   const align = isRTL ? "right" : "left";
 
-  const [status, setStatus] = useState<{ subscribed: boolean; expiresAt?: string; playAccountTag?: string } | null>(null);
+  const [status, setStatus] = useState<{
+    subscribed: boolean;
+    expiresAt?: string;
+    playAccountTag?: string;
+  } | null>(null);
   const [loading, setLoading] = useState(true);
   const [coupon, setCoupon] = useState("");
   const [busy, setBusy] = useState(false);
@@ -69,33 +95,128 @@ export default function SubscribeScreen() {
   // and erases nothing; only a live session with a persistently failing /info
   // reaches the upsert, which the refetch above already makes rare.
   // ponytail: PATCH semantics server-side would remove the trade entirely.
-  const infoNotLoadedMsg = L3("تعذّر تحميل معلوماتك. أعِد فتح الصفحة ثمّ حاول.", "Uw gegevens konden niet worden geladen. Open deze pagina opnieuw en probeer het dan.", "Your details could not be loaded. Reopen this page and try again.");
+  const infoNotLoadedMsg = L3(
+    "تعذّر تحميل معلوماتك. أعِد فتح الصفحة ثمّ حاول.",
+    "Uw gegevens konden niet worden geladen. Open deze pagina opnieuw en probeer het dan.",
+    "Your details could not be loaded. Reopen this page and try again.",
+  );
   // Said whenever the server refuses the DETAILS rather than the code or the
   // payment. Each route spells that refusal differently — "missing_info" on
   // checkout and redeem, "incomplete" on info — and only some carry a message
   // of their own, so all three land here rather than on wording that blames
   // the coupon or claims payment is switched off.
-  const detailsRefusedMsg = L3("راجِع معلوماتك أعلاه ثمّ أعِد المحاولة.", "Controleer uw gegevens hierboven en probeer het opnieuw.", "Please check your details above and try again.");
-  const fields = { firstName, lastName, maritalStatus, streetHouseNumber, city, country, email, phone };
+  const detailsRefusedMsg = L3(
+    "راجِع معلوماتك أعلاه ثمّ أعِد المحاولة.",
+    "Controleer uw gegevens hierboven en probeer het opnieuw.",
+    "Please check your details above and try again.",
+  );
+  const fields = {
+    firstName,
+    lastName,
+    maritalStatus,
+    streetHouseNumber,
+    city,
+    country,
+    email,
+    phone,
+  };
   const infoComplete = isSubscriberInfoComplete(fields);
   // Tier explainer (msg 720): what General (free) vs Special (paid) unlocks.
   const GENERAL = [
-    { k: "adhkar", icon: "auto-stories", ar: "الأذكار", nl: "Adhkaar", en: "Adhkaar" },
-    { k: "prayer", icon: "mosque", ar: "الصلاة والمواقيت", nl: "Gebedstijden", en: "Prayer times" },
+    {
+      k: "adhkar",
+      icon: "auto-stories",
+      ar: "الأذكار",
+      nl: "Adhkaar",
+      en: "Adhkaar",
+    },
+    {
+      k: "prayer",
+      icon: "mosque",
+      ar: "الصلاة والمواقيت",
+      nl: "Gebedstijden",
+      en: "Prayer times",
+    },
     { k: "fitrah", icon: "eco", ar: "الفطرة", nl: "Fitrah", en: "Fitrah" },
-    { k: "self", icon: "balance", ar: "ضبط النفس", nl: "Zelfbeheersing", en: "Self-control" },
-    { k: "sunnah", icon: "wb-sunny", ar: "رفيق السنّة", nl: "Sunnah-metgezel", en: "Sunnah companion" },
-    { k: "library", icon: "local-library", ar: "المكتبة", nl: "Bibliotheek", en: "Library" },
+    {
+      k: "self",
+      icon: "balance",
+      ar: "ضبط النفس",
+      nl: "Zelfbeheersing",
+      en: "Self-control",
+    },
+    {
+      k: "sunnah",
+      icon: "wb-sunny",
+      ar: "رفيق السنّة",
+      nl: "Sunnah-metgezel",
+      en: "Sunnah companion",
+    },
+    {
+      k: "library",
+      icon: "local-library",
+      ar: "المكتبة",
+      nl: "Bibliotheek",
+      en: "Library",
+    },
   ];
   const SPECIAL = [
-    { k: "advisor", icon: "forum", ar: "المستشار التربويّ", nl: "Slimme adviseur", en: "Smart advisor" },
-    { k: "children", icon: "description", ar: "تحليل بيئة الأطفال", nl: "Kindanalyse", en: "Child analysis" },
-    { k: "advice", icon: "lightbulb", ar: "النصائح الشخصيّة", nl: "Persoonlijk advies", en: "Personal advice" },
-    { k: "weekly", icon: "event", ar: "الخطّة الأسبوعيّة", nl: "Weekplan", en: "Weekly plan" },
-    { k: "treat", icon: "healing", ar: "خطط العلاج", nl: "Behandelplannen", en: "Treatment plans" },
-    { k: "family", icon: "home", ar: "إدارة العائلة", nl: "Gezinsbeheer", en: "Family" },
-    { k: "messages", icon: "mail", ar: "مراسلة المتخصّصين", nl: "Berichten", en: "Messages" },
-    { k: "network", icon: "hub", ar: "الشبكة والربط", nl: "Netwerk", en: "Network" },
+    {
+      k: "advisor",
+      icon: "forum",
+      ar: "المستشار التربويّ",
+      nl: "Slimme adviseur",
+      en: "Smart advisor",
+    },
+    {
+      k: "children",
+      icon: "description",
+      ar: "تحليل بيئة الأطفال",
+      nl: "Kindanalyse",
+      en: "Child analysis",
+    },
+    {
+      k: "advice",
+      icon: "lightbulb",
+      ar: "النصائح الشخصيّة",
+      nl: "Persoonlijk advies",
+      en: "Personal advice",
+    },
+    {
+      k: "weekly",
+      icon: "event",
+      ar: "الخطّة الأسبوعيّة",
+      nl: "Weekplan",
+      en: "Weekly plan",
+    },
+    {
+      k: "treat",
+      icon: "healing",
+      ar: "خطط العلاج",
+      nl: "Behandelplannen",
+      en: "Treatment plans",
+    },
+    {
+      k: "family",
+      icon: "home",
+      ar: "إدارة العائلة",
+      nl: "Gezinsbeheer",
+      en: "Family",
+    },
+    {
+      k: "messages",
+      icon: "mail",
+      ar: "مراسلة المتخصّصين",
+      nl: "Berichten",
+      en: "Messages",
+    },
+    {
+      k: "network",
+      icon: "hub",
+      ar: "الشبكة والربط",
+      nl: "Netwerk",
+      en: "Network",
+    },
   ];
 
   // Tracks which account the newest request was for. Without it, switching
@@ -106,14 +227,19 @@ export default function SubscribeScreen() {
   // entitlement is granted until the purchase is re-verified.
   const statusRequestFor = useRef<number | undefined>(undefined);
   const loadStatus = useCallback(async () => {
-    if (!uid) { setLoading(false); return; }
+    if (!uid) {
+      setLoading(false);
+      return;
+    }
     statusRequestFor.current = uid;
     try {
       const r = await subscriptionFetch(`status?userId=${uid}`);
       const data = await r.json();
       if (statusRequestFor.current !== uid) return;
       setStatus(data);
-    } catch { /* ignore */ } finally {
+    } catch {
+      /* ignore */
+    } finally {
       // Inside the same guard as setStatus: a late response for the previous
       // account would otherwise clear the spinner for the new one while its
       // status is still null, flashing the not-subscribed card.
@@ -131,40 +257,56 @@ export default function SubscribeScreen() {
   // just typed with the stored values, so they were shown "saved ✓" beside a
   // form that had silently reverted — and a stale stored status cleared the
   // chip, so the next Save wrote the old details back over the new ones.
-  const loadInfo = useCallback(async (fillForm = true): Promise<SubscriberInfoExtras | null> => {
-    if (!uid) return null;
-    infoRequestFor.current = uid;
-    let loaded: SubscriberInfoExtras = {};
-    try {
-      const r = await subscriptionFetch(`info?userId=${uid}`);
-      // An error body is still JSON: a 401 parses to a truthy object, which
-      // blanked every field and then counted as a successful load — so the
-      // erasure guard below would have passed on data never actually loaded.
-      if (!r.ok) return null;
-      const d = await r.json();
-      if (infoRequestFor.current !== uid) return null;
-      if (d) {
-        if (fillForm) {
-          setFirstName(d.firstName || ""); setLastName(d.lastName || "");
-          // Screened, not trusted: a stored value from the old vocabulary would
-          // select no chip yet still count as filled in, so every submit would be
-          // refused for a reason the user never sees.
-          setMaritalStatus(isKnownMaritalStatus(d.maritalStatus) ? d.maritalStatus : "");
-          setStreetHouseNumber(d.streetHouseNumber || ""); setCity(d.city || ""); setCountry(d.country || "");
-          setEmail(d.email || ((user as any)?.email as string) || ""); setPhone(d.phone || "");
+  const loadInfo = useCallback(
+    async (fillForm = true): Promise<SubscriberInfoExtras | null> => {
+      if (!uid) return null;
+      infoRequestFor.current = uid;
+      let loaded: SubscriberInfoExtras = {};
+      try {
+        const r = await subscriptionFetch(`info?userId=${uid}`);
+        // An error body is still JSON: a 401 parses to a truthy object, which
+        // blanked every field and then counted as a successful load — so the
+        // erasure guard below would have passed on data never actually loaded.
+        if (!r.ok) return null;
+        const d = await r.json();
+        if (infoRequestFor.current !== uid) return null;
+        if (d) {
+          if (fillForm) {
+            setFirstName(d.firstName || "");
+            setLastName(d.lastName || "");
+            // Screened, not trusted: a stored value from the old vocabulary would
+            // select no chip yet still count as filled in, so every submit would be
+            // refused for a reason the user never sees.
+            setMaritalStatus(
+              isKnownMaritalStatus(d.maritalStatus) ? d.maritalStatus : "",
+            );
+            setStreetHouseNumber(d.streetHouseNumber || "");
+            setCity(d.city || "");
+            setCountry(d.country || "");
+            setEmail(d.email || ((user as any)?.email as string) || "");
+            setPhone(d.phone || "");
+          }
+          loaded = {
+            kunya: d.kunya,
+            gender: d.gender,
+            addressLine2: d.addressLine2,
+            postcode: d.postcode,
+          };
+          setExtras(loaded);
         }
-        loaded = { kunya: d.kunya, gender: d.gender, addressLine2: d.addressLine2, postcode: d.postcode };
-        setExtras(loaded);
+        // Also true when there is no record yet: nothing stored is nothing to erase.
+        setInfoLoaded(true);
+        // Returned as well as stored, because a caller retrying after a failed
+        // first load needs them NOW: setExtras is not visible until the next
+        // render, so the payload it is about to build would still carry the empty
+        // extras and erase precisely what this refetch just recovered.
+        return loaded;
+      } catch {
+        return null;
       }
-      // Also true when there is no record yet: nothing stored is nothing to erase.
-      setInfoLoaded(true);
-      // Returned as well as stored, because a caller retrying after a failed
-      // first load needs them NOW: setExtras is not visible until the next
-      // render, so the payload it is about to build would still carry the empty
-      // extras and erase precisely what this refetch just recovered.
-      return loaded;
-    } catch { return null; }
-  }, [uid, user]);
+    },
+    [uid, user],
+  );
   // Drop the previous account's status the instant uid changes. Dropping only
   // out-of-order responses is not enough: until the new one lands, the card
   // still renders with the old user's playAccountTag and a live Subscribe
@@ -173,26 +315,39 @@ export default function SubscribeScreen() {
     setStatus(null);
     setLoading(true);
     // Clear the subscriber details too — they gate the purchase.
-    setFirstName(""); setLastName(""); setMaritalStatus("");
+    setFirstName("");
+    setLastName("");
+    setMaritalStatus("");
     // Email falls back to the session's own address, exactly as loadInfo does.
     // Blanking it outright dropped a prefill the user never typed, and since
     // email is one of the fields infoComplete requires, an account whose
     // /info fetch then failed could not reach the Subscribe button at all.
-    setStreetHouseNumber(""); setCity(""); setCountry(""); setExtras({}); setInfoLoaded(false);
-    setEmail(((user as any)?.email as string) || ""); setPhone("");
+    setStreetHouseNumber("");
+    setCity("");
+    setCountry("");
+    setExtras({});
+    setInfoLoaded(false);
+    setEmail(((user as any)?.email as string) || "");
+    setPhone("");
     // The typed code and the last message belong to the previous account too: a
     // coupon entered under one account stayed in the box across a switch and
     // could be redeemed into the next one.
-    setCoupon(""); setMsg("");
+    setCoupon("");
+    setMsg("");
   }, [uid]);
-  useEffect(() => { loadStatus(); loadInfo(); }, [loadStatus, loadInfo]);
+  useEffect(() => {
+    loadStatus();
+    loadInfo();
+  }, [loadStatus, loadInfo]);
 
   // Play Billing is inert on the sideload channel (see lib/play-billing.ts), so
   // this hook is safe to mount unconditionally.
   const play = usePlayBilling(status?.playAccountTag, uid);
   // A verified Play purchase changes entitlement server-side; pull the new
   // status so the banner flips to "subscribed" without leaving the screen.
-  useEffect(() => { if (play.purchased) loadStatus(); }, [play.purchased, loadStatus]);
+  useEffect(() => {
+    if (play.purchased) loadStatus();
+  }, [play.purchased, loadStatus]);
   // Re-check on focus so a Stripe payment completed in the external browser is
   // reflected when the user returns, and drop the shared cache so the rest of
   // the app unlocks too.
@@ -200,7 +355,7 @@ export default function SubscribeScreen() {
     useCallback(() => {
       invalidateSubscriptionCache();
       loadStatus();
-    }, [loadStatus])
+    }, [loadStatus]),
   );
 
   /**
@@ -221,15 +376,30 @@ export default function SubscribeScreen() {
     const ex = await currentExtras();
     if (!ex) return { ok: false, message: infoNotLoadedMsg };
     try {
-      const r = await subscriptionFetch("info", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, info: buildSubscriberInfo(fields, ex), lang: language }) });
+      const r = await subscriptionFetch("info", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: uid,
+          info: buildSubscriberInfo(fields, ex),
+          lang: language,
+        }),
+      });
       const d = await r.json();
       // The server's own reason travels with the refusal — a name it will not
       // accept, a marital status it no longer knows. Returning a bare false is
       // what left a Play buyer with "could not be saved" and nothing to fix.
       // This route spells the same refusal "incomplete" and sends no message,
       // which is why Save alone still said "Could not save".
-      return { ok: !!d?.ok, message: d?.message || (d?.error === "incomplete" ? detailsRefusedMsg : undefined) };
-    } catch { return { ok: false }; }
+      return {
+        ok: !!d?.ok,
+        message:
+          d?.message ||
+          (d?.error === "incomplete" ? detailsRefusedMsg : undefined),
+      };
+    } catch {
+      return { ok: false };
+    }
   }
 
   async function saveInfo() {
@@ -238,29 +408,89 @@ export default function SubscribeScreen() {
     // alternative is "saved ✓" in the footer above a stale complaint about the
     // same fields, still beside the Subscribe button.
     setPurchaseRefusal("");
-    if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
-    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
-    setBusy(true); setMsg("");
+    if (!uid) {
+      Alert.alert(
+        L3("سجّل الدخول", "Log in", "Log in"),
+        L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first."),
+      );
+      return;
+    }
+    if (!infoComplete) {
+      setMsg(
+        L3(
+          "أكمِل جميعَ الحقول أوّلًا.",
+          "Vul eerst alle velden in.",
+          "Please complete all fields first.",
+        ),
+      );
+      return;
+    }
+    setBusy(true);
+    setMsg("");
     const saved = await persistInfo();
-    setMsg(saved.ok ? L3("حُفظت معلوماتك ✓", "Uw gegevens zijn opgeslagen ✓", "Your details are saved ✓") : (saved.message || L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save.")));
+    setMsg(
+      saved.ok
+        ? L3(
+            "حُفظت معلوماتك ✓",
+            "Uw gegevens zijn opgeslagen ✓",
+            "Your details are saved ✓",
+          )
+        : saved.message ||
+            L3("تعذّر الحفظ.", "Opslaan mislukt.", "Could not save."),
+    );
     setBusy(false);
   }
 
   async function subscribe() {
     // Stripe is the sideload channel's payment path only. Opening its checkout
-    // from a Play build is an in-app link to a payment method outside Play
-    // billing — the thing the payments policy actually forbids, and grounds for
-    // removal. The guard lives here as well as on the button so a future call
-    // site cannot reintroduce it by rendering its own "subscribe" control.
-    // Play billing (expo-iap) replaces this branch when the client half ships.
-    if (DISTRIBUTION_CHANNEL === "play") return;
-    if (!isAuthenticated || !uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا لتشترك.", "Log eerst in om te abonneren.", "Please log in first to subscribe.")); return; }
-    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
-    setBusy(true); setMsg("");
+    // from a STORE build is an in-app link to a payment method outside that
+    // store's billing — what both Google's and Apple's payments policies forbid
+    // outright, and grounds for removal. The guard lives here as well as on the
+    // button so a future call site cannot reintroduce it by rendering its own
+    // "subscribe" control.
+    //
+    // Tested as "not github" rather than "is play". The original spelling was
+    // written when those were the only two channels, so introducing "apple"
+    // silently switched this defence OFF on the strictest of the three — the
+    // very reintroduction the paragraph above says the guard exists to stop.
+    // An unrecognised channel must fail closed to refusing Stripe, never open.
+    // Store billing (expo-iap) replaces this branch per channel.
+    if (DISTRIBUTION_CHANNEL !== "github") return;
+    if (!isAuthenticated || !uid) {
+      Alert.alert(
+        L3("سجّل الدخول", "Log in", "Log in"),
+        L3(
+          "سجّل الدخول أوّلًا لتشترك.",
+          "Log eerst in om te abonneren.",
+          "Please log in first to subscribe.",
+        ),
+      );
+      return;
+    }
+    if (!infoComplete) {
+      setMsg(
+        L3(
+          "أكمِل جميعَ الحقول أوّلًا.",
+          "Vul eerst alle velden in.",
+          "Please complete all fields first.",
+        ),
+      );
+      return;
+    }
+    setBusy(true);
+    setMsg("");
     try {
       // Refetch first, but proceed regardless — see currentExtras.
       const ex = await currentExtras();
-      const r = await subscriptionFetch("checkout", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ userId: uid, lang: language, info: buildSubscriberInfo(fields, ex ?? {}) }) });
+      const r = await subscriptionFetch("checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          userId: uid,
+          lang: language,
+          info: buildSubscriberInfo(fields, ex ?? {}),
+        }),
+      });
       const d = await r.json();
       if (d.url) Linking.openURL(d.url);
       // Same trap as the coupon path: a refused detail is not an inactive
@@ -268,71 +498,244 @@ export default function SubscribeScreen() {
       // was about to refuse them for the very same reason.
       // missing_info carries no message of its own, so without naming it here
       // a refused detail still reports the payment system as switched off.
-      else setMsg(d.message || (d.error === "missing_info" ? detailsRefusedMsg : L3("الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.", "Betalen is nog niet actief. Probeer een coupon of kom later terug.", "Payment isn't active yet. Try a coupon or come back later.")));
-    } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
+      else
+        setMsg(
+          d.message ||
+            (d.error === "missing_info"
+              ? detailsRefusedMsg
+              : L3(
+                  "الدفعُ غير مفعّلٍ بعد. جرّب كوبونًا أو عُد لاحقًا.",
+                  "Betalen is nog niet actief. Probeer een coupon of kom later terug.",
+                  "Payment isn't active yet. Try a coupon or come back later.",
+                )),
+        );
+    } catch {
+      setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed."));
+    } finally {
+      setBusy(false);
+    }
   }
 
   async function redeem() {
     const code = coupon.trim();
     if (!code) return;
-    if (!uid) { Alert.alert(L3("سجّل الدخول", "Log in", "Log in"), L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first.")); return; }
-    if (!infoComplete) { setMsg(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; }
-    setBusy(true); setMsg("");
+    if (!uid) {
+      Alert.alert(
+        L3("سجّل الدخول", "Log in", "Log in"),
+        L3("سجّل الدخول أوّلًا.", "Log eerst in.", "Please log in first."),
+      );
+      return;
+    }
+    if (!infoComplete) {
+      setMsg(
+        L3(
+          "أكمِل جميعَ الحقول أوّلًا.",
+          "Vul eerst alle velden in.",
+          "Please complete all fields first.",
+        ),
+      );
+      return;
+    }
+    setBusy(true);
+    setMsg("");
     try {
       // Refetch first, but proceed regardless — see currentExtras.
       const ex = await currentExtras();
-      const r = await subscriptionFetch("redeem-coupon", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ code, userId: uid, info: buildSubscriberInfo(fields, ex ?? {}), lang: language, channel: DISTRIBUTION_CHANNEL }) });
+      const r = await subscriptionFetch("redeem-coupon", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          code,
+          userId: uid,
+          info: buildSubscriberInfo(fields, ex ?? {}),
+          lang: language,
+          channel: couponPolicyChannel(),
+        }),
+      });
       const d = await r.json();
       if (d.ok) {
-        setMsg(L3("تمّ تفعيلُ اشتراكك ✓", "Uw abonnement is geactiveerd ✓", "Your subscription is active ✓"));
+        setMsg(
+          L3(
+            "تمّ تفعيلُ اشتراكك ✓",
+            "Uw abonnement is geactiveerd ✓",
+            "Your subscription is active ✓",
+          ),
+        );
         setCoupon("");
         loadStatus();
         // Entitlement just changed: drop the shared cache so the premium screens
         // (Weekly, Treatments, Personal Advice) refetch and unlock on next
         // navigation instead of staying paywalled until a cold restart.
         invalidateSubscriptionCache();
-      }
-      else {
+      } else {
         const e = d.error;
         // "not_available": a sold coupon on the Play build. Deliberately says
         // nothing about where it can be used — naming the website would be
         // exactly the steering Play's payments policy forbids.
-        setMsg(e === "not_available" ? L3("لا يمكن تفعيل هذا الرمز هنا. تواصل مع الدعم.", "Deze code kan hier niet worden geactiveerd. Neem contact op met support.", "This code cannot be activated here. Please contact support.")
-          : e === "already_redeemed" ? L3("استُخدم هذا الكوبون من حسابك.", "Deze coupon is al gebruikt op uw account.", "This coupon was already used on your account.")
-          : e === "used_up" ? L3("استُنفد هذا الكوبون.", "Deze coupon is opgebruikt.", "This coupon is used up.")
-          : e === "expired" || e === "inactive" ? L3("هذا الكوبون غيرُ صالح.", "Deze coupon is niet geldig.", "This coupon is not valid.")
-          // The server refused the DETAILS, not the code. Falling through to
-          // "invalid coupon" here is what hid a client/server contract drift
-          // for five days while no code was ever looked up. `message` is the
-          // server's own localized wording, which it sends for a refused name
-          // or marital status; missing_info carries none, so name the fix.
-          : e === "missing_info" || e === "invalid_marital_status" || e === "invalid_name"
-          ? (d.message || detailsRefusedMsg)
-          : L3("كوبونٌ غيرُ صحيح.", "Ongeldige coupon.", "Invalid coupon."));
+        setMsg(
+          e === "not_available"
+            ? L3(
+                "لا يمكن تفعيل هذا الرمز هنا. تواصل مع الدعم.",
+                "Deze code kan hier niet worden geactiveerd. Neem contact op met support.",
+                "This code cannot be activated here. Please contact support.",
+              )
+            : e === "already_redeemed"
+              ? L3(
+                  "استُخدم هذا الكوبون من حسابك.",
+                  "Deze coupon is al gebruikt op uw account.",
+                  "This coupon was already used on your account.",
+                )
+              : e === "used_up"
+                ? L3(
+                    "استُنفد هذا الكوبون.",
+                    "Deze coupon is opgebruikt.",
+                    "This coupon is used up.",
+                  )
+                : e === "expired" || e === "inactive"
+                  ? L3(
+                      "هذا الكوبون غيرُ صالح.",
+                      "Deze coupon is niet geldig.",
+                      "This coupon is not valid.",
+                    )
+                  : // The server refused the DETAILS, not the code. Falling through to
+                    // "invalid coupon" here is what hid a client/server contract drift
+                    // for five days while no code was ever looked up. `message` is the
+                    // server's own localized wording, which it sends for a refused name
+                    // or marital status; missing_info carries none, so name the fix.
+                    e === "missing_info" ||
+                      e === "invalid_marital_status" ||
+                      e === "invalid_name"
+                    ? d.message || detailsRefusedMsg
+                    : L3(
+                        "كوبونٌ غيرُ صحيح.",
+                        "Ongeldige coupon.",
+                        "Invalid coupon.",
+                      ),
+        );
       }
-    } catch { setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed.")); } finally { setBusy(false); }
+    } catch {
+      setMsg(L3("تعذّر الاتصال.", "Verbinding mislukt.", "Connection failed."));
+    } finally {
+      setBusy(false);
+    }
   }
 
-  const fmtDate = (d?: string) => { if (!d) return ""; try { return new Date(d).toLocaleDateString(language === "ar" ? "ar" : language === "nl" ? "nl" : "en"); } catch { return ""; } };
-  const inputStyle = { backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, color: colors.foreground, textAlign: align as "right" | "left", borderWidth: 1, borderColor: colors.border };
+  const fmtDate = (d?: string) => {
+    if (!d) return "";
+    try {
+      return new Date(d).toLocaleDateString(
+        language === "ar" ? "ar" : language === "nl" ? "nl" : "en",
+      );
+    } catch {
+      return "";
+    }
+  };
+  const inputStyle = {
+    backgroundColor: colors.surface,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    color: colors.foreground,
+    textAlign: align as "right" | "left",
+    borderWidth: 1,
+    borderColor: colors.border,
+  };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
-        <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: align }}>{L3("الاشتراك السنويّ", "Jaarabonnement", "Annual subscription")}</Text>
+      <View
+        style={{
+          paddingTop: insets.top + 8,
+          paddingBottom: 12,
+          paddingHorizontal: 16,
+          backgroundColor: colors.surface,
+          borderBottomWidth: 0.5,
+          borderBottomColor: colors.border,
+          flexDirection: isRTL ? "row-reverse" : "row",
+          alignItems: "center",
+          gap: 12,
+        }}
+      >
+        <TouchableOpacity onPress={() => router.back()}>
+          <MaterialIcons
+            name={isRTL ? "arrow-forward" : "arrow-back"}
+            size={24}
+            color={colors.foreground}
+          />
+        </TouchableOpacity>
+        <Text
+          style={{
+            fontSize: 18,
+            fontWeight: "700",
+            color: colors.foreground,
+            flex: 1,
+            textAlign: align,
+          }}
+        >
+          {L3("الاشتراك السنويّ", "Jaarabonnement", "Annual subscription")}
+        </Text>
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16 }}>
-        {loading ? <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} /> : (
+        {loading ? (
+          <ActivityIndicator color={colors.primary} style={{ marginTop: 30 }} />
+        ) : (
           <>
             {/* Status banner (msg 701): clearly show paid / not-paid */}
             {status?.subscribed ? (
-              <View style={{ backgroundColor: colors.primary + "12", borderColor: colors.primary, borderWidth: 1.5, borderRadius: 16, padding: 18, alignItems: "center", marginBottom: 14 }}>
-                <MaterialIcons name="verified" size={40} color={colors.primary} />
-                <Text style={{ fontSize: 17, fontWeight: "800", color: colors.foreground, marginTop: 8, textAlign: "center" }}>{L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}</Text>
-                {status.expiresAt && !isPerpetualExpiry(status.expiresAt) ? <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: "center" }}>{L3("ساري إلى", "Geldig tot", "Valid until")} {fmtDate(status.expiresAt)}</Text> : null}
-                {status.expiresAt ? <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "800", marginTop: 4, textAlign: "center" }}>{formatSubscriptionRemaining(status.expiresAt, language)}</Text> : null}
+              <View
+                style={{
+                  backgroundColor: colors.primary + "12",
+                  borderColor: colors.primary,
+                  borderWidth: 1.5,
+                  borderRadius: 16,
+                  padding: 18,
+                  alignItems: "center",
+                  marginBottom: 14,
+                }}
+              >
+                <MaterialIcons
+                  name="verified"
+                  size={40}
+                  color={colors.primary}
+                />
+                <Text
+                  style={{
+                    fontSize: 17,
+                    fontWeight: "800",
+                    color: colors.foreground,
+                    marginTop: 8,
+                    textAlign: "center",
+                  }}
+                >
+                  {L3("أنت مشترك", "U bent geabonneerd", "You are subscribed")}
+                </Text>
+                {status.expiresAt && !isPerpetualExpiry(status.expiresAt) ? (
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.muted,
+                      marginTop: 6,
+                      textAlign: "center",
+                    }}
+                  >
+                    {L3("ساري إلى", "Geldig tot", "Valid until")}{" "}
+                    {fmtDate(status.expiresAt)}
+                  </Text>
+                ) : null}
+                {status.expiresAt ? (
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.primary,
+                      fontWeight: "800",
+                      marginTop: 4,
+                      textAlign: "center",
+                    }}
+                  >
+                    {formatSubscriptionRemaining(status.expiresAt, language)}
+                  </Text>
+                ) : null}
                 {/* Required, not a nicety: Play's subscription guidance says the
                     app "should include a link on a settings or preferences
                     screen that allows users to manage their subscriptions".
@@ -348,47 +751,212 @@ export default function SubscribeScreen() {
                     a coupon or legacy Stripe member too, and it is the one the
                     Play reviewer will look for on a demo account whose
                     membership did not come from Play. */}
-                {DISTRIBUTION_CHANNEL === "github" || Platform.OS !== "android" ? null : (
+                {DISTRIBUTION_CHANNEL === "github" ||
+                Platform.OS !== "android" ? null : (
                   <TouchableOpacity
                     accessibilityRole="link"
-                    onPress={() => Linking.openURL("https://play.google.com/store/account/subscriptions").catch(() => {})}
-                    style={{ minHeight: 44, justifyContent: "center", alignItems: "center", marginTop: 10 }}
+                    onPress={() =>
+                      Linking.openURL(
+                        "https://play.google.com/store/account/subscriptions",
+                      ).catch(() => {})
+                    }
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginTop: 10,
+                    }}
                   >
-                    <Text style={{ fontSize: 13, color: colors.primary, fontWeight: "700", textDecorationLine: "underline", textAlign: "center" }}>
-                      {L3("إدارة الاشتراك في Google Play", "Abonnement beheren in Google Play", "Manage subscription in Google Play")}
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: colors.primary,
+                        fontWeight: "700",
+                        textDecorationLine: "underline",
+                        textAlign: "center",
+                      }}
+                    >
+                      {L3(
+                        "إدارة الاشتراك في Google Play",
+                        "Abonnement beheren in Google Play",
+                        "Manage subscription in Google Play",
+                      )}
                     </Text>
                   </TouchableOpacity>
                 )}
               </View>
             ) : (
-              <View style={{ backgroundColor: "#FFF7E6", borderColor: "#E9C46A", borderWidth: 1.5, borderRadius: 16, padding: 16, marginBottom: 14 }}>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
-                  <MaterialIcons name="info-outline" size={22} color="#B8860B" />
-                  <Text style={{ fontSize: 15, fontWeight: "800", color: "#7A5B00", flex: 1, textAlign: align }}>{L3("أنت غير مشترك", "U bent niet geabonneerd", "You are not subscribed")}</Text>
+              <View
+                style={{
+                  backgroundColor: "#FFF7E6",
+                  borderColor: "#E9C46A",
+                  borderWidth: 1.5,
+                  borderRadius: 16,
+                  padding: 16,
+                  marginBottom: 14,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    gap: 8,
+                  }}
+                >
+                  <MaterialIcons
+                    name="info-outline"
+                    size={22}
+                    color="#B8860B"
+                  />
+                  <Text
+                    style={{
+                      fontSize: 15,
+                      fontWeight: "800",
+                      color: "#7A5B00",
+                      flex: 1,
+                      textAlign: align,
+                    }}
+                  >
+                    {L3(
+                      "أنت غير مشترك",
+                      "U bent niet geabonneerd",
+                      "You are not subscribed",
+                    )}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 13, color: "#7A5B00", marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("اشترك لدعم ربّانيّ والاستفادة الكاملة، أو فعّل كوبونًا.", "Abonneer om Rabbaanie te steunen en volledig te profiteren, of activeer een coupon.", "Subscribe to support Rabbaanie and get full access, or redeem a coupon.")}</Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    color: "#7A5B00",
+                    marginTop: 6,
+                    textAlign: align,
+                    lineHeight: 20,
+                  }}
+                >
+                  {L3(
+                    "اشترك لدعم ربّانيّ والاستفادة الكاملة، أو فعّل كوبونًا.",
+                    "Abonneer om Rabbaanie te steunen en volledig te profiteren, of activeer een coupon.",
+                    "Subscribe to support Rabbaanie and get full access, or redeem a coupon.",
+                  )}
+                </Text>
               </View>
             )}
 
             {/* Tier explainer (msg 720): General (free) vs Special (paid), with icons */}
-            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginBottom: 14 }}>
-              <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 14, padding: 12 }}>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
+            <View
+              style={{
+                flexDirection: isRTL ? "row-reverse" : "row",
+                gap: 10,
+                marginBottom: 14,
+              }}
+            >
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.surface,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderRadius: 14,
+                  padding: 12,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 6,
+                  }}
+                >
                   <MaterialIcons name="eco" size={20} color={colors.primary} />
-                  <Text style={{ fontWeight: "800", fontSize: 13, color: colors.foreground, flex: 1, textAlign: align }}>{L3("العامّ", "Algemeen", "General")}</Text>
+                  <Text
+                    style={{
+                      fontWeight: "800",
+                      fontSize: 13,
+                      color: colors.foreground,
+                      flex: 1,
+                      textAlign: align,
+                    }}
+                  >
+                    {L3("العامّ", "Algemeen", "General")}
+                  </Text>
                 </View>
-                <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 10, textAlign: align }}>{L3("مجّانيّ — بإدخال بياناتك", "Gratis — met uw gegevens", "Free — with your details")}</Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: colors.muted,
+                    marginBottom: 10,
+                    textAlign: align,
+                  }}
+                >
+                  {L3(
+                    "مجّانيّ — بإدخال بياناتك",
+                    "Gratis — met uw gegevens",
+                    "Free — with your details",
+                  )}
+                </Text>
                 {GENERAL.map((s) => (
-                  <View key={s.k} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 7 }}>
-                    <MaterialIcons name={s.icon as any} size={15} color={colors.muted} />
-                    <Text style={{ fontSize: 11.5, color: colors.foreground, flex: 1, textAlign: align }}>{L3(s.ar, s.nl, s.en)}</Text>
+                  <View
+                    key={s.k}
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 7,
+                    }}
+                  >
+                    <MaterialIcons
+                      name={s.icon as any}
+                      size={15}
+                      color={colors.muted}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11.5,
+                        color: colors.foreground,
+                        flex: 1,
+                        textAlign: align,
+                      }}
+                    >
+                      {L3(s.ar, s.nl, s.en)}
+                    </Text>
                   </View>
                 ))}
               </View>
-              <View style={{ flex: 1, backgroundColor: colors.surface, borderWidth: 2, borderColor: colors.primary, borderRadius: 14, padding: 12 }}>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 6 }}>
-                  <MaterialIcons name="workspace-premium" size={20} color={colors.primary} />
-                  <Text style={{ fontWeight: "800", fontSize: 13, color: colors.foreground, flex: 1, textAlign: align }}>{L3("الخاصّ", "Speciaal", "Special")}</Text>
+              <View
+                style={{
+                  flex: 1,
+                  backgroundColor: colors.surface,
+                  borderWidth: 2,
+                  borderColor: colors.primary,
+                  borderRadius: 14,
+                  padding: 12,
+                }}
+              >
+                <View
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    gap: 6,
+                    marginBottom: 6,
+                  }}
+                >
+                  <MaterialIcons
+                    name="workspace-premium"
+                    size={20}
+                    color={colors.primary}
+                  />
+                  <Text
+                    style={{
+                      fontWeight: "800",
+                      fontSize: 13,
+                      color: colors.foreground,
+                      flex: 1,
+                      textAlign: align,
+                    }}
+                  >
+                    {L3("الخاصّ", "Speciaal", "Special")}
+                  </Text>
                 </View>
                 {/* Same rule as the purchase card below: on Play the price
                     comes from Play, because it is set per country and includes
@@ -397,44 +965,267 @@ export default function SubscribeScreen() {
                     user whenever the offer had not loaded, and permanently
                     whenever it could not, which is the exact discrepancy this
                     change exists to remove. */}
-                {DISTRIBUTION_CHANNEL === "github" ? (
-                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>€12 <Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}>{L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
+                {/* No figure on the App Store build. Both arms below were
+                    written for a world with two channels, so "apple" fell into
+                    the Play arm — where play.offer is permanently null
+                    (isPlayBillingEnabled requires Platform.OS === "android"),
+                    so an iOS user read the paid tier as priced "—" forever.
+                    Nothing is purchasable in-app on iOS until StoreKit ships,
+                    and a price with no way to buy is worse than no price: it
+                    invites the question "where do I pay, then", which is the
+                    guideline 3.1.1 conversation this build is trying not to
+                    have. The button below already names the coupon fallback. */}
+                {DISTRIBUTION_CHANNEL ===
+                "apple" ? null : DISTRIBUTION_CHANNEL === "github" ? (
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: colors.primary,
+                      fontWeight: "800",
+                      marginBottom: 4,
+                      textAlign: align,
+                    }}
+                  >
+                    €12{" "}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: colors.muted,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {L3("/ سنة", "/ jaar", "/ year")}
+                    </Text>
+                  </Text>
                 ) : (
-                  <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "800", marginBottom: 4, textAlign: align }}>{play.offer ? play.offer.displayPrice : "—"}<Text style={{ fontSize: 10, color: colors.muted, fontWeight: "600" }}> {L3("/ سنة", "/ jaar", "/ year")}</Text></Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: colors.primary,
+                      fontWeight: "800",
+                      marginBottom: 4,
+                      textAlign: align,
+                    }}
+                  >
+                    {play.offer ? play.offer.displayPrice : "—"}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: colors.muted,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {" "}
+                      {L3("/ سنة", "/ jaar", "/ year")}
+                    </Text>
+                  </Text>
                 )}
-                <Text style={{ fontSize: 11, color: colors.muted, marginBottom: 10, textAlign: align }}>{L3("كلُّ ما في العامّ، وزيادةً:", "Alles van Algemeen, plus:", "Everything in General, plus:")}</Text>
+                <Text
+                  style={{
+                    fontSize: 11,
+                    color: colors.muted,
+                    marginBottom: 10,
+                    textAlign: align,
+                  }}
+                >
+                  {L3(
+                    "كلُّ ما في العامّ، وزيادةً:",
+                    "Alles van Algemeen, plus:",
+                    "Everything in General, plus:",
+                  )}
+                </Text>
                 {SPECIAL.map((s) => (
-                  <View key={s.k} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 7 }}>
-                    <MaterialIcons name={s.icon as any} size={15} color={colors.primary} />
-                    <Text style={{ fontSize: 11.5, color: colors.foreground, flex: 1, textAlign: align }}>{L3(s.ar, s.nl, s.en)}</Text>
+                  <View
+                    key={s.k}
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      gap: 6,
+                      marginBottom: 7,
+                    }}
+                  >
+                    <MaterialIcons
+                      name={s.icon as any}
+                      size={15}
+                      color={colors.primary}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11.5,
+                        color: colors.foreground,
+                        flex: 1,
+                        textAlign: align,
+                      }}
+                    >
+                      {L3(s.ar, s.nl, s.en)}
+                    </Text>
                   </View>
                 ))}
               </View>
             </View>
 
             {/* Subscriber info — always shown, editable, savable (msg 701) */}
-            <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 16, marginBottom: 12 }}>
-              <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: align }}>{L3("معلوماتي", "Mijn gegevens", "My details")}</Text>
-              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 8 }}>
-                <TextInput value={firstName} onChangeText={setFirstName} placeholder={L3("الاسم", "Voornaam", "First name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
-                <TextInput value={lastName} onChangeText={setLastName} placeholder={L3("اللقب", "Achternaam", "Last name")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderColor: colors.border,
+                borderWidth: 1,
+                borderRadius: 16,
+                padding: 16,
+                marginBottom: 12,
+              }}
+            >
+              <Text
+                style={{
+                  fontSize: 13,
+                  fontWeight: "700",
+                  color: colors.foreground,
+                  marginBottom: 8,
+                  textAlign: align,
+                }}
+              >
+                {L3("معلوماتي", "Mijn gegevens", "My details")}
+              </Text>
+              <View
+                style={{
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <TextInput
+                  value={firstName}
+                  onChangeText={setFirstName}
+                  placeholder={L3("الاسم", "Voornaam", "First name")}
+                  placeholderTextColor={colors.muted}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <TextInput
+                  value={lastName}
+                  onChangeText={setLastName}
+                  placeholder={L3("اللقب", "Achternaam", "Last name")}
+                  placeholderTextColor={colors.muted}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
               </View>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 8 }}>
+              <View
+                style={{
+                  flexDirection: "row",
+                  flexWrap: "wrap",
+                  gap: 6,
+                  marginBottom: 8,
+                }}
+              >
                 {MARITAL_OPTIONS.map((m) => (
-                  <TouchableOpacity key={m.value} onPress={() => setMaritalStatus(m.value)} style={{ paddingVertical: 7, paddingHorizontal: 12, borderRadius: 999, borderWidth: 1, borderColor: maritalStatus === m.value ? colors.primary : colors.border, backgroundColor: maritalStatus === m.value ? colors.primary : colors.background }}>
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: maritalStatus === m.value ? "#fff" : colors.foreground }}>{L3(m.ar, m.nl, m.en)}</Text>
+                  <TouchableOpacity
+                    key={m.value}
+                    onPress={() => setMaritalStatus(m.value)}
+                    style={{
+                      paddingVertical: 7,
+                      paddingHorizontal: 12,
+                      borderRadius: 999,
+                      borderWidth: 1,
+                      borderColor:
+                        maritalStatus === m.value
+                          ? colors.primary
+                          : colors.border,
+                      backgroundColor:
+                        maritalStatus === m.value
+                          ? colors.primary
+                          : colors.background,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 12,
+                        fontWeight: "700",
+                        color:
+                          maritalStatus === m.value
+                            ? "#fff"
+                            : colors.foreground,
+                      }}
+                    >
+                      {L3(m.ar, m.nl, m.en)}
+                    </Text>
                   </TouchableOpacity>
                 ))}
               </View>
-              <TextInput value={streetHouseNumber} onChangeText={setStreetHouseNumber} placeholder={L3("الشارع ورقم البيت", "Straat en huisnummer", "Street and house number")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
-              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 8 }}>
-                <TextInput value={city} onChangeText={setCity} placeholder={L3("المدينة", "Plaats", "City")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
-                <TextInput value={country} onChangeText={setCountry} placeholder={L3("البلد", "Land", "Country")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
+              <TextInput
+                value={streetHouseNumber}
+                onChangeText={setStreetHouseNumber}
+                placeholder={L3(
+                  "الشارع ورقم البيت",
+                  "Straat en huisnummer",
+                  "Street and house number",
+                )}
+                placeholderTextColor={colors.muted}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
+              <View
+                style={{
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  gap: 8,
+                  marginBottom: 8,
+                }}
+              >
+                <TextInput
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder={L3("المدينة", "Plaats", "City")}
+                  placeholderTextColor={colors.muted}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
+                <TextInput
+                  value={country}
+                  onChangeText={setCountry}
+                  placeholder={L3("البلد", "Land", "Country")}
+                  placeholderTextColor={colors.muted}
+                  style={{ ...inputStyle, flex: 1 }}
+                />
               </View>
-              <TextInput value={email} onChangeText={setEmail} keyboardType="email-address" autoCapitalize="none" placeholder={L3("البريد الإلكترونيّ", "E-mail", "Email")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 8 }} />
-              <TextInput value={phone} onChangeText={setPhone} keyboardType="phone-pad" placeholder={L3("الهاتف", "Telefoon", "Phone")} placeholderTextColor={colors.muted} style={{ ...inputStyle, marginBottom: 10 }} />
-              <TouchableOpacity onPress={saveInfo} disabled={busy} style={{ backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary, borderRadius: 12, paddingVertical: 12, alignItems: "center", opacity: busy ? 0.6 : 1 }}>
-                <Text style={{ color: colors.primary, fontWeight: "800", fontSize: 14 }}>{L3("حفظ معلوماتي", "Mijn gegevens opslaan", "Save my details")}</Text>
+              <TextInput
+                value={email}
+                onChangeText={setEmail}
+                keyboardType="email-address"
+                autoCapitalize="none"
+                placeholder={L3("البريد الإلكترونيّ", "E-mail", "Email")}
+                placeholderTextColor={colors.muted}
+                style={{ ...inputStyle, marginBottom: 8 }}
+              />
+              <TextInput
+                value={phone}
+                onChangeText={setPhone}
+                keyboardType="phone-pad"
+                placeholder={L3("الهاتف", "Telefoon", "Phone")}
+                placeholderTextColor={colors.muted}
+                style={{ ...inputStyle, marginBottom: 10 }}
+              />
+              <TouchableOpacity
+                onPress={saveInfo}
+                disabled={busy}
+                style={{
+                  backgroundColor: colors.background,
+                  borderWidth: 1.5,
+                  borderColor: colors.primary,
+                  borderRadius: 12,
+                  paddingVertical: 12,
+                  alignItems: "center",
+                  opacity: busy ? 0.6 : 1,
+                }}
+              >
+                <Text
+                  style={{
+                    color: colors.primary,
+                    fontWeight: "800",
+                    fontSize: 14,
+                  }}
+                >
+                  {L3(
+                    "حفظ معلوماتي",
+                    "Mijn gegevens opslaan",
+                    "Save my details",
+                  )}
+                </Text>
               </TouchableOpacity>
             </View>
 
@@ -446,7 +1237,18 @@ export default function SubscribeScreen() {
                 Outside the !subscribed block on purpose: a successful redeem
                 flips that flag, which would unmount the very message announcing
                 it. */}
-            {!!msg && <Text style={{ fontSize: 13, color: colors.primary, marginTop: 14, textAlign: "center" }}>{msg}</Text>}
+            {!!msg && (
+              <Text
+                style={{
+                  fontSize: 13,
+                  color: colors.primary,
+                  marginTop: 14,
+                  textAlign: "center",
+                }}
+              >
+                {msg}
+              </Text>
+            )}
 
             {/* Subscribe + coupon — only when not subscribed */}
             {!status?.subscribed && (
@@ -455,24 +1257,127 @@ export default function SubscribeScreen() {
                     smaller/scrolled screen never reached it when it sat below the
                     button. The wording makes the choice explicit — coupon here,
                     or the normal purchase path in the card right below. */}
-                <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, marginBottom: 6, textAlign: align }}>{L3("لديك كوبون؟ فعِّله هنا، أو اشترك بالطريقة المعتادة أدناه.", "Heeft u een coupon? Activeer die hier, of abonneer hieronder op de gebruikelijke manier.", "Have a coupon? Redeem it here, or subscribe below the normal way.")}</Text>
-                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 14 }}>
-                  <TextInput value={coupon} onChangeText={setCoupon} autoCapitalize="characters" placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")} placeholderTextColor={colors.muted} style={{ ...inputStyle, flex: 1 }} />
-                  <TouchableOpacity onPress={redeem} disabled={busy || !coupon.trim()} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingHorizontal: 18, alignItems: "center", justifyContent: "center", opacity: busy || !coupon.trim() ? 0.5 : 1 }}>
-                    <Text style={{ color: "#fff", fontWeight: "700" }}>{L3("تفعيل", "Activeren", "Redeem")}</Text>
+                <Text
+                  style={{
+                    fontSize: 13,
+                    fontWeight: "700",
+                    color: colors.muted,
+                    marginBottom: 6,
+                    textAlign: align,
+                  }}
+                >
+                  {L3(
+                    "لديك كوبون؟ فعِّله هنا، أو اشترك بالطريقة المعتادة أدناه.",
+                    "Heeft u een coupon? Activeer die hier, of abonneer hieronder op de gebruikelijke manier.",
+                    "Have a coupon? Redeem it here, or subscribe below the normal way.",
+                  )}
+                </Text>
+                <View
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    gap: 8,
+                    marginBottom: 14,
+                  }}
+                >
+                  <TextInput
+                    value={coupon}
+                    onChangeText={setCoupon}
+                    autoCapitalize="characters"
+                    placeholder={L3("رمز الكوبون", "Couponcode", "Coupon code")}
+                    placeholderTextColor={colors.muted}
+                    style={{ ...inputStyle, flex: 1 }}
+                  />
+                  <TouchableOpacity
+                    onPress={redeem}
+                    disabled={busy || !coupon.trim()}
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 12,
+                      paddingHorizontal: 18,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: busy || !coupon.trim() ? 0.5 : 1,
+                    }}
+                  >
+                    <Text style={{ color: "#fff", fontWeight: "700" }}>
+                      {L3("تفعيل", "Activeren", "Redeem")}
+                    </Text>
                   </TouchableOpacity>
                 </View>
-                <View style={{ backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 16, padding: 18, marginBottom: 14 }}>
+                <View
+                  style={{
+                    backgroundColor: colors.surface,
+                    borderColor: colors.border,
+                    borderWidth: 1,
+                    borderRadius: 16,
+                    padding: 18,
+                    marginBottom: 14,
+                  }}
+                >
                   {/* On Play, show Play's own price string rather than a
                       hardcoded €12: Play sets the price per country and folds
                       in local tax, so the hardcoded figure would be wrong for
                       most buyers and misstate the charge before they confirm. */}
-                  {DISTRIBUTION_CHANNEL === "github" ? (
-                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>€12<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
+                  {/* Same reason as the tier card above: no figure on iOS. */}
+                  {DISTRIBUTION_CHANNEL ===
+                  "apple" ? null : DISTRIBUTION_CHANNEL === "github" ? (
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "800",
+                        color: colors.foreground,
+                        textAlign: align,
+                      }}
+                    >
+                      €12
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: colors.muted,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {" "}
+                        / {L3("سنة", "jaar", "year")}
+                      </Text>
+                    </Text>
                   ) : (
-                    <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground, textAlign: align }}>{play.offer ? play.offer.displayPrice : "—"}<Text style={{ fontSize: 14, color: colors.muted, fontWeight: "600" }}> / {L3("سنة", "jaar", "year")}</Text></Text>
+                    <Text
+                      style={{
+                        fontSize: 22,
+                        fontWeight: "800",
+                        color: colors.foreground,
+                        textAlign: align,
+                      }}
+                    >
+                      {play.offer ? play.offer.displayPrice : "—"}
+                      <Text
+                        style={{
+                          fontSize: 14,
+                          color: colors.muted,
+                          fontWeight: "600",
+                        }}
+                      >
+                        {" "}
+                        / {L3("سنة", "jaar", "year")}
+                      </Text>
+                    </Text>
                   )}
-                  <Text style={{ fontSize: 13, color: colors.muted, marginTop: 6, textAlign: align, lineHeight: 20 }}>{L3("ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.", "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.", "Support Rabbaanie with an annual subscription, ad-free, for the whole family.")}</Text>
+                  <Text
+                    style={{
+                      fontSize: 13,
+                      color: colors.muted,
+                      marginTop: 6,
+                      textAlign: align,
+                      lineHeight: 20,
+                    }}
+                  >
+                    {L3(
+                      "ادعم ربّانيّ باشتراكٍ سنويّ، بلا إعلانات، ولكلّ العائلة.",
+                      "Steun Rabbaanie met een jaarabonnement, advertentievrij, voor het hele gezin.",
+                      "Support Rabbaanie with an annual subscription, ad-free, for the whole family.",
+                    )}
+                  </Text>
                   {/* One button per channel, never both: Stripe is an outside
                       payment method that a Play build may not link to, and Play
                       Billing has no purchase context in a sideload install.
@@ -483,10 +1388,35 @@ export default function SubscribeScreen() {
                       server that predates the tag therefore shows the notice
                       below rather than a button that cannot work. */}
                   {DISTRIBUTION_CHANNEL === "github" ? (
-                    <TouchableOpacity onPress={subscribe} disabled={busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: busy ? 0.6 : 1 }}>
-                      {busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+                    <TouchableOpacity
+                      onPress={subscribe}
+                      disabled={busy}
+                      style={{
+                        backgroundColor: colors.primary,
+                        borderRadius: 12,
+                        paddingVertical: 14,
+                        alignItems: "center",
+                        marginTop: 14,
+                        opacity: busy ? 0.6 : 1,
+                      }}
+                    >
+                      {busy ? (
+                        <ActivityIndicator color="#fff" />
+                      ) : (
+                        <Text
+                          style={{
+                            color: "#fff",
+                            fontWeight: "800",
+                            fontSize: 15,
+                          }}
+                        >
+                          {L3("اشترك الآن", "Nu abonneren", "Subscribe now")}
+                        </Text>
+                      )}
                     </TouchableOpacity>
-                  ) : (play.offer && status?.playAccountTag) || play.error === "verify_failed" || play.recoverable ? (
+                  ) : (play.offer && status?.playAccountTag) ||
+                    play.error === "verify_failed" ||
+                    play.recoverable ? (
                     <>
                       {/* Same precondition as the Stripe and coupon paths: a
                           membership without the subscriber's details on record
@@ -503,21 +1433,97 @@ export default function SubscribeScreen() {
                           play.purchase() was never reached, so no re-verification
                           ever happened. Their money is already with Google; the
                           details are not what is missing. */}
-                      <TouchableOpacity onPress={async () => { setPurchaseRefusal(""); setMsg(""); if (play.error !== "verify_failed" && !play.recoverable) { if (!infoComplete) { setPurchaseRefusal(L3("أكمِل جميعَ الحقول أوّلًا.", "Vul eerst alle velden in.", "Please complete all fields first.")); return; } setBusy(true); const saved = await persistInfo(); setBusy(false); if (!saved.ok) { setPurchaseRefusal(saved.message || L3("تعذّر حفظ بياناتك، فلم يبدأ الشراء.", "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.", "Your details could not be saved, so the purchase was not started.")); return; } } play.purchase(); }} disabled={play.busy || busy} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 14, opacity: play.busy || busy ? 0.6 : 1 }}>
-                        {play.busy || busy ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "800", fontSize: 15 }}>{L3("اشترك الآن", "Nu abonneren", "Subscribe now")}</Text>}
+                      <TouchableOpacity
+                        onPress={async () => {
+                          setPurchaseRefusal("");
+                          setMsg("");
+                          if (
+                            play.error !== "verify_failed" &&
+                            !play.recoverable
+                          ) {
+                            if (!infoComplete) {
+                              setPurchaseRefusal(
+                                L3(
+                                  "أكمِل جميعَ الحقول أوّلًا.",
+                                  "Vul eerst alle velden in.",
+                                  "Please complete all fields first.",
+                                ),
+                              );
+                              return;
+                            }
+                            setBusy(true);
+                            const saved = await persistInfo();
+                            setBusy(false);
+                            if (!saved.ok) {
+                              setPurchaseRefusal(
+                                saved.message ||
+                                  L3(
+                                    "تعذّر حفظ بياناتك، فلم يبدأ الشراء.",
+                                    "Uw gegevens konden niet worden opgeslagen; de aankoop is niet gestart.",
+                                    "Your details could not be saved, so the purchase was not started.",
+                                  ),
+                              );
+                              return;
+                            }
+                          }
+                          play.purchase();
+                        }}
+                        disabled={play.busy || busy}
+                        style={{
+                          backgroundColor: colors.primary,
+                          borderRadius: 12,
+                          paddingVertical: 14,
+                          alignItems: "center",
+                          marginTop: 14,
+                          opacity: play.busy || busy ? 0.6 : 1,
+                        }}
+                      >
+                        {play.busy || busy ? (
+                          <ActivityIndicator color="#fff" />
+                        ) : (
+                          <Text
+                            style={{
+                              color: "#fff",
+                              fontWeight: "800",
+                              fontSize: 15,
+                            }}
+                          >
+                            {L3("اشترك الآن", "Nu abonneren", "Subscribe now")}
+                          </Text>
+                        )}
                       </TouchableOpacity>
                       {/* Beside the button that produced it. Same red as the
                           post-purchase errors below, so a refusal before the
                           purchase starts and one after it look alike. */}
                       {!!purchaseRefusal && (
-                        <Text style={{ fontSize: 12.5, color: "#B3261E", marginTop: 10, textAlign: align, lineHeight: 19 }}>
+                        <Text
+                          style={{
+                            fontSize: 12.5,
+                            color: "#B3261E",
+                            marginTop: 10,
+                            textAlign: align,
+                            lineHeight: 19,
+                          }}
+                        >
                           {purchaseRefusal}
                         </Text>
                       )}
                       {/* Play requires the renewal terms to be visible before
                           purchase, and users must be told where to cancel. */}
-                      <Text style={{ fontSize: 11.5, color: colors.muted, marginTop: 10, textAlign: align, lineHeight: 18 }}>
-                        {L3("يتجدّد الاشتراك سنويًّا تلقائيًّا حتّى تُلغيه من إعدادات اشتراكات Google Play.", "Het abonnement wordt jaarlijks automatisch verlengd totdat u het opzegt via de abonnementen-instellingen van Google Play.", "The subscription renews annually until you cancel it in your Google Play subscription settings.")}
+                      <Text
+                        style={{
+                          fontSize: 11.5,
+                          color: colors.muted,
+                          marginTop: 10,
+                          textAlign: align,
+                          lineHeight: 18,
+                        }}
+                      >
+                        {L3(
+                          "يتجدّد الاشتراك سنويًّا تلقائيًّا حتّى تُلغيه من إعدادات اشتراكات Google Play.",
+                          "Het abonnement wordt jaarlijks automatisch verlengd totdat u het opzegt via de abonnementen-instellingen van Google Play.",
+                          "The subscription renews annually until you cancel it in your Google Play subscription settings.",
+                        )}
                       </Text>
                     </>
                   ) : (
@@ -526,44 +1532,103 @@ export default function SubscribeScreen() {
                        purchase path genuinely never becomes available, so the
                        message has to name the coupon fallback instead of leaving
                        the user staring at a spinner. */
-                    <Text style={{ fontSize: 13, color: colors.muted, marginTop: 14, textAlign: align, lineHeight: 20 }}>
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: colors.muted,
+                        marginTop: 14,
+                        textAlign: align,
+                        lineHeight: 20,
+                      }}
+                    >
                       {play.loading
-                        ? L3("جارٍ تحميل خيارات الاشتراك…", "Abonnementsopties laden…", "Loading subscription options…")
+                        ? L3(
+                            "جارٍ تحميل خيارات الاشتراك…",
+                            "Abonnementsopties laden…",
+                            "Loading subscription options…",
+                          )
                         : play.error === "unavailable"
-                          /* "above", not "below": the coupon field moved to the
+                          ? /* "above", not "below": the coupon field moved to the
                              top of this screen. These two notices fire exactly
                              when Play billing is unavailable, so the code box
                              they point at is the only way in — sending the user
                              the wrong way here costs them the purchase. */
-                          ? L3("تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.", "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.", "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it above.")
-                          : L3("الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أعلاه.", "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hierboven.", "In-app subscribing isn't available here right now. If you have a code, redeem it above.")}
+                            L3(
+                              "تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.",
+                              "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.",
+                              "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it above.",
+                            )
+                          : L3(
+                              "الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أعلاه.",
+                              "Abonneren in de app is hier momenteel niet beschikbaar. Heeft u een code? Activeer die hierboven.",
+                              "In-app subscribing isn't available here right now. If you have a code, redeem it above.",
+                            )}
                     </Text>
                   )}
-                  {["verify_failed", "purchase_failed", "purchase_pending", "purchase_foreign", "verify_gone"].includes(play.error || "") ? (
+                  {[
+                    "verify_failed",
+                    "purchase_failed",
+                    "purchase_pending",
+                    "purchase_foreign",
+                    "verify_gone",
+                  ].includes(play.error || "") ? (
                     /* purchase_pending is not a failure — a slow payment method
                        (cash at a store, some carrier billing) has been chosen and
                        Play will deliver the purchase once the money clears, so it
                        is shown in a neutral colour with different wording. */
-                    <Text style={{ fontSize: 12.5, color: ["purchase_pending", "purchase_foreign"].includes(play.error || "") ? colors.muted : "#B3261E", marginTop: 10, textAlign: align, lineHeight: 19 }}>
+                    <Text
+                      style={{
+                        fontSize: 12.5,
+                        color: [
+                          "purchase_pending",
+                          "purchase_foreign",
+                        ].includes(play.error || "")
+                          ? colors.muted
+                          : "#B3261E",
+                        marginTop: 10,
+                        textAlign: align,
+                        lineHeight: 19,
+                      }}
+                    >
                       {play.error === "purchase_pending"
-                        // "Automatically" was a promise the app cannot keep.
-                        // purchaseUpdatedListener is registered inside
-                        // usePlayBilling, which only this screen mounts, so a
-                        // slow payment clearing while the user is anywhere else
-                        // is neither verified nor acknowledged — and Google
-                        // auto-refunds an unacknowledged purchase after three
-                        // days. Reopening this screen does settle it (the
-                        // connection-open flush is handled as a restore), so
-                        // asking for that is both true and sufficient. Same
-                        // wording as verify_failed directly below.
-                        ? L3("دفعتك قيدُ المعالجة لدى Google Play. أعِد فتح هذه الصفحة بعد اكتمالها ليُفعَّل اشتراكك.", "Uw betaling wordt nog verwerkt door Google Play. Open deze pagina opnieuw zodra dat klaar is, dan wordt uw abonnement geactiveerd.", "Your payment is still being processed by Google Play. Reopen this page once it completes and your membership will be activated.")
+                        ? // "Automatically" was a promise the app cannot keep.
+                          // purchaseUpdatedListener is registered inside
+                          // usePlayBilling, which only this screen mounts, so a
+                          // slow payment clearing while the user is anywhere else
+                          // is neither verified nor acknowledged — and Google
+                          // auto-refunds an unacknowledged purchase after three
+                          // days. Reopening this screen does settle it (the
+                          // connection-open flush is handled as a restore), so
+                          // asking for that is both true and sufficient. Same
+                          // wording as verify_failed directly below.
+                          L3(
+                            "دفعتك قيدُ المعالجة لدى Google Play. أعِد فتح هذه الصفحة بعد اكتمالها ليُفعَّل اشتراكك.",
+                            "Uw betaling wordt nog verwerkt door Google Play. Open deze pagina opnieuw zodra dat klaar is, dan wordt uw abonnement geactiveerd.",
+                            "Your payment is still being processed by Google Play. Reopen this page once it completes and your membership will be activated.",
+                          )
                         : play.error === "purchase_foreign"
-                        ? L3("يوجد على هذا الجهاز اشتراكٌ اشتُري بحسابٍ آخر في ربّانيّ. سجّل الدخول بذلك الحساب، أو استخدم حساب Google مختلفًا للشراء.", "Op dit apparaat staat een abonnement dat met een ander Rabbaanie-account is gekocht. Log in met dat account, of gebruik een ander Google-account om te kopen.", "This device has a membership bought with a different Rabbaanie account. Sign in with that account, or use a different Google account to purchase.")
-                        : play.error === "verify_gone"
-                        ? L3("لم يعُد Google Play يُبلغ عن هذا الشراء. إن كنت قد دُفعت ولم يُفعَّل اشتراكك، فتواصل مع الدعم.", "Google Play meldt deze aankoop niet meer. Als u heeft betaald en uw abonnement niet actief is, neem dan contact op met support.", "Google Play no longer reports that purchase. If you were charged and your membership is not active, please contact support.")
-                        : play.error === "verify_failed"
-                          ? L3("تمّ الدفع، لكن تعذّر تأكيده الآن. لن تُخصم منك مرّةً أخرى — أعِد فتح هذه الصفحة بعد قليل.", "De betaling is gelukt, maar kon nu niet worden bevestigd. U wordt niet nogmaals belast — open deze pagina straks opnieuw.", "Payment went through but could not be confirmed yet. You will not be charged again — reopen this page shortly.")
-                          : L3("تعذّر إتمام عمليّة الشراء. حاول مرّةً أخرى.", "De aankoop kon niet worden voltooid. Probeer het opnieuw.", "The purchase could not be completed. Please try again.")}
+                          ? L3(
+                              "يوجد على هذا الجهاز اشتراكٌ اشتُري بحسابٍ آخر في ربّانيّ. سجّل الدخول بذلك الحساب، أو استخدم حساب Google مختلفًا للشراء.",
+                              "Op dit apparaat staat een abonnement dat met een ander Rabbaanie-account is gekocht. Log in met dat account, of gebruik een ander Google-account om te kopen.",
+                              "This device has a membership bought with a different Rabbaanie account. Sign in with that account, or use a different Google account to purchase.",
+                            )
+                          : play.error === "verify_gone"
+                            ? L3(
+                                "لم يعُد Google Play يُبلغ عن هذا الشراء. إن كنت قد دُفعت ولم يُفعَّل اشتراكك، فتواصل مع الدعم.",
+                                "Google Play meldt deze aankoop niet meer. Als u heeft betaald en uw abonnement niet actief is, neem dan contact op met support.",
+                                "Google Play no longer reports that purchase. If you were charged and your membership is not active, please contact support.",
+                              )
+                            : play.error === "verify_failed"
+                              ? L3(
+                                  "تمّ الدفع، لكن تعذّر تأكيده الآن. لن تُخصم منك مرّةً أخرى — أعِد فتح هذه الصفحة بعد قليل.",
+                                  "De betaling is gelukt, maar kon nu niet worden bevestigd. U wordt niet nogmaals belast — open deze pagina straks opnieuw.",
+                                  "Payment went through but could not be confirmed yet. You will not be charged again — reopen this page shortly.",
+                                )
+                              : L3(
+                                  "تعذّر إتمام عمليّة الشراء. حاول مرّةً أخرى.",
+                                  "De aankoop kon niet worden voltooid. Probeer het opnieuw.",
+                                  "The purchase could not be completed. Please try again.",
+                                )}
                     </Text>
                   ) : null}
                 </View>

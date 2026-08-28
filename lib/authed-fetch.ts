@@ -1,6 +1,6 @@
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "@/lib/_core/auth";
-import { INSTALLED_VERSION } from "@/hooks/use-updates";
+import { CLIENT_VERSION_HEADERS } from "@/hooks/use-updates";
 import { markIfVersionBlocked } from "@/lib/app-version";
 
 /**
@@ -30,7 +30,7 @@ export async function authedFetch(path: string, init?: RequestInit): Promise<Res
     credentials: "include",
     headers: {
       ...(init?.headers as Record<string, string> | undefined),
-      "X-App-Version": INSTALLED_VERSION,
+      ...CLIENT_VERSION_HEADERS,
       // Omitted entirely when signed out — "Bearer null" reads as a malformed
       // credential, which the server rejects differently from no credential.
       ...(token ? { Authorization: `Bearer ${token}` } : {}),
@@ -86,7 +86,7 @@ export async function publicFetch(path: string, init?: RequestInit): Promise<Res
     credentials: "include",
     headers: {
       ...(init?.headers as Record<string, string> | undefined),
-      "X-App-Version": INSTALLED_VERSION,
+      ...CLIENT_VERSION_HEADERS,
     },
   });
   markIfVersionBlocked(response.status);

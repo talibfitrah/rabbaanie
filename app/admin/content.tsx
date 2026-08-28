@@ -100,7 +100,8 @@ export default function AdminContentScreen() {
           </ScrollView>
         )}
 
-      <Modal visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)}>
+      <Modal visible={!!draft} animationType="slide" onRequestClose={() => setDraft(null)}
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
         <View style={{ flex: 1, backgroundColor: colors.background }}>
           <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
             <TouchableOpacity onPress={() => setDraft(null)}><MaterialIcons name="close" size={24} color={colors.foreground} /></TouchableOpacity>

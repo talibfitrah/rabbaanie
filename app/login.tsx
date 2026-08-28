@@ -21,10 +21,31 @@ import {
   GoogleSignInError,
   sanitizeErrorDetail,
 } from "@/lib/google-oauth";
+import { GOOGLE_IOS_CLIENT_ID } from "@/constants/app-identity";
 import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
 
 import { publicFetch } from "@/lib/authed-fetch";
+
+/**
+ * Whether to show the Google button at all, per platform.
+ *
+ * Android needs nothing here: Google binds sign-in to the package name and the
+ * app signing certificate, so the web client id alone is enough.
+ *
+ * iOS needs an iOS-type OAuth client id, and GoogleSignin.configure() REJECTS
+ * without one (RNGoogleSignin.mm:78) — the failure lands on the user's first
+ * tap, as a "Google sign-in failed" alert with no way forward. That is App
+ * Store guideline 2.1 territory; a button that is simply absent is not. So the
+ * button follows the id: fill in GOOGLE_IOS_CLIENT_ID and it appears.
+ *
+ * Web is excluded deliberately rather than incidentally — the browser build has
+ * never offered this button, and lighting one up there is a separate change
+ * with its own OAuth client and its own consent screen.
+ */
+const GOOGLE_SIGN_IN_AVAILABLE =
+  Platform.OS === "android" ||
+  (Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID !== "");
 
 /**
  * Login Screen - Email/Password + Google Sign-In
@@ -619,7 +640,7 @@ export default function LoginScreen() {
                   )}
                 </TouchableOpacity>
 
-                {Platform.OS === "android" && (
+                {GOOGLE_SIGN_IN_AVAILABLE && (
                   <>
                     <View
                       style={{

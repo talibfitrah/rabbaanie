@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { enqueue } from "./notification-queue";
 
 // ============ CONSTANTS ============
 
@@ -58,6 +59,9 @@ export async function setupSpouseAdviceChannel(): Promise<void> {
   await Notifications.setNotificationChannelAsync(SPOUSE_ADVICE_CHANNEL_ID, {
     name: "Partner Advies / Spouse Advice / نصائح الشريك",
     importance: Notifications.AndroidImportance.HIGH,
+    // Android-only. iOS has no notification channels at all, so every scheduled
+    // content below carries its own matching sound; without one it arrives silent
+    // and nothing throws. See tests/adhan-ios-sound.test.ts.
     sound: "default",
   });
 }
@@ -68,7 +72,14 @@ export async function setupSpouseAdviceChannel(): Promise<void> {
  * Schedule a daily recurring notification with a spouse advice tip.
  * Default time: 20:30 (after dinner/Isha prayer).
  */
-export async function scheduleSpouseAdviceNotification(
+export function scheduleSpouseAdviceNotification(
+  language: "nl" | "en" | "ar" = "nl"
+): Promise<boolean> {
+  return enqueue(() => scheduleSpouseAdviceInner(language));
+}
+
+/** The pass itself. Callers must hold the shared queue — see above. */
+async function scheduleSpouseAdviceInner(
   language: "nl" | "en" | "ar" = "nl"
 ): Promise<boolean> {
   if (Platform.OS === "web") return false;
@@ -108,7 +119,7 @@ export async function scheduleSpouseAdviceNotification(
         body,
         data: { type: SPOUSE_ADVICE_TYPE, url: "/(tabs)/family", showPopup: true, ruling: "مستحب" },
         ...(Platform.OS === "android" ? { channelId: SPOUSE_ADVICE_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-        ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+        ...(Platform.OS === "ios" ? { sound: "default" } : {}),
       },
       trigger: {
         type: Notifications.SchedulableTriggerInputTypes.DAILY,

@@ -608,6 +608,7 @@ export default function OnboardingScreen() {
       transparent
       animationType="slide"
       onRequestClose={() => setAddressPicker(null)}
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
     >
       <View style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
         <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "75%", paddingBottom: insets.bottom + 16 }}>

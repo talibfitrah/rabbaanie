@@ -4,7 +4,10 @@ import {
   type SignInResponse,
 } from "@react-native-google-signin/google-signin";
 
-import { GOOGLE_WEB_CLIENT_ID } from "../constants/app-identity";
+import {
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
+} from "../constants/app-identity";
 import { publicFetch } from "@/lib/authed-fetch";
 
 const GOOGLE_SIGN_IN_TIMEOUT_MS = 20_000;
@@ -58,6 +61,16 @@ function configureGoogleSignIn(): void {
   if (configured) return;
   GoogleSignin.configure({
     webClientId: GOOGLE_WEB_CLIENT_ID,
+    // iOS only, and only when the client id exists. The native module rejects
+    // configure() outright when neither `iosClientId` nor a
+    // GoogleService-Info.plist is present (RNGoogleSignin.mm:78), and that
+    // rejection surfaces at signIn() — GoogleSignin.ts:55 awaits the stored
+    // config promise. Passing "" is not the same as omitting it: the native
+    // check is `options[@"iosClientId"]` truthiness on the JS bridge value, so
+    // an empty string still takes the branch and hands GIDSignIn no client.
+    // app/login.tsx keeps the button hidden in that state, so this is the
+    // second layer, not the only one.
+    ...(GOOGLE_IOS_CLIENT_ID ? { iosClientId: GOOGLE_IOS_CLIENT_ID } : {}),
     offlineAccess: false,
   });
   configured = true;

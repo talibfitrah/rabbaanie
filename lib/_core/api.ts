@@ -1,7 +1,7 @@
 import { Platform } from "react-native";
 import { getApiBaseUrl } from "@/constants/oauth";
 import * as Auth from "./auth";
-import { INSTALLED_VERSION } from "@/hooks/use-updates";
+import { CLIENT_VERSION_HEADERS } from "@/hooks/use-updates";
 import { markIfVersionBlocked } from "@/lib/app-version";
 
 type ApiResponse<T> = {
@@ -16,7 +16,7 @@ export async function apiCall<T>(
   const headers: Record<string, string> = {
     "Content-Type": "application/json",
     ...((options.headers as Record<string, string>) || {}),
-    "X-App-Version": INSTALLED_VERSION,
+    ...CLIENT_VERSION_HEADERS,
   };
 
   // Determine the auth method:
@@ -132,7 +132,7 @@ export async function verifySessionToken(token: string): Promise<Auth.User> {
   const response = await fetch(
     `${getApiBaseUrl()}/api/trpc/auth.me?input=${input}`,
     {
-      headers: { Authorization: `Bearer ${token}`, "X-App-Version": INSTALLED_VERSION },
+      headers: { Authorization: `Bearer ${token}`, ...CLIENT_VERSION_HEADERS },
     },
   );
   markIfVersionBlocked(response.status);
@@ -184,7 +184,7 @@ export async function establishSession(token: string): Promise<boolean> {
       headers: {
         "Content-Type": "application/json",
         Authorization: `Bearer ${token}`,
-        "X-App-Version": INSTALLED_VERSION,
+        ...CLIENT_VERSION_HEADERS,
       },
       credentials: "include", // Important: allows Set-Cookie to be stored
     });

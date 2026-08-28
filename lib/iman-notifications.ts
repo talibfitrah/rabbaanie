@@ -26,6 +26,8 @@ import {
   CALC_METHODS,
   type SavedPrayerLocation,
 } from "./prayer-data";
+import { scheduleDays } from "./notification-horizons";
+import { enqueue } from "./notification-queue";
 
 // Reminder body/subtitle in the user's language: Arabic + translation for nl/en (msg 734).
 function dhikrBody(d: { text: string; textNL?: string; textEN?: string }, language: string): string {
@@ -62,6 +64,9 @@ export async function setupImanChannel(): Promise<void> {
     name: "تذكيرات إيمانية / Faith Reminders",
     importance: Notifications.AndroidImportance.MAX,
     vibrationPattern: [0, 200, 200, 200],
+    // Android-only. iOS has no notification channels at all, so every scheduled
+    // content below carries its own matching sound; without one it arrives silent
+    // and nothing throws. See tests/adhan-ios-sound.test.ts.
     sound: "default",
     bypassDnd: true,
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
@@ -76,7 +81,14 @@ export async function setupImanChannel(): Promise<void> {
  * Schedule all iman/tarbiya notifications based on unified prefs.
  * Should be called on app launch and when settings change.
  */
-export async function scheduleImanNotifications(
+export function scheduleImanNotifications(
+  language: "nl" | "en" | "ar" = "ar"
+): Promise<number> {
+  return enqueue(() => scheduleImanNotificationsInner(language));
+}
+
+/** The pass itself. Callers must hold the shared queue — see above. */
+async function scheduleImanNotificationsInner(
   language: "nl" | "en" | "ar" = "ar"
 ): Promise<number> {
   if (Platform.OS === "web") return 0;
@@ -102,7 +114,7 @@ export async function scheduleImanNotifications(
           subtitle: dhikrReward(dhikr, language),
           data: { type: MURAQABA_TYPE, url: "/details/adhkar?type=muraqaba", ruling: "واجب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -129,8 +141,10 @@ export async function scheduleImanNotifications(
           const method = CALC_METHODS.find((m) => m.id === methodId) || CALC_METHODS[0];
           const now = new Date();
 
-          // Schedule for next 3 days before Dhuhr (as a sample - sincerity before prayer)
-          for (let dayOffset = 0; dayOffset < 3; dayOffset++) {
+          // Before Dhuhr (as a sample - sincerity before prayer), for as many
+          // days as the iOS pending budget allows (notification-horizons).
+          const imanDays = scheduleDays("iman");
+          for (let dayOffset = 0; dayOffset < imanDays; dayOffset++) {
             const date = new Date(now);
             date.setDate(date.getDate() + dayOffset);
             const times = calculatePrayerTimes(date, location.lat, location.lng, method, location.tz);
@@ -147,6 +161,7 @@ export async function scheduleImanNotifications(
                     body: dhikrBody(randomIkhlas, language),
                     data: { type: IKHLAS_TYPE, url: "/details/adhkar?type=ikhlas", ruling: "واجب", showPopup: true },
                     ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID } : {}),
+                    ...(Platform.OS === "ios" ? { sound: "default" } : {}),
                   },
                   trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.DATE,
@@ -173,7 +188,7 @@ export async function scheduleImanNotifications(
           subtitle: dhikrReward(randomKhushoo, language),
           data: { type: KHUSHOO_TYPE, url: "/details/adhkar?type=khushoo", ruling: "واجب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.MAX, sticky: true } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -198,7 +213,7 @@ export async function scheduleImanNotifications(
           subtitle: dhikrReward(randomDua, language),
           data: { type: DUA_CHILDREN_TYPE, url: "/details/adhkar?type=dua-children", ruling: "مستحب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -225,7 +240,7 @@ export async function scheduleImanNotifications(
             : "Neem nu 15 minuten voor je kinderen: zit bij hen, luister naar hen, en herinner hen aan Allah.",
           data: { type: TARBIYA_MOMENT_TYPE, url: "/(tabs)/weekly", ruling: "مستحب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -252,7 +267,7 @@ export async function scheduleImanNotifications(
             : "Neem nu tijd voor je partner. Bespreek jullie kinderen en opvoedplannen.",
           data: { type: SPOUSE_MOMENT_TYPE, url: "/(tabs)/family", ruling: "مستحب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DAILY,
@@ -279,7 +294,7 @@ export async function scheduleImanNotifications(
             : "Er is een uur op vrijdag waarin geen moslim Allah om iets goeds vraagt of Hij geeft het. Maak du'a voor je kinderen!",
           data: { type: FRIDAY_ACCEPTANCE_TYPE, url: "/details/adhkar?type=dua-children", ruling: "سنة مؤكدة", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -307,7 +322,7 @@ export async function scheduleImanNotifications(
             : "Allahumma salli 'ala Muhammad wa 'ala aali Muhammad, kama sallayta 'ala Ibrahim wa 'ala aali Ibrahim, innaka Hameedun Majeed",
           data: { type: FRIDAY_SALAT_TYPE, ruling: "سنة مؤكدة", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
-          ...(Platform.OS === "ios" ? { interruptionLevel: "timeSensitive" as const } : {}),
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.WEEKLY,
@@ -335,8 +350,9 @@ export async function scheduleImanNotifications(
           const method = CALC_METHODS.find((m) => m.id === methodId) || CALC_METHODS[0];
           const now = new Date();
 
-          // Schedule for next 3 days
-          for (let dayOffset = 0; dayOffset < 3; dayOffset++) {
+          // Same horizon as the ikhlas loop above.
+          const imanDays = scheduleDays("iman");
+          for (let dayOffset = 0; dayOffset < imanDays; dayOffset++) {
             const date = new Date(now);
             date.setDate(date.getDate() + dayOffset);
             const times = calculatePrayerTimes(date, location.lat, location.lng, method, location.tz);
@@ -356,6 +372,7 @@ export async function scheduleImanNotifications(
                       : "Wat is je opvoeddoel vandaag? Open de app en bekijk je weekdoelen.",
                     data: { type: DAILY_GOAL_TYPE, url: "/(tabs)/weekly", ruling: "مستحب", showPopup: true },
                     ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID } : {}),
+                    ...(Platform.OS === "ios" ? { sound: "default" } : {}),
                   },
                   trigger: {
                     type: Notifications.SchedulableTriggerInputTypes.DATE,

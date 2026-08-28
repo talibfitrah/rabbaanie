@@ -6,15 +6,39 @@ import * as path from "node:path";
 import {
   AndroidConfig,
   type ConfigPlugin,
+  IOSConfig,
   withAndroidManifest,
   withDangerousMod,
+  withEntitlementsPlist,
+  withInfoPlist,
   withSettingsGradle,
+  withXcodeProject,
 } from "@expo/config-plugins";
 import { ADHAN_SOUND_IDS } from "./lib/adhan-sound-ids.js";
 import {
   APP_PACKAGE,
   APP_SCHEME,
+  GOOGLE_IOS_CLIENT_ID,
+  GOOGLE_WEB_CLIENT_ID,
 } from "./constants/app-identity.js";
+
+/**
+ * Google client id -> the reversed-domain URL scheme its SDK redirects back on:
+ * `abc-xyz.apps.googleusercontent.com` -> `com.googleusercontent.apps.abc-xyz`.
+ *
+ * Derived rather than written out twice. The previous hard-coded literal was
+ * the reversed WEB client id, which no iOS OAuth client will ever redirect to;
+ * spelling it out a second time is what let the two drift silently.
+ */
+function reversedClientId(clientId: string): string {
+  const suffix = ".apps.googleusercontent.com";
+  if (!clientId.endsWith(suffix)) {
+    throw new Error(
+      `Google client id must end in "${suffix}", got: ${clientId}`,
+    );
+  }
+  return `com.googleusercontent.apps.${clientId.slice(0, -suffix.length)}`;
+}
 
 const env = {
   // App branding - update these values directly (do not use env vars)
@@ -136,9 +160,11 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
             // Optional chaining like the uses-permission filter above: a merged
             // manifest can carry a <service> with no attributes, and item.$ then
             // being undefined would throw and fail prebuild on github only.
-            item.$?.["tools:node"] === "remove" &&
-            item.$?.["android:name"] ===
-              "expo.modules.location.services.LocationTaskService"
+            (
+              item.$?.["tools:node"] === "remove" &&
+              item.$?.["android:name"] ===
+                "expo.modules.location.services.LocationTaskService"
+            )
           ),
       );
       return modConfig;
@@ -192,7 +218,8 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
     const services = application.service ?? [];
     application.service = services.filter(
       (item) =>
-        item.$["android:name"] !== "expo.modules.location.services.LocationTaskService",
+        item.$["android:name"] !==
+        "expo.modules.location.services.LocationTaskService",
     );
     application.service.push({
       $: {
@@ -238,7 +265,10 @@ const withAdhanSoundResources: ConfigPlugin = (config) =>
       );
       fs.mkdirSync(rawDir, { recursive: true });
       for (const id of ADHAN_SOUND_IDS) {
-        const source = path.join(modConfig.modRequest.projectRoot, `assets/sounds/adhan_${id}.mp3`);
+        const source = path.join(
+          modConfig.modRequest.projectRoot,
+          `assets/sounds/adhan_${id}.mp3`,
+        );
         if (!fs.existsSync(source)) {
           throw new Error(
             `withAdhanSoundResources: missing ${source} — expected one MP3 per id in ADHAN_SOUND_IDS`,
@@ -342,6 +372,304 @@ if (APP_VERSION_CODE < 1 || APP_VERSION_CODE > 2_100_000_000) {
   );
 }
 
+// CFBundleVersion, derived from APP_VERSION by the same rule and for the same
+// reason as android.versionCode above: name and build can never diverge, and a
+// missing env var cannot yield an invalid value.
+//
+// The override is the part Android does not need. Play accepts a re-upload of
+// the same versionCode only by bumping it, but App Store Connect additionally
+// burns a build number on REJECTION — a rejected 1.6.0 build 1006000 can never
+// be uploaded again, and the fix is to re-upload the same marketing version
+// 1.6.0 with a HIGHER build number. A purely derived value cannot express that,
+// so IOS_BUILD_NUMBER overrides it. It defaults to the derived value, so the
+// normal path needs no env var at all and the override only appears when a
+// human is recovering from a rejection.
+const IOS_BUILD_NUMBER =
+  process.env.IOS_BUILD_NUMBER ?? String(APP_VERSION_CODE);
+// Bounded at BOTH ends. Below the derived value is guaranteed to be refused, so
+// a typo there costs an upload round-trip; above 2^32-1 CFBundleVersion is also
+// refused, and past 2^53 the comparison itself stops being sound —
+// Number("9007199254740993") === Number("9007199254740992"), so a long digit
+// string can compare equal to a different number and slip through.
+//
+// Be honest about what this does NOT catch: the floor is the value derived for
+// the CURRENT marketing version, not the last build actually uploaded. Nothing
+// on this machine knows that. So the second rejection of 1.6.0 is still catchable
+// only by App Store Connect: 1006001 is used, a fresh shell without the env var
+// falls back to 1006000, and 1006000 >= 1006000 passes here. Set
+// IOS_BUILD_NUMBER for every re-upload; this guard catches typos, not history.
+const IOS_BUILD_NUMBER_MAX = 4_294_967_295;
+if (
+  !/^[1-9]\d*$/.test(IOS_BUILD_NUMBER) ||
+  Number(IOS_BUILD_NUMBER) < APP_VERSION_CODE ||
+  Number(IOS_BUILD_NUMBER) > IOS_BUILD_NUMBER_MAX
+) {
+  throw new Error(
+    // IOS_BUILD_NUMBER, not process.env.IOS_BUILD_NUMBER. The validated value
+    // falls back to String(APP_VERSION_CODE) when the env var is unset, so
+    // reporting the raw env var would print `got "undefined"` for a failure on
+    // the derived value — the least helpful thing to read in the one situation
+    // this message appears in, which is a human recovering from a rejection.
+    `IOS_BUILD_NUMBER must be a whole number between the derived ${APP_VERSION_CODE} and ${IOS_BUILD_NUMBER_MAX}, got "${IOS_BUILD_NUMBER}"`,
+  );
+}
+
+// Purpose strings. Every one of these is otherwise an ENGLISH PLUGIN DEFAULT —
+// literally "Allow $(PRODUCT_NAME) to access your camera" — because
+// @expo/prebuild-config auto-applies a config plugin for every installed
+// package whether or not it appears in `plugins`, and each one seeds its own
+// keys. App Review reads these strings, and so does every user at the moment
+// the system dialog appears, so they have to say what the app actually does.
+//
+// `en` is also the base written into ios.infoPlist below, which is why
+// CFBundleDevelopmentRegion is "en": the development region is the language of
+// the unlocalised plist, and English is the sanest fallback for a locale that
+// is not one of the three shipped here. ar/nl/en all get real .lproj files, so
+// the fallback only ever applies to a fourth language.
+//
+// Scope is deliberately narrow, because a purpose string a reviewer can
+// disprove is worse than a generic one:
+//   NSCameraUsageDescription  QR scanning only (app/qr-scanner.tsx,
+//     app/child-account/login.tsx). The AI-chat photo attachment is NOT a use
+//     here — app/ai-chat.tsx gates it on ATTACHMENTS_ENABLED, which is
+//     DISTRIBUTION_CHANNEL === "github", so it is unreachable in an App Store
+//     build. NSPhotoLibraryUsageDescription is absent for the same reason.
+//   NSMotionUsageDescription  Required even though only Magnetometer is used
+//     (app/qibla.tsx): expo-sensors implements the iOS magnetometer on
+//     CMMotionManager, so the compass will not start without motion access.
+//   NSLocationWhenInUseUsageDescription  Foreground only. The app calls
+//     requestForegroundPermissionsAsync / getCurrentPositionAsync and has no
+//     startLocationUpdatesAsync, watchPositionAsync or geofencing anywhere;
+//     both Always variants are deleted via the expo-location options below.
+const IOS_PURPOSE_STRINGS: Record<
+  "en" | "nl" | "ar",
+  Record<string, string>
+> = {
+  en: {
+    NSCameraUsageDescription:
+      "Rabbaanie uses the camera only to scan a QR code: to link a child's device to your family account, and to sign a child in on their own device.",
+    NSMotionUsageDescription:
+      "Rabbaanie reads the compass sensor to point the qibla arrow towards the Kaaba. On iOS the magnetometer is provided through motion services, so the qibla screen needs this permission.",
+    NSLocationWhenInUseUsageDescription:
+      "Rabbaanie uses your location to calculate accurate prayer times, point the qibla towards the Kaaba, and show mosques near you.",
+  },
+  nl: {
+    NSCameraUsageDescription:
+      "Rabbaanie gebruikt de camera alleen om een QR-code te scannen: om het toestel van uw kind aan uw gezinsaccount te koppelen, en om uw kind op het eigen toestel aan te melden.",
+    NSMotionUsageDescription:
+      "Rabbaanie leest de kompassensor om de qibla-pijl naar de Kaaba te richten. Op iOS loopt de magnetometer via de bewegingsdiensten, daarom heeft het qibla-scherm deze toestemming nodig.",
+    NSLocationWhenInUseUsageDescription:
+      "Rabbaanie gebruikt uw locatie voor nauwkeurige gebedstijden, de qibla-richting naar de Kaaba en moskeeën in de buurt.",
+  },
+  ar: {
+    NSCameraUsageDescription:
+      "يستخدم ربّانيّ الكاميرا فقط لمسح رمز QR: لربط جهاز طفلك بحساب عائلتك، ولتسجيل دخول الطفل على جهازه الخاص.",
+    NSMotionUsageDescription:
+      "يقرأ ربّانيّ حسّاس البوصلة لتوجيه سهم القبلة نحو الكعبة. وعلى iOS يعمل مقياس المغناطيسية عبر خدمات الحركة، ولذلك يلزم هذا الإذن لشاشة القبلة.",
+    NSLocationWhenInUseUsageDescription:
+      "يستخدم ربّانيّ موقعك لحساب أوقات الصلاة بدقّة، وتحديد اتجاه القبلة نحو الكعبة، وعرض المساجد القريبة منك.",
+  },
+};
+
+// Same habit as withAdhanSoundResources throwing on a missing MP3, for the same
+// reason. Adding a purpose string to the English base and forgetting a
+// translation ships silently: the key is present, the plist is valid, and an
+// Arabic reviewer simply reads English. No later stage can detect that, so fail
+// here, where `expo config` and every prebuild already run.
+//
+// The expected key set is the UNION of all three languages, not `en`'s keys.
+// Anchoring on `en` made the guard blind in the direction that actually ships a
+// defect: a key added to `nl` or `ar` but not to `en` produced no `missing`
+// entry anywhere, while `ios.infoPlist` — seeded from IOS_PURPOSE_STRINGS.en
+// below — would not carry it at all. The auto-applied permission plugin then
+// supplies its own `Allow $(PRODUCT_NAME) to access your …` English default as
+// the base string for every locale outside the three .lproj files, which is
+// precisely the untranslated-boilerplate outcome this check exists to stop.
+const ALL_PURPOSE_KEYS = [
+  ...new Set(Object.values(IOS_PURPOSE_STRINGS).flatMap((s) => Object.keys(s))),
+];
+for (const [language, strings] of Object.entries(IOS_PURPOSE_STRINGS)) {
+  const missing = ALL_PURPOSE_KEYS.filter((key) => !(key in strings));
+  if (missing.length > 0) {
+    throw new Error(
+      `IOS_PURPOSE_STRINGS.${language} is missing ${missing.join(", ")} — every shipped language needs every purpose string`,
+    );
+  }
+}
+
+// ios.infoPlist sets the BASE language only. The three .lproj/InfoPlist.strings
+// files that localise it have to be written into ios/, which prebuild
+// regenerates, so this has to be a mod — anything placed by hand would vanish,
+// the same argument withAdhanSoundResources makes for android/res/raw.
+//
+// Writing the files is only half of it, and the half that fails silently: the
+// generated project is objectVersion 54, a classic pbxproj with no file-system
+// synchronised groups, so a .lproj folder that is not referenced by the Xcode
+// project is never copied into the bundle. IOSConfig.Locales.setLocalesAsync is
+// Expo's own implementation of exactly this — it writes the files AND registers
+// each one, and skips a file already in the group so a second prebuild over a
+// reused ios/ cannot duplicate it.
+//
+// It is called directly rather than via the top-level `locales` config key,
+// which would be the obvious route, because AndroidConfig.Locales.withLocales
+// is auto-applied too and reads the same key: setting `locales` would also
+// write empty values-b+ar/values-b+nl/values-b+en resource folders into the
+// Play artifact, changing the APK's advertised locale set for no iOS benefit.
+const withIosLocalizedPurposeStrings: ConfigPlugin = (config) =>
+  withXcodeProject(config, async (modConfig) => {
+    modConfig.modResults = await IOSConfig.Locales.setLocalesAsync(
+      { locales: IOS_PURPOSE_STRINGS },
+      {
+        projectRoot: modConfig.modRequest.projectRoot,
+        project: modConfig.modResults,
+      },
+    );
+    return modConfig;
+  });
+
+// Two capabilities auto-applied plugins declare for features this app does not
+// have. Neither plugin accepts an opt-out, so they are removed after the fact.
+//
+//   UIBackgroundModes  expo-task-manager and expo-background-fetch both write
+//     ["fetch"] unconditionally. The only task, "WIDGET_BACKGROUND_UPDATE", is
+//     defined at module scope in lib/widget-background-task.ts but
+//     registerWidgetBackgroundTask returns early on any non-Android platform,
+//     so BackgroundFetch.registerTaskAsync is unreachable on iOS. Apple rejects
+//     a background mode with no justification behind it.
+//   aps-environment  expo-notifications writes it unconditionally, defaulting
+//     to "development". This is an ARCHIVE BLOCKER, not just a review flag: a
+//     "development" aps-environment will not sign against a distribution
+//     provisioning profile. There is no iOS push code to justify keeping it —
+//     hooks/use-push-notifications.ts returns null on any non-Android platform
+//     because the backend has an FCM sender only. expo-notifications itself
+//     stays: LOCAL notifications are the app's entire notification feature.
+//
+// Ordering is load-bearing and inverted from the obvious reading. withMod runs
+// its own action FIRST and then delegates to the previously registered mod, so
+// the mod registered EARLIEST is the last to touch modResults and therefore
+// wins. getPrebuildConfig applies the `plugins` array (via getConfig) before
+// withVersionedExpoSDKPlugins, so anything in `plugins` outranks every
+// auto-applied plugin; being first in the array outranks the rest of the array
+// too. tests/ios-config.test.ts asserts the outcome rather than the reasoning.
+const withoutUnusedIosCapabilities: ConfigPlugin = (config) => {
+  const withoutBackgroundModes = withInfoPlist(config, (modConfig) => {
+    // Subtract "fetch" specifically rather than deleting the whole key.
+    //
+    // This mod is registered first in `plugins`, and withMod composes so that
+    // the earliest registration runs LAST — after every auto-applied plugin and
+    // after the static ios.infoPlist block. A blanket `delete` therefore
+    // outranks the app's own config: putting UIBackgroundModes: ["audio"] in
+    // ios.infoPlist to let the adhan play in the background would be silently
+    // erased here, with no error and nothing in any test to catch it. Removing
+    // only the entry we object to is identical today and safe tomorrow.
+    //
+    // "fetch" is injected unconditionally by expo-task-manager's and
+    // expo-background-fetch's plugins, neither of which offers an opt-out, for
+    // a task that never registers on iOS: the only one is
+    // "WIDGET_BACKGROUND_UPDATE", and registerWidgetBackgroundTask returns
+    // early on any non-Android platform.
+    const modes = modConfig.modResults.UIBackgroundModes;
+    if (Array.isArray(modes)) {
+      const kept = modes.filter((mode) => mode !== "fetch");
+      if (kept.length > 0) modConfig.modResults.UIBackgroundModes = kept;
+      else delete modConfig.modResults.UIBackgroundModes;
+    }
+    return modConfig;
+  });
+  return withEntitlementsPlist(withoutBackgroundModes, (modConfig) => {
+    delete modConfig.modResults["aps-environment"];
+    return modConfig;
+  });
+};
+
+/**
+ * The iOS half of the adhan sound, and it must be the iOS half ONLY.
+ *
+ * The obvious spelling — a `["expo-notifications", { sounds: [...] }]` entry —
+ * is a trap. expo-notifications' plugin applies withNotificationsAndroid AND
+ * withNotificationsIOS from the same props, and the Android one runs a
+ * dangerous mod that copyFileSync's every `sounds` entry into
+ * android/app/src/main/res/raw/. So that entry shipped ~1.6 MB of .caf into the
+ * Play AAB, next to the MP3s withAdhanSoundResources already copies, for files
+ * Android can never play — its sound comes from the channel's raw MP3. Nothing
+ * failed: assertValidAndroidAssetName accepts the names, and android/ is
+ * gitignored and merged by prebuild, so the dead copies would also have
+ * survived in a developer's tree after the config was fixed.
+ *
+ * Expo exports the iOS implementation on its own, so this reuses it rather than
+ * reimplementing the Xcode resource registration. withXcodeProject is an iOS
+ * mod, so the mod compiler skips it entirely on an Android prebuild.
+ */
+const withIosAdhanSounds: ConfigPlugin = (config) =>
+  withXcodeProject(config, (modConfig) => {
+    for (const id of ADHAN_SOUND_IDS) {
+      const source = path.join(
+        modConfig.modRequest.projectRoot,
+        `assets/sounds/adhan_${id}.caf`,
+      );
+      // Loud, like withAdhanSoundResources' MP3 check. UNNotificationSound
+      // does NOT throw on a name it cannot resolve — iOS quietly plays the
+      // system default — so a missing file here would otherwise reach users as
+      // "the adhan I picked never plays" with nothing logged anywhere.
+      if (!fs.existsSync(source)) {
+        throw new Error(
+          `withIosAdhanSounds: missing ${source} — expected one CAF per id in ADHAN_SOUND_IDS`,
+        );
+      }
+    }
+    // Expo's iOS-only notification-sound implementation. Required HERE, inside
+    // an iOS mod, rather than imported at module scope.
+    //
+    // This is a deep path into expo-notifications' COMPILED plugin output: it
+    // is published with a .d.ts and stable within a version, but nothing stops
+    // a minor bump from moving or renaming it. expo-notifications is pinned by
+    // package.json's ~0.32.17; re-check when that range moves.
+    //
+    // At module scope the cost of that path vanishing was not iOS-shaped. This
+    // file is loaded by `expo start`, `expo run:android`, the PLAY prebuild and
+    // `expo config` in CI, so a moved path would have taken down the Android
+    // release pipeline over an iOS-only concern. withXcodeProject is an iOS mod
+    // and the mod compiler skips it entirely on an Android prebuild, so a lazy
+    // require confines the blast radius to the platform that needs the symbol.
+    // The trade is losing the failure at config-load time; prebuild is still
+    // long before anything is built, and it now fails only where it matters.
+    //
+    // Introspection (`expo config --type introspect`) drops xcodeproj mods, so
+    // tests/ios-config.test.ts does NOT exercise this line — the check that a
+    // CAF actually reached the bundle is scripts/assert-ios-artifact.sh's.
+    //
+    // Wrapped, because the two halves of "moved or renamed" fail on different
+    // lines. A RENAME resolves the module and leaves the symbol undefined, so
+    // it reaches the check below. A MOVE throws MODULE_NOT_FOUND on the require
+    // itself — so the message that says what to do never printed for the very
+    // failure the paragraph above describes. Both converge here now.
+    let setNotificationSounds:
+      | typeof import("expo-notifications/plugin/build/withNotificationsIOS").setNotificationSounds
+      | undefined;
+    let cause = "";
+    try {
+      ({ setNotificationSounds } =
+        require("expo-notifications/plugin/build/withNotificationsIOS") as typeof import("expo-notifications/plugin/build/withNotificationsIOS"));
+    } catch (error) {
+      cause = error instanceof Error ? error.message : String(error);
+    }
+    if (typeof setNotificationSounds !== "function") {
+      throw new Error(
+        "expo-notifications no longer exports setNotificationSounds from " +
+          "plugin/build/withNotificationsIOS — withIosAdhanSounds cannot bundle " +
+          "the adhan CAFs, and iOS would silently fall back to the system sound. " +
+          "Re-point the require, or reimplement the copy with withXcodeProject." +
+          (cause ? `\nThe require itself failed: ${cause}` : ""),
+      );
+    }
+    setNotificationSounds(modConfig.modRequest.projectRoot, {
+      sounds: ADHAN_SOUND_IDS.map((id) => `./assets/sounds/adhan_${id}.caf`),
+      project: modConfig.modResults,
+      projectName: modConfig.modRequest.projectName,
+    });
+    return modConfig;
+  });
+
 const config: ExpoConfig = {
   name: env.appName,
   slug: env.appSlug,
@@ -360,14 +688,164 @@ const config: ExpoConfig = {
   // Play builds use Google Play services for certificate-bound native sign-in,
   // so they expose no interceptable OAuth custom-scheme intent. The general
   // Rabbaanie navigation scheme remains available only to sideload builds.
-  scheme: isGithubBuild ? env.scheme : undefined,
+  // ALWAYS set, on both channels. Leaving it undefined for Play crashed iOS on
+  // launch: expo-linking throws "Cannot make a deep link into a standalone app
+  // with no custom scheme defined" as an unhandled JS exception the moment the
+  // bundle starts, so the App Store build died on the splash screen. Verified
+  // by launching the simulator build — nothing in the config or the test suite
+  // could see it, because both were asserting the config value rather than the
+  // running app.
+  //
+  // Play is still protected, at the two layers that actually govern the
+  // ARTIFACT rather than the JS manifest:
+  //   1. the Android manifest mod above filters every intent-filter carrying a
+  //      RETIRED_APP_SCHEMES entry, so no scheme is exposed to other apps;
+  //   2. scripts/assert-play-artifact.sh fails the build outright if the
+  //      "rabbaanie" scheme survives into the AAB, and CI runs it
+  //      (.github/workflows/play-release.yml).
+  // A scheme string in the embedded JS manifest exposes nothing on its own —
+  // what Play's policy is about is the intent filter, which is still gone.
+  scheme: env.scheme,
   userInterfaceStyle: "automatic",
   newArchEnabled: true,
   ios: {
+    // Confirmed product decision: iPad is in scope.
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
+    buildNumber: IOS_BUILD_NUMBER,
+    // Without this, every `interruptionLevel: "timeSensitive"` in the app is
+    // INERT: iOS silently downgrades an unentitled time-sensitive notification
+    // to `active`, so it does not break through Focus or Do Not Disturb. The
+    // code has claimed that behaviour for a long time and never had it — a
+    // prayer app whose adhan is muted by the user's sleep Focus is failing at
+    // the one thing it exists to do, and nothing anywhere reports it.
+    //
+    // ORDERING HAZARD, the same one aps-environment has: the capability must be
+    // enabled on the App ID in the Apple Developer portal BEFORE an archive
+    // carrying this entitlement is signed. Sign it first and the archive is
+    // rejected outright, which reads like a build failure rather than a missing
+    // checkbox. Apple grants Time Sensitive Notifications readily for prayer
+    // and reminder apps; scripts/assert-ios-artifact.sh asserts it is present
+    // so it cannot silently vanish from a merged prebuild.
+    entitlements: {
+      "com.apple.developer.usernotifications.time-sensitive": true,
+    },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
+      // The base language. Each key here is picked up by the auto-applied
+      // permission plugins as `existing` (Permissions.js resolves
+      // configured || existing || ENGLISH_DEFAULT), so writing them once here
+      // overrides every plugin that seeds the same key — which is why the
+      // plugin entries below only ever pass `false`, never a string. One
+      // source per string, and the .lproj files translate exactly these.
+      ...IOS_PURPOSE_STRINGS.en,
+      CFBundleDevelopmentRegion: "en",
+      CFBundleLocalizations: Object.keys(IOS_PURPOSE_STRINGS),
+      // Expo's iOS template ships NSAllowsArbitraryLoads: true so Metro can be
+      // reached over cleartext in development. Shipped to the App Store that is
+      // a blanket opt-out of App Transport Security, and App Review asks for a
+      // justification there is none to give: the app makes no cleartext request
+      // at all. Verified — a grep for an http:// literal across app, lib, hooks,
+      // components, constants, widgets and modules returns nothing outside
+      // tests, and lib/app-version.ts already REFUSES an http APK URL.
+      //
+      // NSAllowsLocalNetworking keeps development working without the blanket
+      // hole: it permits cleartext to LAN hosts only, which is what a dev build
+      // needs to reach Metro on the developer's machine. Apple documents it as
+      // requiring no justification, unlike NSAllowsArbitraryLoads.
+      NSAppTransportSecurity: {
+        NSAllowsArbitraryLoads: false,
+        NSAllowsLocalNetworking: true,
+        NSExceptionDomains: {
+          localhost: { NSExceptionAllowsInsecureHTTPLoads: true },
+        },
+      },
+    },
+    // Derived from an audit of what this app and its pods actually call, not
+    // from a template. Pods that ship their own PrivacyInfo.xcprivacy are
+    // deliberately NOT redeclared here (async-storage, expo-file-system,
+    // expo-constants, expo-device, React-Core and others self-declare and are
+    // wired through resource_bundles). What remains is first-party usage that
+    // no bundled manifest covers:
+    //   FileTimestamp C617.1 — React-RCTNetwork's RCTFileRequestHandler and
+    //     expo-modules-core's PersistentFileLog, neither of which self-declares.
+    //   FileTimestamp 0A2A.1 — expo-document-picker reads the modification date
+    //     of the user-selected file; that is Apple's exact wording for 0A2A.1.
+    //   UserDefaults CA92.1 — React-RCTSettings' RCTSettingsManager.
+    // DiskSpace and SystemBootTime are omitted on purpose: their only callers
+    // (expo-file-system, expo-device) both self-declare.
+    //
+    // Tracking is false and the domain list is empty because the app carries no
+    // analytics, ads or attribution SDK of any kind, and nothing reads the IDFA.
+    // PurchaseHistory is absent because iOS has no purchase path yet — it MUST
+    // be added in the same change that lands StoreKit.
+    privacyManifests: {
+      NSPrivacyTracking: false,
+      NSPrivacyTrackingDomains: [],
+      NSPrivacyAccessedAPITypes: [
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryFileTimestamp",
+          NSPrivacyAccessedAPITypeReasons: ["C617.1", "0A2A.1"],
+        },
+        {
+          NSPrivacyAccessedAPIType: "NSPrivacyAccessedAPICategoryUserDefaults",
+          NSPrivacyAccessedAPITypeReasons: ["CA92.1"],
+        },
+      ],
+      // Every type is Linked (all of it hangs off an authenticated account) and
+      // none is used for Tracking.
+      NSPrivacyCollectedDataTypes: [
+        "NSPrivacyCollectedDataTypeEmailAddress",
+        "NSPrivacyCollectedDataTypeName",
+        "NSPrivacyCollectedDataTypePhoneNumber",
+        "NSPrivacyCollectedDataTypePhysicalAddress",
+        "NSPrivacyCollectedDataTypePreciseLocation",
+        "NSPrivacyCollectedDataTypeCoarseLocation",
+        "NSPrivacyCollectedDataTypeUserID",
+        "NSPrivacyCollectedDataTypeOtherUserContent",
+        // Religious practice: prayer status, Qur'an connection, hijab. In
+        // Apple's taxonomy SensitiveInfo covers religious belief — it does NOT
+        // cover health, which is its own category below.
+        "NSPrivacyCollectedDataTypeSensitiveInfo",
+        // Health and medical, and easy to miss because it does not look like a
+        // health app. ParentProfile carries psychologist, psychologistDetails,
+        // psychologistChildren and psychologistChildrenDetails (lib/store.ts
+        // :46-49) — whether the parent and NAMED CHILDREN are in psychological
+        // care — and ChildEnvironment carries physicalHealth, mentalHealth and
+        // sleepQuality (lib/store.ts:149-151). Both parentProfile and
+        // environments go up in the profile.save payload at lib/app-context.ts
+        // :112-120 and come back down from profile.get, so this is a full round
+        // trip and "collected" under Apple's definition.
+        //
+        // Under GDPR the same fields are Article 9 special-category data. An
+        // app whose declared audience includes children, storing mental-health
+        // notes about minors while declaring no health collection, is both an
+        // App Review rejection and a disclosure failure.
+        "NSPrivacyCollectedDataTypeHealth",
+        // lib/activity-tracker.ts POSTs a per-child daily summary — screens
+        // visited, app-usage minutes, dhikr and task counts, AI questions asked
+        // — with NO platform gate, so it runs on iOS (initialised from
+        // app/child-account/home.tsx:299).
+        //
+        // Declared even though the receiving procedure does not exist yet and
+        // every call 404s, which arguably means nothing is collected today.
+        // The margin is one server commit wide: the moment
+        // childActivity.syncDailySummary is written in rabbaanie-api this
+        // becomes collection, in a different repository, with nothing here to
+        // prompt anyone to update the manifest. Declaring it now costs a line
+        // on the nutrition label and removes a compliance trap wired to a
+        // change we would not see.
+        "NSPrivacyCollectedDataTypeProductInteraction",
+        // Marital status and gender.
+        "NSPrivacyCollectedDataTypeOtherDataTypes",
+      ].map((type) => ({
+        NSPrivacyCollectedDataType: type,
+        NSPrivacyCollectedDataTypeLinked: true,
+        NSPrivacyCollectedDataTypeTracking: false,
+        NSPrivacyCollectedDataTypePurposes: [
+          "NSPrivacyCollectedDataTypePurposeAppFunctionality",
+        ],
+      })),
     },
   },
   android: {
@@ -434,14 +912,26 @@ const config: ExpoConfig = {
     favicon: "./assets/images/favicon.png",
   },
   plugins: [
+    // First on purpose — see the ordering note on withoutUnusedIosCapabilities.
+    withoutUnusedIosCapabilities as any,
+    withIosLocalizedPurposeStrings as any,
+    withIosAdhanSounds as any,
     "expo-router",
     [
       "@react-native-google-signin/google-signin",
       {
-        // Android is the release target. The plugin validates an iOS-shaped
-        // reverse client ID even during Android-only prebuilds.
-        iosUrlScheme:
-          "com.googleusercontent.apps.546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o",
+        // Google's SDK receives its redirect on the client id reversed into a
+        // URL scheme, so this must be the **iOS** client, not the web one.
+        //
+        // Falls back to the web client while GOOGLE_IOS_CLIENT_ID is empty
+        // purely to keep prebuild working: the plugin validates the SHAPE of
+        // this string on every prebuild, Android-only ones included, and
+        // throws on an empty value. The fallback is a placeholder that
+        // authenticates nobody — app/login.tsx hides the button in exactly
+        // that state, so no build ever offers a scheme that cannot complete.
+        iosUrlScheme: reversedClientId(
+          GOOGLE_IOS_CLIENT_ID || GOOGLE_WEB_CLIENT_ID,
+        ),
       },
     ],
     // Expo accepts inline config plugins here, while ExpoConfig's public type
@@ -525,11 +1015,48 @@ const config: ExpoConfig = {
         ],
       },
     ],
+    // These four entries exist only to pass `false`, which is the one thing
+    // ios.infoPlist cannot express: Permissions.js DELETES a key when the
+    // option is false, where an infoPlist entry can only overwrite one. Every
+    // real string lives in ios.infoPlist above. All four packages are
+    // auto-applied already, so an explicit entry changes nothing except that it
+    // can now be given options.
+    //
+    // Microphone, three times over: expo-camera, expo-image-picker and expo-av
+    // each seed NSMicrophoneUsageDescription. Nothing in this app records —
+    // a repo-wide search for recording APIs returns nothing, and every expo-av
+    // call is Audio.Sound playback (app/(tabs)/settings.tsx,
+    // app/(tabs)/notification-settings.tsx). This is the iOS mirror of
+    // RECORD_AUDIO sitting in android.blockedPermissions for the same reason.
+    //
+    // Deliberately NOT passed here: cameraPermission: false on
+    // expo-image-picker. It reads as the matching cleanup, but the plugin also
+    // calls AndroidConfig.Permissions.withBlockedPermissions(['...CAMERA']) on
+    // false, which would emit tools:node="remove" for android.permission.CAMERA
+    // and strip the camera from the PLAY build — breaking app/qr-scanner.tsx
+    // and app/child-account/login.tsx, both shipping today. The iOS key it
+    // would have removed is already handled: expo-camera legitimately owns
+    // NSCameraUsageDescription, and ios.infoPlist supplies the text.
+    // photosPermission has no such Android side effect, so it is safe.
+    ["expo-camera", { microphonePermission: false }],
+    // The photo library has no reachable call site in an App Store build: the
+    // only ImagePicker calls are in app/ai-chat.tsx behind ATTACHMENTS_ENABLED
+    // (DISTRIBUTION_CHANNEL === "github"), and nothing anywhere writes back to
+    // the library — no MediaLibrary, no saveToLibraryAsync. So the key is
+    // deleted rather than written, which is also why there is no
+    // NSPhotoLibraryAddUsageDescription.
+    [
+      "expo-image-picker",
+      { microphonePermission: false, photosPermission: false },
+    ],
+    ["expo-av", { microphonePermission: false }],
     [
       "expo-location",
       {
-        locationWhenInUsePermission:
-          "Rabbaanie gebruikt uw locatie voor gebedstijden, qibla-richting en locatiegebonden adviezen.",
+        // Both Always variants are seeded by the plugin and would otherwise
+        // ship as English defaults for a capability the app does not have.
+        locationAlwaysPermission: false,
+        locationAlwaysAndWhenInUsePermission: false,
       },
     ],
 
@@ -548,6 +1075,16 @@ const config: ExpoConfig = {
     [
       "expo-build-properties",
       {
+        ios: {
+          // Expo SDK 54's own floor: expo-modules-core's podspec declares
+          // :ios => '15.1', so nothing in the project can build below it. It
+          // also clears the two dependencies that set their own — expo-iap
+          // gates ExpoIapModule.swift on @available(iOS 15.0, *) and
+          // react-native-volume-manager's podspec declares :ios => "15.0".
+          // Left unset the Podfile picks its own default, which can land under
+          // those and fails at archive time rather than at prebuild.
+          deploymentTarget: "15.1",
+        },
         android: {
           buildArchs: ["armeabi-v7a", "arm64-v8a"],
           minSdkVersion: 24,

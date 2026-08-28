@@ -1597,7 +1597,8 @@ export default function QuranScreen() {
 
   // Render index modal
   const renderIndex = () => (
-    <Modal visible={showIndex} animationType="slide" transparent={false}>
+    <Modal visible={showIndex} animationType="slide" transparent={false}
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
       <View
         style={[
           st.modalContainer,
@@ -1702,7 +1703,8 @@ export default function QuranScreen() {
 
   // Render settings modal
   const renderSettings = () => (
-    <Modal visible={showSettings} animationType="slide" transparent>
+    <Modal visible={showSettings} animationType="slide" transparent
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
       <View style={st.settingsOverlay}>
         <View
           style={[
@@ -1765,7 +1767,8 @@ export default function QuranScreen() {
 
   // Render science modal (bottom sheet style like reference image)
   const renderScienceModal = () => (
-    <Modal visible={showScienceModal} animationType="slide" transparent>
+    <Modal visible={showScienceModal} animationType="slide" transparent
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
       <View style={st.scienceOverlay}>
         {/* Tap outside to close */}
         <Pressable

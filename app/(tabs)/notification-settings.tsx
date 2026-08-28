@@ -549,33 +549,49 @@ export default function NotificationSettingsScreen() {
             </Pressable>
           ))}
 
-          {/* Nature Sound */}
-          <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted, marginTop: 14, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
-            {getLabel("صوت التنبيهات الأخرى", "Other Notifications Sound", "Overige meldingen geluid")}
-          </Text>
-          {NATURE_SOUND_OPTIONS.map((opt) => (
-            <Pressable
-              key={opt.id}
-              onPress={() => handleNatureSoundChange(opt.id)}
-              style={({ pressed }) => [{
-                flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between",
-                paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6,
-                backgroundColor: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" + "12" : "transparent",
-                borderWidth: 1, borderColor: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" + "40" : "transparent",
-                opacity: pressed ? 0.8 : 1,
-              }]}
-            >
-              <Text style={{ fontSize: 14, color: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" : colors.foreground, fontWeight: (notifPrefs.natureSound || "water_stream") === opt.id ? "bold" : "normal" }}>
-                {opt[language === "ar" ? "nameAr" : isEn ? "nameEn" : "nameNl"]}
+          {/* Nature Sound — Android only. NotificationPrefs.natureSound is
+              persisted and rendered here, but nothing on iOS reads it:
+              lib/notifications.ts writes sound: "default" for adhkaar and the
+              other reminders, so an iOS user who picks "Birds chirping" gets the
+              system chime. Wiring it through today would be worse than inert —
+              assets/sounds/ holds only the four MP3s, UNNotificationSound refuses
+              .mp3 outright, and the notification would arrive SILENT.
+
+              The upgrade path: convert the four MP3s to CAF under iOS's 30-second
+              ceiling, bundle them via the existing withIosAdhanSounds plugin in
+              app.config.ts, then read natureSound through a sibling of
+              adhanSoundFile(). Until then this follows lib/iqamah-silence.ts and
+              stops offering iOS a control it cannot honour. */}
+          {Platform.OS !== "ios" && (
+            <>
+              <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted, marginTop: 14, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
+                {getLabel("صوت التنبيهات الأخرى", "Other Notifications Sound", "Overige meldingen geluid")}
               </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
-                {(notifPrefs.natureSound || "water_stream") === opt.id && <MaterialIcons name="check-circle" size={18} color="#0891B2" />}
-                <Pressable onPress={() => playPreviewSound(opt.id)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: playingSound === opt.id ? "#0891B2" : colors.border + "50", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 }]}>
-                  <MaterialIcons name={playingSound === opt.id ? "stop" : "play-arrow"} size={18} color={playingSound === opt.id ? "#fff" : colors.foreground} />
+              {NATURE_SOUND_OPTIONS.map((opt) => (
+                <Pressable
+                  key={opt.id}
+                  onPress={() => handleNatureSoundChange(opt.id)}
+                  style={({ pressed }) => [{
+                    flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between",
+                    paddingVertical: 10, paddingHorizontal: 12, borderRadius: 10, marginBottom: 6,
+                    backgroundColor: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" + "12" : "transparent",
+                    borderWidth: 1, borderColor: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" + "40" : "transparent",
+                    opacity: pressed ? 0.8 : 1,
+                  }]}
+                >
+                  <Text style={{ fontSize: 14, color: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" : colors.foreground, fontWeight: (notifPrefs.natureSound || "water_stream") === opt.id ? "bold" : "normal" }}>
+                    {opt[language === "ar" ? "nameAr" : isEn ? "nameEn" : "nameNl"]}
+                  </Text>
+                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    {(notifPrefs.natureSound || "water_stream") === opt.id && <MaterialIcons name="check-circle" size={18} color="#0891B2" />}
+                    <Pressable onPress={() => playPreviewSound(opt.id)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: playingSound === opt.id ? "#0891B2" : colors.border + "50", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 }]}>
+                      <MaterialIcons name={playingSound === opt.id ? "stop" : "play-arrow"} size={18} color={playingSound === opt.id ? "#fff" : colors.foreground} />
+                    </Pressable>
+                  </View>
                 </Pressable>
-              </View>
-            </Pressable>
-          ))}
+              ))}
+            </>
+          )}
         </SectionCollapsible>
 
         {/* === SECTION 3: Iqamah Auto-Silence === */}

@@ -111,7 +111,10 @@ describe("Iman Notifications Service", () => {
   const content = fs.readFileSync("lib/iman-notifications.ts", "utf-8");
 
   it("should export scheduleImanNotifications function", () => {
-    expect(content).toContain("export async function scheduleImanNotifications");
+    // Not "export async function": the export is now the thin queued wrapper
+    // (see lib/notification-queue.ts), which returns enqueue(...) directly and
+    // so is not itself async. The export NAME is the invariant here.
+    expect(content).toContain("export function scheduleImanNotifications");
   });
 
   it("should schedule muraqaba notifications", () => {

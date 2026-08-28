@@ -4247,6 +4247,7 @@ export default function FamilyScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setQrModalVisible(false)}
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
       >
         {/* ScrollView: fixed-height card + landscape clips the close button. See components/prayer-popup-modal.tsx. */}
         <ScrollView

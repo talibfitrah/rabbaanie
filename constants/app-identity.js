@@ -44,3 +44,44 @@ export const APP_SCHEME = "rabbaanie";
  */
 export const GOOGLE_WEB_CLIENT_ID =
   "546852827424-jchq36r9vu7bjbmn7gg5198ethlk625o.apps.googleusercontent.com";
+
+/**
+ * Public OAuth client identifier for the **iOS** app, in the same Google Cloud
+ * project as GOOGLE_WEB_CLIENT_ID above. Also not a secret: its reversed form
+ * ships in Info.plist as a URL scheme, readable in any installed .ipa.
+ *
+ * Two things need it, and neither works without it:
+ *   - GoogleSignin.configure() REJECTS on iOS when neither `iosClientId` nor a
+ *     GoogleService-Info.plist is present (RNGoogleSignin.mm:78), so the sign-in
+ *     button throws on first tap rather than failing gracefully. app/login.tsx
+ *     therefore hides the button while this is empty — a visibly broken sign-in
+ *     is an App Store 2.1 rejection, an absent one is not.
+ *   - The @react-native-google-signin plugin's `iosUrlScheme` (app.config.ts)
+ *     puts the reversed id in Info.plist so Google's SDK can receive the
+ *     redirect back.
+ *
+ * The API needs NO change to accept it. GIDSignIn sends the web client id as
+ * the OAuth `audience` request parameter (GIDSignIn.m:900-901, kAudienceParameter
+ * = "audience"), so the ID token's `aud` is GOOGLE_WEB_CLIENT_ID on iOS exactly
+ * as on Android — which is the single value the live API verifies against
+ * (rabbaanie-api server/web-auth.ts:1182, "exact web-client audience").
+ *
+ * A LITERAL, not process.env, and deliberately so on both counts. The runtime
+ * half of this file is bundled into the app, where only EXPO_PUBLIC_-prefixed
+ * vars survive — so a plain env var reads `undefined` in the app and the button
+ * silently disappears. Even prefixed, .env is gitignored: a CI build would get
+ * an empty value and ship an iOS binary with no Google sign-in, with nothing
+ * failing to say so. GOOGLE_WEB_CLIENT_ID above is a literal for the same
+ * reason. (.env also carries a copy for the server side; this one governs the
+ * app.)
+ *
+ * Typed as a plain string rather than left to infer its literal type. Whether
+ * this is set is a RUNTIME state — it was empty until the OAuth client existed,
+ * and clearing it is how you'd turn the iOS button back off — so the `!== ""`
+ * check in app/login.tsx is a real check. Inferred, the literal type makes
+ * TypeScript prove that comparison always-true and reject it (TS2367).
+ *
+ * @type {string}
+ */
+export const GOOGLE_IOS_CLIENT_ID =
+  "546852827424-5c286uv9164gu9pjm03ionqupr11fgpi.apps.googleusercontent.com";

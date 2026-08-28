@@ -88,7 +88,13 @@ describe("authedFetch reports the installed app version", () => {
     getApiBaseUrl: () => "https://api.example.com",
   }));
   vi.mock("@/lib/_core/auth", () => ({ getSessionToken: vi.fn().mockResolvedValue(null) }));
-  vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
+  vi.mock("@/hooks/use-updates", () => ({
+  INSTALLED_VERSION: "1.5.1",
+  CLIENT_VERSION_HEADERS: {
+    "X-App-Version": "1.5.1",
+    "X-App-Platform": "android",
+  },
+}));
 
   let fetchMock: ReturnType<typeof vi.fn>;
 

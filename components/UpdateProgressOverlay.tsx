@@ -23,7 +23,8 @@ export function UpdateProgressOverlay() {
   const installing = pct >= 100;
 
   return (
-    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={() => {}}>
+    <Modal transparent visible animationType="fade" statusBarTranslucent onRequestClose={() => {}}
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
       <View
         style={{
           flex: 1,

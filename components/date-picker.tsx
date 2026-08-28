@@ -104,7 +104,8 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
           <Text style={{ fontSize: 18 }}>📅</Text>
         </Pressable>
         {showPicker && (
-          <Modal transparent animationType="slide">
+          <Modal transparent animationType="slide"
+            supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
                 <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
@@ -203,7 +204,8 @@ function CustomDatePickerModal({ value, onChange, onClose, maxDate, minDate, isR
   };
 
   return (
-    <Modal transparent animationType="fade">
+    <Modal transparent animationType="fade"
+      supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
       <View style={styles.modalOverlay}>
         <View style={[styles.customModalContent, { backgroundColor: colors.background }]}>
           {/* Header */}

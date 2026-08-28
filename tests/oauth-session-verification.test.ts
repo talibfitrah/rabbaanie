@@ -13,8 +13,20 @@ vi.mock("react-native", () => ({
 }));
 // verifySessionToken now reads the app version from here for X-App-Version —
 // same stub the other transport-layer suites use, so this doesn't reach expo-*.
-vi.mock("@/hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
-vi.mock("../hooks/use-updates", () => ({ INSTALLED_VERSION: "1.5.1" }));
+vi.mock("@/hooks/use-updates", () => ({
+  INSTALLED_VERSION: "1.5.1",
+  CLIENT_VERSION_HEADERS: {
+    "X-App-Version": "1.5.1",
+    "X-App-Platform": "android",
+  },
+}));
+vi.mock("../hooks/use-updates", () => ({
+  INSTALLED_VERSION: "1.5.1",
+  CLIENT_VERSION_HEADERS: {
+    "X-App-Version": "1.5.1",
+    "X-App-Platform": "android",
+  },
+}));
 
 import { verifySessionToken } from "../lib/_core/api";
 
@@ -97,7 +109,18 @@ describe("OAuth session establishment", () => {
     });
     expect(fetchMock).toHaveBeenCalledWith(
       expect.stringContaining("/api/trpc/auth.me?input="),
-      { headers: { Authorization: "Bearer server-token", "X-App-Version": "1.5.1" } },
+      // Still an EXACT header set, not objectContaining: the point of this
+      // assertion is that nothing extra rides along on the identity call, so
+      // loosening it to "contains" would delete the guard rather than update
+      // it. X-App-Platform is expected now — see CLIENT_VERSION_HEADERS in
+      // hooks/use-updates.ts for why the version alone was not enough.
+      {
+        headers: {
+          Authorization: "Bearer server-token",
+          "X-App-Version": "1.5.1",
+          "X-App-Platform": "android",
+        },
+      },
     );
   });
 
