@@ -99,8 +99,6 @@ export default function LoginScreen() {
   // Set when the server says this Google identity has no account, so the screen
   // can offer to create one instead of leaving the user at a dead end.
   const [offerGoogleSignup, setOfferGoogleSignup] = useState(false);
-  // Same, for Sign in with Apple.
-  const [offerAppleSignup, setOfferAppleSignup] = useState(false);
 
   const isRTL = language === "ar";
 
@@ -365,12 +363,11 @@ export default function LoginScreen() {
   // Mirror of handleGoogleAuth for native Sign in with Apple. Terminates in the
   // same completeTokenSignIn / created-reset path, and reuses the same result
   // union so the branching is identical.
-  const handleAppleAuth = async (createAccount = false) => {
+  const handleAppleAuth = async () => {
     setError("");
-    setOfferAppleSignup(false);
     setLoading(true);
     try {
-      const result = await completeNativeAppleSignIn({ createAccount, language });
+      const result = await completeNativeAppleSignIn();
       if (!result) return;
       if (result.kind === "twoFactor") {
         setTwoFactorChallenge(result.challengeToken);
@@ -392,22 +389,14 @@ export default function LoginScreen() {
       console.error("[Login] Apple login error:", err, err?.cause);
       const denied = err instanceof AppleSignInError ? err.reason : null;
       if (denied === "no_account") {
-        if (createAccount) {
-          setError(
-            tx(
-              "Account aanmaken met Apple is nu niet beschikbaar. Maak hieronder een account aan met uw e-mailadres.",
-              "Creating an account with Apple is unavailable right now. Please create one with your email below.",
-              "إنشاء حساب بواسطة Apple غير متاح الآن. أنشئ حسابًا ببريدك الإلكتروني أدناه.",
-            ),
-          );
-          return;
-        }
-        setOfferAppleSignup(true);
+        // Sign in with Apple is sign-in only — the server never creates an
+        // account from Apple. So there is no Apple sign-up to offer; point the
+        // user at email registration below instead of a dead-end button.
         setError(
           tx(
-            "Nog geen Rabbaanie-account voor dit Apple-account. Maak er direct een aan.",
-            "No Rabbaanie account yet for this Apple account. Create one now.",
-            "لا يوجد حساب ربّانيّ لحساب Apple هذا بعد. أنشئ حسابًا الآن.",
+            "Nog geen Rabbaanie-account voor dit Apple-account. Maak hieronder een account aan met uw e-mailadres.",
+            "No Rabbaanie account yet for this Apple account. Please create one with your email below.",
+            "لا يوجد حساب ربّانيّ لحساب Apple هذا بعد. أنشئ حسابًا ببريدك الإلكتروني أدناه.",
           ),
         );
         return;
@@ -865,41 +854,19 @@ export default function LoginScreen() {
                     theme (black in light mode, white in dark) and the onPress
                     are set here. */}
                 {APPLE_SIGN_IN_AVAILABLE && (
-                  <>
-                    <AppleAuthentication.AppleAuthenticationButton
-                      buttonType={
-                        AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
-                      }
-                      buttonStyle={
-                        isDark
-                          ? AppleAuthentication.AppleAuthenticationButtonStyle
-                              .WHITE
-                          : AppleAuthentication.AppleAuthenticationButtonStyle
-                              .BLACK
-                      }
-                      cornerRadius={10}
-                      style={{ height: 48, marginTop: 10 }}
-                      onPress={() => handleAppleAuth()}
-                    />
-                    {offerAppleSignup ? (
-                      <AppleAuthentication.AppleAuthenticationButton
-                        buttonType={
-                          AppleAuthentication.AppleAuthenticationButtonType
-                            .SIGN_UP
-                        }
-                        buttonStyle={
-                          isDark
-                            ? AppleAuthentication.AppleAuthenticationButtonStyle
-                                .WHITE
-                            : AppleAuthentication.AppleAuthenticationButtonStyle
-                                .BLACK
-                        }
-                        cornerRadius={10}
-                        style={{ height: 48, marginTop: 10 }}
-                        onPress={() => handleAppleAuth(true)}
-                      />
-                    ) : null}
-                  </>
+                  <AppleAuthentication.AppleAuthenticationButton
+                    buttonType={
+                      AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                    }
+                    buttonStyle={
+                      isDark
+                        ? AppleAuthentication.AppleAuthenticationButtonStyle.WHITE
+                        : AppleAuthentication.AppleAuthenticationButtonStyle.BLACK
+                    }
+                    cornerRadius={10}
+                    style={{ height: 48, marginTop: 10 }}
+                    onPress={() => handleAppleAuth()}
+                  />
                 )}
 
                 {/* Sideload build points at the website; the Play build must not,

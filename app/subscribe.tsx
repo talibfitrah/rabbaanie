@@ -46,6 +46,21 @@ export default function SubscribeScreen() {
   const L3 = (ar: string, nl: string, en: string) =>
     language === "ar" ? ar : language === "en" ? en : nl;
   const align = isRTL ? "right" : "left";
+  // The storefront named in the billing-error copy. iOS now arms the same
+  // purchase path, so this copy renders on the App Store build too — naming
+  // "Google Play" there is wrong and an App Review reject. One label per build,
+  // interpolated into each message below.
+  const storeName = DISTRIBUTION_CHANNEL === "apple" ? "App Store" : "Google Play";
+  // The "use a different X to buy" phrase reads differently per store: the App
+  // Store buys against an Apple ID, not a separate app account like Google's.
+  const otherAccount =
+    DISTRIBUTION_CHANNEL === "apple"
+      ? L3("معرّف Apple آخر", "een andere Apple ID", "a different Apple ID")
+      : L3(
+          "حساب Google مختلف",
+          "een ander Google-account",
+          "a different Google account",
+        );
 
   const [status, setStatus] = useState<{
     subscribed: boolean;
@@ -1603,9 +1618,9 @@ export default function SubscribeScreen() {
                              they point at is the only way in — sending the user
                              the wrong way here costs them the purchase. */
                             L3(
-                              "تعذّر الاتصال بمتجر Google Play. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.",
-                              "Kan geen verbinding maken met de Google Play Store. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.",
-                              "Could not reach the Google Play Store. Check your connection and try again. If you have a code, redeem it above.",
+                              `تعذّر الاتصال بـ${storeName}. تحقّق من اتصالك ثمّ أعِد المحاولة. وإن كان لديك رمز، فعّله أعلاه.`,
+                              `Kan geen verbinding maken met ${storeName}. Controleer uw verbinding en probeer het opnieuw. Heeft u een code? Activeer die hierboven.`,
+                              `Could not reach ${storeName}. Check your connection and try again. If you have a code, redeem it above.`,
                             )
                           : L3(
                               "الاشتراك داخل التطبيق غير متاحٍ هنا حاليًّا. إن كان لديك رمز، فعّله أعلاه.",
@@ -1651,21 +1666,21 @@ export default function SubscribeScreen() {
                           // asking for that is both true and sufficient. Same
                           // wording as verify_failed directly below.
                           L3(
-                            "دفعتك قيدُ المعالجة لدى Google Play. أعِد فتح هذه الصفحة بعد اكتمالها ليُفعَّل اشتراكك.",
-                            "Uw betaling wordt nog verwerkt door Google Play. Open deze pagina opnieuw zodra dat klaar is, dan wordt uw abonnement geactiveerd.",
-                            "Your payment is still being processed by Google Play. Reopen this page once it completes and your membership will be activated.",
+                            `دفعتك قيدُ المعالجة لدى ${storeName}. أعِد فتح هذه الصفحة بعد اكتمالها ليُفعَّل اشتراكك.`,
+                            `Uw betaling wordt nog verwerkt door ${storeName}. Open deze pagina opnieuw zodra dat klaar is, dan wordt uw abonnement geactiveerd.`,
+                            `Your payment is still being processed by ${storeName}. Reopen this page once it completes and your membership will be activated.`,
                           )
                         : play.error === "purchase_foreign"
                           ? L3(
-                              "يوجد على هذا الجهاز اشتراكٌ اشتُري بحسابٍ آخر في ربّانيّ. سجّل الدخول بذلك الحساب، أو استخدم حساب Google مختلفًا للشراء.",
-                              "Op dit apparaat staat een abonnement dat met een ander Rabbaanie-account is gekocht. Log in met dat account, of gebruik een ander Google-account om te kopen.",
-                              "This device has a membership bought with a different Rabbaanie account. Sign in with that account, or use a different Google account to purchase.",
+                              `يوجد على هذا الجهاز اشتراكٌ اشتُري بحسابٍ آخر في ربّانيّ. سجّل الدخول بذلك الحساب، أو استخدم ${otherAccount} للشراء.`,
+                              `Op dit apparaat staat een abonnement dat met een ander Rabbaanie-account is gekocht. Log in met dat account, of gebruik ${otherAccount} om te kopen.`,
+                              `This device has a membership bought with a different Rabbaanie account. Sign in with that account, or use ${otherAccount} to purchase.`,
                             )
                           : play.error === "verify_gone"
                             ? L3(
-                                "لم يعُد Google Play يُبلغ عن هذا الشراء. إن كنت قد دُفعت ولم يُفعَّل اشتراكك، فتواصل مع الدعم.",
-                                "Google Play meldt deze aankoop niet meer. Als u heeft betaald en uw abonnement niet actief is, neem dan contact op met support.",
-                                "Google Play no longer reports that purchase. If you were charged and your membership is not active, please contact support.",
+                                `لم يعُد ${storeName} يُبلغ عن هذا الشراء. إن كنت قد دُفعت ولم يُفعَّل اشتراكك، فتواصل مع الدعم.`,
+                                `${storeName} meldt deze aankoop niet meer. Als u heeft betaald en uw abonnement niet actief is, neem dan contact op met support.`,
+                                `${storeName} no longer reports that purchase. If you were charged and your membership is not active, please contact support.`,
                               )
                             : play.error === "verify_failed"
                               ? L3(

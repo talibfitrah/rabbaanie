@@ -94,6 +94,14 @@ const DEFINITIVE_REJECTIONS = new Set([
   "expired",
   "no_line_items",
   "product_mismatch",
+  // The Apple verifier's verdict for a transaction whose bundle id is not this
+  // app's. It cannot become valid on a retry, so — like product_mismatch — it
+  // must end in verify_gone, not loop in the paid-but-unverified resync path.
+  "bundle_mismatch",
+  // The Apple verifier's verdict for a refunded/revoked transaction (its signed
+  // payload carries a revocationDate). It stays revoked on every retry, so it
+  // must end in verify_gone rather than loop in the paid-but-unverified path.
+  "revoked",
   "no_expiry",
   "empty_response",
 ]);

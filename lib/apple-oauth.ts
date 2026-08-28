@@ -35,17 +35,13 @@ const KNOWN_APPLE_EXCHANGE_ERRORS = new Set([
  *
  * Returns null when the user backs out of the Apple sheet.
  *
- * Mirrors completeNativeGoogleSignIn: the same `{ createAccount?, language? }`
- * options, the same request-body shape (with `identityToken` in place of
- * `idToken`), and the SAME result union, so app/login.tsx reuses the Google
- * result handling unchanged. `createAccount` is opt-in for the same reason: a
- * tap on "Sign in with Apple" must never carry the flag that lets the server
- * mint an account for an identity it has never seen. The default omits the
- * field rather than sending false.
+ * Sign-in ONLY: the server returns 403 no_account for an unknown identity and
+ * never mints an account from Apple, so the request carries just
+ * `{ identityToken }` — no createAccount flag exists to send. It still returns
+ * the same result union as completeNativeGoogleSignIn, so app/login.tsx reuses
+ * the Google result handling unchanged.
  */
-export async function completeNativeAppleSignIn(
-  options: { createAccount?: boolean; language?: string } = {},
-): Promise<NativeGoogleSignInResult | null> {
+export async function completeNativeAppleSignIn(): Promise<NativeGoogleSignInResult | null> {
   let credential: AppleAuthentication.AppleAuthenticationCredential;
   try {
     credential = await AppleAuthentication.signInAsync({
@@ -72,11 +68,7 @@ export async function completeNativeAppleSignIn(
     const response = await publicFetch("/auth/apple/native", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(
-        options.createAccount
-          ? { identityToken, createAccount: true, language: options.language }
-          : { identityToken },
-      ),
+      body: JSON.stringify({ identityToken }),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));

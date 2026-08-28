@@ -82,43 +82,6 @@ describe("native Sign in with Apple", () => {
     vi.unstubAllGlobals();
   });
 
-  it("asks the server to create an account only when the user chose sign-up", async () => {
-    // Paired with the test above: that one pins the plain sign-in body to
-    // exactly {identityToken}, which is what stops a tap on "Sign in with
-    // Apple" from minting an account for someone who only meant to log in. This
-    // proves the sign-up capability still exists when asked for — a guard that
-    // only checks for absence would let sign-up quietly stop working.
-    mocks.signInAsync.mockResolvedValue({
-      identityToken: "signed-apple-identity-token",
-    });
-    const fetchMock = vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi
-        .fn()
-        .mockResolvedValue({ sessionToken: "new-account-session", created: true }),
-    });
-    vi.stubGlobal("fetch", fetchMock);
-
-    await expect(
-      completeNativeAppleSignIn({ createAccount: true, language: "ar" }),
-    ).resolves.toEqual({
-      kind: "session",
-      sessionToken: "new-account-session",
-      created: true,
-    });
-    expect(fetchMock).toHaveBeenCalledWith(
-      "https://api.rabbaanie.com/auth/apple/native",
-      expect.objectContaining({
-        body: JSON.stringify({
-          identityToken: "signed-apple-identity-token",
-          createAccount: true,
-          language: "ar",
-        }),
-      }),
-    );
-    vi.unstubAllGlobals();
-  });
-
   it("does not call the API after the user cancels the Apple sheet", async () => {
     mocks.signInAsync.mockRejectedValue(
       Object.assign(new Error("The user canceled the authorization attempt"), {
@@ -217,6 +180,16 @@ describe("Apple sign-in button visibility", () => {
     expect(login).toContain("completeNativeAppleSignIn(");
     expect(login).toContain("handleAppleAuth");
   });
+
+  it("renders no Apple sign-up affordance", () => {
+    // Sign in with Apple is sign-in only: the server returns 403 no_account and
+    // never creates an account, so a SIGN_UP button is a guaranteed dead end.
+    // Only the SIGN_IN button may render, and no createAccount path may survive.
+    const login = readFileSync("app/login.tsx", "utf8");
+    expect(login).toContain("AppleAuthenticationButtonType.SIGN_IN");
+    expect(login).not.toContain("SIGN_UP");
+    expect(login).not.toContain("offerAppleSignup");
+  });
 });
 
 describe("Apple sign-in native entitlement config", () => {
@@ -231,10 +204,15 @@ describe("Apple sign-in native entitlement config", () => {
 
   it("asserts the applesignin entitlement is PRESENT in the shipped artifact", () => {
     // A gate that only forbids lets a capability vanish silently from a merged
-    // prebuild. This mirrors the time-sensitive entitlement's presence check.
+    // prebuild. The guard must read the applesignin entitlement and fail (via
+    // missing()) when it is absent — not merely mention the word "missing", which
+    // the script uses in a dozen unrelated checks. Pin the entitlement key inside
+    // the block that reads it and calls missing(), so removing that check fails here.
     const gate = readFileSync("scripts/assert-ios-artifact.sh", "utf8");
-    expect(gate).toContain("com.apple.developer.applesignin");
-    expect(gate).toContain("missing");
+    const applesignin = gate.match(
+      /Print :com\.apple\.developer\.applesignin[\s\S]*?missing "com\.apple\.developer\.applesignin/,
+    );
+    expect(applesignin).not.toBeNull();
   });
 });
 
@@ -245,9 +223,17 @@ describe("Apple sign-in server contract", () => {
   // mapping cannot silently drift from what the endpoint returns.
   it("verifies Apple's signed token server-side and denies unknown accounts", () => {
     const server = readFileSync("server/web-auth.ts", "utf8");
+    const serverFlat = server.replace(/\s+/g, " ");
     expect(server).toContain('app.post("/auth/apple/native"');
-    // Apple identity tokens are JWS signed with Apple's published JWKS.
-    expect(server).toMatch(/apple/i);
+    // The token is actually VERIFIED (not merely decoded): jose's jwtVerify
+    // checks the JWS signature against Apple's published JWKS.
+    expect(serverFlat).toContain("jwtVerify(identityToken, appleJwks,");
+    // Audience is pinned to this app's bundle id — a token minted for any other
+    // audience is rejected, which is what stops a stolen token from another app.
+    expect(server).toContain('const APPLE_BUNDLE_ID = "com.rabbaanie.app"');
+    expect(serverFlat).toContain("audience: APPLE_BUNDLE_ID");
+    // And the algorithm is pinned, closing the alg-confusion / "none" hole.
+    expect(serverFlat).toContain('algorithms: ["RS256"]');
     expect(server).toContain("no_account");
   });
 });

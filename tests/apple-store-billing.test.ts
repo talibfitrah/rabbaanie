@@ -118,4 +118,55 @@ describe("Apple StoreKit purchase path", () => {
       "https://play.google.com/store/account/subscriptions",
     );
   });
+
+  it("routes every definitive Apple verdict — bundle_mismatch included — to verify_gone", () => {
+    // The server's Apple verifier can return bundle_mismatch (a wrong-bundle
+    // transaction). It is definitive: no retry changes it, so it must end in
+    // verify_gone, not loop in the transient resync path. Parse the actual set
+    // so a rename or a dropped member fails here.
+    const setBlock = billing.match(
+      /DEFINITIVE_REJECTIONS = new Set\(\[([\s\S]*?)\]\)/,
+    );
+    expect(setBlock).not.toBeNull();
+    const reasons = [...setBlock![1].matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+    // Every definitive verdict the Apple verifier returns (account_mismatch is
+    // handled separately as "foreign"; state_* is matched by prefix, below).
+    for (const r of [
+      "bundle_mismatch",
+      "revoked",
+      "product_mismatch",
+      "no_expiry",
+      "expired",
+      "empty_response",
+    ]) {
+      expect(reasons).toContain(r);
+    }
+    // And the set is what the definitive branch keys on before setting verify_gone.
+    expect(billingFlat).toContain(
+      'if (DEFINITIVE_REJECTIONS.has(reason) || reason.startsWith("state_")) {',
+    );
+    expect(billingFlat).toContain('setError("verify_gone")');
+  });
+});
+
+describe("billing error copy is platform-aware", () => {
+  const screen = read("app/subscribe.tsx");
+  const flat = screen.replace(/\s+/g, " ");
+
+  it("names the App Store on iOS and keeps Google Play on Android", () => {
+    // iOS now arms the store path, so these error strings render on the App
+    // Store build too — hardcoding "Google Play" there is wrong and an App
+    // Review reject. One channel-picked label, interpolated into each message.
+    expect(screen).toContain(
+      'DISTRIBUTION_CHANNEL === "apple" ? "App Store" : "Google Play"',
+    );
+    // The reachable-on-iOS messages interpolate the label, not a literal store.
+    expect(flat).toContain("${storeName}");
+    expect(flat).not.toContain("processed by Google Play");
+    expect(flat).not.toContain("Google Play no longer reports");
+    expect(flat).not.toContain("Google Play Store");
+    // The account phrase becomes the Apple ID on iOS while Android keeps its own.
+    expect(screen).toContain("a different Apple ID");
+    expect(screen).toContain("a different Google account");
+  });
 });
