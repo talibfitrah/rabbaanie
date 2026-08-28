@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { MySqlDialect } from "drizzle-orm/mysql-core";
 
 /**
  * deleteUser is a soft delete, and nothing downstream of it filters deletedAt
@@ -15,14 +16,21 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
  * copy had drifted to stamping deletedAt alone.
  */
 
-const updates: { table: unknown; payload: any }[] = [];
+const updates: { table: unknown; payload: any; where: unknown }[] = [];
 
 vi.mock("drizzle-orm/mysql2", () => ({
   drizzle: () => ({
     update: (table: unknown) => ({
       set: (payload: any) => {
-        updates.push({ table, payload });
-        return { where: async () => undefined };
+        const call = { table, payload, where: undefined as unknown };
+        updates.push(call);
+        // The predicate is captured, not discarded: this is a destructive write,
+        // so WHICH rows it targets is as much the invariant as what it writes.
+        // A mock that swallows the clause stays green even if the UPDATE loses
+        // its WHERE and soft-deletes every account in the table.
+        return {
+          where: async (w: unknown) => { call.where = w; },
+        };
       },
     }),
   }),
@@ -54,5 +62,17 @@ describe("deleteUser stops the account being reachable by push", () => {
 
     const call = updates.find((u) => u.table === users);
     expect(call!.payload.deletedAt, "the deletedAt stamp is what marks the row deleted").toBeInstanceOf(Date);
+  });
+
+  it("scopes the write to the one requested user", async () => {
+    await deleteUser(42);
+
+    const call = updates.find((u) => u.table === users);
+    expect(call!.where, "the UPDATE carried no WHERE — this would delete every account").toBeTruthy();
+    const compiled = new MySqlDialect().sqlToQuery(call!.where as any);
+    expect(compiled.sql).toContain("id");
+    // The id is a bound parameter, so assert the VALUE, not the column name:
+    // targeting the wrong row compiles to identical SQL text.
+    expect(compiled.params, "the WHERE does not bind the requested user id").toContain(42);
   });
 });

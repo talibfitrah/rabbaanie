@@ -58,6 +58,12 @@ vi.mock("@/lib/trpc", () => ({
         users: {
           invalidate: async () => {
             h.invalidated.push("admin.users");
+            // Yield before writing. A real refetch crosses the network, so the
+            // cache it produces cannot land in the same tick as onSuccess. An
+            // arrow marked `async` with no await in its body runs straight
+            // through, which would let the refetch satisfy the "synchronously"
+            // assertion below and leave that test green with setData deleted.
+            await Promise.resolve();
             h.cache = serverResponse();
           },
           setData: (_input: unknown, updater: (old: any[]) => any[]) => { h.cache = updater(h.cache); },

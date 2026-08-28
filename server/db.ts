@@ -323,11 +323,11 @@ export async function updateUserLastActive(userId: number) {
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  // deleteUser is a soft delete, so without this every caller still sees the
-  // deleted account: the admin list, exportUsersCSV (which carries name AND
-  // email), GET /admin-api/users, and the broadcast-audience paths. Filtered
-  // here rather than per-caller — a per-caller filter leaves the next caller
-  // leaking, and two of the six already had none.
+  // deleteUser is a soft delete, so without this three of the six callers saw
+  // the deleted account: the admin list, exportUsersCSV (which carries name AND
+  // email) and GET /admin-api/users. The other three (the broadcast paths) were
+  // already covered by matchesAudience's own deletedAt check in
+  // broadcast-audience.ts — filtering here means they stop depending on it.
   return db
     .select()
     .from(users)
@@ -1508,7 +1508,7 @@ export async function getRegistrationAnalytics(days: number = 30) {
       count: sql<number>`count(*)`,
     })
     .from(users)
-    .where(sql`${users.createdAt} >= ${since}`)
+    .where(and(sql`${users.createdAt} >= ${since}`, isNull(users.deletedAt)))
     .groupBy(sql`DATE(${users.createdAt})`)
     .orderBy(sql`DATE(${users.createdAt})`);
   return results;
@@ -1525,7 +1525,7 @@ export async function getActiveUsersAnalytics(days: number = 30) {
       count: sql<number>`count(*)`,
     })
     .from(users)
-    .where(sql`${users.lastActive} >= ${since}`)
+    .where(and(sql`${users.lastActive} >= ${since}`, isNull(users.deletedAt)))
     .groupBy(sql`DATE(${users.lastActive})`)
     .orderBy(sql`DATE(${users.lastActive})`);
   return results;
@@ -1535,7 +1535,12 @@ export async function getActiveUsersAnalytics(days: number = 30) {
 export async function getChildrenByAgeGroup() {
   const db = await getDb();
   if (!db) return [];
-  const allChildren = await db.select().from(children);
+  // Same filter as getDashboardStats.totalChildren — AnalyticsTab renders both
+  // on one screen, so an unfiltered chart contradicts the tile above it.
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   const ageGroups: Record<string, number> = {
     "0-2": 0,
     "3-5": 0,
@@ -1565,7 +1570,10 @@ export async function getFamiliesBySize() {
   const db = await getDb();
   if (!db) return [];
   const allFamilies = await db.select().from(families);
-  const allChildren = await db.select().from(children);
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   const sizes: Record<string, number> = {
     "1": 0,
     "2": 0,
@@ -3337,9 +3345,17 @@ export async function broadcastLocalizedPush(
     })
     .from(users)
     .where(
+      // isNull(deletedAt) as well as the token check: deleteUser clears
+      // pushToken, but only from the moment it ships. Accounts deleted before
+      // that still hold a token, and this is the read path they arrive on, so
+      // the guard cannot depend on delete-time hygiene alone.
       userIds
-        ? and(sql`pushToken IS NOT NULL AND pushToken != ''`, inArray(users.id, userIds))
-        : sql`pushToken IS NOT NULL AND pushToken != ''`,
+        ? and(
+            sql`pushToken IS NOT NULL AND pushToken != ''`,
+            isNull(users.deletedAt),
+            inArray(users.id, userIds),
+          )
+        : and(sql`pushToken IS NOT NULL AND pushToken != ''`, isNull(users.deletedAt)),
     );
 
   let sent = 0;

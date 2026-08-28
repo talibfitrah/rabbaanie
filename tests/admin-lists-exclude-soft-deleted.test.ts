@@ -43,6 +43,7 @@ vi.mock("drizzle-orm/mysql2", () => ({
         const chain: any = {
           where: (w: unknown) => { call.where = w; return chain; },
           orderBy: () => chain,
+          groupBy: () => chain,
           then: (resolve: any) => resolve(rowsByTable.get(table) ?? []),
         };
         return chain;
@@ -62,30 +63,51 @@ import {
   users,
 } from "../drizzle/schema";
 import {
+  getActiveUsersAnalytics,
   getAllChildrenDetailed,
   getAllFamiliesDetailed,
   getAllSpecialists,
   getAllTeachers,
   getAllUsers,
+  getChildrenByAgeGroup,
   getDashboardStats,
+  getFamiliesBySize,
+  getRegistrationAnalytics,
 } from "../server/db";
 
 // getDb() only calls the (mocked) drizzle() factory when DATABASE_URL is set.
 process.env.DATABASE_URL = "mysql://admin-lists-test-only/db";
 
-/** Assert the query this function sent against `table` filters deletedAt IS NULL. */
+/** Assert EVERY query this function sent against `table` filters deletedAt IS NULL. */
 function expectDeletedAtFilter(table: unknown, label: string) {
-  const call = captured.find((c) => c.table === table);
-  expect(call, `${label} never queried its table`).toBeTruthy();
-  expect(
-    call!.where,
-    `${label} sent no WHERE clause — soft-deleted rows reach every caller`,
-  ).toBeTruthy();
-  const text = compiledSql(call!.where);
-  expect(text, `${label} filters on the wrong column`).toContain("deletedAt");
-  // /is null/i, not a bare "deletedAt" check: an inverted filter (isNotNull)
-  // still contains the column name and would otherwise pass.
-  expect(text, `${label} does not filter deletedAt IS NULL`).toMatch(/is null/i);
+  // Every call, not the first: a gate that checks only the query it knows about
+  // lets a second, unfiltered select against the same table slip in later —
+  // the exact failure mode these filters exist to close.
+  const calls = captured.filter((c) => c.table === table);
+  expect(calls.length, `${label} never queried its table`).toBeGreaterThan(0);
+  calls.forEach((call, i) => {
+    const which = calls.length > 1 ? ` (query ${i + 1} of ${calls.length})` : "";
+    expect(
+      call.where,
+      `${label}${which} sent no WHERE clause — soft-deleted rows reach every caller`,
+    ).toBeTruthy();
+    const text = compiledSql(call.where);
+    expect(text, `${label}${which} filters on the wrong column`).toContain("deletedAt");
+    // /is null/i, not a bare "deletedAt" check: an inverted filter (isNotNull)
+    // still contains the column name and would otherwise pass.
+    expect(text, `${label}${which} does not filter deletedAt IS NULL`).toMatch(/is null/i);
+  });
+}
+
+/** Assert the users query for `label` still binds the role it is supposed to select. */
+function expectRoleBound(role: string, label: string) {
+  const call = captured.find((c) => c.table === users);
+  // The role is a bound parameter — `users`.`role` = ? — so the VALUE lives in
+  // .params. Asserting the SQL text only proves a role column is mentioned:
+  // selecting "admin" instead of "teacher" compiles to identical text.
+  const compiled = dialect.sqlToQuery(call!.where as any);
+  expect(compiled.sql, `${label} dropped its role filter`).toContain("role");
+  expect(compiled.params, `${label} selects the wrong role`).toContain(role);
 }
 
 beforeEach(() => {
@@ -107,7 +129,7 @@ describe("admin list queries exclude soft-deleted rows", () => {
     await expect(getAllTeachers()).resolves.toHaveLength(1);
     expectDeletedAtFilter(users, "getAllTeachers");
     // The pre-existing role filter must survive the fix, not be replaced by it.
-    expect(compiledSql(captured.find((c) => c.table === users)!.where)).toContain("role");
+    expectRoleBound("teacher", "getAllTeachers");
   });
 
   it("getAllSpecialists filters users.deletedAt as well as the role", async () => {
@@ -117,7 +139,7 @@ describe("admin list queries exclude soft-deleted rows", () => {
 
     await expect(getAllSpecialists()).resolves.toHaveLength(1);
     expectDeletedAtFilter(users, "getAllSpecialists");
-    expect(compiledSql(captured.find((c) => c.table === users)!.where)).toContain("role");
+    expectRoleBound("specialist", "getAllSpecialists");
   });
 
   it("getAllChildrenDetailed filters children.deletedAt", async () => {
@@ -155,5 +177,38 @@ describe("admin list queries exclude soft-deleted rows", () => {
     expect(stats.totalUsers, "the count must still be read, not zeroed").toBe(41);
     expectDeletedAtFilter(users, "getDashboardStats (totalUsers)");
     expectDeletedAtFilter(children, "getDashboardStats (totalChildren)");
+  });
+
+  // app/admin/management.tsx AnalyticsTab renders the dashboard tiles and these
+  // four charts on ONE screen. Filtering the tiles alone would make "Kinderen: 12"
+  // sit above age-group bars summing to 14 — the same self-contradiction the
+  // dashboard filter exists to prevent, moved one component over.
+  it("getChildrenByAgeGroup excludes soft-deleted children, so the chart matches the tile", async () => {
+    setRows(children, [{ id: 1, birthDate: "2020-01-01", familyId: 1 }]);
+
+    await expect(getChildrenByAgeGroup()).resolves.toBeInstanceOf(Array);
+    expectDeletedAtFilter(children, "getChildrenByAgeGroup");
+  });
+
+  it("getFamiliesBySize excludes soft-deleted children from family sizes", async () => {
+    setRows(families, [{ id: 1, name: "Family" }]);
+    setRows(children, [{ id: 1, familyId: 1 }]);
+
+    await expect(getFamiliesBySize()).resolves.toBeInstanceOf(Array);
+    expectDeletedAtFilter(children, "getFamiliesBySize");
+  });
+
+  it("getRegistrationAnalytics counts only live users", async () => {
+    setRows(users, [{ date: "2026-08-01", count: 3 }]);
+
+    await expect(getRegistrationAnalytics(30)).resolves.toBeInstanceOf(Array);
+    expectDeletedAtFilter(users, "getRegistrationAnalytics");
+  });
+
+  it("getActiveUsersAnalytics counts only live users", async () => {
+    setRows(users, [{ date: "2026-08-01", count: 3 }]);
+
+    await expect(getActiveUsersAnalytics(30)).resolves.toBeInstanceOf(Array);
+    expectDeletedAtFilter(users, "getActiveUsersAnalytics");
   });
 });
