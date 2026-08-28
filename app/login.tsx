@@ -389,24 +389,15 @@ export default function LoginScreen() {
       console.error("[Login] Apple login error:", err, err?.cause);
       const denied = err instanceof AppleSignInError ? err.reason : null;
       if (denied === "no_account") {
-        // Sign in with Apple is sign-in only — the server never creates an
-        // account from Apple. So there is no Apple sign-up to offer; point the
-        // user at email registration below instead of a dead-end button.
+        // Sign in with Apple is sign-in only — the server matches an existing
+        // account BY EMAIL and never creates one. A Hide My Email user signs in
+        // with a private relay address that matches nothing, so "create with
+        // your email" would be wrong for them; name the real routes instead.
         setError(
           tx(
-            "Nog geen Rabbaanie-account voor dit Apple-account. Maak hieronder een account aan met uw e-mailadres.",
-            "No Rabbaanie account yet for this Apple account. Please create one with your email below.",
-            "لا يوجد حساب ربّانيّ لحساب Apple هذا بعد. أنشئ حسابًا ببريدك الإلكتروني أدناه.",
-          ),
-        );
-        return;
-      }
-      if (denied === "email_account") {
-        setError(
-          tx(
-            "Dit e-mailadres heeft een account met een wachtwoord. Log hierboven in met je e-mailadres.",
-            "This email has a password account. Sign in with your email and password above.",
-            "هذا البريد لديه حساب بكلمة مرور. سجّل الدخول أعلاه ببريدك وكلمة المرور.",
+            "Geen Rabbaanie-account gevonden voor deze Apple-aanmelding. Gebruikt u Verberg mijn e-mailadres of een ander adres? Log dan in met dat e-mailadres of met Google — of maak hieronder een account aan met uw e-mailadres.",
+            "No Rabbaanie account matches this Apple sign-in. If you use Hide My Email or a different address, sign in with that email or with Google instead — or create an account with your email below.",
+            "لا يوجد حساب ربّانيّ مطابق لتسجيل الدخول عبر Apple. إن كنت تستخدم «إخفاء بريدي» أو بريدًا آخر، فسجّل الدخول بذلك البريد أو عبر Google — أو أنشئ حسابًا ببريدك أدناه.",
           ),
         );
         return;

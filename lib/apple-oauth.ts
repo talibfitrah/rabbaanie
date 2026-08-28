@@ -23,7 +23,6 @@ const KNOWN_APPLE_EXCHANGE_ERRORS = new Set([
   "apple_signin_unavailable",
   "database_unavailable",
   "no_account",
-  "email_account",
   "admin_2fa_required",
 ]);
 
