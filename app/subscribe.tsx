@@ -51,6 +51,10 @@ export default function SubscribeScreen() {
     subscribed: boolean;
     expiresAt?: string;
     playAccountTag?: string;
+    // The Apple analog of playAccountTag, returned by /status on iOS. Folded
+    // into playAccountTag below so the billing hook — whose signature and call
+    // site are pinned to a single tag argument — carries it on iOS unchanged.
+    appleAccountToken?: string;
   } | null>(null);
   const [loading, setLoading] = useState(true);
   const [coupon, setCoupon] = useState("");
@@ -236,7 +240,16 @@ export default function SubscribeScreen() {
       const r = await subscriptionFetch(`status?userId=${uid}`);
       const data = await r.json();
       if (statusRequestFor.current !== uid) return;
-      setStatus(data);
+      // On iOS the server issues the tag as appleAccountToken. Fold it into
+      // playAccountTag so usePlayBilling — whose two-argument signature and
+      // `usePlayBilling(status?.playAccountTag, uid)` call site are both pinned
+      // by tests — feeds StoreKit the App Store tag through the same channel
+      // Android uses for its obfuscatedAccountId tag.
+      setStatus(
+        DISTRIBUTION_CHANNEL === "apple" && data?.appleAccountToken
+          ? { ...data, playAccountTag: data.appleAccountToken }
+          : data,
+      );
     } catch {
       /* ignore */
     } finally {
@@ -784,6 +797,42 @@ export default function SubscribeScreen() {
                     </Text>
                   </TouchableOpacity>
                 )}
+                {/* Same guidance on the App Store build, where the subscription
+                    is managed in the system App Store account rather than Play.
+                    The generic URL lists whatever the user actually holds, so it
+                    is right for a coupon or legacy member too. */}
+                {Platform.OS === "ios" ? (
+                  <TouchableOpacity
+                    accessibilityRole="link"
+                    onPress={() =>
+                      Linking.openURL(
+                        "https://apps.apple.com/account/subscriptions",
+                      ).catch(() => {})
+                    }
+                    style={{
+                      minHeight: 44,
+                      justifyContent: "center",
+                      alignItems: "center",
+                      marginTop: 10,
+                    }}
+                  >
+                    <Text
+                      style={{
+                        fontSize: 13,
+                        color: colors.primary,
+                        fontWeight: "700",
+                        textDecorationLine: "underline",
+                        textAlign: "center",
+                      }}
+                    >
+                      {L3(
+                        "إدارة الاشتراك في App Store",
+                        "Abonnement beheren in de App Store",
+                        "Manage subscription in the App Store",
+                      )}
+                    </Text>
+                  </TouchableOpacity>
+                ) : null}
               </View>
             ) : (
               <View
@@ -965,18 +1014,12 @@ export default function SubscribeScreen() {
                     user whenever the offer had not loaded, and permanently
                     whenever it could not, which is the exact discrepancy this
                     change exists to remove. */}
-                {/* No figure on the App Store build. Both arms below were
-                    written for a world with two channels, so "apple" fell into
-                    the Play arm — where play.offer is permanently null
-                    (isPlayBillingEnabled requires Platform.OS === "android"),
-                    so an iOS user read the paid tier as priced "—" forever.
-                    Nothing is purchasable in-app on iOS until StoreKit ships,
-                    and a price with no way to buy is worse than no price: it
-                    invites the question "where do I pay, then", which is the
-                    guideline 3.1.1 conversation this build is trying not to
-                    have. The button below already names the coupon fallback. */}
-                {DISTRIBUTION_CHANNEL ===
-                "apple" ? null : DISTRIBUTION_CHANNEL === "github" ? (
+                {/* iOS now falls into the store arm below, same as Play: with
+                    StoreKit armed, play.offer carries the App Store's own
+                    localized, tax-inclusive price, so an iOS user sees a real
+                    figure (or a dash until it loads) rather than the euro
+                    literal the github arm shows. */}
+                {DISTRIBUTION_CHANNEL === "github" ? (
                   <Text
                     style={{
                       fontSize: 12,
@@ -1318,9 +1361,9 @@ export default function SubscribeScreen() {
                       hardcoded €12: Play sets the price per country and folds
                       in local tax, so the hardcoded figure would be wrong for
                       most buyers and misstate the charge before they confirm. */}
-                  {/* Same reason as the tier card above: no figure on iOS. */}
-                  {DISTRIBUTION_CHANNEL ===
-                  "apple" ? null : DISTRIBUTION_CHANNEL === "github" ? (
+                  {/* Same as the tier card above: iOS shows the App Store's own
+                      price through the store arm now that StoreKit is armed. */}
+                  {DISTRIBUTION_CHANNEL === "github" ? (
                     <Text
                       style={{
                         fontSize: 22,
@@ -1519,11 +1562,17 @@ export default function SubscribeScreen() {
                           lineHeight: 18,
                         }}
                       >
-                        {L3(
-                          "يتجدّد الاشتراك سنويًّا تلقائيًّا حتّى تُلغيه من إعدادات اشتراكات Google Play.",
-                          "Het abonnement wordt jaarlijks automatisch verlengd totdat u het opzegt via de abonnementen-instellingen van Google Play.",
-                          "The subscription renews annually until you cancel it in your Google Play subscription settings.",
-                        )}
+                        {DISTRIBUTION_CHANNEL === "apple"
+                          ? L3(
+                              "يتجدّد الاشتراك سنويًّا تلقائيًّا حتّى تُلغيه من إعدادات اشتراكات App Store.",
+                              "Het abonnement wordt jaarlijks automatisch verlengd totdat u het opzegt via de abonnementen-instellingen van de App Store.",
+                              "The subscription renews annually until you cancel it in your App Store subscription settings.",
+                            )
+                          : L3(
+                              "يتجدّد الاشتراك سنويًّا تلقائيًّا حتّى تُلغيه من إعدادات اشتراكات Google Play.",
+                              "Het abonnement wordt jaarlijks automatisch verlengd totdat u het opzegt via de abonnementen-instellingen van Google Play.",
+                              "The subscription renews annually until you cancel it in your Google Play subscription settings.",
+                            )}
                       </Text>
                     </>
                   ) : (

@@ -44,6 +44,7 @@
     "dotenv": "^16.6.1",
     "drizzle-orm": "^0.44.7",
     "expo": "~54.0.36",
+    "expo-apple-authentication": "~8.0.8",
     "expo-application": "~7.0.8",
     "expo-av": "^16.0.8",
     "expo-background-fetch": "~14.0.9",

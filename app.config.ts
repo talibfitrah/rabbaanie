@@ -713,6 +713,13 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: env.iosBundleId,
     buildNumber: IOS_BUILD_NUMBER,
+    // Sign in with Apple (guideline 4.8 — required because the app offers Google
+    // sign-in). The native flow's token `aud` is the bundle id above, so no
+    // Services ID is needed. This flag turns the capability on for the target;
+    // the entitlement below is what the signed binary requests, and
+    // scripts/assert-ios-artifact.sh asserts it is present so a merged prebuild
+    // cannot drop it silently.
+    usesAppleSignIn: true,
     // Without this, every `interruptionLevel: "timeSensitive"` in the app is
     // INERT: iOS silently downgrades an unentitled time-sensitive notification
     // to `active`, so it does not break through Focus or Do Not Disturb. The
@@ -729,6 +736,11 @@ const config: ExpoConfig = {
     // so it cannot silently vanish from a merged prebuild.
     entitlements: {
       "com.apple.developer.usernotifications.time-sensitive": true,
+      // Sign in with Apple. The ORDERING HAZARD noted for the time-sensitive
+      // entitlement applies identically: the capability must be enabled on the
+      // App ID in the Apple Developer portal BEFORE an archive carrying this is
+      // signed, or the archive is rejected outright.
+      "com.apple.developer.applesignin": ["Default"],
     },
     infoPlist: {
       ITSAppUsesNonExemptEncryption: false,
@@ -917,6 +929,10 @@ const config: ExpoConfig = {
     withIosLocalizedPurposeStrings as any,
     withIosAdhanSounds as any,
     "expo-router",
+    // Wires the Sign in with Apple native capability into the iOS project on
+    // prebuild (entitlement + AuthenticationServices). iOS-only; a no-op for the
+    // Android/Play build.
+    "expo-apple-authentication",
     [
       "@react-native-google-signin/google-signin",
       {

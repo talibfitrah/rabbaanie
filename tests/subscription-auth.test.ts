@@ -140,30 +140,23 @@ describe("Stripe checkout is never offered on the Play channel", () => {
   const src = readFileSync(join(__dirname, "..", "app/subscribe.tsx"), "utf8");
 
   /**
-   * A price with no way to pay is worse than no price on the App Store build.
+   * iOS now prices the paid tier from StoreKit, so every price site must fall
+   * through to the `play.offer` arm — the generalized billing hook arms on iOS
+   * too and fills `offer` from StoreKit. This reverses the pre-StoreKit
+   * invariant this test used to pin (iOS deliberately showed no price because
+   * the build could not charge). A resurrected `apple ? null` price arm would
+   * now strand App Store users at "—" even though the build CAN charge them —
+   * the guideline 3.1.1 conversation this feature exists to end.
    *
-   * Both price ternaries were written when there were two channels
-   * (`github ? "€12" : play.offer`), so adding "apple" routed iOS into the PLAY
-   * arm — where `play.offer` is permanently null, because isPlayBillingEnabled
-   * requires Platform.OS === "android". An App Store user read the paid tier as
-   * priced "—" forever. Worse than cosmetic: a price the app cannot charge
-   * invites "where do I pay, then", which is the guideline 3.1.1 conversation
-   * this build exists to avoid having.
-   *
-   * Pinned as a PAIRING rather than a literal, so it survives a reformat and
-   * still catches a third price site added without an iOS arm. The presence
-   * half matters as much: asserting only "iOS renders no price" would pass if
-   * the Play price disappeared too, which would be a different bug reported as
-   * a pass.
+   * Pinned as a pairing that survives a reformat: the Play price site must
+   * still exist (asserting only "no apple arm" would pass vacuously if the Play
+   * price vanished too), and no `apple ? null` price arm may reappear. The
+   * behavioural counterpart — iOS actually shows the StoreKit price — lives in
+   * tests/apple-store-billing.test.ts.
    */
-  it("renders no price on the App Store build, and still prices Play", () => {
-    // Whitespace normalised FIRST. The unnormalised form was itself the
-    // failure the coding rules warn about: prettier reflowed the ternary to
-    // `DISTRIBUTION_CHANNEL ===\n  "apple" ? null` and this assertion went red
-    // on correct code. Collapsing runs of whitespace keeps the guard EXACT — it
-    // still demands this precise code shape — while making it independent of
-    // where the formatter breaks the line. Loosening the pattern until it
-    // matched would have deleted the guard instead of fixing it.
+  it("prices the App Store build from StoreKit, and still prices Play", () => {
+    // Whitespace normalised first so the guard is exact but independent of
+    // where the formatter breaks a line.
     const flat = src.replace(/\s+/g, " ");
     const playPrices =
       flat.match(/play\.offer \? play\.offer\.displayPrice/g) ?? [];
@@ -175,9 +168,8 @@ describe("Stripe checkout is never offered on the Play channel", () => {
     ).toBeGreaterThan(0);
     expect(
       appleArms.length,
-      "a price site renders without an apple arm, so iOS falls into the Play " +
-        'branch and shows "—" forever',
-    ).toBe(playPrices.length);
+      'an apple->null price arm returned — iOS shows "—" despite StoreKit pricing',
+    ).toBe(0);
   });
 
   it("bails out of subscribe() before opening the checkout URL", () => {

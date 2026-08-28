@@ -1,6 +1,7 @@
 import type { Express, Request, Response } from "express";
 import bcrypt from "bcryptjs";
 import { OAuth2Client } from "google-auth-library";
+import { createRemoteJWKSet, jwtVerify } from "jose";
 import { COOKIE_NAME, ONE_YEAR_MS } from "../shared/const.js";
 import { getSessionCookieOptions } from "./_core/cookies";
 import { sdk } from "./_core/sdk";
@@ -16,6 +17,15 @@ import { has2FA } from "./totp";
 const SALT_ROUNDS = 12;
 const ADMIN_ROLES = new Set(["admin", "super_admin", "moderator"]);
 const googleTokenVerifier = new OAuth2Client();
+// Native Sign in with Apple: the audience Apple stamps into the identity token
+// is the app's bundle id (native flow — no Services ID). createRemoteJWKSet does
+// no network at construction, so this is safe at module load; jose fetches and
+// rotates Apple's keys on first verify.
+const APPLE_BUNDLE_ID = "com.rabbaanie.app";
+const APPLE_ISSUER = "https://appleid.apple.com";
+const appleJwks = createRemoteJWKSet(
+  new URL("https://appleid.apple.com/auth/keys"),
+);
 
 /**
  * Web Authentication System
@@ -355,6 +365,71 @@ export function registerWebAuthRoutes(app: Express) {
     } catch (error) {
       console.warn("[GoogleAuth] Native token rejected", String(error));
       res.status(401).json({ error: "invalid_google_token" });
+    }
+  });
+
+  // iOS-native Sign in with Apple. The device hands us Apple's identity token (a
+  // JWS); verify Apple's signature via Apple's JWKS, the issuer, expiry and our
+  // exact bundle id as audience before trusting the email. Sign-in only, like
+  // the Google native route: a missing user gets 403 no_account, never an
+  // account minted from an externally supplied identity.
+  app.post("/auth/apple/native", async (req: Request, res: Response) => {
+    try {
+      const identityToken =
+        typeof req.body?.identityToken === "string"
+          ? req.body.identityToken
+          : "";
+      if (!identityToken || identityToken.length > 8_192) {
+        res.status(400).json({ error: "invalid_apple_token" });
+        return;
+      }
+
+      const { payload } = await jwtVerify(identityToken, appleJwks, {
+        issuer: APPLE_ISSUER,
+        audience: APPLE_BUNDLE_ID,
+        algorithms: ["RS256"],
+      });
+      // Apple sends email_verified as the boolean true or the string "true"
+      // depending on the flow — accept only those.
+      const emailVerified =
+        payload.email_verified === true || payload.email_verified === "true";
+      const email = typeof payload.email === "string" ? payload.email : "";
+      if (!email || !emailVerified) {
+        res.status(401).json({ error: "invalid_apple_token" });
+        return;
+      }
+
+      const db = await getDb();
+      if (!db) {
+        res.status(503).json({ error: "database_unavailable" });
+        return;
+      }
+      const [user] = await db
+        .select()
+        .from(users)
+        .where(and(eq(users.email, email), isNull(users.deletedAt)))
+        .limit(1);
+      if (!user) {
+        res.status(403).json({ error: "no_account" });
+        return;
+      }
+      if (ADMIN_ROLES.has(user.role) && (await has2FA(user.id))) {
+        res.status(403).json({ error: "admin_2fa_required" });
+        return;
+      }
+
+      await db
+        .update(users)
+        .set({ lastSignedIn: new Date() })
+        .where(eq(users.id, user.id));
+      const sessionToken = await sdk.createSessionToken(user.openId, {
+        name: user.name || "",
+        expiresInMs: ONE_YEAR_MS,
+      });
+      res.json({ success: true, sessionToken });
+    } catch (error) {
+      console.warn("[AppleAuth] Native token rejected", String(error));
+      res.status(401).json({ error: "invalid_apple_token" });
     }
   });
 

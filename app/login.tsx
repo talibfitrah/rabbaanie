@@ -12,6 +12,7 @@ import {
 import { ScreenContainer } from "@/components/screen-container";
 import { useEffect, useRef, useState } from "react";
 import { useColors } from "@/hooks/use-colors";
+import { useColorScheme } from "@/hooks/use-color-scheme";
 import { useRouter } from "expo-router";
 import { useAuthContext } from "@/lib/auth-context";
 import { useI18n } from "@/lib/i18n";
@@ -21,6 +22,11 @@ import {
   GoogleSignInError,
   sanitizeErrorDetail,
 } from "@/lib/google-oauth";
+import {
+  completeNativeAppleSignIn,
+  AppleSignInError,
+} from "@/lib/apple-oauth";
+import * as AppleAuthentication from "expo-apple-authentication";
 import { GOOGLE_IOS_CLIENT_ID } from "@/constants/app-identity";
 import { TwoFactorVerifyScreen } from "@/components/two-factor-verify-screen";
 import Svg, { Path } from "react-native-svg";
@@ -46,6 +52,15 @@ import { publicFetch } from "@/lib/authed-fetch";
 const GOOGLE_SIGN_IN_AVAILABLE =
   Platform.OS === "android" ||
   (Platform.OS === "ios" && GOOGLE_IOS_CLIENT_ID !== "");
+
+/**
+ * Sign in with Apple is iOS-only. Apple's guideline 4.8 requires it wherever a
+ * third-party sign-in (Google here) is offered, and it exists only on iOS 13+ —
+ * so the button appears on iOS and nowhere else. No client id gates it: the
+ * native flow's `aud` is the app bundle id, so there is nothing to fill in the
+ * way GOOGLE_IOS_CLIENT_ID gates the Google button.
+ */
+const APPLE_SIGN_IN_AVAILABLE = Platform.OS === "ios";
 
 /**
  * Login Screen - Email/Password + Google Sign-In
@@ -74,6 +89,9 @@ export default function LoginScreen() {
   const [twoFactorEmail, setTwoFactorEmail] = useState("");
   const [resending, setResending] = useState(false);
   const colors = useColors();
+  // Apple's button owns its own fill; only its light/dark variant is ours to
+  // pick — black on light backgrounds, white on dark, per Apple's HIG.
+  const isDark = useColorScheme() === "dark";
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
   const { t, language } = useI18n();
@@ -81,6 +99,8 @@ export default function LoginScreen() {
   // Set when the server says this Google identity has no account, so the screen
   // can offer to create one instead of leaving the user at a dead end.
   const [offerGoogleSignup, setOfferGoogleSignup] = useState(false);
+  // Same, for Sign in with Apple.
+  const [offerAppleSignup, setOfferAppleSignup] = useState(false);
 
   const isRTL = language === "ar";
 
@@ -335,6 +355,89 @@ export default function LoginScreen() {
           `Google-inloggen mislukt (${detail}). Probeer het opnieuw.`,
           `Google sign-in failed (${detail}). Please try again.`,
           `فشل تسجيل الدخول بـ Google (${detail}). حاول مرة أخرى.`,
+        ),
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Mirror of handleGoogleAuth for native Sign in with Apple. Terminates in the
+  // same completeTokenSignIn / created-reset path, and reuses the same result
+  // union so the branching is identical.
+  const handleAppleAuth = async (createAccount = false) => {
+    setError("");
+    setOfferAppleSignup(false);
+    setLoading(true);
+    try {
+      const result = await completeNativeAppleSignIn({ createAccount, language });
+      if (!result) return;
+      if (result.kind === "twoFactor") {
+        setTwoFactorChallenge(result.challengeToken);
+        setTwoFactorMethod(result.factor);
+        setTwoFactorCode("");
+        setTwoFactorIssuedAt(Date.now());
+        setTwoFactorEmail("");
+        setError("");
+        return;
+      }
+      await completeTokenSignIn(result.sessionToken);
+      // Keyed on what the SERVER did, never on `createAccount` — see the same
+      // note in handleGoogleAuth for why resetting on the request flag wipes a
+      // real profile.
+      if (result.created) await resetState();
+      else await rehydrateFromServer();
+      router.replace("/(tabs)");
+    } catch (err: any) {
+      console.error("[Login] Apple login error:", err, err?.cause);
+      const denied = err instanceof AppleSignInError ? err.reason : null;
+      if (denied === "no_account") {
+        if (createAccount) {
+          setError(
+            tx(
+              "Account aanmaken met Apple is nu niet beschikbaar. Maak hieronder een account aan met uw e-mailadres.",
+              "Creating an account with Apple is unavailable right now. Please create one with your email below.",
+              "إنشاء حساب بواسطة Apple غير متاح الآن. أنشئ حسابًا ببريدك الإلكتروني أدناه.",
+            ),
+          );
+          return;
+        }
+        setOfferAppleSignup(true);
+        setError(
+          tx(
+            "Nog geen Rabbaanie-account voor dit Apple-account. Maak er direct een aan.",
+            "No Rabbaanie account yet for this Apple account. Create one now.",
+            "لا يوجد حساب ربّانيّ لحساب Apple هذا بعد. أنشئ حسابًا الآن.",
+          ),
+        );
+        return;
+      }
+      if (denied === "email_account") {
+        setError(
+          tx(
+            "Dit e-mailadres heeft een account met een wachtwoord. Log hierboven in met je e-mailadres.",
+            "This email has a password account. Sign in with your email and password above.",
+            "هذا البريد لديه حساب بكلمة مرور. سجّل الدخول أعلاه ببريدك وكلمة المرور.",
+          ),
+        );
+        return;
+      }
+      if (denied === "admin_2fa_required") {
+        setError(
+          tx(
+            "Gebruik e-mail en wachtwoord om de 2FA-controle voor dit beheerdersaccount te voltooien.",
+            "Use email and password to complete 2FA for this administrator account.",
+            "استخدم البريد وكلمة المرور لإكمال التحقق بخطوتين لحساب الإدارة.",
+          ),
+        );
+        return;
+      }
+      const detail = sanitizeErrorDetail(denied ?? err?.name ?? "unknown");
+      setError(
+        tx(
+          `Apple-inloggen mislukt (${detail}). Probeer het opnieuw.`,
+          `Apple sign-in failed (${detail}). Please try again.`,
+          `فشل تسجيل الدخول بـ Apple (${detail}). حاول مرة أخرى.`,
         ),
       );
     } finally {
@@ -752,6 +855,49 @@ export default function LoginScreen() {
                           )}
                         </Text>
                       </TouchableOpacity>
+                    ) : null}
+                  </>
+                )}
+
+                {/* Sign in with Apple — iOS only, guideline 4.8. Uses Apple's
+                    official button component, which App Review requires; its
+                    appearance and label are owned by the system, so only the
+                    theme (black in light mode, white in dark) and the onPress
+                    are set here. */}
+                {APPLE_SIGN_IN_AVAILABLE && (
+                  <>
+                    <AppleAuthentication.AppleAuthenticationButton
+                      buttonType={
+                        AppleAuthentication.AppleAuthenticationButtonType.SIGN_IN
+                      }
+                      buttonStyle={
+                        isDark
+                          ? AppleAuthentication.AppleAuthenticationButtonStyle
+                              .WHITE
+                          : AppleAuthentication.AppleAuthenticationButtonStyle
+                              .BLACK
+                      }
+                      cornerRadius={10}
+                      style={{ height: 48, marginTop: 10 }}
+                      onPress={() => handleAppleAuth()}
+                    />
+                    {offerAppleSignup ? (
+                      <AppleAuthentication.AppleAuthenticationButton
+                        buttonType={
+                          AppleAuthentication.AppleAuthenticationButtonType
+                            .SIGN_UP
+                        }
+                        buttonStyle={
+                          isDark
+                            ? AppleAuthentication.AppleAuthenticationButtonStyle
+                                .WHITE
+                            : AppleAuthentication.AppleAuthenticationButtonStyle
+                                .BLACK
+                        }
+                        cornerRadius={10}
+                        style={{ height: 48, marginTop: 10 }}
+                        onPress={() => handleAppleAuth(true)}
+                      />
                     ) : null}
                   </>
                 )}

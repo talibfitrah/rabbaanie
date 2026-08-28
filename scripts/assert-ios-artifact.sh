@@ -276,6 +276,18 @@ else
   elif [ "$TIME_SENSITIVE" != "true" ]; then
     fail "com.apple.developer.usernotifications.time-sensitive is \"$TIME_SENSITIVE\", expected true"
   fi
+
+  # Sign in with Apple, and the same reasoning as the time-sensitive entitlement
+  # above: it must be PRESENT. Apple's guideline 4.8 requires the Apple button
+  # because the app offers Google sign-in, and the button's native flow will not
+  # produce a usable credential without this entitlement. A merged prebuild that
+  # dropped it would still build and install — the button simply fails on tap —
+  # so absence has to fail the gate. The value is the array ["Default"]; presence
+  # of the key is the check (PlistBuddy prints "Array {" for it, empty if absent).
+  APPLE_SIGNIN=$(/usr/libexec/PlistBuddy -c "Print :com.apple.developer.applesignin" "$ENT" 2>/dev/null)
+  if [ -z "$APPLE_SIGNIN" ]; then
+    missing "com.apple.developer.applesignin entitlement — Sign in with Apple will not work and App Review rejects the app under guideline 4.8"
+  fi
 fi
 
 # --- 6. Privacy manifest -----------------------------------------------------

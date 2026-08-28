@@ -62,12 +62,24 @@ function loadIap(): Promise<PlayIap> {
 }
 
 /**
- * Whether this build can transact through Play at all. Fail-closed on both
- * axes: DISTRIBUTION_CHANNEL already defaults to "play" only for a *Play*
- * artifact, and Play Billing exists only on Android.
+ * True on the App Store build only. iOS derives DISTRIBUTION_CHANNEL from
+ * Platform.OS, so "apple" and iOS are the same condition; the single flag routes
+ * every platform-specific fork below (verify endpoint, offer shape, purchase
+ * request object) to StoreKit instead of Play.
  */
-function isPlayBillingEnabled(): boolean {
-  return DISTRIBUTION_CHANNEL === "play" && Platform.OS === "android";
+const IS_APPLE = DISTRIBUTION_CHANNEL === "apple";
+
+/**
+ * Whether this build can transact through its store at all. Fail-closed on both
+ * axes for each store: the Play arm needs the Play channel AND Android, the
+ * Apple arm needs the App Store channel AND iOS. A web build, or a channel/OS
+ * mismatch, arms neither.
+ */
+function isStoreBillingEnabled(): boolean {
+  return (
+    (DISTRIBUTION_CHANNEL === "play" && Platform.OS === "android") ||
+    (DISTRIBUTION_CHANNEL === "apple" && Platform.OS === "ios")
+  );
 }
 
 type AnnualOffer = { displayPrice: string; offerToken: string };
@@ -118,7 +130,30 @@ export function pickAnnualOffer(product: unknown): AnnualOffer | null {
 }
 
 /**
- * Send one purchase token to the server, which asks Google whether it paid.
+ * Pick the offer to buy out of what the App Store returned for the subscription.
+ *
+ * iOS has no per-user offer token: fetchProducts returns the subscription with
+ * its localized, tax-inclusive `displayPrice` string, and StoreKit buys the base
+ * plan from the sku alone. So the only thing to extract is the price, and an
+ * empty offerToken is the honest shape — the field exists for Android's model
+ * and is unused in the apple requestPurchase call. A product with no price is
+ * the same "cannot buy in this storefront" state pickAnnualOffer returns null
+ * for, and must read that way rather than rendering a bare "/ year".
+ */
+export function pickAppleOffer(product: unknown): AnnualOffer | null {
+  const displayPrice = (product as { displayPrice?: unknown } | null)?.displayPrice;
+  if (typeof displayPrice !== "string" || !displayPrice) return null;
+  return { displayPrice, offerToken: "" };
+}
+
+/**
+ * Send one purchase token to the server, which asks the store whether it paid.
+ *
+ * `token` is the unified purchase token: Play's purchaseToken on Android, the
+ * StoreKit 2 JWS on iOS (expo-iap exposes both as PurchaseCommon.purchaseToken).
+ * The endpoint and body key are the only things that differ — verify-apple wants
+ * `{ jwsRepresentation }`, verify-play wants `{ purchaseToken }` — and both
+ * answer with the same `{ ok, error? }` shape.
  *
  * The reason is returned, not just a boolean, because one of them is not a
  * failure of ours at all: `account_mismatch` means the purchase belongs to a
@@ -126,12 +161,12 @@ export function pickAnnualOffer(product: unknown): AnnualOffer | null {
  * not be reported to this user as a payment of theirs that went wrong.
  */
 async function verifyWithServer(
-  purchaseToken: string,
+  token: string,
 ): Promise<{ ok: boolean; reason: string }> {
-  const response = await subscriptionFetch("verify-play", {
+  const response = await subscriptionFetch(IS_APPLE ? "verify-apple" : "verify-play", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ purchaseToken }),
+    body: JSON.stringify(IS_APPLE ? { jwsRepresentation: token } : { purchaseToken: token }),
   });
   const body = await response.json().catch(() => null);
   return {
@@ -151,7 +186,7 @@ async function verifyWithServer(
 type Outcome = null | "pending" | "unverified" | "foreign";
 
 export function usePlayBilling(accountTag: string | undefined, userId: number | undefined) {
-  const enabled = isPlayBillingEnabled();
+  const enabled = isStoreBillingEnabled();
   const [offer, setOffer] = useState<AnnualOffer | null>(null);
   // Distinguishes "still asking Play" from "Play has nothing for you here".
   // Without it the screen shows a loading message forever on iOS, web and any
@@ -436,7 +471,8 @@ export function usePlayBilling(accountTag: string | undefined, userId: number | 
         type: "subs",
       });
       if (!alive) return;
-      setOffer(pickAnnualOffer(Array.isArray(products) ? products[0] : null));
+      const product = Array.isArray(products) ? products[0] : null;
+      setOffer(IS_APPLE ? pickAppleOffer(product) : pickAnnualOffer(product));
       setLoading(false);
 
       // Re-verify what Play already knows this account owns. This is both the
@@ -577,20 +613,30 @@ export function usePlayBilling(accountTag: string | undefined, userId: number | 
     buyingRef.current = true;
     try {
       const iap = await loadIap();
-      await iap.requestPurchase({
-        request: {
-          google: {
-            skus: [PLAY_PRODUCT_ID],
-            subscriptionOffers: [{ sku: PLAY_PRODUCT_ID, offerToken: offer.offerToken }],
-            // Without this the server cannot tell whose purchase this is, and
-            // rejects it: Google's response says nothing about our user ids, so
-            // a token pasted from another account would otherwise entitle this
-            // one. The tag is an HMAC the server issues; the client only echoes it.
-            obfuscatedAccountId: tag,
-          },
-        },
-        type: "subs",
-      });
+      // The account tag is what lets the server bind the purchase to this
+      // account: the store's response says nothing about our user ids, so a
+      // token pasted from another account would otherwise entitle this one. It
+      // is an HMAC the server issues; the client only echoes it — as Apple's
+      // appAccountToken on iOS, or Google's obfuscatedAccountId on Android.
+      await iap.requestPurchase(
+        IS_APPLE
+          ? {
+              request: {
+                apple: { sku: PLAY_PRODUCT_ID, appAccountToken: tag },
+              },
+              type: "subs",
+            }
+          : {
+              request: {
+                google: {
+                  skus: [PLAY_PRODUCT_ID],
+                  subscriptionOffers: [{ sku: PLAY_PRODUCT_ID, offerToken: offer.offerToken }],
+                  obfuscatedAccountId: tag,
+                },
+              },
+              type: "subs",
+            },
+      );
     } catch {
       buyingRef.current = false;
       setBusy(false);
