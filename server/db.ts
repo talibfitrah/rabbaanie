@@ -323,7 +323,16 @@ export async function updateUserLastActive(userId: number) {
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt));
+  // deleteUser is a soft delete, so without this every caller still sees the
+  // deleted account: the admin list, exportUsersCSV (which carries name AND
+  // email), GET /admin-api/users, and the broadcast-audience paths. Filtered
+  // here rather than per-caller — a per-caller filter leaves the next caller
+  // leaking, and two of the six already had none.
+  return db
+    .select()
+    .from(users)
+    .where(isNull(users.deletedAt))
+    .orderBy(desc(users.createdAt));
 }
 
 // ============================================================
@@ -894,15 +903,19 @@ export async function getDashboardStats() {
       totalMessages: 0,
       totalConversations: 0,
     };
+  // Same deletedAt filter the admin lists use — without it the dashboard
+  // contradicts the list it links to ("42 users" over a list showing 41).
   const [userCount] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(users);
+    .from(users)
+    .where(isNull(users.deletedAt));
   const [familyCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(families);
   const [childCount] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(children);
+    .from(children)
+    .where(isNull(children.deletedAt));
   const [msgCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(messages);
@@ -1201,7 +1214,13 @@ export async function getAllFamiliesDetailed() {
     .from(families)
     .orderBy(desc(families.createdAt));
   const allMembers = await db.select().from(familyMembers);
-  const allChildren = await db.select().from(children);
+  // Same soft-delete trap getCoParents was bitten by (it counted removed
+  // children toward "shared children"): without this, childrenCount and
+  // childrenList keep counting children that were deleted.
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   return allFamilies.map((f) => ({
     ...f,
     memberCount: allMembers.filter((m) => m.familyId === f.id).length,
@@ -1215,9 +1234,12 @@ export async function getAllFamiliesDetailed() {
 export async function getAllChildrenDetailed() {
   const db = await getDb();
   if (!db) return [];
+  // deleteChild is a soft delete, so without this the admin children list and
+  // exportChildrenCSV keep showing removed children.
   const allChildren = await db
     .select()
     .from(children)
+    .where(isNull(children.deletedAt))
     .orderBy(desc(children.createdAt));
   const allFamilies = await db.select().from(families);
   return allChildren.map((c) => ({
@@ -1233,7 +1255,7 @@ export async function getAllSpecialists() {
   const specialists = await db
     .select()
     .from(users)
-    .where(eq(users.role, "specialist"));
+    .where(and(eq(users.role, "specialist"), isNull(users.deletedAt)));
   const assignments = await db.select().from(specialistAssignments);
   const plans = await db.select().from(treatmentPlans);
   return specialists.map((s) => ({
@@ -1250,7 +1272,10 @@ export async function getAllSpecialists() {
 export async function getAllTeachers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).where(eq(users.role, "teacher"));
+  return db
+    .select()
+    .from(users)
+    .where(and(eq(users.role, "teacher"), isNull(users.deletedAt)));
 }
 
 /** Get all network contacts, optionally filtered by category */
@@ -2834,10 +2859,15 @@ export async function getRecentMessages(limit: number = 100) {
 export async function deleteUser(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // Soft delete: mark as deleted but preserve data
+  // Soft delete: mark as deleted but preserve data.
+  // pushToken is cleared rather than preserved: nothing that picks push
+  // recipients filters deletedAt — broadcastLocalizedPush selects purely on
+  // `pushToken IS NOT NULL`, getUserPushToken by id alone — so a deleted
+  // account kept receiving every broadcast. Cleared here, at the one place
+  // every push path routes through, rather than in each recipient query.
   await db
     .update(users)
-    .set({ deletedAt: new Date() })
+    .set({ deletedAt: new Date(), pushToken: null })
     .where(eq(users.id, userId));
 }
 

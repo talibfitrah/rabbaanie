@@ -35,10 +35,26 @@ export default function AdminUserDetailScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
 
+  const utils = trpc.useUtils();
   const usersQ = trpc.admin.users.useQuery();
   const u = ((usersQ.data as any[]) || []).find((x) => x.id === userId);
   const updateRoles = (trpc.admin as any).updateUserRoles.useMutation({ onSuccess: () => usersQ.refetch() });
-  const deleteUser = (trpc.admin as any).deleteUser.useMutation({ onSuccess: () => router.back() });
+  const deleteUser = (trpc.admin as any).deleteUser.useMutation({
+    onSuccess: () => {
+      // admin.users stays fresh 5min / cached 24h (app/_layout.tsx), so without
+      // this write the list we navigate back to still shows the deleted user.
+      router.back();
+      (utils.admin.users as any).setData(undefined, (old: any[] | undefined) =>
+        (old || []).filter((x) => x.id !== userId),
+      );
+      return utils.admin.users.invalidate();
+    },
+    // The server refuses some deletions outright (the owner account, any
+    // super_admin). Without this the throw was swallowed: no alert, no
+    // navigation, row unchanged — indistinguishable from a silent no-op.
+    onError: (e: any) =>
+      Alert.alert("تعذّر حذف المستخدم", e?.message || "حدث خطأ. حاول مرة أخرى."),
+  });
 
   const currentRoles: string[] = Array.isArray(u?.roles) && u.roles.length ? u.roles : (u?.role ? [u.role] : []);
   const toggleRole = (role: string) => {
