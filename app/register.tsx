@@ -22,6 +22,7 @@ import {
   buildRegistrationPayload,
   isRegistrationComplete,
 } from "@/lib/registration";
+import { buildSendVerificationPayload } from "@/lib/verification";
 /**
  * Sign-up screen. The app was sign-in only, which left anyone without an
  * account at a dead end — the Play build could not even point them at the
@@ -150,7 +151,24 @@ export default function RegisterScreen() {
       // the very next render and onboarding always exits to /(tabs). Naming
       // /subscribe here looked purposeful but was overwritten every time.
       // They reach /subscribe from the paywall on any gated screen instead.
-      router.replace("/(tabs)" as any);
+      // (That hand-off now starts from /verify-email below instead of
+      // /(tabs) directly — its own Verify/Skip actions are what call
+      // router.replace("/(tabs)"), so this reasoning still applies there.)
+      //
+      // Best-effort: registration must not fail, or even wait, on this. A
+      // dropped request here is recovered by the "Resend code" button on
+      // /verify-email itself.
+      try {
+        await publicFetch("/auth/send-verification", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildSendVerificationPayload(email)),
+        });
+      } catch {}
+      router.replace(
+        ("/verify-email?email=" +
+          encodeURIComponent(email.trim().toLowerCase())) as any,
+      );
     } catch {
       setError(
         tx(

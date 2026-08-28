@@ -1,6 +1,11 @@
 import "@/global.css";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { Stack, usePathname, useRouter, useSegments } from "expo-router";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryCache,
+  MutationCache,
+} from "@tanstack/react-query";
+import { Stack, usePathname, useRouter, useSegments, router } from "expo-router";
 import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
@@ -78,6 +83,7 @@ if (Platform.OS === "android") {
 }
 import { loadUnifiedNotifPrefs, resolveShouldShowPopup } from "@/lib/notification-settings";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
+import { isEmailNotVerifiedError } from "@/lib/verification";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
 import { usePushNotifications } from "@/hooks/use-push-notifications";
 import { ErrorBoundary } from "@/components/error-boundary";
@@ -95,7 +101,7 @@ import {
   readStoredAgeGateStatus,
   useAgeGate,
 } from "@/lib/age-gate";
-import { resolvePendingRedirect } from "@/lib/app-gate";
+import { resolvePendingRedirect, isSetupRoute } from "@/lib/app-gate";
 import * as NativeAuth from "@/lib/_core/auth";
 import { useVersionBlocked } from "@/lib/app-version";
 import { VersionBlockScreen } from "@/components/version-block-screen";
@@ -223,10 +229,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
           segment,
         });
 
-  const inSetup =
-    segment === "onboarding" ||
-    segment === "language-select" ||
-    segment === "permissions-setup";
+  const inSetup = isSetupRoute(segment);
   const profileDone = appLoading
     ? true
     : isProfileComplete({ parentProfile: appState?.parentProfile, children: appState?.children });
@@ -371,6 +374,15 @@ function NotificationLifecycle({
   ]);
 
   return null;
+}
+
+// Any query or mutation can come back FORBIDDEN/email_not_verified once
+// EMAIL_VERIFICATION_GATE is enabled server-side (currently off, so this is
+// dormant — covered only by tests/verification-contract.test.ts). Catching
+// it once here, in the QueryClient below, saves every screen from adding its
+// own check.
+function redirectIfEmailUnverified(error: unknown) {
+  if (isEmailNotVerifiedError(error)) router.push("/verify-email" as any);
 }
 
 export default function RootLayout() {
@@ -669,6 +681,8 @@ export default function RootLayout() {
   const [queryClient] = useState(
     () =>
       new QueryClient({
+        queryCache: new QueryCache({ onError: redirectIfEmailUnverified }),
+        mutationCache: new MutationCache({ onError: redirectIfEmailUnverified }),
         defaultOptions: {
           queries: {
             refetchOnWindowFocus: false,
