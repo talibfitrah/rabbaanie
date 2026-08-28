@@ -14,6 +14,13 @@ import { MySqlDialect } from "drizzle-orm/mysql-core";
  * and any selector added later. It is what the deployed rabbaanie-api already
  * does (its deleteUser nulls email/name/pushToken/profileData) — this repo's
  * copy had drifted to stamping deletedAt alone.
+ *
+ * On that claim: verify it against the DEPLOYED artifact (dist/index.js on the
+ * API VM) or the live rows, NOT the local rabbaanie-api clone — that clone runs
+ * behind the VM and shows deleteUser stamping deletedAt alone. Four separate
+ * review passes have now called this comment wrong from the stale clone. The
+ * live rows settle it: the accounts deleted 2026-08-28 have email, name and
+ * pushToken all NULL, which only the anonymising version produces.
  */
 
 const updates: { table: unknown; payload: any; where: unknown }[] = [];

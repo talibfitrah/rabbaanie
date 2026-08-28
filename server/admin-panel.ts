@@ -3,7 +3,7 @@ import { sdk } from "./_core/sdk";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getDb } from "./db";
 import { users } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 // ═══════════════════════════════════════════════════════════════════════
 // ROLE HIERARCHY & PERMISSIONS
@@ -385,7 +385,13 @@ export function mountAdminPanel(app: Express) {
           res.json({ success: false, error: "Database niet beschikbaar" });
           return;
         }
-        const allUsers = await db.select().from(users);
+        // Same deletedAt guard as broadcastLocalizedPush: accounts deleted
+        // before deleteUser started clearing pushToken still hold one, and
+        // this selector reaches them the same way the broadcast did.
+        const allUsers = await db
+          .select()
+          .from(users)
+          .where(isNull(users.deletedAt));
         const tokens = allUsers
           .filter((u) => u.pushToken)
           .map((u) => u.pushToken!);

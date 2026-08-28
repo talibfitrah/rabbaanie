@@ -1508,6 +1508,11 @@ export async function getRegistrationAnalytics(days: number = 30) {
       count: sql<number>`count(*)`,
     })
     .from(users)
+    // Deliberate: this chart reads "signups still on the platform", not
+    // "signups ever". A past day's bar therefore drops when one of those users
+    // later deletes their account. Chosen for consistency with the erasure rule
+    // the rest of this file follows — a deleted account appears in no admin
+    // surface — over preserving the historical count.
     .where(and(sql`${users.createdAt} >= ${since}`, isNull(users.deletedAt)))
     .groupBy(sql`DATE(${users.createdAt})`)
     .orderBy(sql`DATE(${users.createdAt})`);
@@ -2672,7 +2677,10 @@ export async function getUserPushToken(userId: number): Promise<string | null> {
   const result = await db
     .select({ pushToken: sql<string>`pushToken` })
     .from(users)
-    .where(eq(users.id, userId))
+    // The targeted half of the same guard broadcastLocalizedPush carries: a
+    // row soft-deleted before deleteUser began clearing pushToken still has
+    // one, and every targeted send resolves its token through here.
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .limit(1);
   return result.length > 0 ? result[0].pushToken : null;
 }
