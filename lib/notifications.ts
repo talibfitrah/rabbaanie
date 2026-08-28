@@ -642,6 +642,14 @@ async function scheduleAllNotificationsInner(
     await scheduleDailyAdviceUnqueued(language);
   } catch (_) {}
 
+  // Same treatment for the daily check-in reminder. The boot path in _layout.tsx
+  // is what covers users without a saved prayer location (this inner call sits
+  // after the location gate); this one keeps it in step with the active language.
+  try {
+    const { scheduleDailyCheckinNotification } = await import("./daily-checkin-notification");
+    await scheduleDailyCheckinNotification(language);
+  } catch (_) {}
+
   return scheduledCount;
 }
 

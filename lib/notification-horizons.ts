@@ -32,11 +32,14 @@ export const IOS_PENDING_BUDGET = 64;
  * headroom: preference combinations no fixture covers must not tip the total
  * over 64 and put the silent truncation back.
  *
- * The schedule sits at EXACTLY 58 today — on the target, six under the cap, not
- * eight. Raising the iman horizon to 2 spent the slack, and that was the right
- * trade: at 1 the after-Fajr goal reminder was unreachable for anyone who did
- * not launch before dawn, which is a whole reminder type lost rather than a
- * thinner horizon. If more room is ever needed, the lever is not another
+ * The schedule sits at EXACTLY 59 today — on the target, five under the cap.
+ * Raising the iman horizon to 2 spent the first slot of slack, and that was the
+ * right trade: at 1 the after-Fajr goal reminder was unreachable for anyone who
+ * did not launch before dawn, which is a whole reminder type lost rather than a
+ * thinner horizon. The daily check-in reminder (one DAILY notification, added
+ * with the daily-engagement work in lib/notifications.ts) spent the next slot:
+ * a new launch notification funded from headroom rather than by cutting a prayer
+ * or reminder horizon. If more room is ever needed, the lever is not another
  * horizon cut — it is the duplicate adhkaar. lib/notifications.ts fires morning
  * adhkaar at Fajr+5 and evening at Asr while lib/islamic-reminders.ts fires
  * morning adhkar at Fajr+10 and evening at Asr+10: four near-identical
@@ -44,7 +47,7 @@ export const IOS_PENDING_BUDGET = 64;
  * Deduping frees four to six slots. It is a content decision, not a horizon
  * tweak, which is why it is written here rather than done.
  */
-export const IOS_PENDING_TARGET = 58;
+export const IOS_PENDING_TARGET = 59;
 
 const DAYS = {
   /** 6 prayers + 2 adhkaar per day. The headline feature, so the longest iOS horizon. */

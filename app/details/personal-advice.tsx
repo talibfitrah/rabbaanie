@@ -21,7 +21,7 @@ import Animated, {
   Easing,
 } from "react-native-reanimated";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { adviceStillFresh, adviceDiagnosticSig } from "@/lib/advice-period";
+import { adviceStillFresh, adviceDiagnosticSig, checkinsLast7Days } from "@/lib/advice-period";
 import {
   loadAnimationEnabled,
   loadFavorites,
@@ -151,7 +151,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -187,7 +187,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -402,7 +402,7 @@ function AdviceSection({
     >
       <View
         style={{
-          flexDirection: isRTL ? "row-reverse" : "row",
+          flexDirection: "row",
           alignItems: "center",
         }}
       >
@@ -411,7 +411,7 @@ function AdviceSection({
           style={({ pressed }) => [
             {
               flex: 1,
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               padding: 16,
               gap: 12,
@@ -699,7 +699,7 @@ export default function PersonalAdviceScreen() {
 
     // Daily check-in based advice
     const todayDate = new Date().toISOString().slice(0, 10);
-    const todayCheckin = state.dailyCheckins?.find(
+    const todayCheckin = checkinsLast7Days(state.dailyCheckins).find(
       (c: any) => c.date === todayDate,
     );
     if (todayCheckin) {
@@ -801,7 +801,16 @@ export default function PersonalAdviceScreen() {
   // Children summary with exact ages
   const childrenSummary = useMemo(() => {
     if (!state.children || state.children.length === 0) return null;
-    return state.children.map((c: any) => ({
+    // Oldest first (birth order), same as the tab twin — the same family must
+    // not list in a different order depending on the route in. A missing or
+    // invalid birthDate parses to NaN; map that — and only that, never a valid
+    // 0 epoch — to Infinity so age-unknown children sort to the bottom.
+    const ordered = [...state.children].sort((a: any, b: any) => {
+      const ta = new Date(a.birthDate).getTime();
+      const tb = new Date(b.birthDate).getTime();
+      return (Number.isNaN(ta) ? Infinity : ta) - (Number.isNaN(tb) ? Infinity : tb);
+    });
+    return ordered.map((c: any) => ({
       name: c.name || tx(lang, "Kind", "Child", "طفل"),
       age: c.birthDate
         ? calculateExactAge(c.birthDate, lang)
@@ -897,10 +906,10 @@ export default function PersonalAdviceScreen() {
           hijriDay: hijri.day,
           dayOfWeek: now.getDay(),
           dailyCheckin:
-            state.dailyCheckins?.find(
+            checkinsLast7Days(state.dailyCheckins).find(
               (c) => c.date === now.toISOString().slice(0, 10),
             ) || null,
-          recentCheckins: (state.dailyCheckins || []).slice(-7),
+          recentCheckins: checkinsLast7Days(state.dailyCheckins),
           childrenEnvironments: state.children.map((c) => ({
             childName: c.name,
             education: (c as any).education || "",
@@ -972,7 +981,7 @@ export default function PersonalAdviceScreen() {
 
         <View
           style={{
-            flexDirection: isRTL ? "row-reverse" : "row",
+            flexDirection: "row",
             alignItems: "center",
             gap: 10,
             marginBottom: 16,
@@ -1052,7 +1061,7 @@ export default function PersonalAdviceScreen() {
                 >
                   <View
                     style={{
-                      flexDirection: isRTL ? "row-reverse" : "row",
+                      flexDirection: "row",
                       alignItems: "center",
                       padding: 14,
                       gap: 10,
@@ -1156,7 +1165,7 @@ export default function PersonalAdviceScreen() {
 
       <View
         style={{
-          flexDirection: isRTL ? "row-reverse" : "row",
+          flexDirection: "row",
           alignItems: "center",
           gap: 10,
           marginBottom: 12,
@@ -1242,7 +1251,7 @@ export default function PersonalAdviceScreen() {
             <View
               key={i}
               style={{
-                flexDirection: isRTL ? "row-reverse" : "row",
+                flexDirection: "row",
                 alignItems: "center",
                 gap: 6,
                 marginBottom: 3,
@@ -1272,7 +1281,7 @@ export default function PersonalAdviceScreen() {
           <View
             key={i}
             style={{
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "flex-start",
               gap: 8,
               marginTop: 8,
@@ -1316,7 +1325,7 @@ export default function PersonalAdviceScreen() {
             {
               opacity: pressed ? 0.6 : 1,
               padding: 8,
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 6,
               backgroundColor: colors.surface,
@@ -1437,7 +1446,7 @@ export default function PersonalAdviceScreen() {
           onPress={() => router.push("/ai-chat")}
           style={({ pressed }) => [
             {
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#E8F5E9",
@@ -1494,7 +1503,7 @@ export default function PersonalAdviceScreen() {
           }}
           style={({ pressed }) => [
             {
-              flexDirection: isRTL ? "row-reverse" : "row",
+              flexDirection: "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#FFF3E0",

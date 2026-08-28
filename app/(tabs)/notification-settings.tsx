@@ -52,6 +52,13 @@ import {
   DEFAULT_UNIFIED_NOTIF_PREFS,
 } from "@/lib/notification-settings";
 import { scheduleImanNotifications } from "@/lib/iman-notifications";
+import {
+  loadDailyCheckinPrefs,
+  saveDailyCheckinPrefs,
+  type DailyCheckinPrefs,
+  DEFAULT_DAILY_CHECKIN_PREFS,
+} from "@/lib/daily-checkin-prefs";
+import { scheduleDailyCheckinNotification } from "@/lib/daily-checkin-notification";
 
 const DISPLAY_MODE_OPTIONS: { value: NotifDisplayMode; labelAr: string; labelEn: string; labelNl: string; icon: string }[] = [
   { value: "normal", labelAr: "عادي (أعلى الشاشة)", labelEn: "Normal (top banner)", labelNl: "Normaal (bovenaan)", icon: "notifications" },
@@ -146,6 +153,8 @@ export default function NotificationSettingsScreen() {
   const [islamicPrefs, setIslamicPrefs] = useState<IslamicRemindersPrefs>(DEFAULT_ISLAMIC_REMINDERS_PREFS);
   // Weekly reminder state
   const [weeklyPrefs, setWeeklyPrefs] = useState<WeeklyReminderPrefs>(DEFAULT_WEEKLY_REMINDER_PREFS);
+  // Daily check-in reminder state
+  const [checkinPrefs, setCheckinPrefs] = useState<DailyCheckinPrefs>(DEFAULT_DAILY_CHECKIN_PREFS);
   // Display mode state
   const [displayPrefs, setDisplayPrefs] = useState<UnifiedNotifPrefs>(DEFAULT_UNIFIED_NOTIF_PREFS);
   // Sound state
@@ -158,6 +167,7 @@ export default function NotificationSettingsScreen() {
     loadIqamahSilencePrefs().then(setIqamahPrefs);
     loadIslamicRemindersPrefs().then(setIslamicPrefs);
     loadWeeklyReminderPrefs().then(setWeeklyPrefs);
+    loadDailyCheckinPrefs().then(setCheckinPrefs);
     loadUnifiedNotifPrefs().then(setDisplayPrefs);
     if (Platform.OS !== "web") {
       getScheduledCount().then(setNotifScheduledCount);
@@ -373,6 +383,22 @@ export default function NotificationSettingsScreen() {
       await scheduleWeeklyReminder(language as "nl" | "en" | "ar", unfinished);
     }
   }, [weeklyPrefs, language]);
+
+  // Daily check-in reminder toggle
+  const handleCheckinToggle = useCallback(async () => {
+    const newPrefs = { ...checkinPrefs, enabled: !checkinPrefs.enabled };
+    setCheckinPrefs(newPrefs);
+    await saveDailyCheckinPrefs(newPrefs);
+    if (Platform.OS === "web") return;
+    if (newPrefs.enabled) {
+      const granted = await requestNotificationPermissions();
+      if (!granted) { setNotifPermissionDenied(true); return; }
+    }
+    // Run on enable AND disable: the schedule fn cancels the existing reminder
+    // and returns early when the pref is off, so toggling off stops it now
+    // rather than only after the next app launch.
+    await scheduleDailyCheckinNotification(language as "nl" | "en" | "ar");
+  }, [checkinPrefs, language]);
 
   // Display mode update
   const updateDisplayMode = useCallback(async (category: string, mode: NotifDisplayMode) => {
@@ -670,7 +696,19 @@ export default function NotificationSettingsScreen() {
           <ToggleRow label={getLabel("قيام الليل", "Qiyaam al-Layl", "Qiyaam al-Layl")} enabled={islamicPrefs.qiyamAlLayl.enabled} onToggle={() => handleIslamicToggle("qiyamAlLayl")} colors={colors} isRTL={isRTL} icon="dark-mode" iconColor="#1E3A5F" />
         </SectionCollapsible>
 
-        {/* === SECTION 5: Weekly Reminder === */}
+        {/* === SECTION 5: Daily Check-in === */}
+        <SectionCollapsible title={getLabel("التقييم اليومي", "Daily Check-in", "Dagelijkse check-in")} icon="today" iconColor="#0891B2" colors={colors} isRTL={isRTL}>
+          <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 10, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
+            {getLabel(
+              "تذكير يومي لإكمال مراجعتك الشخصية في الصفحة الرئيسية.",
+              "Daily reminder to complete your personal review on the home tab.",
+              "Dagelijkse herinnering om uw persoonlijke evaluatie op het startscherm af te ronden."
+            )}
+          </Text>
+          <ToggleRow label={getLabel("التقييم اليومي", "Daily check-in reminder", "Dagelijkse check-in-herinnering")} enabled={checkinPrefs.enabled} onToggle={handleCheckinToggle} colors={colors} isRTL={isRTL} icon="today" iconColor="#0891B2" />
+        </SectionCollapsible>
+
+        {/* === SECTION 6: Weekly Reminder === */}
         <SectionCollapsible title={getLabel("التذكير الأسبوعي", "Weekly Reminder", "Wekelijkse Herinnering")} icon="event" iconColor="#2563EB" colors={colors} isRTL={isRTL}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 10, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
             {getLabel(
@@ -682,7 +720,7 @@ export default function NotificationSettingsScreen() {
           <ToggleRow label={getLabel("تفعيل التذكير الأسبوعي", "Enable Weekly Reminder", "Wekelijkse herinnering inschakelen")} enabled={weeklyPrefs.enabled} onToggle={handleWeeklyToggle} colors={colors} isRTL={isRTL} icon="event" iconColor="#2563EB" />
         </SectionCollapsible>
 
-        {/* === SECTION 6: Display Modes === */}
+        {/* === SECTION 7: Display Modes === */}
         <SectionCollapsible title={getLabel("طريقة عرض الإشعارات", "Notification Display Mode", "Weergavemodus notificaties")} icon="layers" iconColor="#8B5CF6" colors={colors} isRTL={isRTL}>
           <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 12, lineHeight: 18, textAlign: isRTL ? "right" : "left" }}>
             {getLabel(

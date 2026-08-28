@@ -1197,8 +1197,13 @@ Respond in JSON format:
       const linkedIds = await db.getLinkedSpouseUserIds();
       const withSpouseInfo = attachLinkedSpouse(allUsers, linkedIds);
       const matched = selectAudience(withSpouseInfo, input);
+      // Only users who actually hold a push token can receive the notification;
+      // count that subset so the admin estimate matches what the send delivers,
+      // instead of counting matched users who never enabled notifications.
+      const deliverable = matched.filter((u: any) => u.pushToken && String(u.pushToken).trim()).length;
       return {
         count: matched.length,
+        deliverable,
         recipients: matched.map((u) => ({
           id: u.id,
           name: u.name,

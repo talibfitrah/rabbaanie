@@ -31,18 +31,6 @@ export type AudienceUser = {
   hasLinkedSpouse?: boolean;
 };
 
-/** The four audience categories a broadcast (manual or recurring) can target.
- *  Single source of truth — server/routers.ts's zod schemas and
- *  server/broadcast-send-category.ts's sendCategoryBroadcast() both import
- *  this instead of re-listing the four strings. */
-export const BROADCAST_CATEGORIES = [
-  "incompleteAnalytical",
-  "incompleteChildren",
-  "incompletePersonal",
-  "notLinkedSpouse",
-] as const;
-export type BroadcastCategory = (typeof BROADCAST_CATEGORIES)[number];
-
 export type AudienceFilter = {
   countries?: string[]; // empty/omitted = every country
   cities?: string[]; // empty/omitted = every city
@@ -84,7 +72,22 @@ function personalProfileIncomplete(u: AudienceUser): boolean {
     return true;
   }
   if (!(p.gender && p.maritalStatus)) return true;
-  if (!(childrenOf(u).length > 0)) return true;
+  // Zero children is a COMPLETE profile when the user explicitly answered "no"
+  // to onboarding step 3's "Heeft u kinderen?" radio. That answer lives at
+  // profileData.parentProfile.hasChildrenAnswer ("" | "ja" | "nee"), synced from
+  // the client as part of the parentProfile blob. An empty children array on its
+  // own still means "hasn't answered step 3 yet", which is why the answer, not
+  // the array, is what decides. Mirrors lib/store.ts's
+  // getFirstIncompleteOnboardingStep; without it a deliberately childless user is
+  // targeted by incompletePersonal broadcasts forever.
+  // Read the raw value, not childrenOf(): that coerces a missing or non-array
+  // children to [], which would make a row with no children key at all read
+  // as "answered nee, complete" here while lib/store.ts's !Array.isArray
+  // short-circuit calls the same row incomplete. Same shape, same order.
+  const rawChildren = (u.profileData as any)?.children;
+  if (!Array.isArray(rawChildren) || (rawChildren.length === 0 && p.hasChildrenAnswer !== "nee")) {
+    return true;
+  }
   return false;
 }
 
@@ -131,8 +134,8 @@ function spouseNotLinked(u: AudienceUser): boolean {
  *  partnerships table) to have a confirmed spouse, returns copies with
  *  hasLinkedSpouse set definitively — true or false, never left undefined —
  *  so notLinkedSpouse can evaluate them. Doesn't touch the DB itself,
- *  keeping this module a leaf the way its header requires; the caller does
- *  the query (see local-docs/BROADCAST-ROUTER-PATCH.md). */
+ *  keeping this module a leaf; the caller does the query (see
+ *  server/db.ts's getLinkedSpouseUserIds). */
 export function attachLinkedSpouse<T extends AudienceUser>(
   users: T[],
   linkedUserIds: Iterable<number>,
@@ -156,3 +159,15 @@ export function matchesAudience(u: AudienceUser, filter: AudienceFilter): boolea
 export function selectAudience<T extends AudienceUser>(users: T[], filter: AudienceFilter): T[] {
   return users.filter((u) => matchesAudience(u, filter));
 }
+
+/** The four audience categories a broadcast (manual or recurring) can target.
+ *  Single source of truth - server/routers.ts's zod schemas and
+ *  server/broadcast-send-category.ts's sendCategoryBroadcast() both import
+ *  this instead of re-listing the four strings. */
+export const BROADCAST_CATEGORIES = [
+  "incompleteAnalytical",
+  "incompleteChildren",
+  "incompletePersonal",
+  "notLinkedSpouse",
+] as const;
+export type BroadcastCategory = (typeof BROADCAST_CATEGORIES)[number];

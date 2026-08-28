@@ -40,3 +40,20 @@ export function resolvePendingRedirect(input: PendingRedirectInput): string | nu
   if (eligible && profileDone && !permissionsSetupDone) return "/permissions-setup";
   return gateRedirect;
 }
+
+/**
+ * Segments exempt from the profile / permissions-setup redirect. verify-email
+ * joins the setup flows: a just-registered user (profileDone=false) is sent
+ * here by app/register.tsx, and without this exemption AuthGate would bounce
+ * them straight to /onboarding, so the verify screen would never show — and
+ * with EMAIL_VERIFICATION_GATE off, that means it would never show at all.
+ * Extracted and tested for the same reason resolvePendingRedirect is (header).
+ */
+export function isSetupRoute(segment: string | undefined): boolean {
+  return (
+    segment === "onboarding" ||
+    segment === "language-select" ||
+    segment === "permissions-setup" ||
+    segment === "verify-email"
+  );
+}

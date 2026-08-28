@@ -1,5 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { adviceDiagnosticSig, adviceStillFresh, ADVICE_TTL_MS, currentWeekKey } from "./advice-period";
+import { readFileSync } from "fs";
+import { join } from "path";
+import { adviceDiagnosticSig, adviceStillFresh, ADVICE_TTL_MS, checkinsLast7Days, currentWeekKey } from "./advice-period";
 
 describe("adviceDiagnosticSig", () => {
   const base = {
@@ -107,4 +109,100 @@ describe("adviceStillFresh", () => {
     expect(adviceStillFresh(undefined)).toBe(false);
     expect(adviceStillFresh({})).toBe(false);
   });
+});
+
+describe("checkinsLast7Days", () => {
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const dayKey = (daysAgo: number) =>
+    new Date(Date.now() - daysAgo * DAY_MS).toISOString().slice(0, 10);
+
+  // The bug: nothing writes state.dailyCheckins any more, so the positional
+  // `slice(-7)` the advice payloads used returned the last 7 entries EVER —
+  // handed to the model labelled "last 7 days" / "laatste 7 dagen".
+  it("drops entries older than 7 days even when they are the only entries left", () => {
+    const stale = [
+      { date: "2026-01-05", prayer: "p", mood: "m" },
+      { date: "2026-01-06", prayer: "p", mood: "m" },
+    ];
+    expect(checkinsLast7Days(stale)).toEqual([]);
+  });
+
+  it("keeps today and the six days before it", () => {
+    const entries = [0, 1, 2, 3, 4, 5, 6].map((d) => ({ date: dayKey(d) }));
+    expect(checkinsLast7Days(entries)).toEqual(entries);
+  });
+
+  // Filters by date, not by position: 10 in-window entries all survive. A
+  // `slice(-7)` implementation returns 7 and fails here.
+  it("returns every in-window entry, not just the last seven", () => {
+    const entries = Array.from({ length: 10 }, (_, i) => ({ date: dayKey(0), i }));
+    expect(checkinsLast7Days(entries)).toHaveLength(10);
+  });
+
+  it("keeps a recent entry and drops a months-old one from the same array", () => {
+    const recent = { date: dayKey(1) };
+    const ancient = { date: "2025-11-01" };
+    expect(checkinsLast7Days([ancient, recent])).toEqual([recent]);
+  });
+
+  it("returns an empty array for null/undefined instead of throwing", () => {
+    expect(checkinsLast7Days(null)).toEqual([]);
+    expect(checkinsLast7Days(undefined)).toEqual([]);
+  });
+
+  it("drops an entry whose date cannot be parsed rather than calling it recent", () => {
+    expect(checkinsLast7Days([{ date: "not-a-date" }])).toEqual([]);
+  });
+
+  // The array is not guaranteed to be one. app-context.tsx:182 fills it with
+  // `profileData.dailyCheckins || []` from the server's z.any() blob, and `||`
+  // passes an object/number/boolean straight through — none of which is
+  // nullish, so `?? []` inside would hand it to .filter and throw, taking down
+  // the advice screen. Mirrors the Array.isArray guard in server/advice.ts.
+  it.each([[{}], [5], [true], ["not-an-array"]])(
+    "returns an empty array for a non-array input (%p) instead of throwing",
+    (stored) => {
+      expect(checkinsLast7Days(stored as any)).toEqual([]);
+    },
+  );
+
+  // Same for the elements: the array comes from the same untyped blob, and
+  // reading `.date` off a null entry throws.
+  it("drops null entries instead of throwing, keeping the real ones", () => {
+    const real = { date: dayKey(1) };
+    expect(checkinsLast7Days([null, undefined, real, 42] as any)).toEqual([real]);
+  });
+});
+
+/**
+ * checkinsLast7Days exists because app-context.tsx:182 fills state.dailyCheckins
+ * with `profileData.dailyCheckins || []` from the server's z.any() blob, and
+ * `||` passes a non-array straight through. Guarding the `.filter` path alone
+ * left the `.find` for "today's check-in" on the very next line reading the raw
+ * value — and `?.` does not help a non-nullish non-array, so `find is not a
+ * function` still blanked the advice screens.
+ */
+describe("advice screens never hand a raw state.dailyCheckins to .find", () => {
+  const FILES = ["app/(tabs)/personal-advice.tsx", "app/details/personal-advice.tsx"];
+  const read = (rel: string) => readFileSync(join(__dirname, "..", rel), "utf8");
+  /** Check-in reads each screen routes through the helper today (find + the
+   *  recentCheckins payload field). Raise deliberately, never to go green. */
+  const HELPER_USES: Record<string, number> = {
+    "app/(tabs)/personal-advice.tsx": 4,
+    "app/details/personal-advice.tsx": 3,
+  };
+
+  for (const rel of FILES) {
+    it(`${rel}: never calls .find directly on state.dailyCheckins`, () => {
+      expect(read(rel)).not.toMatch(/state\.dailyCheckins\s*\??\.\s*find/);
+    });
+
+    // Presence: the payloads must still carry the check-in data, not just stop
+    // crashing by dropping the field. COUNTED — a bare toMatch is satisfied by
+    // one survivor, so it would pass with every other call site deleted.
+    it(`${rel}: still resolves every check-in read through the guarded helper`, () => {
+      const uses = (read(rel).match(/checkinsLast7Days\(state\.dailyCheckins\)/g) || []).length;
+      expect(uses).toBeGreaterThanOrEqual(HELPER_USES[rel]);
+    });
+  }
 });

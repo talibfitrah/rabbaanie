@@ -4,8 +4,8 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useRouter } from "expo-router";
-import { Magnetometer } from "expo-sensors";
 import * as Location from "expo-location";
+import { Magnetometer } from "expo-sensors";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, type SavedPrayerLocation, getCityAR, getCountryAR } from "@/lib/prayer-data";
 import { withTimeout } from "@/lib/location-utils";
@@ -54,10 +54,9 @@ export default function QiblaScreen() {
   const [loaded, setLoaded] = useState(false);
   const [sensorAvailable, setSensorAvailable] = useState(true);
   const [gpsLoading, setGpsLoading] = useState(false);
-  const [calibrating, setCalibrating] = useState(false);
+  const [headingAccuracy, setHeadingAccuracy] = useState(3);
   const animatedHeading = useRef(new Animated.Value(0)).current;
   const lastHeading = useRef(0);
-  const subscriptionRef = useRef<ReturnType<typeof Magnetometer.addListener> | null>(null);
 
   // GPS refresh location. Every native call is bounded so the spinner can never
   // hang: services check → last-known fast-path → bounded fresh fix → bounded
@@ -149,44 +148,18 @@ export default function QiblaScreen() {
     }
   };
 
-  // Calibrate compass
+  // Guide the user through the physical calibration the OS needs. A phone's
+  // magnetometer is calibrated by moving it through a figure-8; there is no API
+  // to force it, so we show the instruction — the OS heading recovers on its own.
   const handleCalibrate = () => {
-    setCalibrating(true);
-    // Remove old subscription and re-subscribe
-    if (subscriptionRef.current) {
-      subscriptionRef.current.remove();
-      subscriptionRef.current = null;
-    }
-    lastHeading.current = 0;
-    animatedHeading.setValue(0);
-    setHeading(0);
-
-    if (Platform.OS !== "web") {
-      Magnetometer.setUpdateInterval(50);
-      subscriptionRef.current = Magnetometer.addListener(({ x, y }) => {
-        let angle = Math.atan2(y, x) * (180 / Math.PI);
-        angle = (90 - angle + 360) % 360;
-        setHeading(angle);
-        const diff = angle - lastHeading.current;
-        let shortDiff = diff;
-        if (Math.abs(diff) > 180) shortDiff = diff > 0 ? diff - 360 : diff + 360;
-        const newVal = lastHeading.current + shortDiff;
-        lastHeading.current = newVal;
-        Animated.timing(animatedHeading, {
-          toValue: newVal,
-          duration: 100,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start();
-      });
-      // Reset interval after 2 seconds
-      setTimeout(() => {
-        Magnetometer.setUpdateInterval(100);
-        setCalibrating(false);
-      }, 2000);
-    } else {
-      setCalibrating(false);
-    }
+    Alert.alert(
+      language === "ar" ? "معايرة البوصلة" : language === "nl" ? "Kompas kalibreren" : "Calibrate Compass",
+      language === "ar"
+        ? "حرّك هاتفك في الهواء على شكل الرقم ٨ عدّة مرّات، بعيدًا عن المعادن والأجهزة الإلكترونية، حتى تستقرّ الإبرة."
+        : language === "nl"
+        ? "Beweeg je telefoon een paar keer in een 8-vorm door de lucht, weg van metaal en elektronica, tot de naald stabiel is."
+        : "Move your phone through a figure-8 in the air a few times, away from metal and electronics, until the needle settles.",
+    );
   };
 
   // Load saved location
@@ -201,49 +174,105 @@ export default function QiblaScreen() {
     });
   }, []);
 
-  // Subscribe to magnetometer
+  // Subscribe to device heading. expo-location's watchHeadingAsync uses the OS
+  // sensor-fusion (magnetometer + accelerometer + gyro): the reading is
+  // tilt-compensated (correct even when the phone is held upright, not only when
+  // flat) and trueHeading is corrected for magnetic declination. The old raw
+  // Magnetometer atan2(y,x) was neither — it assumed a flat phone and pointed at
+  // magnetic north, so it drifted by the tilt error plus the local declination.
+  // qiblaAngle is a true-north bearing, so trueHeading lines up with it directly.
   useEffect(() => {
     if (Platform.OS === "web") {
       setSensorAvailable(false);
       return;
     }
 
-    let subscription: ReturnType<typeof Magnetometer.addListener> | null = null;
+    let sub: Location.LocationSubscription | null = null;
+    let magSub: ReturnType<typeof Magnetometer.addListener> | null = null;
+    let cancelled = false;
 
-    Magnetometer.isAvailableAsync().then((available) => {
-      if (!available) {
-        setSensorAvailable(false);
+    // Smooth the rotation along the shortest arc — shared by both heading sources.
+    const applyHeading = (angle: number) => {
+      if (cancelled) return; // a queued native event can land after unmount
+      setHeading(angle);
+      const diff = angle - lastHeading.current;
+      let shortDiff = diff;
+      if (Math.abs(diff) > 180) shortDiff = diff > 0 ? diff - 360 : diff + 360;
+      const newVal = lastHeading.current + shortDiff;
+      lastHeading.current = newVal;
+      Animated.timing(animatedHeading, {
+        toValue: newVal,
+        duration: 150,
+        easing: Easing.out(Easing.quad),
+        useNativeDriver: true,
+      }).start();
+    };
+
+    (async () => {
+      // No magnetometer means no heading by EITHER source (sensor fusion needs
+      // it too) — keep the old up-front detection so those devices get the
+      // honest "sensor unavailable" message instead of a frozen needle.
+      try {
+        if (!(await Magnetometer.isAvailableAsync())) {
+          if (!cancelled) setSensorAvailable(false);
+          return;
+        }
+      } catch {
+        if (!cancelled) setSensorAvailable(false);
         return;
       }
-
-      Magnetometer.setUpdateInterval(100);
-      subscription = Magnetometer.addListener(({ x, y }) => {
-        // Calculate heading from magnetometer data
-        let angle = Math.atan2(y, x) * (180 / Math.PI);
-        // Convert to compass heading (0 = North)
-        angle = (90 - angle + 360) % 360;
-        setHeading(angle);
-
-        // Smooth animation
-        const diff = angle - lastHeading.current;
-        let shortDiff = diff;
-        if (Math.abs(diff) > 180) {
-          shortDiff = diff > 0 ? diff - 360 : diff + 360;
+      try {
+        // trueHeading needs location for the declination; harmless if already granted.
+        // Android's watchDeviceHeading resolves and then never delivers a sample when
+        // location is denied (iOS throws), so treat a denial as the throw ourselves —
+        // otherwise the fallback below never runs and the needle freezes at north.
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status !== "granted") throw new Error("location permission not granted");
+        sub = await Location.watchHeadingAsync((data) => {
+          // trueHeading is -1 when the OS can't resolve declination (no location);
+          // fall back to magHeading, which the OS still tilt-compensates.
+          const raw =
+            typeof data.trueHeading === "number" && data.trueHeading >= 0
+              ? data.trueHeading
+              : data.magHeading;
+          // magHeading is also negative when the OS marks it invalid — dropping
+          // the sample beats rendering (-1+360)%360 as a confident 359°.
+          if (!Number.isFinite(raw) || raw < 0) return;
+          if (typeof data.accuracy === "number") setHeadingAccuracy(data.accuracy);
+          applyHeading((raw + 360) % 360);
+        });
+        if (cancelled && sub) {
+          sub.remove();
+          sub = null;
         }
-        const newVal = lastHeading.current + shortDiff;
-        lastHeading.current = newVal;
-
-        Animated.timing(animatedHeading, {
-          toValue: newVal,
-          duration: 150,
-          easing: Easing.out(Easing.quad),
-          useNativeDriver: true,
-        }).start();
-      });
-    });
+      } catch (_) {
+        // iOS's watchDeviceHeading throws when location permission is denied — and
+        // a user with a manually saved city never needs to grant it. Fall back to
+        // the raw magnetometer: tilt-sensitive and magnetic-north (the pre-fix
+        // behavior), but a working compass beats a "sensor unavailable" screen.
+        try {
+          if (cancelled) return;
+          Magnetometer.setUpdateInterval(100);
+          magSub = Magnetometer.addListener(({ x, y }) => {
+            if (!Number.isFinite(x) || !Number.isFinite(y)) return;
+            let angle = Math.atan2(y, x) * (180 / Math.PI);
+            angle = (90 - angle + 360) % 360;
+            applyHeading(angle);
+          });
+          if (cancelled && magSub) {
+            magSub.remove();
+            magSub = null;
+          }
+        } catch {
+          if (!cancelled) setSensorAvailable(false);
+        }
+      }
+    })();
 
     return () => {
-      if (subscription) subscription.remove();
+      cancelled = true;
+      if (sub) sub.remove();
+      if (magSub) magSub.remove();
     };
   }, []);
 
@@ -341,7 +370,6 @@ export default function QiblaScreen() {
 
           <Pressable
             onPress={handleCalibrate}
-            disabled={calibrating}
             style={({ pressed }) => [{
               flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
@@ -354,11 +382,7 @@ export default function QiblaScreen() {
               borderColor: colors.border,
             }]}
           >
-            {calibrating ? (
-              <ActivityIndicator size="small" color="#C4A35A" />
-            ) : (
-              <MaterialIcons name="explore" size={18} color="#C4A35A" />
-            )}
+            <MaterialIcons name="explore" size={18} color="#C4A35A" />
             <Text style={{ fontSize: 13, fontWeight: "600", color: "#C4A35A" }}>
               {language === "ar" ? "معايرة البوصلة" : language === "nl" ? "Kompas kalibreren" : "Calibrate Compass"}
             </Text>
@@ -371,6 +395,16 @@ export default function QiblaScreen() {
             ? `${getCityAR(savedLocation.city)}، ${getCountryAR(savedLocation.country)}`
             : `${savedLocation.city}, ${savedLocation.country}`}
         </Text>
+
+        {Platform.OS === "android" && headingAccuracy <= 1 && (
+          <Text style={{ fontSize: 12, color: colors.error, textAlign: "center", marginBottom: 10 }}>
+            {language === "ar"
+              ? "دقّة البوصلة منخفضة — اضغط «معايرة البوصلة» وحرّك هاتفك على شكل ٨"
+              : language === "nl"
+              ? "Kompasnauwkeurigheid laag — tik op 'Kompas kalibreren'"
+              : "Compass accuracy is low — tap 'Calibrate Compass'"}
+          </Text>
+        )}
 
         {/* Compass */}
         <View style={{ alignItems: "center", justifyContent: "center", flex: 1 }}>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { resolvePendingRedirect, type PendingRedirectInput } from "../lib/app-gate";
+import { isSetupRoute, resolvePendingRedirect, type PendingRedirectInput } from "../lib/app-gate";
 
 const base: PendingRedirectInput = {
   gateRedirect: null,
@@ -48,5 +48,21 @@ describe("resolvePendingRedirect", () => {
 
   it("does not redirect an unauthenticated user to onboarding or permissions setup", () => {
     expect(resolvePendingRedirect({ ...base, isAuthenticated: false, profileDone: false, permissionsSetupDone: false })).toBeNull();
+  });
+});
+
+describe("isSetupRoute", () => {
+  it("exempts verify-email so a just-registered user reaches it instead of onboarding", () => {
+    expect(isSetupRoute("verify-email")).toBe(true);
+  });
+  it("keeps the pre-existing setup routes exempt", () => {
+    expect(isSetupRoute("onboarding")).toBe(true);
+    expect(isSetupRoute("language-select")).toBe(true);
+    expect(isSetupRoute("permissions-setup")).toBe(true);
+  });
+  it("does not exempt ordinary routes", () => {
+    expect(isSetupRoute("(tabs)")).toBe(false);
+    expect(isSetupRoute("login")).toBe(false);
+    expect(isSetupRoute(undefined)).toBe(false);
   });
 });
