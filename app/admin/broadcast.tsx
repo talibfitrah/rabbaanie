@@ -11,7 +11,7 @@ import { buildSendPayload, type CategoryConfig, type CategoryKey } from "./broad
 
 const ROLE_TARGETS = [
   { key: "user", ar: "المستخدمون" },
-  { key: "parent", ar: "الآباء" },
+  { key: "parent", ar: "أولياء الأمور" },
   { key: "specialist", ar: "المتخصصون" },
   { key: "moderator", ar: "المشرفون" },
   { key: "admin", ar: "المدراء" },
@@ -112,9 +112,12 @@ export default function BroadcastScreen() {
   const [roles, setRoles] = useState<string[]>([]); // empty = everyone
   const [category, setCategory] = useState<CategoryKey | null>(null);
 
-  // ─── Audience targeting: country, city, profile-completeness ───────────
+  // ─── Audience targeting: country, city, gender, profile-completeness ───
   const [selectedCountries, setSelectedCountries] = useState<string[]>([]);
   const [selectedCities, setSelectedCities] = useState<string[]>([]);
+  // Mutually exclusive with itself (one or neither, never both) — same
+  // single-select-via-chipRow pattern as newScheduleCategory below.
+  const [gender, setGender] = useState<"man" | "vrouw" | null>(null);
   const [completeness, setCompleteness] = useState<Record<CompletenessKey, boolean>>({
     incompletePersonal: false,
     incompleteAnalytical: false,
@@ -173,9 +176,10 @@ export default function BroadcastScreen() {
       countries: selectedCountries,
       cities: effectiveCities,
       ...completeness,
+      ...(gender ? { gender } : {}),
       ...(category === "notLinkedSpouse" ? { notLinkedSpouse: true } : {}),
     }),
-    [selectedCountries, effectiveCities, completeness, category],
+    [selectedCountries, effectiveCities, completeness, gender, category],
   );
   const audienceQuery = trpc.admin.broadcastAudience.useQuery(audience);
   const matchedCount = audienceQuery.data?.count ?? 0;
@@ -350,6 +354,14 @@ export default function BroadcastScreen() {
               setSelectedCities(selectedCities.includes(k) ? selectedCities.filter((c) => c !== k) : [...selectedCities, k]),
             )}
           </>
+        )}
+
+        {label("الجنس")}
+        {hint("اختر فئة واحدة — لا شيء يعني الجميع.")}
+        {chipRow(
+          [{ key: "vrouw", label: "الأمهات" }, { key: "man", label: "الآباء" }],
+          gender ? [gender] : [],
+          (k) => setGender(gender === k ? null : (k as "man" | "vrouw")),
         )}
 
         {!category && (

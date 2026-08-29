@@ -323,7 +323,16 @@ export async function updateUserLastActive(userId: number) {
 export async function getAllUsers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).orderBy(desc(users.createdAt));
+  // deleteUser is a soft delete, so without this three of the six callers saw
+  // the deleted account: the admin list, exportUsersCSV (which carries name AND
+  // email) and GET /admin-api/users. The other three (the broadcast paths) were
+  // already covered by matchesAudience's own deletedAt check in
+  // broadcast-audience.ts — filtering here means they stop depending on it.
+  return db
+    .select()
+    .from(users)
+    .where(isNull(users.deletedAt))
+    .orderBy(desc(users.createdAt));
 }
 
 // ============================================================
@@ -894,15 +903,19 @@ export async function getDashboardStats() {
       totalMessages: 0,
       totalConversations: 0,
     };
+  // Same deletedAt filter the admin lists use — without it the dashboard
+  // contradicts the list it links to ("42 users" over a list showing 41).
   const [userCount] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(users);
+    .from(users)
+    .where(isNull(users.deletedAt));
   const [familyCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(families);
   const [childCount] = await db
     .select({ count: sql<number>`count(*)` })
-    .from(children);
+    .from(children)
+    .where(isNull(children.deletedAt));
   const [msgCount] = await db
     .select({ count: sql<number>`count(*)` })
     .from(messages);
@@ -1200,8 +1213,28 @@ export async function getAllFamiliesDetailed() {
     .select()
     .from(families)
     .orderBy(desc(families.createdAt));
-  const allMembers = await db.select().from(familyMembers);
-  const allChildren = await db.select().from(children);
+  // family_members rows survive their user (deleteUser preserves data, same as
+  // parentChildLinks), so memberCount/members counted deleted accounts —
+  // "3 leden" over a user list showing 2. Filtered against the live users read
+  // rather than joined, to keep the row shape the callers below destructure.
+  const liveUserIds = new Set(
+    (
+      await db
+        .select({ id: users.id })
+        .from(users)
+        .where(isNull(users.deletedAt))
+    ).map((u) => u.id),
+  );
+  const allMembers = (await db.select().from(familyMembers)).filter((m) =>
+    liveUserIds.has(m.userId),
+  );
+  // Same soft-delete trap getCoParents was bitten by (it counted removed
+  // children toward "shared children"): without this, childrenCount and
+  // childrenList keep counting children that were deleted.
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   return allFamilies.map((f) => ({
     ...f,
     memberCount: allMembers.filter((m) => m.familyId === f.id).length,
@@ -1215,9 +1248,12 @@ export async function getAllFamiliesDetailed() {
 export async function getAllChildrenDetailed() {
   const db = await getDb();
   if (!db) return [];
+  // deleteChild is a soft delete, so without this the admin children list and
+  // exportChildrenCSV keep showing removed children.
   const allChildren = await db
     .select()
     .from(children)
+    .where(isNull(children.deletedAt))
     .orderBy(desc(children.createdAt));
   const allFamilies = await db.select().from(families);
   return allChildren.map((c) => ({
@@ -1233,7 +1269,7 @@ export async function getAllSpecialists() {
   const specialists = await db
     .select()
     .from(users)
-    .where(eq(users.role, "specialist"));
+    .where(and(eq(users.role, "specialist"), isNull(users.deletedAt)));
   const assignments = await db.select().from(specialistAssignments);
   const plans = await db.select().from(treatmentPlans);
   return specialists.map((s) => ({
@@ -1250,7 +1286,10 @@ export async function getAllSpecialists() {
 export async function getAllTeachers() {
   const db = await getDb();
   if (!db) return [];
-  return db.select().from(users).where(eq(users.role, "teacher"));
+  return db
+    .select()
+    .from(users)
+    .where(and(eq(users.role, "teacher"), isNull(users.deletedAt)));
 }
 
 /** Get all network contacts, optionally filtered by category */
@@ -1483,7 +1522,12 @@ export async function getRegistrationAnalytics(days: number = 30) {
       count: sql<number>`count(*)`,
     })
     .from(users)
-    .where(sql`${users.createdAt} >= ${since}`)
+    // Deliberate: this chart reads "signups still on the platform", not
+    // "signups ever". A past day's bar therefore drops when one of those users
+    // later deletes their account. Chosen for consistency with the erasure rule
+    // the rest of this file follows — a deleted account appears in no admin
+    // surface — over preserving the historical count.
+    .where(and(sql`${users.createdAt} >= ${since}`, isNull(users.deletedAt)))
     .groupBy(sql`DATE(${users.createdAt})`)
     .orderBy(sql`DATE(${users.createdAt})`);
   return results;
@@ -1500,7 +1544,7 @@ export async function getActiveUsersAnalytics(days: number = 30) {
       count: sql<number>`count(*)`,
     })
     .from(users)
-    .where(sql`${users.lastActive} >= ${since}`)
+    .where(and(sql`${users.lastActive} >= ${since}`, isNull(users.deletedAt)))
     .groupBy(sql`DATE(${users.lastActive})`)
     .orderBy(sql`DATE(${users.lastActive})`);
   return results;
@@ -1510,7 +1554,12 @@ export async function getActiveUsersAnalytics(days: number = 30) {
 export async function getChildrenByAgeGroup() {
   const db = await getDb();
   if (!db) return [];
-  const allChildren = await db.select().from(children);
+  // Same filter as getDashboardStats.totalChildren — AnalyticsTab renders both
+  // on one screen, so an unfiltered chart contradicts the tile above it.
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   const ageGroups: Record<string, number> = {
     "0-2": 0,
     "3-5": 0,
@@ -1540,7 +1589,10 @@ export async function getFamiliesBySize() {
   const db = await getDb();
   if (!db) return [];
   const allFamilies = await db.select().from(families);
-  const allChildren = await db.select().from(children);
+  const allChildren = await db
+    .select()
+    .from(children)
+    .where(isNull(children.deletedAt));
   const sizes: Record<string, number> = {
     "1": 0,
     "2": 0,
@@ -2378,7 +2430,13 @@ export async function attachSpecialistUser(
   const userRows = await db
     .select()
     .from(users)
-    .where(eq(users.id, profile.userId));
+    // The root all four discovery paths share (getAvailableSpecialists,
+    // findNearestSpecialist, findSpecialistsByCity, findSpecialistsByCountry).
+    // This returns name AND email to parents, so without the guard a
+    // specialist who deleted their account keeps being handed out — a wider
+    // leak than the fallback path, which is only reached when these come back
+    // empty. Guarded here rather than per-caller for that reason.
+    .where(and(eq(users.id, profile.userId), isNull(users.deletedAt)));
   if (userRows.length === 0) return null;
   const functions = await getFunctions(profile.userId);
   return {
@@ -2510,7 +2568,15 @@ export async function getFallbackPhoneNumbers() {
     const userRows = await db
       .select()
       .from(users)
-      .where(eq(users.id, profile.userId));
+      // Without this, a specialist who deleted their account is still handed
+      // to families by name and phone on the fallback contact path.
+      // NOT the only user-facing one: getLinkedParents, getCoParents,
+      // getFamilyMembers and getUserByPublicId all still resolve soft-deleted
+      // users. Left open on purpose — getLinkedParents doubles as an
+      // authorization check (routers.ts:92/139/188/237), so filtering it can
+      // change which children a LIVE caller reaches, and that needs its own
+      // change with access tests rather than a filter appended here.
+      .where(and(eq(users.id, profile.userId), isNull(users.deletedAt)));
     if (userRows.length > 0) {
       result.push({
         name: profile.displayName || userRows[0].name,
@@ -2564,11 +2630,18 @@ export async function getSpecialistFamilyAnalysis(specialistId: number) {
       .from(familyMembers)
       .where(eq(familyMembers.familyId, assignment.familyId));
 
-    // Get children
+    // Get children — deletedAt guard for the same reason the admin lists carry
+    // one: deleteChild is soft, so a removed child stayed in the analysis a
+    // specialist reads.
     const familyChildren = await db
       .select()
       .from(children)
-      .where(eq(children.familyId, assignment.familyId));
+      .where(
+        and(
+          eq(children.familyId, assignment.familyId),
+          isNull(children.deletedAt),
+        ),
+      );
 
     // Get parent user profiles
     const parentProfiles = [];
@@ -2576,7 +2649,9 @@ export async function getSpecialistFamilyAnalysis(specialistId: number) {
       const userRows = await db
         .select()
         .from(users)
-        .where(eq(users.id, member.userId));
+        // Without this a deleted parent's name, profileData and lastActive are
+        // still handed to the assigned specialist.
+        .where(and(eq(users.id, member.userId), isNull(users.deletedAt)));
       if (userRows.length > 0) {
         parentProfiles.push({
           id: userRows[0].id,
@@ -2639,7 +2714,10 @@ export async function getUserPushToken(userId: number): Promise<string | null> {
   const result = await db
     .select({ pushToken: sql<string>`pushToken` })
     .from(users)
-    .where(eq(users.id, userId))
+    // The targeted half of the same guard broadcastLocalizedPush carries: a
+    // row soft-deleted before deleteUser began clearing pushToken still has
+    // one, and every targeted send resolves its token through here.
+    .where(and(eq(users.id, userId), isNull(users.deletedAt)))
     .limit(1);
   return result.length > 0 ? result[0].pushToken : null;
 }
@@ -2834,10 +2912,15 @@ export async function getRecentMessages(limit: number = 100) {
 export async function deleteUser(userId: number) {
   const db = await getDb();
   if (!db) throw new Error("Database not available");
-  // Soft delete: mark as deleted but preserve data
+  // Soft delete: mark as deleted but preserve data.
+  // pushToken is cleared rather than preserved: nothing that picks push
+  // recipients filters deletedAt — broadcastLocalizedPush selects purely on
+  // `pushToken IS NOT NULL`, getUserPushToken by id alone — so a deleted
+  // account kept receiving every broadcast. Cleared here, at the one place
+  // every push path routes through, rather than in each recipient query.
   await db
     .update(users)
-    .set({ deletedAt: new Date() })
+    .set({ deletedAt: new Date(), pushToken: null })
     .where(eq(users.id, userId));
 }
 
@@ -3307,9 +3390,17 @@ export async function broadcastLocalizedPush(
     })
     .from(users)
     .where(
+      // isNull(deletedAt) as well as the token check: deleteUser clears
+      // pushToken, but only from the moment it ships. Accounts deleted before
+      // that still hold a token, and this is the read path they arrive on, so
+      // the guard cannot depend on delete-time hygiene alone.
       userIds
-        ? and(sql`pushToken IS NOT NULL AND pushToken != ''`, inArray(users.id, userIds))
-        : sql`pushToken IS NOT NULL AND pushToken != ''`,
+        ? and(
+            sql`pushToken IS NOT NULL AND pushToken != ''`,
+            isNull(users.deletedAt),
+            inArray(users.id, userIds),
+          )
+        : and(sql`pushToken IS NOT NULL AND pushToken != ''`, isNull(users.deletedAt)),
     );
 
   let sent = 0;

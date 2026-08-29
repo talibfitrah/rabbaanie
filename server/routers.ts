@@ -910,6 +910,7 @@ const audienceFilterSchema = z.object({
   incompleteAnalytical: z.boolean().optional(),
   incompleteChildren: z.boolean().optional(),
   notLinkedSpouse: z.boolean().optional(),
+  gender: z.enum(["man", "vrouw"]).optional(),
 });
 
 /** Nonempty CSV of weekday numbers 0(Sunday)-6(Saturday), e.g. "0,1,2,3,4,5,6"

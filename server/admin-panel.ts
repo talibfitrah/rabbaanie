@@ -3,7 +3,7 @@ import { sdk } from "./_core/sdk";
 import { COOKIE_NAME } from "../shared/const.js";
 import { getDb } from "./db";
 import { users } from "../drizzle/schema";
-import { eq } from "drizzle-orm";
+import { eq, isNull } from "drizzle-orm";
 
 // ═══════════════════════════════════════════════════════════════════════
 // ROLE HIERARCHY & PERMISSIONS
@@ -325,7 +325,12 @@ export function mountAdminPanel(app: Express) {
         res.json({ results: [] });
         return;
       }
-      const allUsers = await db.select().from(users);
+      // Same guard as every other users read: without it a deleted account is
+      // still findable here, and rendered with its email.
+      const allUsers = await db
+        .select()
+        .from(users)
+        .where(isNull(users.deletedAt));
       const results: Array<{
         type: string;
         id: number;
@@ -385,7 +390,14 @@ export function mountAdminPanel(app: Express) {
           res.json({ success: false, error: "Database niet beschikbaar" });
           return;
         }
-        const allUsers = await db.select().from(users);
+        // This list only feeds the "sent to N devices" count below — the send
+        // itself is notifyOwner, which messages the owner alone. The filter is
+        // here so that count matches the audience a real broadcast now reaches,
+        // not because this handler ever pushed to deleted accounts.
+        const allUsers = await db
+          .select()
+          .from(users)
+          .where(isNull(users.deletedAt));
         const tokens = allUsers
           .filter((u) => u.pushToken)
           .map((u) => u.pushToken!);
