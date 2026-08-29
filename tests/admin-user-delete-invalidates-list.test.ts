@@ -31,13 +31,14 @@ const DELETED_ID = 22710041;
 // neither is observable from the returned element tree.
 const h = vi.hoisted(() => ({
   cache: [] as any[],
-  // The rows as production actually holds them after a delete: db.deleteUser is
-  // a SOFT delete that anonymises the row and stamps deletedAt, so the row still
-  // exists. What keeps it off this list is the deployed API filtering it out of
-  // getAllUsers. serverRows models that DB, serverResponse models that filter —
-  // so invalidate() below is a real refetch, not a no-op. If the server-side
-  // filter is ever dropped, serverResponse is the line that has to change, and
-  // the last assertion here fails rather than the bug shipping silently.
+  // The rows as production holds them after a delete: deleteUser is a SOFT
+  // delete, so the row still exists; what keeps it off this list is the server
+  // filtering it out of getAllUsers. serverRows models that DB and
+  // serverResponse models that filter, which is what makes invalidate() below
+  // behave like a real refetch instead of a no-op. The server-side filter has
+  // its own guard in tests/admin-lists-exclude-soft-deleted.test.ts — asserting
+  // it here too would only exercise this harness, since nothing in production
+  // could fail it.
   serverRows: [] as any[],
   invalidated: [] as string[],
   deleteOpts: undefined as any,
@@ -91,15 +92,16 @@ import AdminUserDetailScreen from "@/app/admin/user";
 describe("admin user deletion — the list must not keep showing the deleted user", () => {
   beforeEach(() => {
     h.cache = [
-      { id: DELETED_ID, name: "Deleted Target", email: "stats.n.free@gmail.com", role: "user" },
-      { id: 22710090, name: "Someone Else", email: "lmhaya@proton.me", role: "user" },
+      { id: DELETED_ID, name: "Deleted Target", email: "deleted-target@example.invalid", role: "user" },
+      { id: 22710090, name: "Someone Else", email: "someone-else@example.invalid", role: "user" },
     ];
-    // Post-delete DB state: the row survives, anonymised and stamped — exactly
-    // what production holds (verified live: email/name/pushToken null,
-    // profileData {}, deletedAt set).
+    // Post-delete DB state: the row survives, anonymised and stamped — the
+    // shape production holds after a delete (email/name/pushToken null,
+    // profileData {}, deletedAt set). Addresses here are synthetic on
+    // purpose: real ones would re-persist in git what the delete erased.
     h.serverRows = [
       { id: DELETED_ID, name: null, email: null, role: "user", deletedAt: "2026-08-28T23:02:54.138Z" },
-      { id: 22710090, name: "Someone Else", email: "lmhaya@proton.me", role: "user", deletedAt: null },
+      { id: 22710090, name: "Someone Else", email: "someone-else@example.invalid", role: "user", deletedAt: null },
     ];
     h.invalidated = [];
     h.deleteOpts = undefined;
@@ -128,17 +130,6 @@ describe("admin user deletion — the list must not keep showing the deleted use
     await h.deleteOpts.onSuccess();
 
     expect(h.invalidated).toContain("admin.users");
-  });
-
-  it("the refetch that invalidation triggers does not bring the deleted user back", async () => {
-    AdminUserDetailScreen();
-    await h.deleteOpts.onSuccess();
-
-    // onSuccess already awaited the invalidate above, so h.cache now holds a
-    // real server response rather than the optimistic write. The deleted user
-    // must still be absent — an optimistic removal that a refetch undoes is
-    // the same bug with a longer fuse.
-    expect(h.cache.map((u) => u.id)).toEqual([22710090]);
   });
 
   it("still navigates back after deleting", async () => {

@@ -2430,7 +2430,13 @@ export async function attachSpecialistUser(
   const userRows = await db
     .select()
     .from(users)
-    .where(eq(users.id, profile.userId));
+    // The root all four discovery paths share (getAvailableSpecialists,
+    // findNearestSpecialist, findSpecialistsByCity, findSpecialistsByCountry).
+    // This returns name AND email to parents, so without the guard a
+    // specialist who deleted their account keeps being handed out — a wider
+    // leak than the fallback path, which is only reached when these come back
+    // empty. Guarded here rather than per-caller for that reason.
+    .where(and(eq(users.id, profile.userId), isNull(users.deletedAt)));
   if (userRows.length === 0) return null;
   const functions = await getFunctions(profile.userId);
   return {
@@ -2619,11 +2625,18 @@ export async function getSpecialistFamilyAnalysis(specialistId: number) {
       .from(familyMembers)
       .where(eq(familyMembers.familyId, assignment.familyId));
 
-    // Get children
+    // Get children — deletedAt guard for the same reason the admin lists carry
+    // one: deleteChild is soft, so a removed child stayed in the analysis a
+    // specialist reads.
     const familyChildren = await db
       .select()
       .from(children)
-      .where(eq(children.familyId, assignment.familyId));
+      .where(
+        and(
+          eq(children.familyId, assignment.familyId),
+          isNull(children.deletedAt),
+        ),
+      );
 
     // Get parent user profiles
     const parentProfiles = [];
@@ -2631,7 +2644,9 @@ export async function getSpecialistFamilyAnalysis(specialistId: number) {
       const userRows = await db
         .select()
         .from(users)
-        .where(eq(users.id, member.userId));
+        // Without this a deleted parent's name, profileData and lastActive are
+        // still handed to the assigned specialist.
+        .where(and(eq(users.id, member.userId), isNull(users.deletedAt)));
       if (userRows.length > 0) {
         parentProfiles.push({
           id: userRows[0].id,

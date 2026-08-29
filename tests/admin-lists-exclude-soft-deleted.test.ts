@@ -64,6 +64,7 @@ import {
   users,
 } from "../drizzle/schema";
 import {
+  attachSpecialistUser,
   getActiveUsersAnalytics,
   getAllChildrenDetailed,
   getAllFamiliesDetailed,
@@ -72,6 +73,7 @@ import {
   getAllUsers,
   getChildrenByAgeGroup,
   getDashboardStats,
+  getDb,
   getFallbackPhoneNumbers,
   getFamiliesBySize,
   getRegistrationAnalytics,
@@ -233,7 +235,20 @@ describe("admin list queries exclude soft-deleted rows", () => {
     expectDeletedAtFilter(users, "getAllFamiliesDetailed (members)");
   });
 
-  // The only user-facing one: a specialist who deleted their account was still
+  // The root the four specialist discovery paths share (getAvailableSpecialists,
+  // findNearestSpecialist, findSpecialistsByCity, findSpecialistsByCountry).
+  // It returns name AND email to parents, so it is a wider leak than the
+  // fallback path below — which is only reached when these come back empty.
+  it("attachSpecialistUser does not resolve soft-deleted specialists", async () => {
+    setRows(users, [{ id: 7, name: "Live Specialist", email: "spec@example.invalid" }]);
+
+    const db = await getDb();
+    await attachSpecialistUser(db!, { userId: 7 }, { getUserFunctions: async () => [] });
+
+    expectDeletedAtFilter(users, "attachSpecialistUser");
+  });
+
+  // The user-facing fallback: a specialist who deleted their account was still
   // handed out by name and phone number on the fallback contact path.
   it("getFallbackPhoneNumbers does not hand out soft-deleted specialists", async () => {
     setRows(specialistProfiles, [
