@@ -32,9 +32,9 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 vi.mock("@/hooks/use-updates", () => ({
-  INSTALLED_VERSION: "1.6.4",
+  INSTALLED_VERSION: "1.6.7",
   CLIENT_VERSION_HEADERS: {
-    "X-App-Version": "1.6.4",
+    "X-App-Version": "1.6.7",
     "X-App-Platform": "ios",
   },
 }));
