@@ -385,9 +385,10 @@ export function mountAdminPanel(app: Express) {
           res.json({ success: false, error: "Database niet beschikbaar" });
           return;
         }
-        // Same deletedAt guard as broadcastLocalizedPush: accounts deleted
-        // before deleteUser started clearing pushToken still hold one, and
-        // this selector reaches them the same way the broadcast did.
+        // This list only feeds the "sent to N devices" count below — the send
+        // itself is notifyOwner, which messages the owner alone. The filter is
+        // here so that count matches the audience a real broadcast now reaches,
+        // not because this handler ever pushed to deleted accounts.
         const allUsers = await db
           .select()
           .from(users)

@@ -1213,7 +1213,21 @@ export async function getAllFamiliesDetailed() {
     .select()
     .from(families)
     .orderBy(desc(families.createdAt));
-  const allMembers = await db.select().from(familyMembers);
+  // family_members rows survive their user (deleteUser preserves data, same as
+  // parentChildLinks), so memberCount/members counted deleted accounts —
+  // "3 leden" over a user list showing 2. Filtered against the live users read
+  // rather than joined, to keep the row shape the callers below destructure.
+  const liveUserIds = new Set(
+    (
+      await db
+        .select({ id: users.id })
+        .from(users)
+        .where(isNull(users.deletedAt))
+    ).map((u) => u.id),
+  );
+  const allMembers = (await db.select().from(familyMembers)).filter((m) =>
+    liveUserIds.has(m.userId),
+  );
   // Same soft-delete trap getCoParents was bitten by (it counted removed
   // children toward "shared children"): without this, childrenCount and
   // childrenList keep counting children that were deleted.
@@ -2548,7 +2562,10 @@ export async function getFallbackPhoneNumbers() {
     const userRows = await db
       .select()
       .from(users)
-      .where(eq(users.id, profile.userId));
+      // The one user-FACING soft-delete leak: without this, a specialist who
+      // deleted their account is still handed to families by name and phone
+      // number on the fallback contact path.
+      .where(and(eq(users.id, profile.userId), isNull(users.deletedAt)));
     if (userRows.length > 0) {
       result.push({
         name: profile.displayName || userRows[0].name,

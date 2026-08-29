@@ -59,6 +59,7 @@ import {
   messages,
   parentAiConsultations,
   specialistAssignments,
+  specialistProfiles,
   treatmentPlans,
   users,
 } from "../drizzle/schema";
@@ -71,6 +72,7 @@ import {
   getAllUsers,
   getChildrenByAgeGroup,
   getDashboardStats,
+  getFallbackPhoneNumbers,
   getFamiliesBySize,
   getRegistrationAnalytics,
 } from "../server/db";
@@ -210,5 +212,36 @@ describe("admin list queries exclude soft-deleted rows", () => {
 
     await expect(getActiveUsersAnalytics(30)).resolves.toBeInstanceOf(Array);
     expectDeletedAtFilter(users, "getActiveUsersAnalytics");
+  });
+
+  // family_members rows are never cleaned up when a user is deleted (same as
+  // parentChildLinks — see deleteUser's "preserve data"), so a family kept
+  // rendering "3 leden" while the user list this panel links to showed 2.
+  it("getAllFamiliesDetailed does not count soft-deleted users as members", async () => {
+    setRows(families, [{ id: 1, name: "Family" }]);
+    setRows(familyMembers, [
+      { familyId: 1, userId: 10 },
+      { familyId: 1, userId: 99 }, // 99 is soft-deleted: absent from the live users read
+    ]);
+    setRows(users, [{ id: 10 }]);
+    setRows(children, []);
+
+    const result = await getAllFamiliesDetailed();
+
+    expect(result[0].memberCount, "the soft-deleted member is still counted").toBe(1);
+    expect(result[0].members.map((m: any) => m.userId)).toEqual([10]);
+    expectDeletedAtFilter(users, "getAllFamiliesDetailed (members)");
+  });
+
+  // The only user-facing one: a specialist who deleted their account was still
+  // handed out by name and phone number on the fallback contact path.
+  it("getFallbackPhoneNumbers does not hand out soft-deleted specialists", async () => {
+    setRows(specialistProfiles, [
+      { userId: 7, displayName: "Ustadh", phone: "+3160000000", isAvailable: true },
+    ]);
+    setRows(users, [{ id: 7, name: "Live Specialist" }]);
+
+    await expect(getFallbackPhoneNumbers()).resolves.toHaveLength(1);
+    expectDeletedAtFilter(users, "getFallbackPhoneNumbers");
   });
 });
