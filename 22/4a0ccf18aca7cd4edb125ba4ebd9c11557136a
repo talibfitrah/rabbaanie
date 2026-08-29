@@ -1,0 +1,113 @@
+lib/i18n.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 3,651-712,768-771,773-776
+app.config.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 355
+tests/i18n-rtl-restart.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-107
+app/verify-email.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-386
+lib/advice-period.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 2-4,113-207
+app/admin/broadcast.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 182-188,401-410,475
+components/daily-duo-row.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-74
+scripts/assert-play-artifact.sh
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 56-112,239
+app/admin/email-settings.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-77
+tests/daily-diagnostic.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 766-807
+components/daily-diagnostic-card.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 40-51,53,55-74,76-79,83,95-101,116-117,120,143,156-157,170-171,173,178,214,244
+lib/daily-checkin-notification.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-96,102-119
+  s_a7e36c601118c0::t_107db1943f29b9 97-101
+server/routers.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1200-1203,1206
+tests/advice-safety.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 454-603
+tests/daily-checkin-notification.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-223
+tests/play-store-compliance.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 738-747
+tests/verification-contract.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-74
+tests/daily-diagnostic-card.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1,21-61,111-187
+lib/app-gate.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 43-59
+vitest.config.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 7-12
+tests/daily-checkin-prefs.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-43
+app/admin/email.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-287
+app/admin/panel.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 47-48,50-51
+server/broadcast-audience.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 75-90,137-138,162-173
+lib/daily-checkin-prefs.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-32
+tests/admin-email-settings-contract.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-173
+lib/notifications.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 645-652
+server/advice.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 2898-2920,2940-2943,2959-2961,2978-2979,3035-3042
+app/qibla.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 8,57,151-153,155-162,177-183,190-209,211-221,224-246,248-270,273-275,385,399-407
+lib/verification.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-43
+package.json
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 3
+tests/daily-cards-day-scoped.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-93
+server/daily-diagnostic.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 555-561
+tests/app-gate.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 2,53-66
+app/(tabs)/notification-settings.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 55-61,156-157,170,387-402,699-711,723
+components/daily-deeds-card.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-248
+lib/advice-period.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 106-132
+tests/notifications.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 204-219
+app/_layout.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 2-8,56,90,108,236,486-494,665,686-689,804-805
+app/register.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 25,154-171
+tests/advice-screen-rtl-parity.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-74
+lib/notification-horizons.ts
+  s_a7e36c601118c0::t_ca7472a6f40eb8 35-42
+  s_a7e36c601118c0::t_4c67bd1f7c79ee 50
+app/(tabs)/personal-advice.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 25,155,192,409,418,631,634,676-684,776,779,851,931,1039,1125-1130,1174,1226,1344,1401
+app/(tabs)/index.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 8,21,84,507,515,529-532,827-830
+app/(tabs)/family.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 3365-3379,3382,3385,3560-3564,3566,3568
+app/details/personal-advice.tsx
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 24,154,190,405,414,702,804-813,909,912,984,1064,1168,1254,1284,1328,1449,1506
+tests/daily-deeds-card.test.ts
+  s_a7e36c601118c0::t_f2b63d45e6ae4a 1-358
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "224a0ccf18aca7cd4edb125ba4ebd9c11557136a",
+  "prompts": {},
+  "sessions": {
+    "s_a7e36c601118c0": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "16ca40a0-1465-4a91-9e39-6d859e2e543a",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

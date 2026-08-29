@@ -1,0 +1,25 @@
+app/admin/broadcast.tsx
+  s_03ea0f0a0cf1f1::t_bc0b982b463098 186-188
+  s_03ea0f0a0cf1f1::t_45ca41d0298f90 475
+scripts/assert-play-artifact.sh
+  s_03ea0f0a0cf1f1::t_ec1cdc04db6599 76-84
+app/qibla.tsx
+  s_03ea0f0a0cf1f1::t_4e7dcbabf68843 8
+  s_03ea0f0a0cf1f1::t_202f5c8a022edd 191,194-209,223,230-252,259
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "79c854183b3d0a434a84134a99c462ac5faa5af9",
+  "prompts": {},
+  "sessions": {
+    "s_03ea0f0a0cf1f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18ddbe90-6e73-4feb-bf34-2e93433c0855",
+        "model": "claude-fable-5"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

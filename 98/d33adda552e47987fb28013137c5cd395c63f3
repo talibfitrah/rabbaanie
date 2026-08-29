@@ -1,0 +1,39 @@
+app/(tabs)/messages.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 709
+  s_1aa5a47f3719a6::t_a947294b04c5a1 710-713,736
+app/network.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 313
+  s_1aa5a47f3719a6::t_a947294b04c5a1 314-317,340
+components/animated-splash.tsx
+  s_1aa5a47f3719a6::t_a947294b04c5a1 2,18-26,96,108
+app/(tabs)/family.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 4251
+  s_1aa5a47f3719a6::t_a947294b04c5a1 4252-4255,4319
+components/prayer-popup-modal.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 254-255
+app/library/index.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 52
+  s_1aa5a47f3719a6::t_959aedfc8f53b5 57-64,67
+app/id-management.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 277
+  s_1aa5a47f3719a6::t_a947294b04c5a1 278-281,304
+app/(tabs)/family-hub.tsx
+  s_1aa5a47f3719a6::t_692a259bf6d069 266
+  s_1aa5a47f3719a6::t_a947294b04c5a1 267-270,293
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "98d33adda552e47987fb28013137c5cd395c63f3",
+  "prompts": {},
+  "sessions": {
+    "s_1aa5a47f3719a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4378c968-6e09-403c-a810-90cd71a3008b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}

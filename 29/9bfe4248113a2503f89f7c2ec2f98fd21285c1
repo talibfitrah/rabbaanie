@@ -1,0 +1,19 @@
+local-docs/FINDINGS-tablet-landscape-deferred.md
+  s_1aa5a47f3719a6::t_852bc6f4b2eb5a 1-100
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "299bfe4248113a2503f89f7c2ec2f98fd21285c1",
+  "prompts": {},
+  "sessions": {
+    "s_1aa5a47f3719a6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4378c968-6e09-403c-a810-90cd71a3008b",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
