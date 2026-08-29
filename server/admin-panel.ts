@@ -325,7 +325,12 @@ export function mountAdminPanel(app: Express) {
         res.json({ results: [] });
         return;
       }
-      const allUsers = await db.select().from(users);
+      // Same guard as every other users read: without it a deleted account is
+      // still findable here, and rendered with its email.
+      const allUsers = await db
+        .select()
+        .from(users)
+        .where(isNull(users.deletedAt));
       const results: Array<{
         type: string;
         id: number;

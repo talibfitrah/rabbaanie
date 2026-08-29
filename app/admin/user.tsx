@@ -47,11 +47,20 @@ export default function AdminUserDetailScreen() {
       (utils.admin.users as any).setData(undefined, (old: any[] | undefined) =>
         (old || []).filter((x) => x.id !== userId),
       );
-      return utils.admin.users.invalidate();
+      // dashboard and families read the same rows and carry the same 5min
+      // staleTime, so invalidating only this list leaves the tile saying "42"
+      // over a list of 41 — the contradiction the server-side filters were
+      // added to remove — for up to five minutes after a delete.
+      return Promise.all([
+        utils.admin.users.invalidate(),
+        utils.admin.dashboard.invalidate(),
+        utils.admin.families.invalidate(),
+      ]);
     },
-    // The server refuses some deletions outright (the owner account, any
-    // super_admin). Without this the throw was swallowed: no alert, no
-    // navigation, row unchanged — indistinguishable from a silent no-op.
+    // The server can refuse a deletion outright — the deployed API rejects the
+    // owner account and any super_admin target, this repo's copy rejects a
+    // caller who is not super_admin. Without this the throw was swallowed: no
+    // alert, no navigation, row unchanged — indistinguishable from a no-op.
     onError: (e: any) =>
       Alert.alert("تعذّر حذف المستخدم", e?.message || "حدث خطأ. حاول مرة أخرى."),
   });

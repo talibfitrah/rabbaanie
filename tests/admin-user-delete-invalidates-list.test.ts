@@ -69,6 +69,10 @@ vi.mock("@/lib/trpc", () => ({
           },
           setData: (_input: unknown, updater: (old: any[]) => any[]) => { h.cache = updater(h.cache); },
         },
+        // dashboard/families read the same rows behind the same staleTime, so
+        // the delete must reconcile them too or the tile contradicts the list.
+        dashboard: { invalidate: async () => { h.invalidated.push("admin.dashboard"); } },
+        families: { invalidate: async () => { h.invalidated.push("admin.families"); } },
       },
     }),
     admin: {
@@ -130,6 +134,9 @@ describe("admin user deletion — the list must not keep showing the deleted use
     await h.deleteOpts.onSuccess();
 
     expect(h.invalidated).toContain("admin.users");
+    // The tile and the list must not disagree after a delete.
+    expect(h.invalidated).toContain("admin.dashboard");
+    expect(h.invalidated).toContain("admin.families");
   });
 
   it("still navigates back after deleting", async () => {
