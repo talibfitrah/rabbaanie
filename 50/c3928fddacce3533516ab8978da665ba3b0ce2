@@ -1,0 +1,26 @@
+tests/admin-lists-exclude-soft-deleted.test.ts
+  s_cc65953c90efbc::t_6552c87b34bfc1 238-251
+  s_cc65953c90efbc::t_c0fa6cc9c63b85 67,76
+server/db.ts
+  s_cc65953c90efbc::t_9e905bd76cc322 2433-2439
+  s_cc65953c90efbc::t_39201e422043c2 2628-2630,2634-2639,2647-2649
+tests/admin-user-delete-invalidates-list.test.ts
+  s_cc65953c90efbc::t_ea0c6f0db30579 34-41
+  s_cc65953c90efbc::t_bd5419bfaa4506 95-96,98-101,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "50c3928fddacce3533516ab8978da665ba3b0ce2",
+  "prompts": {},
+  "sessions": {
+    "s_cc65953c90efbc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac0da596-7326-4563-ab13-0c99ab796c43",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
