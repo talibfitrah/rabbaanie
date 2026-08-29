@@ -1,0 +1,31 @@
+app/register.tsx
+  s_ee64abd695e671::t_46269f57625916 25
+  s_ee64abd695e671::t_174d8efc126285 154-171
+app/verify-email.tsx
+  s_ee64abd695e671::t_7d73e3c23d724b 1-386
+lib/verification.ts
+  s_ee64abd695e671::t_869dc370d620f5 1-43
+tests/verification-contract.test.ts
+  s_ee64abd695e671::t_2cd7af2b0e1595 1-74
+app/_layout.tsx
+  s_ee64abd695e671::t_0717b8160cf8b4 2-8
+  s_ee64abd695e671::t_69ef2b33151931 378-386
+  s_ee64abd695e671::t_8b2d9ea1133a8b 85
+  s_ee64abd695e671::t_90a66d9b15be67 678-679
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6dbdd5fd5b64a74da14109fbc84c0c3d18051bb9",
+  "prompts": {},
+  "sessions": {
+    "s_ee64abd695e671": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1b0e641a-d0f9-4daa-a9e4-6f835b6e56c2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

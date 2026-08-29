@@ -1,0 +1,9 @@
+components/daily-diagnostic-card.tsx
+  ai_agent 5,198-201,204-205
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ba8270d7ab9ddb9c4ae2bf827bf39d681425ca4c",
+  "prompts": {}
+}

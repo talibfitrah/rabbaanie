@@ -1,0 +1,19 @@
+app/qibla.tsx
+  s_03ea0f0a0cf1f1::t_6f05eb4d834a25 233-235
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a9664c936953b3db977e1e17392ccccd61b890c9",
+  "prompts": {},
+  "sessions": {
+    "s_03ea0f0a0cf1f1": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "18ddbe90-6e73-4feb-bf34-2e93433c0855",
+        "model": "claude-fable-5"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

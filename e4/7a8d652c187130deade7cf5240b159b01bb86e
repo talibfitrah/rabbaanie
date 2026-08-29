@@ -1,0 +1,58 @@
+tests/subscription-auth.test.ts
+  s_11b18ed8a37b68::t_28c6cb0a0570bf 143-149,151-155,157-159,171-172
+tests/apple-signin.test.ts
+  s_11b18ed8a37b68::t_9d8480150df6b1 1-253
+scripts/assert-ios-artifact.sh
+  s_11b18ed8a37b68::t_98f4574cf15426 279-290
+lib/play-billing.ts
+  s_11b18ed8a37b68::t_178ec3cd5e022d 65-68,70-82
+  s_11b18ed8a37b68::t_f5b2aae6108573 189
+  s_11b18ed8a37b68::t_41eac36b0d3c9d 474-475
+  s_11b18ed8a37b68::t_b26bd361f94969 616-639
+  s_11b18ed8a37b68::t_506d7d68ab7c40 133-156,164,166,169
+app/login.tsx
+  s_11b18ed8a37b68::t_d4465d3b3232ca 15
+  s_11b18ed8a37b68::t_fb1b7595433323 365-447
+  s_11b18ed8a37b68::t_37aa86683dd7d6 102-103
+  s_11b18ed8a37b68::t_64314e090c77db 57-64
+  s_11b18ed8a37b68::t_ab646a9e85a7a9 862-904
+  s_11b18ed8a37b68::t_fbb34f733bee0e 29
+  s_11b18ed8a37b68::t_5b30f888cc3f39 25-28
+  s_11b18ed8a37b68::t_569410270e7f22 92-94
+tests/apple-store-billing.test.ts
+  s_11b18ed8a37b68::t_2048de04aec84c 1-121
+lib/apple-oauth.ts
+  s_11b18ed8a37b68::t_9dee71795d9bb8 1-120
+server/web-auth.ts
+  s_11b18ed8a37b68::t_2d1e6b30797355 4
+  s_11b18ed8a37b68::t_cb48542a5faaa1 20-28
+  s_11b18ed8a37b68::t_50a3b890a1cd6b 371-389,391-435
+  s_11b18ed8a37b68::t_aeaff16ad97739 390
+app.config.ts
+  s_11b18ed8a37b68::t_8d38d05d579947 739-743
+  s_11b18ed8a37b68::t_3d81d5b3c456a2 932-935
+  s_11b18ed8a37b68::t_8a2c0fd9a210ee 716-722
+app/subscribe.tsx
+  s_11b18ed8a37b68::t_bdd3b57489f7ea 1364-1366
+  s_11b18ed8a37b68::t_1aaa2a4ca02e70 54-57
+  s_11b18ed8a37b68::t_be8b5a326fb3e1 1017-1022
+  s_11b18ed8a37b68::t_4531447592db94 243-252
+  s_11b18ed8a37b68::t_98e739e50133c7 800-835
+  s_11b18ed8a37b68::t_4cea804f294b8d 1565-1575
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e47a8d652c187130deade7cf5240b159b01bb86e",
+  "prompts": {},
+  "sessions": {
+    "s_11b18ed8a37b68": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1a6ce5df-cfa0-44c1-a217-58b053adf56e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
