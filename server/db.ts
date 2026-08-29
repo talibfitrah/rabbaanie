@@ -2568,9 +2568,14 @@ export async function getFallbackPhoneNumbers() {
     const userRows = await db
       .select()
       .from(users)
-      // The one user-FACING soft-delete leak: without this, a specialist who
-      // deleted their account is still handed to families by name and phone
-      // number on the fallback contact path.
+      // Without this, a specialist who deleted their account is still handed
+      // to families by name and phone on the fallback contact path.
+      // NOT the only user-facing one: getLinkedParents, getCoParents,
+      // getFamilyMembers and getUserByPublicId all still resolve soft-deleted
+      // users. Left open on purpose — getLinkedParents doubles as an
+      // authorization check (routers.ts:92/139/188/237), so filtering it can
+      // change which children a LIVE caller reaches, and that needs its own
+      // change with access tests rather than a filter appended here.
       .where(and(eq(users.id, profile.userId), isNull(users.deletedAt)));
     if (userRows.length > 0) {
       result.push({
