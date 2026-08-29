@@ -43,6 +43,9 @@ export type AudienceFilter = {
    *  matching broadcast template is gendered, and guessing would risk
    *  addressing a recipient with the wrong-sex wording. */
   notLinkedSpouse?: boolean;
+  /** Restricts to one gender, using recipientGender's own "man" | "vrouw"
+   *  values below so the two can never drift apart. Omitted = both. */
+  gender?: "man" | "vrouw";
 };
 
 type PlainChild = { name?: unknown; profileCompleted?: unknown };
@@ -146,6 +149,13 @@ export function attachLinkedSpouse<T extends AudienceUser>(
 
 export function matchesAudience(u: AudienceUser, filter: AudienceFilter): boolean {
   if (u.deletedAt) return false;
+  // No emailVerifiedAt filter here, deliberately. Every consumer of
+  // selectAudience ends in FCM push, where sender reputation does not exist —
+  // and the four category filters below exist to nudge users whose profile is
+  // incomplete, which is overwhelmingly the newest, least-verified accounts.
+  // Filtering them out silently emptied the campaigns aimed at them. The
+  // reputation argument belongs to bulk mail and now lives on the one path
+  // that sends it, server/article-email.ts's digest recipient query.
   const p = parentProfileOf(u) as any;
   if (filter.countries && filter.countries.length > 0 && !filter.countries.includes(p.country)) return false;
   if (filter.cities && filter.cities.length > 0 && !filter.cities.includes(p.city)) return false;
@@ -153,6 +163,7 @@ export function matchesAudience(u: AudienceUser, filter: AudienceFilter): boolea
   if (filter.incompleteAnalytical && !analyticalProfileIncomplete(u)) return false;
   if (filter.incompleteChildren && incompleteChildNames(u).length === 0) return false;
   if (filter.notLinkedSpouse && !spouseNotLinked(u)) return false;
+  if (filter.gender && recipientGender(u) !== filter.gender) return false;
   return true;
 }
 
