@@ -1,0 +1,23 @@
+server/admin-panel.ts
+  s_cc65953c90efbc::t_f46da759983e98 328-333
+tests/admin-user-delete-invalidates-list.test.ts
+  s_cc65953c90efbc::t_95f9e7cb3140c1 72-75,137-139
+app/admin/user.tsx
+  s_cc65953c90efbc::t_e38617ae352239 50-58,60-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.6.20",
+  "base_commit_sha": "2998387e6b89ba60c92f4ea1d2d88dcf295dea48",
+  "prompts": {},
+  "sessions": {
+    "s_cc65953c90efbc": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "ac0da596-7326-4563-ab13-0c99ab796c43",
+        "model": "claude-opus-5"
+      },
+      "human_author": "Farouq Abou Umar <info@fitrahmedia.nl>"
+    }
+  }
+}
