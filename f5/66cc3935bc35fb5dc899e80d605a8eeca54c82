@@ -1,0 +1,23 @@
+package.json
+  s_11b18ed8a37b68::t_c1e8ee74d3e7b1 3
+app.config.ts
+  s_11b18ed8a37b68::t_317eeda5848394 355
+tests/apple-signin.test.ts
+  s_11b18ed8a37b68::t_cde3a6ea92379a 35,37
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f566cc3935bc35fb5dc899e80d605a8eeca54c82",
+  "prompts": {},
+  "sessions": {
+    "s_11b18ed8a37b68": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1a6ce5df-cfa0-44c1-a217-58b053adf56e",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
