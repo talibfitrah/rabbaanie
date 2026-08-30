@@ -11,7 +11,6 @@ import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
-import { DONATE_URL } from "@/constants/donate";
 import { SUPPORT_WHATSAPP } from "@/constants/support";
 import { useRemoteConfig } from "@/hooks/use-remote-config";
 import { withTimeout } from "@/lib/location-utils";
@@ -1552,12 +1551,7 @@ export default function SettingsScreen() {
                 return;
               }
               if (row.key === "donate") {
-                const donateUrl = remoteCfg.donateUrl || DONATE_URL;
-                if (donateUrl) Linking.openURL(donateUrl);
-                else Alert.alert(
-                  language === "ar" ? "تصدّق" : isEn ? "Give Sadaqah" : "Doneer (Sadaqah)",
-                  language === "ar" ? "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله." : isEn ? "The donation (Sadaqah) option will be available soon, in shaa Allaah." : "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.",
-                );
+                router.push("/donate" as any);
               } else if (row.key === "whatsapp") {
                 const wa = remoteCfg.supportWhatsapp || SUPPORT_WHATSAPP;
                 const ctx = language === "ar" ? "السلام عليكم، أحتاج مساعدةً تقنيّةً في تطبيق ربّانيّ" : isEn ? "As-salaamu 3alaykum, I need technical help with the Rabbaanie app" : "As-salaamu 3alaykum, ik heb technische hulp nodig bij de Rabbaanie-app";

@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useMemo, useCallback } from "react";
-import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet, Linking, Alert } from "react-native";
-import { DONATE_URL } from "@/constants/donate";
-import { useRemoteConfig } from "@/hooks/use-remote-config";
+import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity, Image, LayoutAnimation, Platform, UIManager, StyleSheet } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
@@ -84,7 +82,6 @@ export default function AlgemeenScreen() {
   const { state, loading, rehydrateFromServer } = useAppState();
   const { t, language, isRTL, languageSelected } = useI18n();
   const lang = language as Lang;
-  const remoteCfg = useRemoteConfig();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
   const [weather, setWeather] = useState<import("@/lib/weather").WeatherNow | null>(null);
@@ -397,14 +394,7 @@ export default function AlgemeenScreen() {
           </Pressable>
           {/* صدقة — الرئيسية، بجانب زر الطفل (msg 577) */}
           <Pressable
-            onPress={() => {
-              const donateUrl = remoteCfg.donateUrl || DONATE_URL;
-              if (donateUrl) Linking.openURL(donateUrl);
-              else Alert.alert(
-                tx(lang, "Doneer (Sadaqah)", "Give Sadaqah", "تصدّق"),
-                tx(lang, "De doneermogelijkheid (Sadaqah) komt binnenkort, in shaa Allaah.", "The donation (Sadaqah) option will be available soon, in shaa Allaah.", "طريقةُ التصدّق ستتوفّر قريبًا إن شاء الله."),
-              );
-            }}
+            onPress={() => router.push("/donate" as any)}
             style={({ pressed }) => [s.settingsBtn, { backgroundColor: "#2E7D32" }, pressed && { opacity: 0.6 }]}
           >
             <MaterialIcons name="volunteer-activism" size={20} color="#fff" />
