@@ -14,6 +14,7 @@ import { MySqlDialect } from "drizzle-orm/mysql-core";
  */
 
 let capturedWhere: unknown;
+let capturedSenderWhere: unknown;
 let partnershipRows: any[] = [];
 let senderRows: any[] = [];
 
@@ -26,6 +27,7 @@ vi.mock("drizzle-orm/mysql2", () => ({
             capturedWhere = w;
             return partnershipRows;
           }
+          capturedSenderWhere = w;
           return senderRows;
         },
       }),
@@ -40,6 +42,7 @@ process.env.DATABASE_URL = "mysql://incoming-link-requests-test-only/db";
 
 beforeEach(() => {
   capturedWhere = undefined;
+  capturedSenderWhere = undefined;
   partnershipRows = [];
   senderRows = [];
 });
@@ -63,15 +66,19 @@ describe("getIncomingLinkRequests", () => {
     expect(out).toEqual([]);
   });
 
-  it("still maps a request whose sender row is missing (no crash, null identity)", async () => {
+  it("drops a request whose sender is not a live user (soft-deleted or orphaned) — never a phantom", async () => {
+    // A sender absent from the (deletedAt-filtered) users query is either a
+    // soft-deleted account or a genuinely orphaned FK. Neither is an acceptable
+    // partner: surfacing an Accept button for it would let the recipient confirm
+    // a partnership with a deleted/nonexistent user that nothing can dissolve
+    // (getPartnersOfUser hides deleted partners) and that permanently trips the
+    // one-husband constraint. So it must be dropped, not shown with null identity.
     partnershipRows = [{ id: 8, initiatedBy: 200, userId1: 42, userId2: 200, status: "pending", confirmed: false, createdAt: null }];
-    senderRows = []; // sender not found
+    senderRows = []; // sender not a live user
 
     const out = await getIncomingLinkRequests(42);
 
-    expect(out).toEqual([
-      { partnershipId: 8, senderId: 200, senderName: null, senderPublicId: null, createdAt: null },
-    ]);
+    expect(out).toEqual([]);
   });
 
   it("scopes the query to inbound-only: binds me as recipient and excludes rows I initiated", async () => {
@@ -90,5 +97,37 @@ describe("getIncomingLinkRequests", () => {
     // query compiles to identical SQL.
     expect(compiled.params, "the WHERE does not bind the requesting user id").toContain(42);
     expect(compiled.params, "the WHERE is not restricted to pending requests").toContain("pending");
+    // Those token checks are necessary but NOT sufficient: 42 binds three times
+    // (userId1, userId2, and the != comparand) and "!=" survives even if the
+    // party-membership OR-clause is deleted, so a `toContain` check still passes
+    // on a query that would leak every row or drop every user's requests. Lock
+    // the STRUCTURE of the "(userId1 = ? or userId2 = ?)" membership clause, and
+    // that all three bindings of the recipient id are present.
+    expect(compiled.sql, "party-membership OR-clause missing or malformed").toMatch(
+      /userId1.*=.*\bor\b.*userId2.*=/i,
+    );
+    expect(
+      compiled.params.filter((p) => p === 42).length,
+      "recipient id must bind 3x: userId1, userId2, and the not-initiator comparand",
+    ).toBe(3);
+  });
+
+  it("does not hand out a soft-deleted sender's identity: the senders query excludes deletedAt", async () => {
+    partnershipRows = [{ id: 7, initiatedBy: 100, userId1: 100, userId2: 42, status: "pending", confirmed: false, createdAt: null }];
+    senderRows = [{ id: 100, name: "X", publicId: "Y" }];
+
+    await getIncomingLinkRequests(42);
+
+    // Soft-delete in this codebase stamps deletedAt only — name and publicId are
+    // preserved (server/db.ts) — so a request from an account that later deletes
+    // would otherwise leak that account's real identity to the recipient. This
+    // is the exact leak class fixed at every other user-identity hand-out site
+    // (commits 53f38ec / 50c3928 / 2998387: `isNull(users.deletedAt)`). Assert
+    // the guard is in the compiled predicate, not merely that the mock returned
+    // a clean row.
+    expect(capturedSenderWhere, "senders query ran with no WHERE at all").toBeTruthy();
+    const compiled = new MySqlDialect().sqlToQuery(capturedSenderWhere as any);
+    expect(compiled.sql.toLowerCase(), "senders query does not filter soft-deleted users").toContain("is null");
+    expect(compiled.sql, "the deletedAt column is not the one being null-checked").toContain("deletedAt");
   });
 });

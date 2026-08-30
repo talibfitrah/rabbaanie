@@ -1861,11 +1861,16 @@ export async function setUserBirthDateAndGenerateId(
 export async function getUserByPublicId(publicId: string) {
   const db = await getDb();
   if (!db) return undefined;
-  // First try exact match
+  // First try exact match. Every branch below carries isNull(users.deletedAt):
+  // soft-delete preserves publicId, and this resolver feeds lookupUser (QR +
+  // add-person) and linkPartnerByPublicId, so without it a scanned/typed deleted
+  // account still resolves and can be linked as a live partner. Neither caller
+  // is an authorization gate (that is getLinkedParents, left unfiltered), so
+  // filtering here only stops resolving/linking to dead accounts.
   let result = await db
     .select()
     .from(users)
-    .where(eq(users.publicId, publicId))
+    .where(and(eq(users.publicId, publicId), isNull(users.deletedAt)))
     .limit(1);
   if (result.length > 0) return result[0];
   // Try case-insensitive match (UPPER comparison)
@@ -1873,7 +1878,7 @@ export async function getUserByPublicId(publicId: string) {
   result = await db
     .select()
     .from(users)
-    .where(sql`UPPER(${users.publicId}) = ${upper}`)
+    .where(and(sql`UPPER(${users.publicId}) = ${upper}`, isNull(users.deletedAt)))
     .limit(1);
   if (result.length > 0) return result[0];
   // Try matching by birthdate and userId parts only (skip the day abbreviation)
@@ -1886,7 +1891,12 @@ export async function getUserByPublicId(publicId: string) {
     result = await db
       .select()
       .from(users)
-      .where(sql`${users.publicId} LIKE ${datePart + "_%_" + seqPart}`)
+      .where(
+        and(
+          sql`${users.publicId} LIKE ${datePart + "_%_" + seqPart}`,
+          isNull(users.deletedAt),
+        ),
+      )
       .limit(1);
     if (result.length > 0) return result[0];
   }
@@ -1896,7 +1906,7 @@ export async function getUserByPublicId(publicId: string) {
     result = await db
       .select()
       .from(users)
-      .where(sql`UPPER(${users.publicId}) = ${cleaned}`)
+      .where(and(sql`UPPER(${users.publicId}) = ${cleaned}`, isNull(users.deletedAt)))
       .limit(1);
     if (result.length > 0) return result[0];
   }
@@ -2309,10 +2319,17 @@ export async function getCoParents(userId: number) {
     .select()
     .from(users)
     .where(
+      // deletedAt guard, same as this function's own children query below:
+      // soft-delete preserves name/publicId, so without it a co-parent who
+      // deleted their account is still surfaced by name/publicId in the
+      // recipient's co-parent list. Safe to filter here — the sole caller
+      // (linksRouter.coParents) is a self-scoped display query, not an
+      // authorization gate (that role belongs to getLinkedParents, which is
+      // deliberately left unfiltered; see the note on getFallbackPhoneNumbers).
       sql`${users.id} IN (${sql.join(
         otherParentIds.map((id) => sql`${id}`),
         sql`, `,
-      )})`,
+      )}) AND ${users.deletedAt} IS NULL`,
     );
 
   // Get child details for shared children
@@ -4353,21 +4370,38 @@ export async function getIncomingLinkRequests(recipientId: number) {
     .select()
     .from(users)
     .where(
+      // deletedAt guard, same as every other user-identity hand-out in this
+      // file: soft-delete stamps deletedAt but preserves name/publicId, so a
+      // sender who deleted their account after requesting would otherwise have
+      // their real identity surfaced to the recipient here. A filtered-out
+      // sender is then absent from byId below and the request is dropped, not
+      // shown — see the flatMap.
       sql`${users.id} IN (${sql.join(
         senderIds.map((id) => sql`${id}`),
         sql`, `,
-      )})`,
+      )}) AND ${users.deletedAt} IS NULL`,
     );
   const byId = new Map(senders.map((s) => [s.id, s]));
-  return rows.map((r) => {
+  // Only surface a request whose sender is a live user. A soft-deleted sender is
+  // filtered out by the deletedAt guard above; a genuinely orphaned sender row
+  // is absent too. Either way there is no acceptable partner behind the request,
+  // and offering an Accept button for it would let the recipient confirm a
+  // partnership with a deleted/nonexistent account — which nothing can later
+  // dissolve (getPartnersOfUser hides deleted partners, so no partnershipId ever
+  // reaches the client) and which permanently trips the one-woman-one-husband
+  // constraint. So drop the phantom rather than show it.
+  return rows.flatMap((r) => {
     const s = byId.get(r.initiatedBy);
-    return {
-      partnershipId: r.id,
-      senderId: r.initiatedBy,
-      senderName: s?.name ?? null,
-      senderPublicId: s?.publicId ?? null,
-      createdAt: r.createdAt,
-    };
+    if (!s) return [];
+    return [
+      {
+        partnershipId: r.id,
+        senderId: r.initiatedBy,
+        senderName: s.name ?? null,
+        senderPublicId: s.publicId ?? null,
+        createdAt: r.createdAt,
+      },
+    ];
   });
 }
 
