@@ -1,0 +1,20 @@
+app.config.ts
+  s_fbf298998c683a::t_98fb131f8b79da 852-853
+  s_fbf298998c683a::t_8697bf0e27460a 792-794
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c41407b81f3cd22a1d0318605ff66258de7b585d",
+  "prompts": {},
+  "sessions": {
+    "s_fbf298998c683a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "069d6c11-2a36-4811-a00f-2c1e439d687d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
