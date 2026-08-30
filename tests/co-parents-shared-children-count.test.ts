@@ -113,3 +113,30 @@ describe("getCoParents excludes soft-deleted children from the shared-children c
     expect(linkCalls).toHaveLength(2);
   });
 });
+
+describe("getCoParents excludes soft-deleted co-parents from the co-parent list (identity)", () => {
+  it("sends a users query that filters deletedAt IS NULL — a co-parent who deleted their account is not surfaced by name/publicId", async () => {
+    // Soft-delete preserves name/publicId; the parentList (users) query resolves
+    // co-parent identity for display. Without the guard a deleted co-parent's
+    // real name/publicId still appears in the recipient's co-parent list — the
+    // same leak class fixed at the other user-identity hand-out sites. Assert the
+    // compiled predicate carries the guard, not a mocked row shape. The children
+    // query already filtered deletedAt (item 4); this is its users-table sibling.
+    setRows(partnerships, []);
+    setRows(
+      parentChildLinks,
+      [{ parentId: HUSBAND, childId: 1, confirmed: true }],
+      [{ parentId: WIFE, childId: 1, confirmed: true }],
+    );
+    setRows(users, [{ id: WIFE, name: "Wife", role: "parent" }]);
+    setRows(children, [{ id: 1, name: "Kid", publicId: "K1" }]);
+
+    await getCoParents(HUSBAND);
+
+    const userCall = captured.find((c) => c.table === users);
+    expect(userCall, "getCoParents never queried the users table").toBeTruthy();
+    const text = compiledSql(userCall!.where);
+    expect(text).toContain("deletedAt");
+    expect(text).toMatch(/IS NULL/);
+  });
+});
