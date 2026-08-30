@@ -8,12 +8,17 @@ import { useRouter } from "expo-router";
 
 /**
  * QR Scanner Screen
- * Scans QR codes containing child public IDs (KXXXX-YYYYMMDD)
- * and links the child to the current user.
+ * Scans a QR code holding a person's public ID and links them. The ID's shape
+ * is NOT parsed here: user public IDs come in several live formats (RB-NNNN,
+ * legacy U-…, and YYYYMMDD_XX_NNN), and children reuse the YYYYMMDD_XX_NNN
+ * shape too, so a regex/age guess misroutes real accounts. Instead the server
+ * resolves it — a hit in lookupUser means an adult (partner), a miss means it
+ * is not a user, so we try it as a child ID.
  */
 export default function QrScannerScreen() {
   const colors = useColors();
   const router = useRouter();
+  const utils = trpc.useUtils();
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -36,33 +41,28 @@ export default function QrScannerScreen() {
     },
   });
 
-  const handleBarcode = ({ data }: BarcodeScanningResult) => {
+  const handleBarcode = async ({ data }: BarcodeScanningResult) => {
     if (scanned) return;
     setScanned(true);
 
     const trimmed = data.trim();
-    // ID format: YYYYMMDD_XX_NNN (e.g. 19850315_MA_001, 20180622_VR_012)
-    // XX = 2-letter Dutch day abbreviation (ZO, MA, DI, WO, DO, VR, ZA)
-    // NNN = sequence number (can be more than 3 digits)
-    const idMatch = trimmed.match(/^(\d{8})_([A-Z]{2})_(\d+)$/);
-    if (idMatch) {
-      const birthYear = parseInt(idMatch[1].substring(0, 4));
-      const currentYear = new Date().getFullYear();
-      const age = currentYear - birthYear;
-      // If birth year suggests an adult (>= 16 years old), treat as partner
-      // Otherwise treat as child
-      if (age >= 16) {
+    if (!trimmed || trimmed === "empty") {
+      setResult(`Ongeldig ID: "${trimmed}"\nInvalid ID\n\u0645\u0639\u0631\u0651\u0641 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d`);
+      return;
+    }
+
+    // Resolve by lookup, not by format. lookupUser -> getUserByPublicId already
+    // matches every live user format; a hit is an adult (partner), a miss means
+    // it is not a user account, so treat it as a child public ID.
+    try {
+      const user = await utils.links.lookupUser.fetch({ publicId: trimmed });
+      if (user) {
         linkPartner.mutate({ partnerPublicId: trimmed, relationship: "partner" });
       } else {
         linkChild.mutate({ childPublicId: trimmed, relationship: "parent" });
       }
-    // Legacy formats
-    } else if (trimmed.match(/^K\d{4}-\d{8}$/)) {
-      linkChild.mutate({ childPublicId: trimmed, relationship: "parent" });
-    } else if (trimmed.match(/^U\d+-\d{8}$/)) {
-      linkPartner.mutate({ partnerPublicId: trimmed, relationship: "partner" });
-    } else {
-      setResult(`Ongeldig ID: "${trimmed}"\nInvalid ID\n\u0645\u0639\u0631\u0651\u0641 \u063a\u064a\u0631 \u0635\u0627\u0644\u062d`);
+    } catch (e: any) {
+      setResult(`Fout / Error: ${e?.message || "lookup"}`);
     }
   };
 

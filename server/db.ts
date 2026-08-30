@@ -4322,6 +4322,55 @@ export async function getPendingPartnershipFromSender(
   return partnership;
 }
 
+/** Every pending partner-link request awaiting THIS user's confirmation: rows a
+ * different party initiated (initiatedBy != me) that are still pending, with the
+ * sender's identity for display. This is the surface the recipient had none of —
+ * getCoParents deliberately excludes unconfirmed rows and directMessages is gated
+ * on a confirmed co-parent, so without this a request could be sent (and push a
+ * notification) yet never be reachable to accept. Accept via confirmLink, reject
+ * via removeLink (both keyed by senderId). Two-step sender fetch to match
+ * getCoParents' idiom (no joins). */
+export async function getIncomingLinkRequests(recipientId: number) {
+  const db = await getDb();
+  if (!db) return [];
+  const rows = await db
+    .select()
+    .from(partnerships)
+    .where(
+      and(
+        or(
+          eq(partnerships.userId1, recipientId),
+          eq(partnerships.userId2, recipientId),
+        ),
+        sql`${partnerships.initiatedBy} != ${recipientId}`,
+        eq(partnerships.status, "pending"),
+        eq(partnerships.confirmed, false),
+      ),
+    );
+  if (rows.length === 0) return [];
+  const senderIds = Array.from(new Set(rows.map((r) => r.initiatedBy)));
+  const senders = await db
+    .select()
+    .from(users)
+    .where(
+      sql`${users.id} IN (${sql.join(
+        senderIds.map((id) => sql`${id}`),
+        sql`, `,
+      )})`,
+    );
+  const byId = new Map(senders.map((s) => [s.id, s]));
+  return rows.map((r) => {
+    const s = byId.get(r.initiatedBy);
+    return {
+      partnershipId: r.id,
+      senderId: r.initiatedBy,
+      senderName: s?.name ?? null,
+      senderPublicId: s?.publicId ?? null,
+      createdAt: r.createdAt,
+    };
+  });
+}
+
 export async function confirmPartnershipRequest(
   partnershipId: number,
   recipientId: number,

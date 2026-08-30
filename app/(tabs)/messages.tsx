@@ -956,6 +956,16 @@ function ParentsSection({
   linkResult, linkError, router, t,
 }: any) {
   const [showInvite, setShowInvite] = useState(false);
+  // Incoming partner-link requests awaiting my confirmation. This is the surface
+  // that was missing: an unconfirmed request never shows in coParents and its
+  // DM thread is gated, so without this the recipient got a notification but had
+  // nowhere to accept it.
+  const incomingRequestsQuery = trpc.links.incomingLinkRequests.useQuery(undefined, {
+    enabled: isAuthenticated,
+    refetchOnMount: "always",
+    staleTime: 0,
+  });
+  const incomingRequests = incomingRequestsQuery.data ?? [];
   // Sort children by birth date (oldest first)
   const sortedChildren = [...(localChildren || [])].sort((a: any, b: any) => {
     if (!a.birthDate) return 1;
@@ -965,6 +975,29 @@ function ParentsSection({
 
   return (
     <View style={{ gap: 16 }}>
+      {/* === INCOMING LINK REQUESTS === */}
+      {incomingRequests.length > 0 && (
+        <View style={{ gap: 8 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary, textAlign: isRTL ? "right" : "left", textTransform: "uppercase", letterSpacing: 1 }}>
+            {tx(lang, "Koppelverzoeken", "Link requests", "طلبات الربط")}
+          </Text>
+          {incomingRequests.map((r: any) => (
+            <View key={r.partnershipId} style={{ backgroundColor: colors.primary + "10", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.primary + "30", gap: 10 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                <MaterialIcons name="person-add" size={18} color={colors.primary} />
+                <Text style={{ flex: 1, fontSize: 13, color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+                  {tx(lang,
+                    `${r.senderName || "Iemand"} wil met u koppelen. Uw gegevens worden pas na bevestiging gedeeld.`,
+                    `${r.senderName || "Someone"} wants to link with you. No data is shared until you confirm.`,
+                    `${r.senderName || "أحدهم"} يريد الارتباط بك. لن تتم مشاركة بياناتك إلا بعد التأكيد.`)}
+                </Text>
+              </View>
+              <LinkRequestActions item={{ senderId: r.senderId }} colors={colors} lang={lang} />
+            </View>
+          ))}
+        </View>
+      )}
+
       {/* === SPOUSE SECTION === */}
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, textAlign: isRTL ? "right" : "left", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
@@ -1495,10 +1528,19 @@ function ContactsSection({
 function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; lang: string }) {
   const [handled, setHandled] = useState(false);
   const [action, setAction] = useState<"accepted" | "rejected" | null>(null);
+  const utils = trpc.useUtils();
+  // A resolved request must leave the incoming list, and an accepted one turns
+  // the sender into a co-parent, so refresh both surfaces.
+  const refreshLinkSurfaces = () => {
+    utils.links.incomingLinkRequests.invalidate();
+    utils.links.coParents.invalidate();
+    utils.links.listPartners.invalidate();
+  };
   const confirmMutation = trpc.links.confirmLink.useMutation({
     onSuccess: (res: any) => {
       setHandled(true);
       setAction("accepted");
+      refreshLinkSurfaces();
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       // The child links succeeded, but the partnership half was refused. The
       // server reports that rather than throwing, precisely so this outcome is
@@ -1533,6 +1575,7 @@ function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; la
     onSuccess: () => {
       setHandled(true);
       setAction("rejected");
+      refreshLinkSurfaces();
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning);
     },
   });

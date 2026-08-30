@@ -2549,6 +2549,12 @@ export const linksRouter = router({
   coParents: protectedProcedure.query(async ({ ctx }) => {
     return db.getCoParents(ctx.user.id);
   }),
+  /** Pending partner-link requests awaiting my confirmation. The recipient's
+   * only reachable surface for an incoming request — accept via confirmLink,
+   * reject via removeLink (both keyed by senderId). */
+  incomingLinkRequests: protectedProcedure.query(async ({ ctx }) => {
+    return db.getIncomingLinkRequests(ctx.user.id);
+  }),
   /** Link partner by their public ID (U-format) - shares all children with the other parent */
   linkPartnerByPublicId: protectedProcedure
     .input(
