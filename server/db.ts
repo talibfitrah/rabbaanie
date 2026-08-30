@@ -4353,21 +4353,38 @@ export async function getIncomingLinkRequests(recipientId: number) {
     .select()
     .from(users)
     .where(
+      // deletedAt guard, same as every other user-identity hand-out in this
+      // file: soft-delete stamps deletedAt but preserves name/publicId, so a
+      // sender who deleted their account after requesting would otherwise have
+      // their real identity surfaced to the recipient here. A filtered-out
+      // sender is then absent from byId below and the request is dropped, not
+      // shown — see the flatMap.
       sql`${users.id} IN (${sql.join(
         senderIds.map((id) => sql`${id}`),
         sql`, `,
-      )})`,
+      )}) AND ${users.deletedAt} IS NULL`,
     );
   const byId = new Map(senders.map((s) => [s.id, s]));
-  return rows.map((r) => {
+  // Only surface a request whose sender is a live user. A soft-deleted sender is
+  // filtered out by the deletedAt guard above; a genuinely orphaned sender row
+  // is absent too. Either way there is no acceptable partner behind the request,
+  // and offering an Accept button for it would let the recipient confirm a
+  // partnership with a deleted/nonexistent account — which nothing can later
+  // dissolve (getPartnersOfUser hides deleted partners, so no partnershipId ever
+  // reaches the client) and which permanently trips the one-woman-one-husband
+  // constraint. So drop the phantom rather than show it.
+  return rows.flatMap((r) => {
     const s = byId.get(r.initiatedBy);
-    return {
-      partnershipId: r.id,
-      senderId: r.initiatedBy,
-      senderName: s?.name ?? null,
-      senderPublicId: s?.publicId ?? null,
-      createdAt: r.createdAt,
-    };
+    if (!s) return [];
+    return [
+      {
+        partnershipId: r.id,
+        senderId: r.initiatedBy,
+        senderName: s.name ?? null,
+        senderPublicId: s.publicId ?? null,
+        createdAt: r.createdAt,
+      },
+    ];
   });
 }
 
