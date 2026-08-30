@@ -789,8 +789,9 @@ const config: ExpoConfig = {
     //
     // Tracking is false and the domain list is empty because the app carries no
     // analytics, ads or attribution SDK of any kind, and nothing reads the IDFA.
-    // PurchaseHistory is absent because iOS has no purchase path yet — it MUST
-    // be added in the same change that lands StoreKit.
+    // PurchaseHistory is declared now that StoreKit has landed (expo-iap, armed
+    // in lib/play-billing.ts and app/subscribe.tsx): the app has a live purchase
+    // path, so purchases are collected under Apple's definition.
     privacyManifests: {
       NSPrivacyTracking: false,
       NSPrivacyTrackingDomains: [],
@@ -848,6 +849,8 @@ const config: ExpoConfig = {
         // on the nutrition label and removes a compliance trap wired to a
         // change we would not see.
         "NSPrivacyCollectedDataTypeProductInteraction",
+        // In-app subscription purchases via StoreKit (expo-iap).
+        "NSPrivacyCollectedDataTypePurchaseHistory",
         // Marital status and gender.
         "NSPrivacyCollectedDataTypeOtherDataTypes",
       ].map((type) => ({
