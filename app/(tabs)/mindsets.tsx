@@ -199,7 +199,7 @@ export default function MindsetsScreen() {
             {/* Arabic description - only show separately when not already in Arabic mode */}
             {lang !== "ar" && (
             <View style={{ backgroundColor: colors.background, borderRadius: 8, padding: 10 }}>
-              <Text style={{ fontSize: 14, color: colors.foreground, textAlign: "right", writingDirection: "rtl", lineHeight: 24, fontFamily: "System" }}>
+              <Text style={{ fontSize: 14, color: colors.foreground, textAlign: "right", writingDirection: isRTL ? "rtl" : "ltr", lineHeight: 24, fontFamily: "System" }}>
                 {item.description}
               </Text>
             </View>
