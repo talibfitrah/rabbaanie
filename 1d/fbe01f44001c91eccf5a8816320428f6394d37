@@ -1,0 +1,32 @@
+tests/incoming-link-requests.test.ts
+  s_fbf298998c683a::t_e9dca9387da6a4 1-94
+app/qr-scanner.tsx
+  s_fbf298998c683a::t_a4ada5bb0c62b1 11-16,21
+  s_fbf298998c683a::t_d3675e8ec4e411 44,49-59,64-65
+server/routers.ts
+  s_fbf298998c683a::t_8ad55010bb3d8a 2552-2557
+server/db.ts
+  s_fbf298998c683a::t_fe1960d698e12a 4325-4373
+app/(tabs)/messages.tsx
+  s_fbf298998c683a::t_876a9f18f71e15 1532-1533,1535-1539,1544
+  s_fbf298998c683a::t_ea33b1f53beca1 960-969
+  s_fbf298998c683a::t_4eed3b41ba4b3a 1579
+  s_fbf298998c683a::t_fb2a825f5642e4 979-1001
+  s_fbf298998c683a::t_d78d34473a790e 1534
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1dfbe01f44001c91eccf5a8816320428f6394d37",
+  "prompts": {},
+  "sessions": {
+    "s_fbf298998c683a": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "069d6c11-2a36-4811-a00f-2c1e439d687d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
