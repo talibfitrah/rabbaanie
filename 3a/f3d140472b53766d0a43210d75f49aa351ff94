@@ -1,0 +1,28 @@
+tests/publicid-lookup-excludes-deleted.test.ts
+  s_11c323a70967d7::t_d1b936d3bc1162 1-72
+server/db.ts
+  s_11c323a70967d7::t_455238f28e10b8 1909
+  s_11c323a70967d7::t_22db97ebbb6f1a 1864-1869,1873
+  s_11c323a70967d7::t_476e8420992ace 2322-2328
+  s_11c323a70967d7::t_3475231fe34334 1881
+  s_11c323a70967d7::t_b005669fb350d2 1894-1899
+  s_11c323a70967d7::t_79687f6d20548a 2332
+tests/co-parents-shared-children-count.test.ts
+  s_11c323a70967d7::t_8ae263708a9cc7 116-142
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "3af3d140472b53766d0a43210d75f49aa351ff94",
+  "prompts": {},
+  "sessions": {
+    "s_11c323a70967d7": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c055f0e2-28d8-4793-8136-7933480ef464",
+        "model": "unknown"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
