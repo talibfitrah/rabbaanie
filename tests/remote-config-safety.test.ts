@@ -37,7 +37,9 @@ const { safeHttpsUrl, safePhone } = await import("@/hooks/use-remote-config");
 
 /**
  * GET /api/public/config supplies two values that end up as arguments to
- * `Linking.openURL` on the home tab and in Settings. They are attacker-relevant
+ * `Linking.openURL` on the donate screen and in Settings (the home tab used to
+ * open the donate URL directly; it now navigates to app/donate.tsx instead,
+ * which is where that call site lives today). They are attacker-relevant
  * because they arrive over the network *after* the build ships: nothing about
  * them is reviewed by Play, pinned in the APK, or re-checked at the call sites.
  *
@@ -106,7 +108,10 @@ describe("remote config is validated at the network trust boundary", () => {
 
   it("routes both call sites through the validated hook, not the raw response", () => {
     // The guard is only worth anything while nothing re-reads the endpoint.
-    for (const p of ["app/(tabs)/index.tsx", "app/(tabs)/settings.tsx"]) {
+    // Both files that hand a remote-config URL to Linking.openURL are listed:
+    // settings.tsx for supportWhatsapp, and donate.tsx for donateUrl (the home
+    // tab index.tsx no longer consumes either — it just navigates to /donate).
+    for (const p of ["app/(tabs)/settings.tsx", "app/donate.tsx"]) {
       const src = readFileSync(join(__dirname, "..", p), "utf8");
       expect(src).toContain("useRemoteConfig");
       expect(src).not.toContain("/api/public/config");

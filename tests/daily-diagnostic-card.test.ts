@@ -161,6 +161,21 @@ describe("DailyDiagnosticCard freshness — an explicit open must ask the server
     for (const input of h.invalidateCalls) expect(input).toEqual({ lang: "en", date: today });
   });
 
+  // Presence, not only the invalidate: a successful submit must fire
+  // onSubmitted so the parent (DailyDuoRow) can advance to the deeds card —
+  // Daa3iyah's sequential flow, review filled -> deeds opens. A failed submit
+  // must NOT: a rejected save is not a completed review.
+  it("fires onSubmitted on a successful submit, never on a failed one", () => {
+    h.query = unanswered;
+    let advanced = 0;
+
+    DailyDiagnosticCard({ lang: "en", onSubmitted: () => { advanced++; } });
+    h.submitOpts.onError();
+    expect(advanced).toBe(0);
+    h.submitOpts.onSuccess();
+    expect(advanced).toBe(1);
+  });
+
   // Presence, not only the refetch: an already-answered day must open straight
   // into the locked review. The compact "done" teaser this replaces would have
   // rendered a second «Personal review» line under the one just tapped.

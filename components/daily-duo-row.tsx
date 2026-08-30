@@ -18,15 +18,17 @@ interface Props {
 }
 
 /**
- * Collapsed entry point for the two daily cards (personal review + daily
- * deeds), replacing what used to be two separate full-width cards on the
- * home screen. Both halves below are static — no data query in this
- * component — so nothing loads on the home mount. Tapping a half mounts the
- * matching full card, which is what starts its own fetch — mounting it IS
- * the tap (see DailyDiagnosticCard's cost-guard comment).
+ * Entry point for the two daily cards (personal review + daily deeds). The
+ * review card is open by default so the user finds it open on entering the app
+ * (Daa3iyah's request), and submitting it auto-advances to the deeds card —
+ * review filled -> deeds opens. Each half stays a toggle to reopen the other.
+ * The default-open review therefore mounts on the home mount and starts its
+ * own fetch; that is safe now that the question bank is curated with no model
+ * cost (see DailyDiagnosticCard's comment). The deeds card stays lazy until
+ * the review is submitted or its own half is tapped.
  */
 export function DailyDuoRow({ lang, isRTL }: Props) {
-  const [open, setOpen] = useState<"review" | "deeds" | null>(null);
+  const [open, setOpen] = useState<"review" | "deeds" | null>("review");
 
   return (
     <>
@@ -52,7 +54,7 @@ export function DailyDuoRow({ lang, isRTL }: Props) {
           <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={16} color="#C4A35A" />
         </Pressable>
       </View>
-      {open === "review" && <DailyDiagnosticCard lang={lang} />}
+      {open === "review" && <DailyDiagnosticCard lang={lang} onSubmitted={() => setOpen("deeds")} />}
       {open === "deeds" && <DailyDeedsCard lang={lang} />}
     </>
   );
