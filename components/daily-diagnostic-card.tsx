@@ -15,6 +15,10 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 
 interface Props {
   lang: Lang;
+  // Called once today's review is successfully submitted, so the parent can
+  // advance the user to the daily-deeds card — Daa3iyah's sequential flow:
+  // review filled -> deeds opens. Optional; the card also stands alone.
+  onSubmitted?: () => void;
 }
 
 /**
@@ -50,7 +54,7 @@ export function buildReviewSelections(
  * the card must therefore never be rendered eagerly; that stopped being true
  * when the curated bank replaced the generated set.
  */
-export function DailyDiagnosticCard({ lang }: Props) {
+export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
   const utils = trpc.useUtils();
   // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
   // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
@@ -76,7 +80,13 @@ export function DailyDiagnosticCard({ lang }: Props) {
     // Keyed, like every other cache operation here: a bare invalidate() clears
     // this procedure for every language and every day it has cached, and only
     // today's own entry is what a submit changed.
-    onSuccess: () => utils.dailyDiagnostic.getToday.invalidate({ lang, date: todayKey }),
+    onSuccess: () => {
+      // Advance the user to the daily-deeds card once the review is saved —
+      // Daa3iyah's sequential flow (review filled -> deeds opens). No-op when
+      // rendered standalone (onSubmitted undefined).
+      onSubmitted?.();
+      return utils.dailyDiagnostic.getToday.invalidate({ lang, date: todayKey });
+    },
     // A rejected submit (e.g. the card was showing a stale/unpersisted
     // fallback) leaves the card showing questions that can never be saved.
     // Refetch so the next tap works against whatever is actually current.

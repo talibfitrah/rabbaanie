@@ -526,9 +526,10 @@ export default function AlgemeenScreen() {
         </Pressable>
       )}
 
-      {/* ═══════════ DAILY DUO (personal review + daily deeds, collapsed) ═══════════ */}
-      {/* Two halves in one row — each expands its full card (DailyDiagnosticCard /
-          DailyDeedsCard) below the row when tapped. See daily-duo-row.tsx. */}
+      {/* ═══════════ DAILY DUO (personal review + daily deeds) ═══════════ */}
+      {/* Two halves in one row. The review opens by default on entry and, once
+          submitted, auto-advances to the deeds card; either half also toggles
+          its card by hand. See daily-duo-row.tsx. */}
       {isAuthenticated && <DailyDuoRow lang={lang} isRTL={isRTL} />}
 
       {/* ═══════════ PARTNER SECTION ═══════════ */}
