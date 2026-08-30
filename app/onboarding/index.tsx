@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView, Modal } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n, Language } from "@/lib/i18n";
-import { ChildProfile, isProfileComplete, getFirstIncompleteOnboardingStep } from "@/lib/store";
+import { ChildProfile, isProfileComplete, getFirstIncompleteOnboardingStep, childIdFrom } from "@/lib/store";
 import { trpc } from "@/lib/trpc";
 import { DatePicker } from "@/components/date-picker";
 import { COUNTRIES, COUNTRY_NAMES, getCountryAR, getCityAR } from "@/lib/prayer-data";
@@ -18,8 +18,9 @@ function tx(lang: Language, nl: string, en: string, ar: string): string {
  * Onboarding: requires mandatory basic info before app access:
  * Step 1: First name, Last name, Birth date, Address
  * Step 2: Gender (man/vrouw)
- * Step 3: Number of children
- * Then creates empty child profiles and goes to the main app.
+ * Step 3: Each child's name (+ optional birthdate) — no auto-generated
+ *         placeholder children; see handleChildrenSubmit.
+ * Then goes to the main app.
  */
 export default function OnboardingScreen() {
   const colors = useColors();
@@ -35,7 +36,17 @@ export default function OnboardingScreen() {
   // state.onboardingCompleted first — that flag can be stale on a device
   // that never locally called completeOnboarding() even though the profile
   // itself is fully filled in (e.g. restored from another device).
+  // Once the user has STARTED onboarding, a background merge that completes
+  // their profile mid-flow must not auto-skip them. fillParentProfileFromServer
+  // runs on app open and fills empty local fields from the server copy — for a
+  // linked partner that copy can even be the other spouse's data. Without this
+  // guard it flipped isProfileComplete true and router.replace'd the user to
+  // home while they were still filling the form: "first step works, then I'm
+  // thrown back / dumped on home" (c.geldorp/edgar report). The initial
+  // restore-from-server skip still works: it fires before any interaction.
+  const hasInteracted = useRef(false);
   useEffect(() => {
+    if (hasInteracted.current) return;
     if (isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
       console.log("[Onboarding] Data already exists, skipping to main app");
       router.replace("/(tabs)");
@@ -75,12 +86,22 @@ export default function OnboardingScreen() {
   const [phoneNumber, setPhoneNumber] = useState(state.parentProfile.phoneNumber || "");
   const [gender, setGender] = useState<"man" | "vrouw" | "">((state.parentProfile.gender as "man" | "vrouw" | "") || "")
   const [maritalStatus, setMaritalStatus] = useState(state.parentProfile.maritalStatus || "");
-  const [childCount, setChildCount] = useState(state.children.length > 0 ? String(state.children.length) : "");
+  // `existing` marks children already saved before this (re-)entry into
+  // onboarding. They're shown for context but not removable here — onboarding
+  // isn't the child-management screen, and a ✕ that only edits this local list
+  // (submit re-adds nothing and deletes nothing for them) would be a lie.
+  // Removing a real child is done from the Children tab (removeChild).
+  const [childEntries, setChildEntries] = useState<{ name: string; birthDate: string; existing?: boolean }[]>(
+    () => state.children.map((c) => ({ name: c.name, birthDate: c.birthDate, existing: true }))
+  );
+  const [newChildName, setNewChildName] = useState("");
+  const [newChildBirthDate, setNewChildBirthDate] = useState("");
 
   const lang = language;
   const isRTL = lang === "ar";
 
   const handleBasicSubmit = async () => {
+    hasInteracted.current = true;
     if (!firstName.trim()) {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Voer uw voornaam in", "Enter your first name", "أدخل اسمك الأول"));
       return;
@@ -144,6 +165,7 @@ export default function OnboardingScreen() {
   };
 
   const handleGenderSubmit = async () => {
+    hasInteracted.current = true;
     if (!gender) {
       Alert.alert(tx(lang, "Verplicht", "Required", "مطلوب"), tx(lang, "Kies uw geslacht", "Choose your gender", "اختر: أب أم أم"));
       return;
@@ -164,25 +186,85 @@ export default function OnboardingScreen() {
     { value: "alleenstaand", label: tx(lang, "Alleenstaand", "Single", "أعزب/عزباء") },
   ];
 
+  const handleAddChildEntry = () => {
+    hasInteracted.current = true;
+    if (!newChildName.trim()) {
+      Alert.alert(tx(lang, "Naam vereist", "Name required", "الاسم مطلوب"), tx(lang, "Vul de naam van het kind in", "Please enter the child's name", "يرجى إدخال اسم الطفل"));
+      return;
+    }
+    if (childEntries.length >= 20) {
+      Alert.alert(tx(lang, "Fout", "Error", "خطأ"), tx(lang, "U kunt maximaal 20 kinderen toevoegen", "You can add up to 20 children", "يمكنك إضافة 20 طفلاً كحد أقصى"));
+      return;
+    }
+    // The child id is derived from name+birthdate, so two same-named children
+    // with no birthdate would share one id (edit/remove would then hit both).
+    // Require a birthdate to disambiguate rather than let them collide.
+    const name = newChildName.trim();
+    const bd = newChildBirthDate || "";
+    const newId = childIdFrom(name, bd);
+    if (childEntries.some((e) => childIdFrom(e.name, e.birthDate) === newId)) {
+      Alert.alert(
+        tx(lang, "Al toegevoegd", "Already added", "مُضاف بالفعل"),
+        tx(lang, "Voeg een geboortedatum toe om kinderen met dezelfde naam te onderscheiden.", "Add a date of birth to tell children with the same name apart.", "أضف تاريخ ميلاد للتمييز بين طفلين بالاسم نفسه.")
+      );
+      return;
+    }
+    setChildEntries((prev) => [...prev, { name, birthDate: bd }]);
+    setNewChildName("");
+    setNewChildBirthDate("");
+  };
+
+  const handleRemoveChildEntry = (index: number) => {
+    setChildEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
   const handleChildrenSubmit = async () => {
-    const count = parseInt(childCount);
-    if (!count || count < 1 || count > 20) {
-      Alert.alert(tx(lang, "Fout", "Error", "خطأ"), tx(lang, "Voer een geldig aantal kinderen in (1-20)", "Enter a valid number of children (1-20)", "أدخل عددًا صحيحًا (1-20)"));
+    hasInteracted.current = true;
+    // Fold in a child whose name was typed but not yet "+ Add"ed — tapping the
+    // primary button shouldn't silently drop it. Skip it if it duplicates an
+    // entry already in the list (same derived id).
+    const pendingName = newChildName.trim();
+    const effectiveEntries =
+      pendingName && childEntries.length < 20 && !childEntries.some((e) => childIdFrom(e.name, e.birthDate) === childIdFrom(pendingName, newChildBirthDate || ""))
+        ? [...childEntries, { name: pendingName, birthDate: newChildBirthDate || "" }]
+        : childEntries;
+    if (effectiveEntries.length === 0) {
+      Alert.alert(tx(lang, "Fout", "Error", "خطأ"), tx(lang, "Voeg minstens één kind toe", "Add at least one child", "أضف طفلاً واحدًا على الأقل"));
       return;
     }
 
-    // Create child profiles linked to parent
+    // Create child profiles linked to parent — real, user-entered names only.
+    // Same shape as app/add-child.tsx / app/onboarding/add-child.tsx. No more
+    // auto-generated "Kind N" placeholders: an unnamed child here would be
+    // pruned client-side on next hydrate (see pruneEmptyPlaceholderChildren in
+    // lib/store.ts) and, since onboarding is the profile-completeness gate,
+    // re-created right back — an infinite loop this shape avoids entirely.
     const parentName = firstName.trim() || "parent";
-    const profiles: ChildProfile[] = Array.from({ length: count }, (_, index) => ({
-      id: `${parentName.toLowerCase().replace(/\s+/g, "_")}_child_${index + 1}_${Date.now()}`,
-      name: tx(lang, `Kind ${index + 1}`, `Child ${index + 1}`, `طفل ${index + 1}`),
-      birthDate: "",
-      gender: "",
-      profileCompleted: false,
-      laterInvullen: true,
-      parentId: parentName,
-    }));
-    await addChildren(profiles);
+    const profiles: ChildProfile[] = effectiveEntries.map((entry) => {
+      const trimmedName = entry.name.trim();
+      return {
+        id: childIdFrom(entry.name, entry.birthDate),
+        name: trimmedName,
+        birthDate: entry.birthDate || "",
+        gender: "",
+        profileCompleted: false,
+        laterInvullen: false,
+        parentId: parentName,
+      };
+    });
+    // Onboarding can be re-entered to fill a profile field added after signup,
+    // with childEntries pre-seeded from the user's existing children (see the
+    // useState initializer). addChildren appends without de-duping, so add only
+    // the children that aren't already present — matched by id or name+birthdate
+    // — otherwise a pass-through re-entry duplicates every existing child.
+    const isExisting = (p: ChildProfile) =>
+      state.children.some(
+        (c) => c.id === p.id || childIdFrom(c.name, c.birthDate) === childIdFrom(p.name, p.birthDate)
+      );
+    const newProfiles = profiles.filter((p) => !isExisting(p));
+    if (newProfiles.length > 0) {
+      await addChildren(newProfiles);
+    }
 
     // Mark onboarding as completed — before the network calls below, so a
     // crash during either of them can no longer leave "profile complete,
@@ -222,6 +304,12 @@ export default function OnboardingScreen() {
       keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 20}
     >
     <ScrollView
+      // Catch-all "user is actively onboarding" signal: the first touch anywhere
+      // on the screen (any field, picker, button) arms the guard, so a background
+      // merge completing the profile can never skip-to-home an engaged user. The
+      // per-step submit handlers also arm it (covers a keyboard "done" submit
+      // that starts no ScrollView touch). See the hasInteracted effect.
+      onTouchStart={() => { hasInteracted.current = true; }}
       className="flex-1"
       contentContainerStyle={{
         paddingTop: insets.top + 30,
@@ -564,25 +652,90 @@ export default function OnboardingScreen() {
       {step === "children" && (
         <View>
           <Text className="text-xl font-bold mb-2" style={{ color: colors.foreground }}>
-            {tx(lang, "Hoeveel kinderen heeft u?", "How many children do you have?", "كم عدد أبنائك؟")}
+            {tx(lang, "Wie zijn uw kinderen?", "Who are your children?", "من هم أبناؤك؟")}
           </Text>
           <Text className="text-sm mb-6" style={{ color: colors.muted }}>
-            {tx(lang, "U kunt de gegevens van uw kinderen later invullen.", "You can fill in your children's details later.", "يمكنك إكمال بيانات أبنائك لاحقًا.")}
+            {tx(lang, "Voeg de naam van elk kind toe. Overige gegevens kunt u later invullen.", "Add each child's name. You can fill in the rest later.", "أضف اسم كل طفل. يمكنك إكمال باقي البيانات لاحقًا.")}
+          </Text>
+
+          {/* Already-added children */}
+          {childEntries.length > 0 && (
+            <View className="mb-4" style={{ gap: 8 }}>
+              {childEntries.map((entry, index) => (
+                <View
+                  key={`${childIdFrom(entry.name, entry.birthDate)}_${index}`}
+                  style={{
+                    flexDirection: isRTL ? "row-reverse" : "row",
+                    alignItems: "center",
+                    justifyContent: "space-between",
+                    backgroundColor: colors.surface,
+                    borderWidth: 1,
+                    borderColor: colors.border,
+                    borderRadius: 12,
+                    paddingVertical: 12,
+                    paddingHorizontal: 16,
+                  }}
+                >
+                  <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "600", textAlign: isRTL ? "right" : "left" }}>
+                    {entry.name}{entry.birthDate ? ` · ${entry.birthDate}` : ""}
+                  </Text>
+                  {!entry.existing && (
+                    <Pressable onPress={() => handleRemoveChildEntry(index)} style={({ pressed }) => [{ padding: 4, opacity: pressed ? 0.6 : 1 }]}>
+                      <Text style={{ color: colors.muted, fontSize: 18, fontWeight: "700" }}>{"✕"}</Text>
+                    </Pressable>
+                  )}
+                </View>
+              ))}
+            </View>
+          )}
+
+          {/* New child entry */}
+          <Text className="text-sm font-semibold mb-1" style={{ color: colors.foreground }}>
+            {tx(lang, "Naam van het kind", "Child's name", "اسم الطفل")}
           </Text>
           <TextInput
-            value={childCount}
-            onChangeText={setChildCount}
-            placeholder={tx(lang, "Aantal kinderen", "Number of children", "عدد الأبناء")}
+            value={newChildName}
+            onChangeText={setNewChildName}
+            placeholder={tx(lang, "Bijv. Ahmed", "E.g. Ahmed", "مثال: أحمد")}
             placeholderTextColor={colors.muted}
-            keyboardType="number-pad"
             returnKeyType="done"
-            className="rounded-xl px-4 py-4 text-lg mb-6"
+            maxLength={100}
+            className="rounded-xl px-4 py-3 text-base mb-4"
             style={inputStyle}
           />
+          <DatePicker
+            value={newChildBirthDate}
+            onChange={setNewChildBirthDate}
+            label={tx(lang, "Geboortedatum", "Date of birth", "تاريخ الميلاد") + ` (${tx(lang, "optioneel", "optional", "اختياري")})`}
+            placeholder={tx(lang, "Kies geboortedatum", "Select date of birth", "اختر تاريخ الميلاد")}
+            isRTL={isRTL}
+          />
+          <View style={{ marginBottom: 12 }} />
+          <Pressable
+            onPress={handleAddChildEntry}
+            style={({ pressed }) => [{
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 12,
+              paddingVertical: 14,
+              alignItems: "center" as const,
+              marginBottom: 24,
+              opacity: pressed ? 0.7 : 1,
+            }]}
+          >
+            <Text className="text-base font-bold" style={{ color: colors.primary }}>
+              {tx(lang, "+ Kind toevoegen", "+ Add child", "+ إضافة طفل")}
+            </Text>
+          </Pressable>
+
           <Pressable
             onPress={handleChildrenSubmit}
+            // Enabled when there's an added child OR a name typed but not yet
+            // "+ Add"ed — handleChildrenSubmit folds that pending name in, so the
+            // single-child user isn't stuck on a greyed button.
+            disabled={childEntries.length === 0 && newChildName.trim().length === 0}
             style={({ pressed }) => [{
-              backgroundColor: colors.primary,
+              backgroundColor: childEntries.length > 0 || newChildName.trim().length > 0 ? colors.primary : colors.muted,
               borderRadius: 12,
               paddingVertical: 16,
               alignItems: "center" as const,

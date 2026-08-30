@@ -20,6 +20,7 @@ import {
   loadAppState,
   saveAppState,
   isProfileComplete,
+  pruneEmptyPlaceholderChildren,
 } from "./store";
 import * as Auth from "@/lib/_core/auth";
 import { getApiBaseUrl } from "@/constants/oauth";
@@ -374,7 +375,14 @@ async function syncFromServer(
       dailyCheckins: profileData.dailyCheckins || [],
       dailyTipCompletions: profileData.dailyTipCompletions || [],
     };
-    return serverState;
+    // Prune empty "Kind N" onboarding placeholders at the ONE point every
+    // consumer routes through (hydrate's background merge, the autoSync
+    // refetch, the reinstall restore, and rehydrateFromServer after login).
+    // mergeServerState is union-only and can never remove a child, so a server
+    // copy that still carries placeholders (pushed by a device predating this
+    // fix) would otherwise be merged/restored straight back in. Pruning here
+    // makes every path clean regardless of caller. See ./store.
+    return pruneEmptyPlaceholderChildren(serverState).state;
   } catch (e) {
     console.warn("[CloudSync] Load error:", e);
     return null;
@@ -651,6 +659,23 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           migrateLegacy: true,
         });
 
+        // Clean up empty onboarding placeholder children ("Kind 1", "Child 2",
+        // "طفل 3" — see pruneEmptyPlaceholderChildren). mergeServerState below
+        // is union-only (never deletes), so this has to run here and push the
+        // pruned list back up, or the next sync just re-adds what it removed.
+        const { state: prunedLocalState, removedCount: localPrunedCount } = pruneEmptyPlaceholderChildren(localState);
+        if (localPrunedCount > 0) {
+          // Clean this device's own cache now, but do NOT push here. A pre-merge
+          // syncToServer would replace the server's whole profileData wholesale
+          // (profile.save/updateUserProfile overwrite it) and could clobber data
+          // a partner or second device wrote since this cache last synced. The
+          // server-side placeholder is inert — syncFromServer prunes it on every
+          // fetch, so it never re-surfaces — and it gets cleaned by the user's
+          // next ordinary save, which pushes the merged, post-sync state.
+          localState = prunedLocalState;
+          await saveAppState(localState, userIdRef.current);
+        }
+
         // Self-heal a stale onboardingCompleted flag: the profile data can be
         // complete while the flag is still false (app death between children
         // being saved and completeOnboarding() resolving). Without this, an
@@ -671,13 +696,26 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // 2. If local state has data, use it immediately
         if (localState.onboardingCompleted) {
           setState(localState);
+          // Sync the ref immediately (setState only refreshes it on the next
+          // render): the background merge below reads stateRef.current, and
+          // without this a fast profile.get could resolve before React flushes
+          // and merge against a stale defaultAppState.
+          stateRef.current = localState;
           setLoading(false);
-          // Also sync from server in background to merge linked children + environments from partner
+          // Also sync from server in background to merge linked children +
+          // environments from partner. Merge against LIVE stateRef.current (set
+          // = localState just after setState above, then kept current by
+          // persist), NOT the localState snapshot: this promise can resolve after
+          // the user has edited/submitted a step (e.g. a linked partner filling
+          // their profile), and the stale snapshot would recompute from pre-edit
+          // data and silently revert what they just typed. localState.locationSettings
+          // is still passed so a reinstall keeps its stored coordinate (see
+          // syncFromServer / locationSettingsForSync).
           syncFromServer(localState.locationSettings)
             .then((serverState) => {
               if (!serverState) return;
               const { state: updatedState, changed } = mergeServerState(
-                localState,
+                stateRef.current,
                 serverState,
               );
 
@@ -693,13 +731,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           autoSyncWithPartner()
             .then((syncResult) => {
               if (syncResult && syncResult.changed) {
-                // Re-fetch from server to get the merged data
-                // localState, not stateRef.current. stateRef is assigned during
-                // render, so a network round trip that resolves before React
-                // flushes the setState above still reads defaultAppState — null
-                // coordinates — and the merge would then apply no local override
-                // and persist the nulls. localState is the value this branch
-                // already loaded and is what the sibling call above passes.
+                // Re-fetch from server to get the merged data. Deliberately a full
+                // REPLACE (not a union-merge): it is the one sync path that
+                // propagates a partner's server-side child REMOVAL — a union-merge
+                // would let a removed child resurrect on the next profile.save.
+                // localState.locationSettings (not stateRef.current) is passed
+                // because stateRef is assigned during render, so a round trip that
+                // resolves before React flushes the setState above would read
+                // defaultAppState's null coordinates and persist them. The narrow
+                // edit-clobber race this shares with the branch-1 merge is
+                // pre-existing; closing it without reopening removal-propagation
+                // needs its own change.
                 syncFromServer(localState.locationSettings)
                   .then((freshState) => {
                     if (freshState && freshState.onboardingCompleted) {
@@ -730,7 +772,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // already knows, with no exception a reader has to be talked through.
         const serverState = await syncFromServer(localState.locationSettings);
         if (serverState && serverState.onboardingCompleted) {
-          // Server has data! Restore it locally
+          // Server has data! Restore it locally. (syncFromServer already
+          // pruned any "Kind N" placeholder children the server copy carried.)
           setState(serverState);
           await saveAppState(serverState, userIdRef.current);
           console.log("[CloudSync] Restored state from server");
@@ -1124,12 +1167,19 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         await saveAppState(serverState, userIdRef.current);
         console.log("[AppContext] State restored from server after login");
       } else {
-        // Also try local state (maybe user had data locally before logout)
-        const localState = await loadAppState(userIdRef.current);
+        // Also try local state (maybe user had data locally before logout).
+        // Prune here too: this is the one child-bearing state ingestion that
+        // does not route through syncFromServer, so an old account-scoped cache
+        // could otherwise re-surface "Kind N" placeholders. Persist the pruned
+        // result so disk doesn't keep the placeholders until the next mutation.
+        const { state: localState, removedCount: localFallbackPruned } = pruneEmptyPlaceholderChildren(
+          await loadAppState(userIdRef.current)
+        );
         if (localState.onboardingCompleted) {
           console.log("[AppContext] Local state has data, using it");
           setState(localState);
           stateRef.current = localState;
+          if (localFallbackPruned > 0) await saveAppState(localState, userIdRef.current);
         }
       }
       // Always try to sync with partner after login

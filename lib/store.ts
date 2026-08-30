@@ -465,6 +465,76 @@ export function isProfileComplete(state: { parentProfile?: ParentProfile; childr
   return getFirstIncompleteOnboardingStep(state) === null;
 }
 
+// Onboarding used to spawn N empty "Kind N"/"Child N"/"طفل N" children per
+// signup (~52 users / 136 placeholders in production — see handleChildrenSubmit
+// fix). mergeServerState is union-only and never deletes, so cleanup has to
+// happen here, on the client, and the caller must push the result back up or
+// the next sync just re-adds what this removed.
+const PLACEHOLDER_NAME_PATTERN = /^(Kind|Child|طفل)\s*\d+$/i;
+
+// A child is an unfilled onboarding placeholder ONLY if EVERY guard below
+// holds. This runs on a delete path, so each guard errs toward keeping a real
+// child the others might miss:
+//   - laterInvullen === true: the marker the old count-based onboarding stamped
+//     on its auto-generated "Kind N" rows. Every real-child path sets it false
+//     (add-child.tsx, onboarding/add-child.tsx, the new onboarding, a completed
+//     environment in child/environment.tsx), so a child a user *deliberately*
+//     named "Kind 1" is never deleted.
+//   - placeholder/empty name AND no birthDate AND not profileCompleted: the
+//     shape of an untouched placeholder.
+//   - no environment/issue/actionPlan of its own: a partial "fill later"
+//     environment save (child/environment.tsx) keeps laterInvullen:true but
+//     writes a real environments[] row — never delete a child that already
+//     carries work. (Checking the side-arrays here also means a pruned child
+//     provably has nothing to cascade-delete.)
+function isEmptyPlaceholderChild(c: ChildProfile, state: AppState): boolean {
+  if (c.laterInvullen !== true) return false;
+  const name = (c.name ?? "").trim();
+  if (!(name === "" || PLACEHOLDER_NAME_PATTERN.test(name))) return false;
+  if ((c.birthDate ?? "").trim() !== "") return false;
+  if (c.profileCompleted === true) return false;
+  // `?? []` guards a corrupted/legacy cache that serialized any of these as an
+  // explicit null (loadAppState's `...parsed` would let it override the default
+  // []) — a delete path must degrade, not throw, during hydration.
+  if ((state.environments ?? []).some((e) => e.childId === c.id)) return false;
+  if ((state.issues ?? []).some((i) => i.childId === c.id)) return false;
+  if ((state.actionPlans ?? []).some((p) => p.childId === c.id)) return false;
+  return true;
+}
+
+/**
+ * Removes empty onboarding-placeholder children (see isEmptyPlaceholderChild).
+ * A child that qualifies has no environment/issue/actionPlan of its own by
+ * definition, so there is nothing to cascade-delete. Pure — returns a new
+ * state, never mutates the input; returns the SAME state reference (and
+ * removedCount: 0) on a no-op so a caller can skip persisting/syncing.
+ */
+export function pruneEmptyPlaceholderChildren(state: AppState): { state: AppState; removedCount: number } {
+  if (!Array.isArray(state.children)) return { state, removedCount: 0 };
+  const keptChildren = state.children.filter((c) => !isEmptyPlaceholderChild(c, state));
+  const removedCount = state.children.length - keptChildren.length;
+  if (removedCount === 0) {
+    return { state, removedCount: 0 };
+  }
+  return { state: { ...state, children: keptChildren }, removedCount };
+}
+
+/**
+ * Deterministic child id from name + birthdate. Onboarding's id derivation, its
+ * duplicate check, and the prune's "onboarding children survive" test all share
+ * THIS definition so they can't drift apart. Collapses internal whitespace so
+ * "Ahmad Ali" and "Ahmad  Ali" resolve to the same id (caught as a duplicate,
+ * not colliding). NOTE: add-child.tsx, onboarding/add-child.tsx and
+ * child/[id].tsx still inline the same formula (child/[id].tsx without the
+ * .trim()) — pre-existing copies, not adopted here to keep this change scoped.
+ */
+export function childIdFrom(name: string, birthDate: string): string {
+  // `?? ""` guards a legacy/corrupted cache child whose name is null — the type
+  // says string, but this is fed from stored children (see isEmptyPlaceholderChild,
+  // which guards the same way) and would otherwise throw on .trim().
+  return `${(name ?? "").trim().toLowerCase().replace(/\s+/g, "_")}_${(birthDate || "unknown").replace(/-/g, "")}`;
+}
+
 // ============ HELPER FUNCTIONS ============
 
 export function calculateAgeInWeeks(birthDate: string): { years: number; months: number; weeks: number; totalWeeks: number } {
