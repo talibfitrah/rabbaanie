@@ -5,6 +5,9 @@ import {
   getWeekInYear,
   pruneEmptyPlaceholderChildren,
   childIdFrom,
+  otherParentTier,
+  groupChildrenByMother,
+  getChildNasabLabel,
   defaultAppState,
   type AppState,
   type ChildProfile,
@@ -277,5 +280,137 @@ describe("onboarding-produced children survive pruneEmptyPlaceholderChildren (no
     );
     expect(removedCount).toBe(0);
     expect(state.children).toHaveLength(3);
+  });
+});
+
+// ============ otherParentTier ============
+// Which tier of the add-child "who is the other parent?" prompt applies —
+// shared by add-child.tsx and onboarding/add-child.tsx so they can't drift.
+
+describe("otherParentTier", () => {
+  it("skips with 0 confirmed partners, either gender", () => {
+    expect(otherParentTier("vrouw", 0)).toBe("skip");
+    expect(otherParentTier("man", 0)).toBe("skip");
+  });
+
+  it("pre-fills a single default with exactly 1 confirmed partner, either gender", () => {
+    expect(otherParentTier("vrouw", 1)).toBe("single");
+    expect(otherParentTier("man", 1)).toBe("single");
+  });
+
+  it("requires a pick for a man with 2+ confirmed partners (which wife is the mother)", () => {
+    expect(otherParentTier("man", 2)).toBe("choose-required");
+    expect(otherParentTier("man", 4)).toBe("choose-required");
+  });
+
+  it("offers an optional pick for a woman with 2+ confirmed partners (no forced guess)", () => {
+    expect(otherParentTier("vrouw", 2)).toBe("choose-optional");
+  });
+
+  it("treats a negative count defensively as skip (never throws on bad input)", () => {
+    expect(otherParentTier("man", -1)).toBe("skip");
+  });
+});
+
+// ============ groupChildrenByMother ============
+
+function childWithMother(id: string, motherId?: number, birthDate = ""): ChildProfile {
+  return {
+    id,
+    name: id,
+    birthDate,
+    gender: "",
+    profileCompleted: false,
+    laterInvullen: false,
+    motherId,
+  };
+}
+
+describe("groupChildrenByMother", () => {
+  it("a single-mother household (no motherId variance) collapses to exactly one group — flat render stays flat", () => {
+    const groups = groupChildrenByMother([
+      childWithMother("c1"),
+      childWithMother("c2"),
+      childWithMother("c3"),
+    ]);
+    expect(groups).toHaveLength(1);
+    expect(groups[0].motherId).toBeNull();
+    expect(groups[0].children.map((c) => c.id)).toEqual(["c1", "c2", "c3"]);
+  });
+
+  it("groups children with the same motherId together, in first-appearance order", () => {
+    const groups = groupChildrenByMother([
+      childWithMother("a1", 10),
+      childWithMother("b1", 20),
+      childWithMother("a2", 10),
+      childWithMother("b2", 20),
+    ]);
+    expect(groups.map((g) => g.motherId)).toEqual([10, 20]);
+    expect(groups[0].children.map((c) => c.id)).toEqual(["a1", "a2"]);
+    expect(groups[1].children.map((c) => c.id)).toEqual(["b1", "b2"]);
+  });
+
+  it("puts children with no motherId into their own null-keyed group rather than merging into a mother's group", () => {
+    const groups = groupChildrenByMother([
+      childWithMother("wife1-child", 10),
+      childWithMother("unassigned"),
+    ]);
+    expect(groups.map((g) => g.motherId)).toEqual([10, null]);
+  });
+
+  it("preserves each group's internal (already age-sorted) order untouched", () => {
+    const groups = groupChildrenByMother([
+      childWithMother("oldest", 10, "2010-01-01"),
+      childWithMother("youngest", 10, "2020-01-01"),
+    ]);
+    expect(groups[0].children.map((c) => c.id)).toEqual(["oldest", "youngest"]);
+  });
+
+  it("does not mutate the input array", () => {
+    const input = [childWithMother("c1", 10), childWithMother("c2", 20)];
+    const snapshot = [...input];
+    groupChildrenByMother(input);
+    expect(input).toEqual(snapshot);
+  });
+
+  it("returns an empty array for no children, without throwing", () => {
+    expect(groupChildrenByMother([])).toEqual([]);
+    expect(() => groupChildrenByMother(null as any)).not.toThrow();
+    expect(groupChildrenByMother(null as any)).toEqual([]);
+  });
+});
+
+// ============ getChildNasabLabel ============
+// Distinct from messages.tsx's getRelationshipLabel: that one collapses
+// biological_father/stepfather into one "Father" label for the co-parent
+// card; this one keeps step- distinct for the child card.
+
+describe("getChildNasabLabel", () => {
+  it("keeps biological_father and stepfather distinct (nl/en/ar)", () => {
+    expect(getChildNasabLabel("biological_father", "nl", "vrouw")).toBe("Vader");
+    expect(getChildNasabLabel("stepfather", "nl", "vrouw")).toBe("Stiefvader");
+    expect(getChildNasabLabel("biological_father", "en", "vrouw")).toBe("Father");
+    expect(getChildNasabLabel("stepfather", "en", "vrouw")).toBe("Stepfather");
+    expect(getChildNasabLabel("biological_father", "ar", "vrouw")).toBe("الأب");
+    expect(getChildNasabLabel("stepfather", "ar", "vrouw")).toBe("زوج الأم");
+  });
+
+  it("keeps biological_mother and stepmother distinct (nl/en/ar)", () => {
+    expect(getChildNasabLabel("biological_mother", "nl", "man")).toBe("Moeder");
+    expect(getChildNasabLabel("stepmother", "nl", "man")).toBe("Stiefmoeder");
+    expect(getChildNasabLabel("biological_mother", "en", "man")).toBe("Mother");
+    expect(getChildNasabLabel("stepmother", "en", "man")).toBe("Stepmother");
+    expect(getChildNasabLabel("biological_mother", "ar", "man")).toBe("الأم");
+    expect(getChildNasabLabel("stepmother", "ar", "man")).toBe("زوجة الأب");
+  });
+
+  it("falls back to the viewer's own gender for a missing relationship (child not yet enriched by the server)", () => {
+    expect(getChildNasabLabel(undefined, "en", "man")).toBe("Father");
+    expect(getChildNasabLabel(undefined, "en", "vrouw")).toBe("Mother");
+  });
+
+  it("falls back to the viewer's own gender for the legacy pre-migration 'parent' value", () => {
+    expect(getChildNasabLabel("parent", "ar", "man")).toBe("الأب");
+    expect(getChildNasabLabel("parent", "ar", "vrouw")).toBe("الأم");
   });
 });

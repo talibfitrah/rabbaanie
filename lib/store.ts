@@ -112,6 +112,18 @@ export interface ChildProfile {
   profileCompleted: boolean;
   laterInvullen: boolean;
   parentId?: string; // Links child to parent who created them
+  // Polygamy support (Phase 2) — nasab attribution, all optional so every
+  // pre-existing child (and every child a single-partner family creates)
+  // stays byte-for-byte unaffected. motherId/fatherId are co-parent user
+  // ids (links.coParents[].id); externalFatherName is a plain name for a
+  // father who isn't an app user (e.g. a previous marriage); relationship
+  // is this child's relationship to the CURRENT viewer ("biological_mother"
+  // | "biological_father" | "stepmother" | "stepfather"), populated by the
+  // server's profile.get merge — a client never sets it.
+  motherId?: number;
+  fatherId?: number;
+  externalFatherName?: string;
+  relationship?: string;
 }
 
 export interface ChildEnvironment {
@@ -533,6 +545,92 @@ export function childIdFrom(name: string, birthDate: string): string {
   // says string, but this is fed from stored children (see isEmptyPlaceholderChild,
   // which guards the same way) and would otherwise throw on .trim().
   return `${(name ?? "").trim().toLowerCase().replace(/\s+/g, "_")}_${(birthDate || "unknown").replace(/-/g, "")}`;
+}
+
+// ============ POLYGAMY: NASAB ATTRIBUTION (Phase 2) ============
+
+export type OtherParentTier = "skip" | "single" | "choose-required" | "choose-optional";
+
+/**
+ * Which tier of the add-child "who is the other parent?" prompt applies,
+ * given the adder's own gender and how many CONFIRMED co-parents
+ * (links.coParents — already confirmed-only) they have. Shared by
+ * add-child.tsx and onboarding/add-child.tsx so the two duplicated screens
+ * can't drift apart on this decision.
+ *
+ * - 0 confirmed partners: nothing to attribute to — skip the prompt.
+ * - exactly 1: pre-filled default (the woman's one husband as candidate
+ *   father, or the man's one wife as candidate mother). The woman's side
+ *   also gets a "someone else" escape hatch (a previous marriage); the
+ *   man's does not — there is no externalMotherName field.
+ * - 2+ and viewer is a man (2+ wives): which wife is the mother is
+ *   genuinely ambiguous and there is no "someone else" concept for a
+ *   mother, so a pick is required before saving.
+ * - 2+ and viewer is not a man (rare: 2+ confirmed co-parents for a woman):
+ *   the same pick-or-type-a-name UI as the "someone else" hatch, but not
+ *   required — leaving it unresolved still saves the child, just without a
+ *   father recorded.
+ */
+export function otherParentTier(viewerGender: string, confirmedPartnerCount: number): OtherParentTier {
+  if (confirmedPartnerCount <= 0) return "skip";
+  if (confirmedPartnerCount === 1) return "single";
+  return viewerGender === "man" ? "choose-required" : "choose-optional";
+}
+
+export interface MotherGroup {
+  motherId: number | null;
+  children: ChildProfile[];
+}
+
+/**
+ * Partitions a children list into groups by motherId, stably: group order
+ * follows first appearance in `children`, and each group's internal order
+ * is untouched — so sorting children by age before calling this keeps every
+ * group age-sorted too. Children with no motherId share one `null` group. A
+ * single-mother household (no polygamy) collapses to exactly one group, so
+ * a flat render can stay flat by checking `.length <= 1`.
+ */
+export function groupChildrenByMother(children: ChildProfile[]): MotherGroup[] {
+  const groups: MotherGroup[] = [];
+  const byKey = new Map<number | null, MotherGroup>();
+  for (const child of children ?? []) {
+    const key = child.motherId ?? null;
+    let group = byKey.get(key);
+    if (!group) {
+      group = { motherId: key, children: [] };
+      byKey.set(key, group);
+      groups.push(group);
+    }
+    group.children.push(child);
+  }
+  return groups;
+}
+
+/**
+ * Child-nasab relationship label — distinct from messages.tsx's
+ * getRelationshipLabel, which collapses biological_father/stepfather (and
+ * biological_mother/stepmother) into one generic "Father"/"Mother" label for
+ * the co-parent card. This one keeps step- distinct so a child card can show
+ * it, matching the approved decision to name the previous father alongside it.
+ * `relationship` is missing for every child until the server's profile.get
+ * enrichment ships (and for every child created before it did, and for the
+ * pre-migration "parent" hardcode) — falls back to the viewer's own gender,
+ * the same derivation getRelationshipLabel already applies to "parent".
+ */
+export function getChildNasabLabel(relationship: string | undefined, lang: string, viewerGender: string): string {
+  const t = (nl: string, en: string, ar: string) => (lang === "ar" ? ar : lang === "en" ? en : nl);
+  switch (relationship) {
+    case "biological_mother":
+      return t("Moeder", "Mother", "الأم");
+    case "biological_father":
+      return t("Vader", "Father", "الأب");
+    case "stepmother":
+      return t("Stiefmoeder", "Stepmother", "زوجة الأب");
+    case "stepfather":
+      return t("Stiefvader", "Stepfather", "زوج الأم");
+    default:
+      return viewerGender === "man" ? t("Vader", "Father", "الأب") : t("Moeder", "Mother", "الأم");
+  }
 }
 
 // ============ HELPER FUNCTIONS ============

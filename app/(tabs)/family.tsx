@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, Fragment } from "react";
 import {
   View,
   Text,
@@ -17,7 +17,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete } from "@/lib/store";
+import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -3843,17 +3843,37 @@ export default function FamilyScreen() {
             </Text>
           </Pressable>
         </View>
-        {[...state.children]
-          .sort((a, b) => {
-            // Sort by age: oldest first
+        {(() => {
+          // Age order is the pre-existing sort, extracted so
+          // getChildIdString's idx (childIdx below) stays IDENTICAL to
+          // today's regardless of how children get grouped for display.
+          const byAge = (a: (typeof state.children)[number], b: (typeof state.children)[number]) => {
             if (!a.birthDate && !b.birthDate) return 0;
             if (!a.birthDate) return 1;
             if (!b.birthDate) return -1;
-            return (
-              new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime()
-            );
-          })
-          .map((child, childIdx) => {
+            return new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime();
+          };
+          const ageSorted = [...state.children].sort(byAge);
+          const ageOrderIndex = new Map(ageSorted.map((c, i) => [c.id, i]));
+          // Group by mother only for a father with 2+ mothers on record —
+          // a wife's own children (and a father with just one) render
+          // flat, byte-for-byte unchanged from before this feature.
+          const motherGroups = pp.gender === "man" ? groupChildrenByMother(ageSorted) : [];
+          const grouped = motherGroups.length > 1;
+          const renderOrder = grouped ? motherGroups.flatMap((g) => g.children) : ageSorted;
+          const groupStartIds = grouped ? new Set(motherGroups.map((g) => g.children[0]?.id)) : new Set();
+          const motherLabelFor = (motherId: number | null) => {
+            const mother = (coParentsQuery.data ?? []).find((cp: any) => cp.id === motherId);
+            return mother?.name || tx(lang, "Onbekende moeder", "Unknown mother", "أم غير معروفة");
+          };
+          const fatherNameFor = (child: (typeof ageSorted)[number]) => {
+            if (child.externalFatherName) return child.externalFatherName;
+            const father = (coParentsQuery.data ?? []).find((cp: any) => cp.id === child.fatherId);
+            return father?.name || null;
+          };
+
+          return renderOrder.map((child) => {
+            const childIdx = ageOrderIndex.get(child.id) ?? 0;
             const age = child.birthDate
               ? calculateAgeInWeeks(child.birthDate)
               : null;
@@ -3869,8 +3889,24 @@ export default function FamilyScreen() {
               ? (weekData.parent?.length || 0) + (weekData.child?.length || 0)
               : 0;
             return (
+              <Fragment key={child.id}>
+              {grouped && groupStartIds.has(child.id) && (
+                <Text
+                  style={{
+                    color: colors.muted,
+                    fontSize: 11,
+                    fontWeight: "700",
+                    textTransform: "uppercase",
+                    letterSpacing: 0.5,
+                    marginTop: 4,
+                    marginBottom: 6,
+                    textAlign: isRTL ? "right" : "left",
+                  }}
+                >
+                  {motherLabelFor(child.motherId ?? null)}
+                </Text>
+              )}
               <Pressable
-                key={child.id}
                 onPress={() => router.push(`/child/${child.id}`)}
                 style={({ pressed }) => [
                   {
@@ -3959,6 +3995,34 @@ export default function FamilyScreen() {
                           "⚠ أكمل الملف الشخصي",
                         )}
                       </Text>
+                    )}
+                    {(child.relationship === "stepfather" || child.relationship === "stepmother") && (
+                      <View
+                        style={{
+                          flexDirection: isRTL ? "row-reverse" : "row",
+                          alignItems: "center",
+                          gap: 4,
+                          marginTop: 3,
+                        }}
+                      >
+                        <View
+                          style={{
+                            backgroundColor: colors.warning + "20",
+                            borderRadius: 6,
+                            paddingHorizontal: 6,
+                            paddingVertical: 2,
+                          }}
+                        >
+                          <Text style={{ fontSize: 9, color: colors.warning, fontWeight: "700" }}>
+                            {getChildNasabLabel(child.relationship, lang, pp.gender)}
+                          </Text>
+                        </View>
+                        {fatherNameFor(child) && (
+                          <Text style={{ fontSize: 10, color: colors.muted }} numberOfLines={1}>
+                            {fatherNameFor(child)}
+                          </Text>
+                        )}
+                      </View>
                     )}
                   </View>
                   <View
@@ -4252,8 +4316,10 @@ export default function FamilyScreen() {
                   </View>
                 )}
               </Pressable>
+              </Fragment>
             );
-          })}
+          });
+        })()}
       </ScrollView>
       <SyncToast
         visible={toastVisible}

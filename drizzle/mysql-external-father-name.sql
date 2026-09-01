@@ -1,0 +1,18 @@
+-- Polygamy Phase 2: children.externalFatherName (nullable varchar(128)).
+-- Plain-text father name for when the father isn't an app user (e.g. a
+-- previous marriage) — parentChildLinks.fatherId covers the case where he
+-- is. Hand-port of the equivalent column added on rabbaanie-api (Postgres,
+-- production); this repo is MySQL and never deployed (see CLAUDE.md).
+--
+-- NOT added via `drizzle-kit generate` / the numbered 00XX_*.sql sequence:
+-- schema.ts already carries earlier drift (broadcastSchedules, the three
+-- partnerships.profileAccess* columns — see drizzle/postgres-broadcast-
+-- schedules*.sql and drizzle/postgres-partner-profile-access.sql) that was
+-- never captured as a numbered MySQL migration, pre-existing and unrelated
+-- to this change. `generate` diffs schema.ts against the last numbered
+-- snapshot (0014), so it bundles that whole gap into any new migration —
+-- out of scope here and not this change's to fix. Hand-written instead,
+-- same reason (and same loose, unnumbered file style) as the two
+-- postgres-*.sql mirrors above.
+-- Apply with: mysql "$DATABASE_URL" < drizzle/mysql-external-father-name.sql
+ALTER TABLE `children` ADD `externalFatherName` varchar(128);

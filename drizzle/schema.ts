@@ -96,6 +96,11 @@ export const children = mysqlTable("children", {
   name: varchar("name", { length: 128 }).notNull(),
   birthDate: varchar("birthDate", { length: 10 }), // YYYY-MM-DD
   gender: varchar("gender", { length: 16 }),
+  /** Polygamy Phase 2: plain-text father name when the father isn't an app
+   * user (e.g. a previous marriage) — parentChildLinks.fatherId covers the
+   * case where he is. Hand-ported MySQL mirror of the Postgres column added
+   * on rabbaanie-api; this repo is never deployed (see CLAUDE.md). */
+  externalFatherName: varchar("externalFatherName", { length: 128 }),
   /** Full environment/profile data (JSON) */
   profileData: json("profileData"),
   /** Environment data (JSON) */

@@ -1,11 +1,11 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n, Language } from "@/lib/i18n";
-import { ChildProfile } from "@/lib/store";
+import { ChildProfile, otherParentTier } from "@/lib/store";
 import { DatePicker } from "@/components/date-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
@@ -31,11 +31,43 @@ export default function AddChildScreen() {
   // Auto-link to network when BSN is provided
   const linkChildMutation = trpc.links.linkChildByPublicId.useMutation();
 
+  // Polygamy Phase 2: who is this child's other parent? Tiers (see
+  // otherParentTier in lib/store.ts): 0 confirmed co-parents -> nothing
+  // shown; exactly 1 -> pre-filled default; 2+ -> a pick (required for a
+  // man choosing which wife is the mother; optional, with a plain-name
+  // escape hatch, for a woman choosing the father).
+  const coParentsQuery = trpc.links.coParents.useQuery(undefined, { refetchOnMount: "always" });
+  const coParents: { id: number; name: string | null }[] = coParentsQuery.data ?? [];
+  const viewerGender = state?.parentProfile?.gender || "man";
+  const otherTier = otherParentTier(viewerGender, coParents.length);
+  const [fatherChoice, setFatherChoice] = useState<number | "external" | null>(null);
+  const [externalFatherNameInput, setExternalFatherNameInput] = useState("");
+  const [motherChoice, setMotherChoice] = useState<number | null>(null);
+  const [showOtherFather, setShowOtherFather] = useState(false);
+
+  // Pre-fills the single-co-parent default once it loads. A plain effect,
+  // not lazy useState init, since coParents resolves async after mount.
+  useEffect(() => {
+    if (otherTier !== "single") return;
+    const onlyId = coParents[0]?.id;
+    if (onlyId == null) return;
+    if (viewerGender === "man") setMotherChoice((prev) => (prev == null ? onlyId : prev));
+    else setFatherChoice((prev) => (prev == null ? onlyId : prev));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [otherTier, coParents[0]?.id, viewerGender]);
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert(
         tx(lang, "Naam vereist", "Name required", "الاسم مطلوب"),
         tx(lang, "Vul de naam van het kind in", "Please enter the child's name", "يرجى إدخال اسم الطفل")
+      );
+      return;
+    }
+    if (otherTier === "choose-required" && motherChoice == null) {
+      Alert.alert(
+        tx(lang, "Kies de moeder", "Choose the mother", "اختر الأم"),
+        tx(lang, "Selecteer welke van uw echtgenotes de moeder van dit kind is.", "Select which of your wives is this child's mother.", "اختر أي من زوجاتك هي أم هذا الطفل.")
       );
       return;
     }
@@ -50,6 +82,11 @@ export default function AddChildScreen() {
       profileCompleted: !!(name && birthDate && gender),
       laterInvullen: false,
       parentId: state?.parentProfile?.firstName || "parent",
+      ...(viewerGender === "man" && motherChoice != null ? { motherId: motherChoice } : {}),
+      ...(viewerGender !== "man" && typeof fatherChoice === "number" ? { fatherId: fatherChoice } : {}),
+      ...(viewerGender !== "man" && fatherChoice === "external" && externalFatherNameInput.trim()
+        ? { externalFatherName: externalFatherNameInput.trim() }
+        : {}),
     };
     await addChild(child);
     // If BSN/ID is provided, auto-link to network
@@ -132,6 +169,82 @@ export default function AddChildScreen() {
           placeholder={tx(lang, "Selecteer datum", "Select date", "اختر التاريخ")}
         />
         <View style={{ height: 20 }} />
+
+        {/* Polygamy Phase 2: who is the other parent? Hidden entirely with
+            0 confirmed co-parents (otherTier === "skip") — nothing to
+            attribute to yet. */}
+        {otherTier !== "skip" && (
+          <>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+              {viewerGender === "man"
+                ? tx(lang, "Moeder van dit kind", "Mother of this child", "أم هذا الطفل")
+                : tx(lang, "Vader van dit kind", "Father of this child", "أبو هذا الطفل")}
+              {otherTier === "choose-required" ? " *" : ""}
+            </Text>
+
+            {otherTier === "single" && (
+              <View style={{ backgroundColor: colors.primary + "15", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, alignSelf: isRTL ? "flex-end" : "flex-start", marginBottom: 8 }}>
+                <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "600" }}>
+                  {coParents[0]?.name || tx(lang, "Echtgeno(o)t(e)", "Spouse", "الزوج/ة")}
+                </Text>
+              </View>
+            )}
+
+            {viewerGender !== "man" && otherTier === "single" && (
+              <Pressable onPress={() => setShowOtherFather((v) => !v)} style={{ marginBottom: 8 }}>
+                <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600", textDecorationLine: "underline" }}>
+                  {showOtherFather
+                    ? tx(lang, "Toch de hierboven getoonde vader", "Use the spouse shown above after all", "استخدم الزوج المذكور أعلاه")
+                    : tx(lang, "Iemand anders?", "Someone else?", "شخص آخر؟")}
+                </Text>
+              </Pressable>
+            )}
+
+            {viewerGender !== "man" && (otherTier === "choose-optional" || (otherTier === "single" && showOtherFather)) && (
+              <View style={{ marginBottom: 8 }}>
+                {coParents.length > 0 && (
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                    {coParents.map((p) => (
+                      <Pressable
+                        key={p.id}
+                        onPress={() => { setFatherChoice(p.id); setExternalFatherNameInput(""); }}
+                        style={{ backgroundColor: fatherChoice === p.id ? colors.primary : colors.primary + "12", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 }}
+                      >
+                        <Text style={{ color: fatherChoice === p.id ? "#fff" : colors.primary, fontSize: 12, fontWeight: "600" }}>
+                          {p.name || tx(lang, "Echtgeno(o)t(e)", "Spouse", "الزوج/ة")}
+                        </Text>
+                      </Pressable>
+                    ))}
+                  </View>
+                )}
+                <TextInput
+                  value={fatherChoice === "external" ? externalFatherNameInput : ""}
+                  onChangeText={(v) => { setExternalFatherNameInput(v); setFatherChoice(v.trim() ? "external" : null); }}
+                  placeholder={tx(lang, "Of typ een naam (bijv. vorige echtgenoot)", "Or type a name (e.g. previous husband)", "أو اكتب اسمًا (مثلاً الزوج السابق)")}
+                  placeholderTextColor={colors.muted}
+                  style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, textAlign: isRTL ? "right" : "left" }}
+                />
+              </View>
+            )}
+
+            {viewerGender === "man" && otherTier === "choose-required" && (
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                {coParents.map((p) => (
+                  <Pressable
+                    key={p.id}
+                    onPress={() => setMotherChoice(p.id)}
+                    style={{ backgroundColor: motherChoice === p.id ? colors.primary : colors.primary + "12", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: motherChoice === p.id ? 0 : 1, borderColor: colors.primary + "40" }}
+                  >
+                    <Text style={{ color: motherChoice === p.id ? "#fff" : colors.primary, fontSize: 12, fontWeight: "600" }}>
+                      {p.name || tx(lang, "Echtgenote", "Wife", "الزوجة")}
+                    </Text>
+                  </Pressable>
+                ))}
+              </View>
+            )}
+            <View style={{ height: 12 }} />
+          </>
+        )}
 
         {/* BSN / Identity Number */}
         <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>

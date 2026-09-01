@@ -1005,7 +1005,7 @@ function ParentsSection({
           {tx(lang, "Partner", "Spouse", "الزوجة")}
         </Text>
 
-        {coParents.length > 0 ? (
+        {coParents.length > 0 && (
           <View style={{ gap: 10 }}>
             {coParents.map((cp: any) => {
               const relLabel = getRelationshipLabel(cp.relationship || "partner", lang, userGender);
@@ -1072,7 +1072,15 @@ function ParentsSection({
               );
             })}
           </View>
-        ) : (
+        )}
+
+        {/* Add-partner form: always shown with 0 co-parents (first spouse);
+            for a man, also shown below the list up to 4 wives (polygyny —
+            INV-6). ⚠ SHIP-GATED (POLYGAMY-PHASE2-PLAN.md): a man with an
+            existing wife only reaches this once Phase-1 server isolation
+            (co-wife blindness, INV-1) is deployed — do not ship an APK with
+            this unhidden before then. */}
+        {(coParents.length === 0 || (userGender === "man" && coParents.length < 4)) && (
           <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 16, borderWidth: 1, borderColor: colors.border }}>
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 10 }}>
               <MaterialIcons name="person-add" size={18} color={colors.primary} />
