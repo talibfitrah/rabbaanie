@@ -556,6 +556,19 @@ export default function RootLayout() {
           const data = response.notification.request.content.data as any;
           if (!data) return;
 
+          // Link requests (spouse "partner_link" / co-parent "link_request") are
+          // actionable — accept/decline lives on the messages tab — not religious
+          // reminders. Route there instead of dressing them as the "مستحب" prayer
+          // popup, whose "أفعل الآن"/"remind later" buttons cannot accept a link.
+          // 800ms mirrors the popup path below ("app fully loaded"): on a cold
+          // start it lets the auth/onboarding gate settle first so this navigate
+          // isn't overwritten. If it still loses that race the user just lands on
+          // home, where the same طلبات الربط accept/decline cards are reachable.
+          if (data.type === "partner_link" || data.type === "link_request") {
+            setTimeout(() => router.navigate("/(tabs)/messages" as any), 800);
+            return;
+          }
+
           // Always show popup when user taps a notification
           const popupNotif: PopupNotification = {
             id: response.notification.request.identifier,
