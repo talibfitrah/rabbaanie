@@ -8,9 +8,11 @@ import React, {
 } from "react";
 import { Platform } from "react-native";
 import { useQueryClient } from "@tanstack/react-query";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
 import { clearPersistedQueryCache } from "@/lib/query-persistence";
+import { qasmStorageKey } from "@/lib/qasm";
 
 type AuthContextType = {
   user: Auth.User | null;
@@ -104,6 +106,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
 
     try {
+      // Read before Auth.clearUserInfo() wipes it — not the `user` state
+      // variable, which this callback's own closure (deps: [queryClient])
+      // would read stale. Same device-global leak class as the query-cache
+      // wipe below, for a feature carrying data the app cannot show a
+      // co-wife under ANY circumstance: without this, the husband's
+      // القَسْم/قرعة state (wife names, night rotation, travel draws)
+      // would sit under his still-addressable @qasm_state_<id> key,
+      // findable by anyone who signs into this device next.
+      const loggedOutUser = await Auth.getUserInfo();
+
       await Auth.removeSessionToken();
       await Auth.clearUserInfo();
       await Auth.clearLogoutPending();
@@ -117,6 +129,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       // ever write an already-empty cache.
       queryClient.clear();
       await clearPersistedQueryCache();
+      if (loggedOutUser?.id) {
+        await AsyncStorage.removeItem(qasmStorageKey(loggedOutUser.id));
+      }
       setUser(null);
       setError(null);
     } catch (err) {

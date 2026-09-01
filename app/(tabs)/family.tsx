@@ -3342,6 +3342,48 @@ export default function FamilyScreen() {
           </View>
         )}
 
+        {/* R4/P2/P3: القَسْم والقرعة — husband-only fairness module (night
+            rotation + travel قرعة). Gated on listPartners (`partners`,
+            already fetched above), not coParentsQuery: coParents also
+            surfaces a divorced co-parent who still shares a confirmed
+            child link, and this entry must never appear for that case —
+            only a currently-confirmed marriage counts, so the count below
+            is filtered to `confirmed` — matching app/qasm.tsx's own gate
+            exactly, so this button never shows and then bounces the
+            husband straight back out. INV-5: everything behind it is
+            client-local (see app/qasm.tsx); no server call, so no wife can
+            ever reach it through this button or otherwise. */}
+        {isAuthenticated && (pp.gender || "man") === "man" && partners.filter((p) => p.confirmed).length >= 2 && (
+          <Pressable
+            onPress={() => router.push("/qasm" as any)}
+            style={({ pressed }) => [
+              {
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: colors.surface,
+                borderRadius: 14,
+                padding: 14,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <MaterialIcons name="balance" size={22} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Verdeling & loting (القَسْم والقرعة)", "Rotation & the draw (القَسْم والقرعة)", "القَسْم والقرعة")}
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Privé — alleen voor u zichtbaar", "Private — visible only to you", "خاص بك وحدك، لا تراه زوجاتك")}
+              </Text>
+            </View>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />
+          </Pressable>
+        )}
+
         {/* ═══════ SPOUSE SELECTOR (polygyny) ═══════ */}
         {/* Only ever rendered once there's an actual choice — a
             single-partner user sees nothing here, matching today's UI
