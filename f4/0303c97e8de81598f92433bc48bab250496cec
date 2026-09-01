@@ -1,0 +1,19 @@
+server/routers.ts
+  s_a1c84ec821cde4::t_1ccdbd388fede3 2613-2615
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f40303c97e8de81598f92433bc48bab250496cec",
+  "prompts": {},
+  "sessions": {
+    "s_a1c84ec821cde4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831571c6-754c-4427-a9a8-9b3245176e7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
