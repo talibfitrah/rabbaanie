@@ -55,8 +55,13 @@ function tx(lang: string, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-function getRelationshipLabel(relationship: string, lang: string, userGender: string): string {
+function getRelationshipLabel(relationship: string, lang: string, userGender: string, wasDivorced?: boolean): string {
   const isMale = userGender === "man";
+  if (wasDivorced) {
+    // R3: a former spouse who remains a co-parent of shared children — label
+    // by the co-parent's gender (opposite the caller for a spouse relationship).
+    return lang === "ar" ? (isMale ? "مطلَّقة" : "مطلَّق") : lang === "en" ? (isMale ? "Ex-wife" : "Ex-husband") : (isMale ? "Ex-vrouw" : "Ex-man");
+  }
   if (relationship === "partner" || relationship === "parent") {
     if (isMale) {
       return lang === "ar" ? "الزوجة" : lang === "en" ? "Wife" : "Echtgenote";
@@ -330,7 +335,7 @@ function MessagesScreenInner() {
             <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground }}>{selected.name}</Text>
               <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600" }}>
-                {getRelationshipLabel(selected.relationship || "partner", lang, userGender)}
+                {getRelationshipLabel(selected.relationship || "partner", lang, userGender, (selected as any).wasDivorced)}
                 {selected.sharedChildren && selected.sharedChildren.length > 0 && (
                   ` \u2022 ${selected.sharedChildren.map(c => c.name).join(", ")}`
                 )}
@@ -1008,7 +1013,7 @@ function ParentsSection({
         {coParents.length > 0 && (
           <View style={{ gap: 10 }}>
             {coParents.map((cp: any) => {
-              const relLabel = getRelationshipLabel(cp.relationship || "partner", lang, userGender);
+              const relLabel = getRelationshipLabel(cp.relationship || "partner", lang, userGender, cp.wasDivorced);
               return (
                 <TouchableOpacity
                   key={cp.id}
