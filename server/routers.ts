@@ -2610,9 +2610,9 @@ export const linksRouter = router({
         "Koppelverzoek",
         "Link request",
         "\u0637\u0644\u0628 \u0631\u0628\u0637",
-        `${senderName} wil kinderen met u delen`,
-        `${senderName} wants to share children with you`,
-        `${senderName} \u064a\u0631\u064a\u062f \u0645\u0634\u0627\u0631\u0643\u0629 \u0627\u0644\u0623\u0628\u0646\u0627\u0621 \u0645\u0639\u0643`,
+        `${senderName} wil met u koppelen`,
+        `${senderName} wants to link with you`,
+        `${senderName} \u064a\u0631\u064a\u062f \u0627\u0644\u0627\u0631\u062a\u0628\u0627\u0637 \u0628\u0643`,
         { type: "partner_link", senderId: ctx.user.id },
       ).catch(() => {});
       return {
