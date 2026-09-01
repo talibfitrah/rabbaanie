@@ -1,0 +1,21 @@
+app/(tabs)/messages.tsx
+  s_a1c84ec821cde4::t_20b46c0e226e86 58,60-64
+  s_a1c84ec821cde4::t_e5b456529c21fd 338
+  s_a1c84ec821cde4::t_8b522cdf266791 1016
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d0f11f3150ccf678244beb3ed5ac5f1c9fad013f",
+  "prompts": {},
+  "sessions": {
+    "s_a1c84ec821cde4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831571c6-754c-4427-a9a8-9b3245176e7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
