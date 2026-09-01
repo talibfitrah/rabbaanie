@@ -11,6 +11,7 @@ import {
   Alert,
   Modal,
   TouchableOpacity,
+  TextInput,
 } from "react-native";
 import QRCode from "react-native-qrcode-svg";
 import { useRouter } from "expo-router";
@@ -1675,6 +1676,42 @@ export default function FamilyScreen() {
   const shareProgressMutation = trpc.links.shareWeeklyProgress.useMutation();
   const syncMutation = trpc.links.syncWithPartner.useMutation();
 
+  // R6: add-wife-by-public-ID on the family tab, mirroring messages.tsx's
+  // أسرتي add-partner form (same linkPartnerByPublicId mutation + gender/
+  // count gate) — Daa3iyah's screenshot pointed at this tab specifically.
+  const [addWifeIdInput, setAddWifeIdInput] = useState("");
+  const [addWifeResult, setAddWifeResult] = useState<string | null>(null);
+  const [addWifeError, setAddWifeError] = useState<string | null>(null);
+  const addWifeMutation = trpc.links.linkPartnerByPublicId.useMutation({
+    onSuccess: (data) => {
+      setAddWifeResult(
+        tx(
+          lang,
+          `Koppelverzoek verstuurd naar ${data.partnerName || "partner"}. Er worden pas gegevens gedeeld na bevestiging.`,
+          `Link request sent to ${data.partnerName || "partner"}. No data is shared until they confirm.`,
+          `تم إرسال طلب الربط إلى ${data.partnerName || "الزوجة"}. لن تتم مشاركة البيانات حتى يتم التأكيد.`,
+        ),
+      );
+      setAddWifeError(null);
+      setAddWifeIdInput("");
+    },
+    onError: (err) => {
+      setAddWifeError(err.message);
+      setAddWifeResult(null);
+    },
+  });
+  const handleAddWife = () => {
+    const trimmed = addWifeIdInput.trim();
+    if (!trimmed) {
+      Alert.alert(
+        tx(lang, "Verplicht", "Required", "مطلوب"),
+        tx(lang, "Voer het ID van uw partner in", "Enter your partner's ID", "أدخل الرقم المميّز للزوجة"),
+      );
+      return;
+    }
+    addWifeMutation.mutate({ partnerPublicId: trimmed, relationship: "partner" });
+  };
+
   // Auto-refetch partner data when authentication state changes
   useEffect(() => {
     if (isAuthenticated) {
@@ -3209,6 +3246,99 @@ export default function FamilyScreen() {
                 </Pressable>
               </Pressable>
             ))}
+
+            {/* R6: add-wife-by-public-ID, appended below the existing-wives
+                list under the same section header. Mirrors messages.tsx's
+                أسرتي gate exactly (userGender==="man" + coParents.length<4),
+                so it only ever reaches a man who may still add a co-wife —
+                never a woman, for whom this card doesn't apply. */}
+            {(pp.gender || "man") === "man" && (coParentsQuery.data ?? []).length < 4 && (
+              <View
+                style={{
+                  backgroundColor: colors.surface,
+                  borderRadius: 14,
+                  padding: 14,
+                  marginTop: 10,
+                  borderWidth: 1,
+                  borderColor: colors.border,
+                  borderStyle: "dashed",
+                }}
+              >
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                  <MaterialIcons name="person-add" size={16} color={colors.primary} />
+                  <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+                    {tx(lang, "Nog een echtgenote koppelen", "Link another wife", "أضف زوجة بالرقم المميّز")}
+                  </Text>
+                </View>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
+                  <TextInput
+                    value={addWifeIdInput}
+                    onChangeText={setAddWifeIdInput}
+                    placeholder={tx(lang, "Partner-ID", "Partner ID", "الرقم المميّز")}
+                    placeholderTextColor={colors.muted}
+                    style={{
+                      flex: 1,
+                      backgroundColor: colors.background,
+                      borderWidth: 1,
+                      borderColor: colors.border,
+                      borderRadius: 10,
+                      padding: 10,
+                      fontSize: 13,
+                      color: colors.foreground,
+                      fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace",
+                      textAlign: isRTL ? "right" : "left",
+                    }}
+                    autoCapitalize="characters"
+                    returnKeyType="done"
+                    onSubmitEditing={handleAddWife}
+                  />
+                  <TouchableOpacity
+                    onPress={handleAddWife}
+                    disabled={addWifeMutation.isPending}
+                    style={{
+                      backgroundColor: colors.primary,
+                      borderRadius: 10,
+                      paddingHorizontal: 16,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      opacity: addWifeMutation.isPending ? 0.7 : 1,
+                    }}
+                  >
+                    {addWifeMutation.isPending ? (
+                      <ActivityIndicator color="#fff" size="small" />
+                    ) : (
+                      <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>
+                        {tx(lang, "Koppelen", "Link", "ربط")}
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={() => router.push("/qr-scanner")}
+                    style={{
+                      backgroundColor: colors.background,
+                      borderRadius: 10,
+                      paddingHorizontal: 12,
+                      alignItems: "center",
+                      justifyContent: "center",
+                      borderWidth: 1,
+                      borderColor: colors.primary,
+                    }}
+                  >
+                    <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
+                  </TouchableOpacity>
+                </View>
+                {addWifeResult && (
+                  <Text style={{ color: colors.success, fontSize: 12, fontWeight: "600", textAlign: "center", marginTop: 8 }}>
+                    {addWifeResult}
+                  </Text>
+                )}
+                {addWifeError && (
+                  <Text style={{ color: colors.error, fontSize: 12, fontWeight: "600", textAlign: "center", marginTop: 8 }}>
+                    {addWifeError}
+                  </Text>
+                )}
+              </View>
+            )}
           </View>
         )}
 
