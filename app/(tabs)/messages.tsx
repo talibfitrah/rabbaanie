@@ -753,56 +753,30 @@ function MessagesScreenInner() {
 }
 
 function CoParentPermissions({
-  colors, lang, isRTL, coParents,
-}: { colors: any; lang: string; isRTL: boolean; coParents: { id: number }[] }) {
+  colors, lang, isRTL,
+}: { colors: any; lang: string; isRTL: boolean }) {
   const familyListQuery = trpc.family.list.useQuery();
   const myFamily = (familyListQuery.data as any[])?.[0];
   const membersQuery = trpc.family.members.useQuery(
     { familyId: myFamily?.id! },
     { enabled: !!myFamily?.id },
   );
-  // Vendored router type predates this procedure (see app/admin/subscriptions.tsx precedent).
-  const updatePerm = (trpc.family as any).updatePermissions.useMutation({
-    onSuccess: () => membersQuery.refetch(),
-  });
-
-  // Husband-only proactive grant/revoke of his OWN profile+check-ins to his
-  // wife (see lib/partner-profile-toggle.ts) — reuses the exact procedures
-  // app/spouse-profile.tsx's reactive request-then-grant flow already calls.
-  // coParents (trpc.links.coParents, the polygyny-aware "links" domain) is
-  // the source of the wife's id here rather than family.members' `other`
-  // below: that's a separate, older membership model this component already
-  // treats as single-wife (`other` is a single `.find`, not `.filter`), and
-  // coParents[0] matches that same assumption while staying in the id space
-  // grantPartnerProfileAccess actually resolves partnerId against.
-  //
-  // Gated on the "vader" role too, computed early (before the
-  // hooks-must-run-unconditionally point below, and reused later as the
-  // sole isFather check — membersQuery isn't needed for the role itself):
-  // the control this backs only ever renders for the husband, so firing it
-  // for the wife's render of this same component would fetch her husband's
-  // full profile (children, issues, dailyCheckins) on a screen where
-  // nothing uses it.
+  // amFather gates the husband-only per-wife permission panels below. Computed
+  // before the hooks-must-run-unconditionally guards and reused as the sole
+  // isFather check (membersQuery isn't needed for the role itself). Each wife's
+  // own profile-access query + grant/revoke live in WifePermissionsPanel (one
+  // instance per wife) rather than here, so the split stays polygyny-correct.
   const amFather = myFamily?.membership?.role === "vader";
-  const wifePartnerId = coParents[0]?.id;
-  const profileAccessQuery = trpc.links.getPartnerProfile.useQuery(
-    wifePartnerId != null ? { partnerId: wifePartnerId } : undefined,
-    { enabled: !!wifePartnerId && amFather },
-  );
-  const grantProfileAccess = trpc.links.grantPartnerProfileAccess.useMutation({
-    onSuccess: () => profileAccessQuery.refetch(),
-  });
-  const revokeProfileAccess = trpc.links.revokePartnerProfileAccess.useMutation({
-    onSuccess: () => profileAccessQuery.refetch(),
-  });
+  // The wives are the active, confirmed partnerships (partnershipConfirmed) —
+  // NOT coParents/getCoParents, which also carries divorced / never-married
+  // co-parents. Those must never be offered the "access my profile + daily
+  // activity" grant this panel exposes (R3: an ex sees only shared children).
+  const partnersQuery = trpc.links.listPartners.useQuery(undefined, { enabled: amFather });
 
   if (!myFamily || !membersQuery.data) return null;
   const members = membersQuery.data as any[];
   const myUserId = myFamily.membership?.userId;
   const activeFather = members.find((m) => m.role === "vader" && !m.stubAccount);
-  const other = members.find((m) => m.userId !== myUserId);
-  if (!other) return null;
-  const otherPerms = other.permissions || {};
   const myMember = members.find((m) => m.userId === myUserId);
   const myPerms = myMember?.permissions || {};
 
@@ -839,55 +813,118 @@ function CoParentPermissions({
     );
   }
 
+  // Husband: one collapsed, name-labelled permission panel per wife — so
+  // co-wife permissions are set independently and never conflated (each wife's
+  // rights are folded under her own name, opened on tap). Daa3iyah's request.
+  const wives = (partnersQuery.data ?? []).filter((p) => p.confirmed === true);
+  if (wives.length === 0) return null;
   return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, marginTop: 10 }}>
-      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
-        {tx(lang, "Rechten van partner", "Partner's permissions", "صلاحيات الشريكة")}
+    <View style={{ marginTop: 10, gap: 8 }}>
+      <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, marginBottom: 2, textAlign: isRTL ? "right" : "left" }}>
+        {tx(lang, "Rechten per partner", "Permissions per partner", "صلاحيات كلّ زوجة")}
       </Text>
-      {PERMS.map((p) => {
-        const allowed = otherPerms[p.key] !== false;
-        return (
-          <TouchableOpacity
-            key={p.key}
-            onPress={() => updatePerm.mutate({ memberId: other.id, [p.key]: !allowed } as any)}
-            disabled={updatePerm.isPending}
-            style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
-          >
-            <Text style={{ fontSize: 12, color: colors.foreground }}>{p.label}</Text>
-            <View style={{ backgroundColor: allowed ? colors.success + "20" : colors.error + "20", borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: allowed ? colors.success : colors.error }}>
-                {allowed ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
-              </Text>
-            </View>
-          </TouchableOpacity>
-        );
-      })}
-      {!!wifePartnerId && (
-        <>
+      {wives.map((wife) => (
+        <WifePermissionsPanel
+          key={wife.id}
+          wife={wife}
+          member={members.find((m) => m.userId === wife.id)}
+          PERMS={PERMS}
+          colors={colors}
+          lang={lang}
+          isRTL={isRTL}
+        />
+      ))}
+    </View>
+  );
+}
+
+function PermBadge({ allowed, colors, lang }: { allowed: boolean; colors: any; lang: string }) {
+  return (
+    <View style={{ backgroundColor: allowed ? colors.success + "20" : colors.error + "20", borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10 }}>
+      <Text style={{ fontSize: 11, fontWeight: "700", color: allowed ? colors.success : colors.error }}>
+        {allowed ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
+      </Text>
+    </View>
+  );
+}
+
+// One wife's permissions, folded under her name and opened on tap, so a
+// polygynous husband sets each wife's rights separately. Her profile-access
+// query + grant/revoke live here (one hook-set per wife) rather than in the
+// parent, which is what makes the per-wife split polygyny-correct.
+function WifePermissionsPanel({
+  wife, member, PERMS, colors, lang, isRTL,
+}: {
+  wife: { id: number; name?: string | null };
+  member: any;
+  PERMS: Array<{ key: "canEditChildren" | "canManageGoals"; label: string }>;
+  colors: any; lang: string; isRTL: boolean;
+}) {
+  const [expanded, setExpanded] = useState(false);
+  const perms = member?.permissions || {};
+  // Own mutation per panel (not one shared from the parent) so setting one
+  // wife's permission never disables another wife's toggles. Invalidates the
+  // shared members query on success.
+  const utils = trpc.useUtils();
+  const updatePerm = (trpc.family as any).updatePermissions.useMutation({
+    onSuccess: () => utils.family.members.invalidate(),
+  });
+  // Only fetch this wife's profile-access state once her panel is opened —
+  // panels are collapsed by default, so this avoids N eager fetches on mount.
+  const profileAccessQuery = trpc.links.getPartnerProfile.useQuery(
+    { partnerId: wife.id },
+    { enabled: !!wife.id && expanded },
+  );
+  const grantProfileAccess = trpc.links.grantPartnerProfileAccess.useMutation({
+    onSuccess: () => profileAccessQuery.refetch(),
+  });
+  const revokeProfileAccess = trpc.links.revokePartnerProfileAccess.useMutation({
+    onSuccess: () => profileAccessQuery.refetch(),
+  });
+  const profileGranted = !!profileAccessQuery.data?.grantedToPartner;
+  const name = wife.name || tx(lang, "Partner", "Partner", "الزوجة");
+
+  return (
+    <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
+      <TouchableOpacity
+        onPress={() => setExpanded((e) => !e)}
+        style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", padding: 14 }}
+      >
+        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name}</Text>
+        <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+      </TouchableOpacity>
+      {expanded && (
+        <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+          {member ? PERMS.map((p) => {
+            const allowed = perms[p.key] !== false;
+            return (
+              <TouchableOpacity
+                key={p.key}
+                onPress={() => updatePerm.mutate({ memberId: member.id, [p.key]: !allowed } as any)}
+                disabled={updatePerm.isPending}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
+              >
+                <Text style={{ fontSize: 12, color: colors.foreground }}>{p.label}</Text>
+                <PermBadge allowed={allowed} colors={colors} lang={lang} />
+              </TouchableOpacity>
+            );
+          }) : null}
           <View style={{ height: 1, backgroundColor: colors.border, marginTop: 10, marginBottom: 4 }} />
           <TouchableOpacity
-            onPress={() =>
-              toggleProfileAccess(!!profileAccessQuery.data?.grantedToPartner, wifePartnerId, {
-                grant: grantProfileAccess,
-                revoke: revokeProfileAccess,
-              })
-            }
+            onPress={() => toggleProfileAccess(profileGranted, wife.id, { grant: grantProfileAccess, revoke: revokeProfileAccess })}
             disabled={grantProfileAccess.isPending || revokeProfileAccess.isPending || profileAccessQuery.isLoading}
             style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginTop: 6, paddingVertical: 4 }}
           >
-            <Text style={{ fontSize: 12, color: colors.foreground }}>
+            <Text style={{ fontSize: 12, color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>
               {tx(lang, "Toegang tot mijn profiel en mijn dagelijkse activiteit", "Access to my profile and my daily activity", "الاطّلاع على ملفي الشخصي وتفاعلي اليومي")}
             </Text>
-            <View style={{
-              backgroundColor: profileAccessQuery.data?.grantedToPartner ? colors.success + "20" : colors.error + "20",
-              borderRadius: 8, paddingVertical: 3, paddingHorizontal: 10,
-            }}>
-              <Text style={{ fontSize: 11, fontWeight: "700", color: profileAccessQuery.data?.grantedToPartner ? colors.success : colors.error }}>
-                {profileAccessQuery.data?.grantedToPartner ? tx(lang, "Toegestaan", "Allowed", "مسموح") : tx(lang, "Beperkt", "Restricted", "مقيّد")}
-              </Text>
-            </View>
+            {/* Neutral while the lazy (expand-gated) query resolves, so the badge
+                never flashes a false "Restricted" before the real state loads. */}
+            {profileAccessQuery.isLoading
+              ? <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted }}>…</Text>
+              : <PermBadge allowed={profileGranted} colors={colors} lang={lang} />}
           </TouchableOpacity>
-        </>
+        </View>
       )}
     </View>
   );
@@ -1166,8 +1203,14 @@ function ParentsSection({
         )}
       </View>
 
+      {/* Mount when any co-parent exists; the component itself decides what to
+          show (per-wife panels for a husband via listPartners, own rights for a
+          wife). Safe that the gate reads coParents while the husband body reads
+          listPartners: both derive from the same active+confirmed partnerships,
+          so a confirmed wife is always present in both — never one without the
+          other. */}
       {coParents.length > 0 && (
-        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} coParents={coParents} />
+        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} />
       )}
 
       {/* === CHILDREN SECTION === */}
