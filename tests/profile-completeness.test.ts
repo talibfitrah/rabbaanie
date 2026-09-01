@@ -38,6 +38,33 @@ describe("getFirstIncompleteOnboardingStep / isProfileComplete", () => {
     expect(isProfileComplete({ parentProfile, children })).toBe(true);
   });
 
+  it("is complete when the user explicitly declared they have no children", () => {
+    // A newly-married, childless user: basic + gender done, zero children, but
+    // they answered "I have no children" at the onboarding gate. Without the
+    // hasNoChildren flag they would be stuck forever (children.length === 0
+    // always read as incomplete → bounced back into onboarding on every launch).
+    const parentProfile = {
+      ...defaultParentProfile,
+      firstName: "A", lastName: "B", birthDate: "1990-01-01",
+      streetHouseNumber: "Kerkstraat 1", phoneNumber: "+31612345678",
+      gender: "man", maritalStatus: "getrouwd",
+      hasNoChildren: true,
+    };
+    expect(getFirstIncompleteOnboardingStep({ parentProfile, children: [] })).toBe(null);
+    expect(isProfileComplete({ parentProfile, children: [] })).toBe(true);
+  });
+
+  it("still resumes at children when hasNoChildren is unset or false and no children exist", () => {
+    const base = {
+      ...defaultParentProfile,
+      firstName: "A", lastName: "B", birthDate: "1990-01-01",
+      streetHouseNumber: "Kerkstraat 1", phoneNumber: "+31612345678",
+      gender: "man", maritalStatus: "getrouwd",
+    };
+    expect(getFirstIncompleteOnboardingStep({ parentProfile: base, children: [] })).toBe("children");
+    expect(getFirstIncompleteOnboardingStep({ parentProfile: { ...base, hasNoChildren: false }, children: [] })).toBe("children");
+  });
+
   it("tolerates a wholly missing parentProfile or children without throwing", () => {
     expect(() => isProfileComplete({})).not.toThrow();
     expect(isProfileComplete({})).toBe(false);

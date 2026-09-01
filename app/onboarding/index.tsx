@@ -53,9 +53,14 @@ export default function OnboardingScreen() {
     }
   }, [state.parentProfile, state.children]);
 
-  const [step, setStep] = useState<"basic" | "gender" | "children">(
-    () => getFirstIncompleteOnboardingStep({ parentProfile: state.parentProfile, children: state.children }) || "basic"
-  );
+  const [step, setStep] = useState<"basic" | "gender" | "hasChildren" | "children">(() => {
+    const first = getFirstIncompleteOnboardingStep({ parentProfile: state.parentProfile, children: state.children }) || "basic";
+    // getFirstIncompleteOnboardingStep returns "children" only when the user has
+    // no children AND hasn't declared they have none — exactly when they should
+    // meet the "do you have children?" gate first, not the names form. Mapping it
+    // here also rescues existing childless users already stranded on that screen.
+    return first === "children" ? "hasChildren" : first;
+  });
   const [firstName, setFirstName] = useState(state.parentProfile.firstName || "");
   const [lastName, setLastName] = useState(state.parentProfile.lastName || "");
   const [birthDate, setBirthDate] = useState(state.parentProfile.birthDate || "");
@@ -176,7 +181,7 @@ export default function OnboardingScreen() {
     }
     // Save partial progress
     await updateParentProfile({ gender, maritalStatus });
-    setStep("children");
+    setStep("hasChildren");
   };
 
   const MARITAL_OPTIONS = [
@@ -216,6 +221,38 @@ export default function OnboardingScreen() {
 
   const handleRemoveChildEntry = (index: number) => {
     setChildEntries((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  // Shared tail for both onboarding exits (with children, or "no children").
+  // Marks complete BEFORE the network calls so a crash mid-call can't leave the
+  // "profile complete but flag false" window that used to lock users out, then
+  // best-effort function assignment + publicId, then into the app.
+  const finishOnboarding = async () => {
+    await completeOnboarding();
+    // Auto-assign vader/moeder function on server (non-blocking)
+    try {
+      if (gender === 'man' || gender === 'vrouw') {
+        setGenderMutation.mutate({ gender });
+      }
+    } catch (e) {
+      console.log('Auto-assign function failed (non-blocking):', e);
+    }
+    // Generate the user's distinctive publicId from their birth date (msg 471/476)
+    try { await generateMyIdMutation.mutateAsync({ birthDate }); } catch (e) { console.log('generateMyId failed (non-blocking):', e); }
+    router.replace("/(tabs)");
+  };
+
+  // "Do you have children?" gate, asked before the names screen. Yes → collect
+  // names; No → record the declaration and finish with zero children, so a
+  // childless married user isn't trapped on a screen they cannot complete.
+  const handleHasChildrenYes = () => {
+    hasInteracted.current = true;
+    setStep("children");
+  };
+  const handleHasChildrenNo = async () => {
+    hasInteracted.current = true;
+    await updateParentProfile({ hasNoChildren: true });
+    await finishOnboarding();
   };
 
   const handleChildrenSubmit = async () => {
@@ -266,27 +303,7 @@ export default function OnboardingScreen() {
       await addChildren(newProfiles);
     }
 
-    // Mark onboarding as completed — before the network calls below, so a
-    // crash during either of them can no longer leave "profile complete,
-    // flag false" (see the profile-completion-gate fix history: that window
-    // used to be reachable and, before the gate fix, could lock a user out).
-    await completeOnboarding();
-
-    // Auto-assign vader/moeder function on server
-    try {
-      if (gender === 'man' || gender === 'vrouw') {
-        setGenderMutation.mutate({ gender });
-      }
-    } catch (e) {
-      // Non-blocking: function assignment is best-effort
-      console.log('Auto-assign function failed (non-blocking):', e);
-    }
-
-    // Generate the user's distinctive publicId from their birth date (msg 471/476)
-    try { await generateMyIdMutation.mutateAsync({ birthDate }); } catch (e) { console.log('generateMyId failed (non-blocking):', e); }
-
-    // Go to main app
-    router.replace("/(tabs)");
+    await finishOnboarding();
   };
 
   const inputStyle = {
@@ -331,17 +348,23 @@ export default function OnboardingScreen() {
 
       {/* Progress indicator */}
       <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 24 }}>
-        {["basic", "gender", "children"].map((s, i) => (
-          <View
-            key={s}
-            style={{
-              width: step === s ? 32 : 10,
-              height: 10,
-              borderRadius: 5,
-              backgroundColor: step === s ? colors.primary : (["basic", "gender", "children"].indexOf(step) > i ? colors.primary + "60" : colors.border),
-            }}
-          />
-        ))}
+        {(() => {
+          // "hasChildren" is the front half of the children stage — light the
+          // same (3rd) dot for both so the gate adds no visible extra step.
+          const stages = ["basic", "gender", "children"];
+          const current = step === "hasChildren" ? 2 : stages.indexOf(step);
+          return stages.map((s, i) => (
+            <View
+              key={s}
+              style={{
+                width: current === i ? 32 : 10,
+                height: 10,
+                borderRadius: 5,
+                backgroundColor: current === i ? colors.primary : (current > i ? colors.primary + "60" : colors.border),
+              }}
+            />
+          ));
+        })()}
       </View>
 
       {/* Step 1: Basic Info */}
@@ -648,6 +671,54 @@ export default function OnboardingScreen() {
         </View>
       )}
 
+      {/* Step 3a: Has children? gate — asked before the names screen so a
+          childless married user is never dumped on a form they can't finish. */}
+      {step === "hasChildren" && (
+        <View>
+          <Text className="text-xl font-bold mb-2" style={{ color: colors.foreground }}>
+            {tx(lang, "Heeft u kinderen?", "Do you have children?", "هل لديك أبناء؟")}
+          </Text>
+          <Text className="text-sm mb-6" style={{ color: colors.muted }}>
+            {tx(lang, "Zo niet, dan kunt u ze later toevoegen.", "If not, you can add them later.", "إن لم يكونوا لديك الآن، يمكنك إضافتهم لاحقًا.")}
+          </Text>
+
+          <Pressable
+            onPress={handleHasChildrenYes}
+            style={({ pressed }) => [{
+              backgroundColor: colors.primary,
+              borderRadius: 12,
+              paddingVertical: 16,
+              alignItems: "center" as const,
+              marginBottom: 12,
+              opacity: pressed ? 0.8 : 1,
+            }]}
+          >
+            <Text className="text-white text-lg font-bold">{tx(lang, "Ja, ik heb kinderen", "Yes, I have children", "نعم، لديّ أبناء")}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={handleHasChildrenNo}
+            style={({ pressed }) => [{
+              borderWidth: 2,
+              borderColor: colors.primary,
+              borderRadius: 12,
+              paddingVertical: 16,
+              alignItems: "center" as const,
+              opacity: pressed ? 0.7 : 1,
+            }]}
+          >
+            <Text className="text-lg font-bold" style={{ color: colors.primary }}>{tx(lang, "Nee, nog niet", "No, not yet", "لا، ليس لديّ أبناء بعد")}</Text>
+          </Pressable>
+
+          <Pressable
+            onPress={() => setStep("gender")}
+            style={({ pressed }) => [{ marginTop: 12, alignItems: "center" as const, opacity: pressed ? 0.6 : 1 }]}
+          >
+            <Text className="text-base" style={{ color: colors.muted }}>{tx(lang, "← Terug", "← Back", "→ رجوع")}</Text>
+          </Pressable>
+        </View>
+      )}
+
       {/* Step 3: Children */}
       {step === "children" && (
         <View>
@@ -746,7 +817,7 @@ export default function OnboardingScreen() {
           </Pressable>
 
           <Pressable
-            onPress={() => setStep("gender")}
+            onPress={() => setStep("hasChildren")}
             style={({ pressed }) => [{ marginTop: 12, alignItems: "center" as const, opacity: pressed ? 0.6 : 1 }]}
           >
             <Text className="text-base" style={{ color: colors.muted }}>{tx(lang, "\u2190 Terug", "\u2190 Back", "\u2192 رجوع")}</Text>

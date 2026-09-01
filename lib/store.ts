@@ -19,6 +19,12 @@ export interface ParentProfile {
   // Basis
   gender: string;
   maritalStatus: string;
+  // Set true when the user answers "I have no children" at the onboarding gate.
+  // Optional so pre-existing profiles (undefined) are unaffected. Makes a
+  // zero-children profile a valid *complete* state — see
+  // getFirstIncompleteOnboardingStep — so a childless married user isn't
+  // trapped on the "add children" screen.
+  hasNoChildren?: boolean;
   birthDate: string; // ISO date YYYY-MM-DD
   
   // Band met Allaah - Gebed
@@ -467,7 +473,13 @@ export function getFirstIncompleteOnboardingStep(
   if (!(p?.gender && p?.maritalStatus)) {
     return "gender";
   }
-  if (!(Array.isArray(state.children) && state.children.length > 0)) {
+  // A childless user satisfies this step either by having children OR by
+  // explicitly declaring they have none at the onboarding gate (hasNoChildren).
+  // Without the second clause, children.length === 0 always read as incomplete,
+  // trapping a newly-married user on the "add children" screen forever.
+  const hasChildrenOrDeclaredNone =
+    (Array.isArray(state.children) && state.children.length > 0) || p?.hasNoChildren === true;
+  if (!hasChildrenOrDeclaredNone) {
     return "children";
   }
   return null;
