@@ -64,4 +64,10 @@ describe("resolveShouldShowPopup", () => {
     expect(resolveShouldShowPopup({ type: "prayer" }, m, false)).toBe(true);
     expect(resolveShouldShowPopup({ type: "test_reminder" }, m, true)).toBe(true);
   });
+
+  it("routes the haid purity-check and ghusl-reminder types to the reminders category", () => {
+    expect(resolveShouldShowPopup({ type: "haid_purity_check" }, modes({ reminders: "popup" }))).toBe(true);
+    expect(resolveShouldShowPopup({ type: "haid_purity_check" }, modes({ reminders: "off" }))).toBe(false);
+    expect(resolveShouldShowPopup({ type: "haid_ghusl_reminder" }, modes({ reminders: "popup" }))).toBe(true);
+  });
 });

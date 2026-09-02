@@ -458,9 +458,10 @@ const SCHEDULE_ALL_OWN_TYPES: readonly string[] = [PRAYER_TYPE, ADHKAAR_TYPE];
  * then re-run from scratch, so the end state is the LAST call's output.
  */
 export function scheduleAllNotifications(
-  language: "nl" | "en" | "ar" = "nl"
+  language: "nl" | "en" | "ar" = "nl",
+  skipPrayersUntil?: string
 ): Promise<number> {
-  return enqueue(() => scheduleAllNotificationsInner(language));
+  return enqueue(() => scheduleAllNotificationsInner(language, skipPrayersUntil));
 }
 
 /**
@@ -491,7 +492,8 @@ async function cancelOwnScheduled(): Promise<void> {
 }
 
 async function scheduleAllNotificationsInner(
-  language: "nl" | "en" | "ar"
+  language: "nl" | "en" | "ar",
+  skipPrayersUntil?: string
 ): Promise<number> {
   // The raw pass, not the queued wrapper: this already runs inside the queue,
   // and re-entering it would wait on a job that cannot finish until we return.
@@ -528,6 +530,9 @@ async function scheduleAllNotificationsInner(
   for (let dayOffset = 0; dayOffset < prayerDays; dayOffset++) {
     const date = new Date(now);
     date.setDate(date.getDate() + dayOffset);
+    // Local date parts, not toISOString: this Date is device-local, and a UTC
+    // conversion near midnight can land on the wrong YYYY-MM-DD.
+    const dayIso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
     const times = calculatePrayerTimes(date, location.lat, location.lng, method, location.tz);
 
@@ -536,6 +541,9 @@ async function scheduleAllNotificationsInner(
 
     for (const prayer of prayerKeys) {
       if (!prefs.prayers[prayer]) continue;
+      // Haid/nifas pause (decision 14): skip only prayer notifications for
+      // excused days. Adhkaar below is untouched.
+      if (skipPrayersUntil && dayIso <= skipPrayersUntil) continue;
 
       const timeStr = times[prayer];
       const [h, m] = timeStr.split(":").map(Number);

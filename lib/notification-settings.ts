@@ -4,6 +4,7 @@
  */
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import { HAID_NOTIFICATION_TYPES } from "./haid-state";
 
 // ============ STORAGE KEY ============
 export const UNIFIED_NOTIF_PREFS_KEY = "@unified_notification_prefs";
@@ -294,6 +295,9 @@ const CATEGORY_KEYWORDS: [keyof NotifDisplayModes, string[]][] = [
 ];
 
 function categoryForType(type: string): keyof NotifDisplayModes | null {
+  if (type === HAID_NOTIFICATION_TYPES.purityCheck || type === HAID_NOTIFICATION_TYPES.ghuslReminder) {
+    return "reminders";
+  }
   for (const [category, keywords] of CATEGORY_KEYWORDS) {
     if (keywords.some((kw) => type.includes(kw))) return category;
   }
