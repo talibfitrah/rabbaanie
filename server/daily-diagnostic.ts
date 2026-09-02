@@ -89,6 +89,9 @@ export type Gender = "man" | "vrouw" | "";
 export interface DiagnosticOption {
   label: string;
   tone: DiagnosticTone;
+  /** Set only on the women-only "excused today" prayer option (decision 13
+   * of the haid tracker spec). Clients detect it by `kind`, never by label. */
+  kind?: "excused";
 }
 export interface DiagnosticQuestion {
   category: DiagnosticCategory;
@@ -312,6 +315,16 @@ function dateSeed(date: string): number {
   return seed;
 }
 
+// Decision 13 (haid tracker spec): women get a 4th, neutral prayer-question
+// option so a day excused by حيض/نفاس doesn't get scored positive/needs_support
+// against an act she wasn't obligated to do. Neutral tone, and `kind` (never
+// the label) is what a client detects it by.
+const EXCUSED_OPTION = (lang: Lang): DiagnosticOption => ({
+  label: tOf(lang)("Vandaag uitgezonderd (menstruatie of kraamtijd)", "Excused today (menses or postpartum)", "معذورة اليوم (حائض أو نفساء)"),
+  tone: "neutral",
+  kind: "excused",
+});
+
 /**
  * Today's curated four-question set — pure, deterministic, no I/O.
  * `hasPartner` defaults to false (fail-safe): a caller that forgets to pass
@@ -324,7 +337,11 @@ export function buildQuestionsForToday(gender: Gender, lang: Lang, date: string,
     const allVariants = QUESTION_BANK[category];
     const excludedIndices = hasPartner ? undefined : PARTNER_ONLY_VARIANT_INDICES[category];
     const variants = excludedIndices ? allVariants.filter((_, idx) => !excludedIndices.has(idx)) : allVariants;
-    return variants[(seed + i) % variants.length](gender, lang);
+    const question = variants[(seed + i) % variants.length](gender, lang);
+    if (category === "prayer" && gender === "vrouw") {
+      question.options = [...question.options, EXCUSED_OPTION(lang)];
+    }
+    return question;
   });
 }
 
