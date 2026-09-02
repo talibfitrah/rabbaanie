@@ -55,6 +55,32 @@ describe("prayer popup — haid button (item C: never overwrite, pause only afte
   });
 });
 
+// The server now rejects cycle writes outright when she hasn't enabled the
+// tracker (PRECONDITION_FAILED) — so tapping «أنا حائض» while disabled used
+// to silently do nothing at all. Route her to enable it first instead.
+describe("prayer popup — routes to /haid instead of silently no-op'ing when the tracker isn't enabled", () => {
+  it("checks her tracker-enabled state (trpc.cycle.getMine, gated to women) before deciding", () => {
+    expect(src).toContain("trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman })");
+  });
+
+  it("imports the standalone (non-hook) router — this component renders outside the navigation-hook-reachable tree", () => {
+    expect(src).toMatch(/import \{[^}]*\brouter\b[^}]*\} from "expo-router"/);
+  });
+
+  it("not enabled (or not yet known): does not write, routes to /haid instead", () => {
+    const handleHaidStart = src.indexOf("const handleHaid = () => {");
+    const handleHaidEnd = src.indexOf("\n  };", handleHaidStart);
+    expect(handleHaidStart).toBeGreaterThan(-1);
+    expect(handleHaidEnd).toBeGreaterThan(handleHaidStart);
+    const body = src.slice(handleHaidStart, handleHaidEnd);
+    expect(body).toContain("mine.data?.enabled === true");
+    expect(body).toContain('router.push("/haid")');
+    // Both branches still dismiss the popup the same way (onDoNow clears any
+    // pending follow-up timer before dismissing — onDismiss alone would not).
+    expect(body).toContain("onDoNow(notification)");
+  });
+});
+
 // C15: isWoman used to hold whatever the LAST successfully-read account was
 // until the new account's async read resolved — or forever, if it failed —
 // briefly (or indefinitely) showing "أنا حائض" to a man right after

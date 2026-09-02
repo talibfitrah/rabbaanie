@@ -11,6 +11,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "react-native";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
@@ -78,6 +79,10 @@ export function PrayerPopupModal({
   }, [visible]);
 
   const utils = trpc.useUtils();
+  // Her tracker-enabled state — the server rejects a cycle write outright
+  // (PRECONDITION_FAILED) when she hasn't enabled it, so handleHaid below
+  // checks this first instead of silently no-op'ing on a rejected write.
+  const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
   const markHaid = trpc.cycle.upsertDay.useMutation({
     onSuccess: async () => {
       utils.cycle.getMine.invalidate();
@@ -124,7 +129,15 @@ export function PrayerPopupModal({
   };
 
   const handleHaid = () => {
-    markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
+    if (mine.data?.enabled === true) {
+      markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
+    } else {
+      // Not enabled (or not yet known — fails safe toward not writing): the
+      // server rejects the write outright, so attempting it here would
+      // silently do nothing. Send her to enable it first — the consent
+      // notice + «تفعيل» button live on that screen.
+      router.push("/haid");
+    }
     // onDoNow, not onDismiss: this component holds no follow-up-timer ref of
     // its own (it lives in usePopupNotifications, app/_layout.tsx's caller),
     // and onDoNow is already wired to that hook's handleDoNow, which clears
