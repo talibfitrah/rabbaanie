@@ -3,7 +3,7 @@
  * Supports years -1 (pregnancy) through 18.
  */
 import { useState, useEffect } from "react";
-import { fetchYearData, getYearDataSync, getYearKeys } from "@/lib/weekly-data";
+import { fetchWeekData, fetchYearData, getWeekDataSync, getYearDataSync, getYearKeys } from "@/lib/weekly-data";
 import { useI18n } from "@/lib/i18n";
 
 interface UseWeeklyDataResult {
@@ -68,39 +68,41 @@ export function useWeeklyData(yearKey: string): UseWeeklyDataResult {
 }
 
 /**
- * Loads multiple years at once.
+ * Loads one week per entry — the home and family tabs only ever read the
+ * current week, and a week is ~40 KB against 0.9-2.9 MB for a whole year.
+ * Keyed by `${yearKey}:${week}`.
  */
-export function useMultipleYearData(yearKeys: string[]): Record<string, any> {
+export function useMultipleWeekData(entries: { yearKey: string; week: number }[]): Record<string, any> {
   const { language } = useI18n();
   const lang = language || "ar";
-  const keyString = yearKeys.join(",");
+  const keyString = entries.map((e) => `${e.yearKey}:${e.week}`).join(",");
 
   const [dataMap, setDataMap] = useState<Record<string, any>>(() => {
     const map: Record<string, any> = {};
-    for (const key of yearKeys) {
-      const yearNum = parseInt(key.replace("Jaar ", ""), 10);
+    for (const { yearKey, week } of entries) {
+      const yearNum = parseInt(yearKey.replace("Jaar ", ""), 10);
       if (isNaN(yearNum) || yearNum < -1 || yearNum > 18) continue;
-      const cached = getYearDataSync(yearNum, lang);
-      if (cached) map[key] = cached;
+      const cached = getWeekDataSync(yearNum, week, lang);
+      if (cached) map[`${yearKey}:${week}`] = cached;
     }
     return map;
   });
 
   useEffect(() => {
     let cancelled = false;
-    const uniqueKeys = [...new Set(yearKeys)];
+    const unique = new Map(entries.map((e) => [`${e.yearKey}:${e.week}`, e]));
 
     const loadAll = async () => {
       const map: Record<string, any> = {};
       await Promise.all(
-        uniqueKeys.map(async (key) => {
-          const yearNum = parseInt(key.replace("Jaar ", ""), 10);
+        [...unique].map(async ([mapKey, { yearKey, week }]) => {
+          const yearNum = parseInt(yearKey.replace("Jaar ", ""), 10);
           if (isNaN(yearNum) || yearNum < -1 || yearNum > 18) return;
           try {
-            const data = await fetchYearData(yearNum, lang);
-            if (data) map[key] = data;
+            const data = await fetchWeekData(yearNum, week, lang);
+            if (data) map[mapKey] = data;
           } catch (err) {
-            console.warn(`[useMultipleYearData] Error loading ${key} (${lang}):`, err);
+            console.warn(`[useMultipleWeekData] Error loading ${mapKey} (${lang}):`, err);
           }
         })
       );

@@ -22,7 +22,7 @@ import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, grou
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useMultipleYearData } from "@/hooks/use-weekly-data";
+import { useMultipleWeekData } from "@/hooks/use-weekly-data";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -1723,14 +1723,17 @@ export default function FamilyScreen() {
     }
   }, [isAuthenticated]);
 
-  // Compute year keys for all children and fetch data from server
-  const familyChildYearKeys = useMemo(() => {
+  // Compute the year + current week for each child and fetch it from the server
+  const familyChildWeekEntries = useMemo(() => {
     return (state?.children || []).map((child) => {
       const age = child.birthDate ? calculateAgeInWeeks(child.birthDate) : null;
-      return age ? `Jaar ${age.years}` : "Jaar 0";
+      return {
+        yearKey: age ? `Jaar ${age.years}` : "Jaar 0",
+        week: age ? getWeekInYear(age.totalWeeks, age.years) : 1,
+      };
     });
   }, [state?.children]);
-  const familyYearDataMap = useMultipleYearData(familyChildYearKeys);
+  const familyWeekDataMap = useMultipleWeekData(familyChildWeekEntries);
   const [dayInfoList, setDayInfoList] = useState<DayInfo[]>([]);
   const [upcomingEvents, setUpcomingEvents] = useState<UpcomingEvent[]>([]);
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
@@ -4053,10 +4056,7 @@ export default function FamilyScreen() {
             // Calculate weekly progress for this child
             const yearKey = age ? `Jaar ${age.years}` : "Jaar 0";
             const weekNum = age ? getWeekInYear(age.totalWeeks, age.years) : 1;
-            const yearData = familyYearDataMap[yearKey];
-            const weekData = yearData?.weeks?.find(
-              (w: any) => w.week === weekNum,
-            );
+            const weekData = familyWeekDataMap[`${yearKey}:${weekNum}`];
             const totalGoals = weekData
               ? (weekData.parent?.length || 0) + (weekData.child?.length || 0)
               : 0;

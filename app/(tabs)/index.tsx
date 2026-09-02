@@ -11,7 +11,7 @@ import { weatherLabel } from "@/lib/weather";
 import { loadNotificationPrefs, type NotificationPrefs } from "@/lib/notifications";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import Svg, { Path, Circle, Rect } from "react-native-svg";
-import { useMultipleYearData } from "@/hooks/use-weekly-data";
+import { useMultipleWeekData } from "@/hooks/use-weekly-data";
 import { trpc } from "@/lib/trpc";
 import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
@@ -286,15 +286,18 @@ export default function AlgemeenScreen() {
   const cityName = prayerLocation?.city || state.locationSettings?.city || "";
   const displayCity = lang === "ar" ? getCityAR(cityName) : cityName;
 
-  // Compute year keys needed for all children
-  const childYearKeys = useMemo(() => {
+  // Compute the year + current week needed for each child
+  const childWeekEntries = useMemo(() => {
     return state.children.map((child) => {
       const age = child.birthDate ? calculateAgeInWeeks(child.birthDate) : null;
-      return age ? getYearKey(age.years) : "Jaar 0";
+      return {
+        yearKey: age ? getYearKey(age.years) : "Jaar 0",
+        week: age ? getWeekInYear(age.totalWeeks, age.years) : 1,
+      };
     });
   }, [state.children]);
-  // Fetch year data from server (lazy, cached)
-  const yearDataMap = useMultipleYearData(childYearKeys);
+  // Fetch only this week per child from server (lazy, cached)
+  const weekDataMap = useMultipleWeekData(childWeekEntries);
   // Weekly progress per child
   const childProgress = useMemo(() => {
     // Sort children by age (oldest first)
@@ -308,10 +311,7 @@ export default function AlgemeenScreen() {
       const age = child.birthDate ? calculateAgeInWeeks(child.birthDate) : null;
       const yearKey = age ? getYearKey(age.years) : "Jaar 0";
       const weekInYear = age ? getWeekInYear(age.totalWeeks, age.years) : 1;
-      const yearInfo = yearDataMap[yearKey];
-      const availableWeeks = yearInfo?.weeks || [];
-      const weekIdx = availableWeeks.findIndex((w: any) => w.week === weekInYear);
-      const activeWeek = weekIdx >= 0 ? availableWeeks[weekIdx] : availableWeeks[0];
+      const activeWeek = weekDataMap[`${yearKey}:${weekInYear}`];
 
       let totalGoals = 0;
       let completedCount = 0;
@@ -349,7 +349,7 @@ export default function AlgemeenScreen() {
         todayTip,
       };
     });
-  }, [state.children, completedGoals, lang]);
+  }, [state.children, completedGoals, lang, weekDataMap]);
 
   if (loading) {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
