@@ -27,6 +27,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { PremiumGate } from "@/components/premium-notice";
 import { useColors } from "@/hooks/use-colors";
 import { useAutoTranslate } from "@/hooks/use-auto-translate";
+import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
@@ -108,7 +109,7 @@ interface Conversation {
  * Format AI response text: remove markdown asterisks, format numbered steps,
  * and render with proper hierarchy and spacing.
  */
-function formatAIResponse(content: string, textColor: string, accentColor: string): React.ReactNode[] {
+function formatAIResponse(content: string, textColor: string, accentColor: string, isRTL: boolean): React.ReactNode[] {
   // Clean up asterisks (** bold ** and * italic *)
   let cleaned = content.replace(/\*\*([^*]+)\*\*/g, '$1');
   cleaned = cleaned.replace(/\*([^*]+)\*/g, '$1');
@@ -148,8 +149,8 @@ function formatAIResponse(content: string, textColor: string, accentColor: strin
         );
       } else if (isNumberedStep) {
         elements.push(
-          <View key={key} style={{ flexDirection: 'row', marginTop: 6, paddingLeft: 4 }}>
-            <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700', marginRight: 6, minWidth: 20 }}>
+          <View key={key} style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 6, ...(isRTL ? { paddingRight: 4 } : { paddingLeft: 4 }) }}>
+            <Text style={{ color: accentColor, fontSize: 14, fontWeight: '700', ...(isRTL ? { marginLeft: 6 } : { marginRight: 6 }), minWidth: 20 }}>
               {trimmed.match(/^[\d٠-٩]+[.)\-]/)?.[0] || ''}
             </Text>
             <Text style={{ color: textColor, fontSize: 14, lineHeight: 22, flex: 1 }}>
@@ -159,8 +160,8 @@ function formatAIResponse(content: string, textColor: string, accentColor: strin
         );
       } else if (isBullet) {
         elements.push(
-          <View key={key} style={{ flexDirection: 'row', marginTop: 4, paddingLeft: 12 }}>
-            <Text style={{ color: accentColor, fontSize: 14, marginRight: 6 }}>•</Text>
+          <View key={key} style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 4, ...(isRTL ? { paddingRight: 12 } : { paddingLeft: 12 }) }}>
+            <Text style={{ color: accentColor, fontSize: 14, ...(isRTL ? { marginLeft: 6 } : { marginRight: 6 }) }}>•</Text>
             <Text style={{ color: textColor, fontSize: 14, lineHeight: 22, flex: 1 }}>
               {trimmed.replace(/^[-\u2022\u25CF]\s*/, '')}
             </Text>
@@ -202,7 +203,7 @@ function AdvisorBody({ content, colors, isRTL }: { content: string; colors: any;
           ) : null}
         </View>
       ) : null}
-      <View>{formatAIResponse(effectiveText, colors.foreground, colors.primary)}</View>
+      <View>{formatAIResponse(effectiveText, colors.foreground, colors.primary, isRTL)}</View>
     </View>
   );
 }
@@ -246,7 +247,7 @@ function AIChatScreenInner() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [language, setLanguage] = useState<"nl" | "ar" | "en">("ar");
+  const { language, isRTL } = useI18n();
   const [selectedChild, setSelectedChild] = useState<{ id: string; name: string; age: string } | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -284,24 +285,7 @@ function AIChatScreenInner() {
     return "5";
   };
 
-  // Load settings and set initial child
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   // Always start fresh - user chooses topic explicitly each time
-
-  const loadSettings = async () => {
-    try {
-      const lang = await AsyncStorage.getItem("@app_language");
-      if (lang === "ar" || lang === "en" || lang === "nl") setLanguage(lang);
-
-      // Do NOT restore last conversation - always start fresh
-      // User can access previous conversations via history button
-    } catch (e) {
-      console.error("Error loading settings:", e);
-    }
-  };
 
   const saveConversation = async (convId: string, msgs: ChatMessage[]) => {
     try {
@@ -1253,11 +1237,13 @@ function AIChatScreenInner() {
     return (
       <View style={[
         styles.messageBubble,
-        isUser ? styles.userBubble : styles.aiBubble,
+        // Tail corner on the side the bubble sits on (own bubble is at the left in Arabic).
+        isUser !== isRTL ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 },
+        { alignSelf: isUser !== isRTL ? "flex-end" : "flex-start" },
         { backgroundColor: isUser ? colors.primary : colors.surface },
       ]}>
         {!isUser && (
-          <View style={styles.aiHeader}>
+          <View style={[styles.aiHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <IconSymbol name="lightbulb.fill" size={14} color={colors.primary} />
             <Text style={[styles.aiLabel, { color: colors.primary }]}>
               {language === "ar" ? "المستشار التربوي" : language === "en" ? "Parenting Advisor" : "Opvoedadviseur"}
@@ -1267,13 +1253,13 @@ function AIChatScreenInner() {
         
         {/* Show attachment thumbnails */}
         {item.attachments && item.attachments.length > 0 && (
-          <View style={styles.attachmentPreviewRow}>
+          <View style={[styles.attachmentPreviewRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             {item.attachments.map((att, idx) => (
               <View key={idx} style={[styles.attachmentThumb, { borderColor: colors.border }]}>
                 {att.type === "image" && att.uri ? (
                   <Image source={{ uri: att.uri }} style={styles.attachmentImage} />
                 ) : (
-                  <View style={styles.fileThumb}>
+                  <View style={[styles.fileThumb, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <IconSymbol name="doc.text.fill" size={16} color={colors.muted} />
                     <Text style={[styles.fileName, { color: colors.muted }]} numberOfLines={1}>{att.name}</Text>
                   </View>
@@ -1326,7 +1312,7 @@ function AIChatScreenInner() {
           <Pressable
             onPress={() => saveActionPlanToWeekly(item.content)}
             style={({ pressed }) => [
-              styles.actionPlanBtn,
+              styles.actionPlanBtn, { flexDirection: isRTL ? "row-reverse" : "row" },
               {
                 alignSelf: language === "ar" ? "flex-end" : "flex-start",
                 marginTop: 18,
@@ -1405,12 +1391,12 @@ function AIChatScreenInner() {
         keyboardVerticalOffset={Platform.OS === "ios" ? 0 : 0}
       >
         {/* Header */}
-        <View style={[styles.header, { borderBottomColor: colors.border }]}>
+        <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
           <Pressable onPress={goBackOneStep} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
             <IconSymbol name="chevron.right" size={24} color={colors.foreground} />
           </Pressable>
           <Text style={[styles.headerTitle, { color: colors.foreground }]}>{welcomeTitle}</Text>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
             <Pressable onPress={() => { setHistoryFilter(null); loadConversationHistory(); setShowHistory(true); }} style={({ pressed }) => [styles.newChatBtn, pressed && { opacity: 0.6 }]}>
               <IconSymbol name="clock.fill" size={20} color={colors.primary} />
             </Pressable>
@@ -1424,7 +1410,7 @@ function AIChatScreenInner() {
         {showHistory && (
           <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, zIndex: 100, backgroundColor: colors.background }}>
             {/* Header */}
-            <View style={[styles.header, { borderBottomColor: colors.border }]}>
+            <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
               <Pressable onPress={() => { setShowHistory(false); setSelectMode(false); setSelectedConvIds(new Set()); setHistoryFilter(null); }} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}>
                 <IconSymbol name="chevron.right" size={24} color={colors.foreground} />
               </Pressable>
@@ -1438,7 +1424,7 @@ function AIChatScreenInner() {
 
             {/* Search bar */}
             <View style={{ paddingHorizontal: 16, paddingTop: 8, paddingBottom: 4 }}>
-              <View style={{ flexDirection: "row", alignItems: "center", backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", backgroundColor: colors.surface, borderRadius: 10, paddingHorizontal: 12, borderWidth: 1, borderColor: colors.border }}>
                 <IconSymbol name="magnifyingglass" size={16} color={colors.muted} />
                 <TextInput
                   value={historySearch}
@@ -1481,7 +1467,7 @@ function AIChatScreenInner() {
 
             {/* Action bar for select mode */}
             {selectMode && (
-              <View style={{ flexDirection: "row", paddingHorizontal: 16, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", paddingHorizontal: 16, paddingVertical: 8, gap: 8, borderBottomWidth: 1, borderBottomColor: colors.border }}>
                 <Pressable
                   onPress={deleteSelectedConversations}
                   style={({ pressed }) => [{ flex: 1, paddingVertical: 10, borderRadius: 8, backgroundColor: selectedConvIds.size > 0 ? colors.error : colors.surface, alignItems: "center" as const, opacity: pressed ? 0.7 : 1 }]}
@@ -1522,7 +1508,7 @@ function AIChatScreenInner() {
                 </View>
               }
               renderItem={({ item }) => (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                   {/* Checkbox in select mode */}
                   {selectMode && (
                     <Pressable
@@ -1544,8 +1530,8 @@ function AIChatScreenInner() {
                       flex: 1,
                     }]}
                   >
-                    <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, flex: 1 }}>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, flex: 1 }}>
                         <Text style={{ fontSize: 16 }}>
                           {item.consultationType === "spouse" ? "💑" : item.consultationType === "general" ? "✨" : "👶"}
                         </Text>
@@ -1623,7 +1609,7 @@ function AIChatScreenInner() {
               }).map((child: any) => {
                 const age = getChildAge(child);
                 return (
-                  <View key={child.id} style={{ flexDirection: "row", alignItems: "center", gap: 6, width: "100%" }}>
+                  <View key={child.id} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
                     <Pressable
                       onPress={() => {
                         setSelectedChild({ id: child.id, name: child.name, age });
@@ -1651,7 +1637,7 @@ function AIChatScreenInner() {
 
               {/* Option: Spouse/Partner */}
               {appState.parentProfile?.partnerName && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, width: "100%" }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
                   <Pressable
                     onPress={() => {
                       setConsultationType("spouse");
@@ -1679,7 +1665,7 @@ function AIChatScreenInner() {
 
               {/* Option: Spouse (if no partner name saved) */}
               {!appState.parentProfile?.partnerName && (
-                <View style={{ flexDirection: "row", alignItems: "center", gap: 6, width: "100%" }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
                   <Pressable
                     onPress={() => {
                       setConsultationType("spouse");
@@ -1763,7 +1749,7 @@ function AIChatScreenInner() {
                 backgroundColor: colors.primary + "12",
                 borderWidth: 1.5,
                 borderColor: colors.primary + "40",
-                flexDirection: "row" as const,
+                flexDirection: isRTL ? ("row-reverse" as const) : ("row" as const),
                 alignItems: "center" as const,
                 justifyContent: "center" as const,
                 gap: 10,
@@ -1850,8 +1836,8 @@ function AIChatScreenInner() {
             {/* Active child indicator */}
             {selectedChild && (
               <View style={[styles.childSelector, { backgroundColor: colors.surface }]}>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 16, gap: 8 }}>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 6, backgroundColor: colors.primary + "15", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", paddingHorizontal: 16, gap: 8 }}>
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: colors.primary + "15", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
                     <IconSymbol name="person.fill" size={14} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
                       {selectedChild.name} ({selectedChild.age})
@@ -1945,7 +1931,7 @@ function AIChatScreenInner() {
 
             {/* Loading indicator */}
             {isLoading && (
-              <View style={[styles.loadingContainer, { backgroundColor: colors.surface }]}>
+              <View style={[styles.loadingContainer, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.surface }]}>
                 <ActivityIndicator size="small" color={colors.primary} />
                 <Text style={[styles.loadingText, { color: colors.muted }]}>
                   {language === "ar" ? "جارٍ التفكير..." : language === "en" ? "Thinking..." : "Aan het nadenken..."}
@@ -1966,7 +1952,7 @@ function AIChatScreenInner() {
               <View style={[styles.attachMenu, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                 <Pressable
                   onPress={pickImage}
-                  style={({ pressed }) => [styles.attachOption, { backgroundColor: pressed ? colors.border : "transparent" }]}
+                  style={({ pressed }) => [styles.attachOption, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: pressed ? colors.border : "transparent" }]}
                 >
                   <IconSymbol name="photo.fill" size={20} color={colors.primary} />
                   <Text style={[styles.attachOptionText, { color: colors.foreground }]}>
@@ -1975,7 +1961,7 @@ function AIChatScreenInner() {
                 </Pressable>
                 <Pressable
                   onPress={takePhoto}
-                  style={({ pressed }) => [styles.attachOption, { backgroundColor: pressed ? colors.border : "transparent" }]}
+                  style={({ pressed }) => [styles.attachOption, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: pressed ? colors.border : "transparent" }]}
                 >
                   <IconSymbol name="camera.fill" size={20} color={colors.primary} />
                   <Text style={[styles.attachOptionText, { color: colors.foreground }]}>
@@ -1984,7 +1970,7 @@ function AIChatScreenInner() {
                 </Pressable>
                 <Pressable
                   onPress={pickDocument}
-                  style={({ pressed }) => [styles.attachOption, { backgroundColor: pressed ? colors.border : "transparent" }]}
+                  style={({ pressed }) => [styles.attachOption, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: pressed ? colors.border : "transparent" }]}
                 >
                   <IconSymbol name="doc.fill" size={20} color={colors.primary} />
                   <Text style={[styles.attachOptionText, { color: colors.foreground }]}>
@@ -1999,7 +1985,7 @@ function AIChatScreenInner() {
               <View style={[styles.attachmentBar, { backgroundColor: colors.surface, borderTopColor: colors.border }]}>
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 8 }}>
                   {attachments.map((att, idx) => (
-                    <View key={idx} style={[styles.attachmentItem, { borderColor: colors.border }]}>
+                    <View key={idx} style={[styles.attachmentItem, { flexDirection: isRTL ? "row-reverse" : "row", borderColor: colors.border }]}>
                       {att.type === "image" ? (
                         <Image source={{ uri: att.uri }} style={styles.attachPreviewImg} />
                       ) : (
@@ -2018,7 +2004,7 @@ function AIChatScreenInner() {
             )}
 
             {/* Input row */}
-            <View style={[styles.inputContainer, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+            <View style={[styles.inputContainer, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.background, borderTopColor: colors.border }]}>
               {/* Attach button.
 
                   Sideload only. The Play build would have to ask for CAMERA and
@@ -2103,7 +2089,6 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   header: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
@@ -2177,16 +2162,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     marginBottom: 8,
   },
-  userBubble: {
-    alignSelf: "flex-end",
-    borderBottomRightRadius: 4,
-  },
-  aiBubble: {
-    alignSelf: "flex-start",
-    borderBottomLeftRadius: 4,
-  },
   aiHeader: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 4,
     marginBottom: 4,
@@ -2203,7 +2179,6 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
   },
   attachmentPreviewRow: {
-    flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     marginBottom: 6,
@@ -2219,7 +2194,6 @@ const styles = StyleSheet.create({
     borderRadius: 8,
   },
   fileThumb: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 4,
     paddingHorizontal: 8,
@@ -2230,7 +2204,6 @@ const styles = StyleSheet.create({
     maxWidth: 60,
   },
   actionPlanBtn: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 6,
     marginTop: 8,
@@ -2244,7 +2217,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   loadingContainer: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     paddingHorizontal: 16,
@@ -2262,7 +2234,6 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
   },
   attachmentItem: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 8,
@@ -2292,7 +2263,6 @@ const styles = StyleSheet.create({
     gap: 4,
   },
   attachOption: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 10,
@@ -2303,7 +2273,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
   },
   inputContainer: {
-    flexDirection: "row",
     alignItems: "flex-end",
     paddingHorizontal: 8,
     paddingTop: 8,

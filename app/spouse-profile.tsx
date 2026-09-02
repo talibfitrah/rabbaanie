@@ -319,7 +319,7 @@ export default function SpouseProfileScreen() {
                   <Text style={{ fontSize: 13, color: colors.muted, textAlign: "center", marginTop: 8 }}>
                     {tx(lang, "Stel eerst uw geslacht in om dit profiel te kunnen bekijken.", "Set your gender first to view this profile.", "حدّد جنسك أولاً لعرض هذا الملف.")}
                   </Text>
-                  <View style={{ flexDirection: "row", gap: 10, marginTop: 20 }}>
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginTop: 20 }}>
                     <Pressable
                       onPress={() => setGenderMutation.mutate({ gender: "man" })}
                       disabled={setGenderMutation.isPending}

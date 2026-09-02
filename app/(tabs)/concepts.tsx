@@ -1217,7 +1217,7 @@ document.addEventListener('touchend', function(e) {
 }
 
 export default function QuranScreen() {
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const insets = useSafeAreaInsets();
   const colors = useColors();
@@ -1605,7 +1605,7 @@ export default function QuranScreen() {
           { paddingTop: insets.top, backgroundColor: bgColor },
         ]}
       >
-        <View style={[st.modalHeader, { backgroundColor: headerBg }]}>
+        <View style={[st.modalHeader, { backgroundColor: headerBg, flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <Text style={st.modalHeaderTitle}>
             {tx(lang, "Inhoudsopgave", "Index", "فهرس السور")}
           </Text>
@@ -1639,6 +1639,7 @@ export default function QuranScreen() {
               }}
               style={({ pressed }) => [
                 st.indexItem,
+                { flexDirection: isRTL ? "row-reverse" : "row" },
                 pressed && {
                   backgroundColor: nightMode ? "#2A2A4A" : "#F0F7F4",
                 },
@@ -1715,11 +1716,11 @@ export default function QuranScreen() {
           <Text style={[st.settingsTitle, { color: textColor }]}>
             {tx(lang, "Instellingen", "Settings", "الإعدادات")}
           </Text>
-          <View style={st.settingsRow}>
+          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Text style={[st.settingsLabel, { color: textColor }]}>
               {tx(lang, "Lettergrootte", "Font Size", "حجم الخط")}
             </Text>
-            <View style={st.fontSizeControls}>
+            <View style={[st.fontSizeControls, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <Pressable
                 onPress={() => setFontSize(Math.max(18, fontSize - 2))}
                 style={st.fontBtn}
@@ -1737,7 +1738,7 @@ export default function QuranScreen() {
               </Pressable>
             </View>
           </View>
-          <View style={st.settingsRow}>
+          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Text style={[st.settingsLabel, { color: textColor }]}>
               {tx(lang, "Nachtmodus", "Night Mode", "الوضع الليلي")}
             </Text>
@@ -1795,6 +1796,7 @@ export default function QuranScreen() {
           <View
             style={[
               st.scienceTabsRow,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
               { borderBottomColor: nightMode ? "#333" : "#E8EDE9" },
             ]}
           >
@@ -1843,6 +1845,7 @@ export default function QuranScreen() {
             <View
               style={[
                 st.tafsirSourceRow,
+                { flexDirection: isRTL ? "row-reverse" : "row" },
                 { borderBottomColor: nightMode ? "#333" : "#E8EDE9" },
               ]}
             >
@@ -1946,6 +1949,7 @@ export default function QuranScreen() {
           <View
             style={[
               st.scienceBottomBar,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
               { borderTopColor: nightMode ? "#333" : "#E8EDE9" },
             ]}
           >
@@ -1974,7 +1978,7 @@ export default function QuranScreen() {
       {/* Top toolbar */}
       {showToolbar && (
         <View style={[st.toolbar, { backgroundColor: headerBg }]}>
-          <View style={st.toolbarRow}>
+          <View style={[st.toolbarRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Pressable
               onPress={() => setShowIndex(true)}
               style={({ pressed }) => [
@@ -2036,7 +2040,6 @@ const st = StyleSheet.create({
   // Toolbar
   toolbar: { paddingHorizontal: 12, paddingVertical: 8 },
   toolbarRow: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
   },
@@ -2057,7 +2060,6 @@ const st = StyleSheet.create({
   // Index modal
   modalContainer: { flex: 1 },
   modalHeader: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     paddingHorizontal: 16,
@@ -2066,7 +2068,6 @@ const st = StyleSheet.create({
   modalHeaderTitle: { color: "#FFFFFF", fontSize: 18, fontWeight: "700" },
   closeBtn: { padding: 4 },
   indexItem: {
-    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -2101,13 +2102,12 @@ const st = StyleSheet.create({
     marginBottom: 20,
   },
   settingsRow: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "space-between",
     marginBottom: 16,
   },
   settingsLabel: { fontSize: 14, fontWeight: "600" },
-  fontSizeControls: { flexDirection: "row", alignItems: "center" },
+  fontSizeControls: { alignItems: "center" },
   fontBtn: {
     width: 32,
     height: 32,
@@ -2155,7 +2155,6 @@ const st = StyleSheet.create({
   scienceDragHandle: { alignItems: "center", paddingVertical: 10 },
   scienceDragBar: { width: 40, height: 4, borderRadius: 2 },
   scienceTabsRow: {
-    flexDirection: "row",
     justifyContent: "center",
     borderBottomWidth: 1,
     paddingBottom: 0,
@@ -2165,7 +2164,6 @@ const st = StyleSheet.create({
   scienceTabItemText: { fontSize: 14, fontWeight: "600" },
   scienceTabItemTextActive: { fontWeight: "800" },
   tafsirSourceRow: {
-    flexDirection: "row",
     justifyContent: "center",
     paddingVertical: 8,
     gap: 10,
@@ -2195,7 +2193,6 @@ const st = StyleSheet.create({
   scienceContent: { paddingHorizontal: 16, paddingTop: 12, flex: 1 },
   scienceText: { fontSize: 16, lineHeight: 28 },
   scienceBottomBar: {
-    flexDirection: "row",
     justifyContent: "center",
     paddingVertical: 10,
     borderTopWidth: 0.5,

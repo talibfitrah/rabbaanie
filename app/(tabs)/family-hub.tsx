@@ -182,7 +182,7 @@ function FamilyHubScreenInner() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
             <Text style={{ fontSize: 22, fontWeight: "bold", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>
               {t("network.title")}
             </Text>
@@ -199,7 +199,7 @@ function FamilyHubScreenInner() {
               key={tab.key}
               onPress={() => { setActiveTab(tab.key); setShowAddForm(false); }}
               style={{
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 gap: 6,
                 paddingVertical: 10,
@@ -319,7 +319,7 @@ function IdSection({
     <View style={{ gap: 16 }}>
       {/* My ID Card */}
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
             <MaterialIcons name="fingerprint" size={22} color={colors.primary} />
           </View>
@@ -340,17 +340,17 @@ function IdSection({
                 {myIdQuery.data.publicId}
               </Text>
             </View>
-            <View style={{ flexDirection: "row", gap: 10 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
               <TouchableOpacity
                 onPress={() => showQr(myIdQuery.data!.publicId!, t("network.my_id"))}
-                style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
               >
                 <MaterialIcons name="qr-code" size={16} color="#fff" />
                 <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>{t("network.share_qr")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push("/qr-scanner")}
-                style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
               >
                 <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>{t("network.scan_qr")}</Text>
@@ -366,7 +366,6 @@ function IdSection({
               value={birthDateInput}
               onChange={setBirthDateInput}
               placeholder={language === "ar" ? "اختر تاريخ ميلادك" : language === "en" ? "Select your birth date" : "Kies uw geboortedatum"}
-              isRTL={language === "ar"}
               maxDate={new Date(2010, 11, 31)}
               minDate={new Date(1940, 0, 1)}
             />
@@ -395,7 +394,7 @@ function IdSection({
 
       {/* Children IDs */}
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <MaterialIcons name="child-care" size={20} color={colors.primary} />
           <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>
             {t("network.child_id")}
@@ -405,7 +404,7 @@ function IdSection({
         {localChildren.length > 0 ? (
           <View style={{ gap: 10 }}>
             {localChildren.map((child: any, idx: number) => (
-              <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
                     {child.name || `Kind ${idx + 1}`}
@@ -467,7 +466,7 @@ function ContactsSection({
       {/* Add button */}
       <TouchableOpacity
         onPress={() => setShowAddForm(!showAddForm)}
-        style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+        style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", gap: 8 }}
       >
         <MaterialIcons name={showAddForm ? "close" : "add"} size={20} color="#fff" />
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
@@ -545,14 +544,14 @@ function ContactsSection({
         <View style={{ gap: 10 }}>
           {contacts.map((person: NetworkPerson) => (
             <View key={person.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", justifyContent: "space-between" }}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>{person.name}</Text>
                   {person.specialization ? (
                     <Text style={{ fontSize: 12, color: colors.primary }}>{person.specialization}</Text>
                   ) : null}
                   {person.publicId ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
                       <MaterialIcons name="fingerprint" size={12} color={colors.primary} />
                       <Text style={{ fontSize: 12, color: colors.primary, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>{person.publicId}</Text>
                     </View>

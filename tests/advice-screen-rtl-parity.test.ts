@@ -9,43 +9,33 @@ import { join } from "path";
  * They render the same advice through near-identical renderFormattedText /
  * AdviceSection code.
  *
- * Native RTL is forced app-wide (I18nManager.forceRTL in lib/i18n.tsx), so a
- * plain `flexDirection: "row"` ALREADY lays out right-to-left; conditioning it
- * on `isRTL` and switching to "row-reverse" double-flips and puts icons on the
- * wrong side. The tab copy was converted to plain "row"; the details copy was
- * not, so the same advice was mirrored differently depending on whether the
- * user arrived from the tab or from the notification.
+ * Direction is JS-gated app-wide (lib/i18n.tsx); native RTL is off. A plain
+ * `flexDirection: "row"` therefore lays out left-to-right for Arabic too, so
+ * every row that puts an icon, bullet or badge beside text must be
+ * `isRTL ? "row-reverse" : "row"`. Commits 6299ea2 / 4657009 / bbdd214
+ * stripped that gate on the false premise that I18nManager.forceRTL was on.
  *
  * Asserted on the two files together: a rule applied to one twin and not the
- * other is exactly the defect, so a guard on one file alone cannot catch it.
+ * other is exactly the defect (1ed494f stripped the details copy alone), so a
+ * guard on one file cannot catch it.
  */
 const SCREENS = ["app/(tabs)/personal-advice.tsx", "app/details/personal-advice.tsx"];
 const src = (rel: string) => readFileSync(join(__dirname, "..", rel), "utf8");
 
-/** Row layouts each screen has today. A drop below this is a real removal to
- *  look at, not a formatting change — raise it deliberately, never to go green. */
-const ROW_LAYOUTS: Record<string, number> = {
-  "app/(tabs)/personal-advice.tsx": 15,
-  "app/details/personal-advice.tsx": 15,
+/** Gated icon-beside-text rows each screen has today. COUNTED, not merely
+ *  present — a single survivor would satisfy `toMatch`, so it could not catch
+ *  the rows being stripped again. A drop below this is a real removal to look
+ *  at — raise it deliberately, never lower it to go green. */
+const GATED_ROWS: Record<string, number> = {
+  "app/(tabs)/personal-advice.tsx": 14,
+  "app/details/personal-advice.tsx": 14,
 };
 
-describe("personal-advice twins agree on layout direction", () => {
-  for (const rel of SCREENS) {
-    // Matches the ternary regardless of whitespace, quote style or branch
-    // order — it is the isRTL-conditioned flexDirection that is wrong, not any
-    // particular spelling of it.
-    it(`${rel}: never conditions flexDirection on isRTL`, () => {
-      expect(src(rel)).not.toMatch(/flexDirection:\s*isRTL\s*\?/);
-    });
-
-    // Presence, not only absence: without this, deleting the row layouts
-    // outright would satisfy the assertion above while destroying the screen.
-    // COUNTED, not merely present — `toMatch(/flexDirection: "row"/)` is
-    // satisfied by a single survivor, so it passes on a screen with 14 of its
-    // 15 rows deleted and cannot detect the removal it exists to catch.
-    it(`${rel}: still lays out all of its rows with a plain "row"`, () => {
-      const rows = (src(rel).match(/flexDirection:\s*"row"/g) || []).length;
-      expect(rows).toBeGreaterThanOrEqual(ROW_LAYOUTS[rel]);
+describe("personal-advice gates its icon rows on isRTL", () => {
+  for (const [rel, min] of Object.entries(GATED_ROWS)) {
+    it(`${rel}: lays out its icon rows with isRTL ? "row-reverse" : "row"`, () => {
+      const gated = (src(rel).match(/flexDirection:\s*isRTL\s*\?\s*"row-reverse"\s*:\s*"row"/g) || []).length;
+      expect(gated).toBeGreaterThanOrEqual(min);
     });
   }
 });

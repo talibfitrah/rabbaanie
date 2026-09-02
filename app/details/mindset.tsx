@@ -11,7 +11,7 @@ export default function MindsetScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const colors = useColors();
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
   const lang = language as "nl" | "en" | "ar";
 
   const tx = (nl: string, en: string, ar: string) =>
@@ -34,7 +34,7 @@ export default function MindsetScreen() {
       <Pressable onPress={() => router.back()} style={{ marginBottom: 16 }}>
         <Text style={{ color: colors.primary, fontSize: 14 }}>{tx("← Terug", "← Back", "← رجوع")}</Text>
       </Pressable>
-      <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 20 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 20 }}>
         <MaterialIcons name="psychology" size={28} color="#1565C0" />
         <Text style={{ fontSize: 22, fontWeight: "700", color: colors.foreground }}>{tx("Mindsets", "Mindsets", "مبادئ التربية")}</Text>
       </View>

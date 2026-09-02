@@ -13,7 +13,7 @@ type LoginStep = "enter_id" | "parent_confirm";
 export default function ChildLoginScreen() {
   const colors = useColors();
   const router = useRouter();
-  const { t } = useI18n();
+  const { t, isRTL } = useI18n();
   const [childId, setChildId] = useState("");
   const [mode, setMode] = useState<LoginMode>("id");
   const [step, setStep] = useState<LoginStep>("enter_id");
@@ -257,7 +257,7 @@ export default function ChildLoginScreen() {
                 width: "100%",
                 maxWidth: 280,
                 alignItems: "center",
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 justifyContent: "center",
                 gap: 10,
               }}

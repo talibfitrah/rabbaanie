@@ -5,17 +5,10 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import { COUNTRIES, COUNTRY_NAMES, getCountryAR, getCityAR } from "@/lib/prayer-data";
 import { buildSendPayload, type CategoryConfig, type CategoryKey } from "./broadcast-send";
-
-const ROLE_TARGETS = [
-  { key: "user", ar: "المستخدمون" },
-  { key: "parent", ar: "أولياء الأمور" },
-  { key: "specialist", ar: "المتخصصون" },
-  { key: "moderator", ar: "المشرفون" },
-  { key: "admin", ar: "المدراء" },
-];
 
 // ─── Audience categories ────────────────────────────────────────────────
 // Daa3iyah asked for the broadcast screen to be organised by audience
@@ -42,43 +35,7 @@ const ROLE_TARGETS = [
 const BASMALA_AR = "بسم الله الرحمن الرحيم";
 const CLOSING_AR = "والحمد لله رب العالمين، والسلام عليكم ورحمة الله وبركاته.";
 
-const CATEGORIES: CategoryConfig[] = [
-  {
-    key: "incompleteAnalytical",
-    label: "لم يُكمل الملف التحليلي",
-    description: "مستخدمون لم يُنهوا خطوات التشخيص/الملف التحليلي الكامل.",
-    sendReady: true,
-    titleAr: "أكمل ملفك التحليلي",
-    bodyAr: `${BASMALA_AR}\n\nلاحظنا أنك لم تُكمل بعد الملف التحليلي (التشخيص) الخاص بك في تطبيق ربّانيّ. إكمال هذا الملف يساعدنا على تقديم نصائح تربوية أدقّ لأسرتك. يرجى فتح التطبيق وإكمال خطوات الملف التحليلي في أقرب وقت.\n\n${CLOSING_AR}`,
-  },
-  {
-    key: "incompleteChildren",
-    label: "ملف الطفل غير مكتمل",
-    description: "مستخدمون لديهم طفل لم يكتمل ملفه — الرسالة تذكر اسمه تحديدًا لكل مستلم.",
-    sendReady: true,
-  },
-  {
-    key: "incompletePersonal",
-    label: "لم يُدخل بياناته الشخصية",
-    description: "مستخدمون لم يُكملوا بيانات الهوية والعنوان الأساسية.",
-    sendReady: true,
-    titleAr: "أكمل بياناتك الشخصية",
-    bodyAr: `${BASMALA_AR}\n\nلاحظنا أنك لم تُدخل بعد بياناتك الشخصية كاملةً في تطبيق ربّانيّ. إكمالها ضروري لتفعيل خدمات التطبيق كاملةً. يرجى فتح التطبيق وإكمال بياناتك الشخصية.\n\n${CLOSING_AR}`,
-  },
-  {
-    key: "notLinkedSpouse",
-    label: "لم يربط ملف الزوج/الزوجة",
-    description: "مستخدمون متزوجون لم يربطوا ملف الزوج/الزوجة بعد — بصيغة تراعي جنس المستلم (له/لها).",
-    sendReady: true,
-  },
-];
-
-const COMPLETENESS_TOGGLES = [
-  { key: "incompletePersonal", ar: "لم يُكمل الملف الشخصي" },
-  { key: "incompleteAnalytical", ar: "لم يُكمل الملف التحليلي" },
-  { key: "incompleteChildren", ar: "لديه طفل بملف غير مكتمل" },
-] as const;
-type CompletenessKey = (typeof COMPLETENESS_TOGGLES)[number]["key"];
+type CompletenessKey = "incompletePersonal" | "incompleteAnalytical" | "incompleteChildren";
 
 // ─── Recurring schedule: day-of-week + hour ─────────────────────────────
 // index 0..6 = Sunday..Saturday, matching JS Date#getDay() and
@@ -104,7 +61,52 @@ function toggleDayInCsv(csv: string, key: string): string {
 
 export default function BroadcastScreen() {
   const colors = useColors();
-  const { isRTL } = useI18n();
+  const { isRTL, language } = useI18n();
+  const L3 = useL3();
+  const ROLE_TARGETS = [
+    { key: "user", label: L3("المستخدمون", "Gebruikers", "Users") },
+    { key: "parent", label: L3("أولياء الأمور", "Ouders", "Parents") },
+    { key: "specialist", label: L3("المتخصصون", "Specialisten", "Specialists") },
+    { key: "moderator", label: L3("المشرفون", "Moderators", "Moderators") },
+    { key: "admin", label: L3("المدراء", "Beheerders", "Admins") },
+  ];
+
+  const CATEGORIES: CategoryConfig[] = [
+    {
+      key: "incompleteAnalytical",
+      label: L3("لم يُكمل الملف التحليلي", "Analytisch profiel niet afgerond", "Analytical profile incomplete"),
+      description: L3("مستخدمون لم يُنهوا خطوات التشخيص/الملف التحليلي الكامل.", "Gebruikers die de stappen van de diagnose / het volledige analytische profiel niet hebben afgerond.", "Users who have not finished the diagnosis / full analytical profile steps."),
+      sendReady: true,
+      titleAr: "أكمل ملفك التحليلي",
+      bodyAr: `${BASMALA_AR}\n\nلاحظنا أنك لم تُكمل بعد الملف التحليلي (التشخيص) الخاص بك في تطبيق ربّانيّ. إكمال هذا الملف يساعدنا على تقديم نصائح تربوية أدقّ لأسرتك. يرجى فتح التطبيق وإكمال خطوات الملف التحليلي في أقرب وقت.\n\n${CLOSING_AR}`,
+    },
+    {
+      key: "incompleteChildren",
+      label: L3("ملف الطفل غير مكتمل", "Kindprofiel onvolledig", "Child profile incomplete"),
+      description: L3("مستخدمون لديهم طفل لم يكتمل ملفه — الرسالة تذكر اسمه تحديدًا لكل مستلم.", "Gebruikers met een kind wiens profiel onvolledig is — het bericht noemt per ontvanger de naam van het kind.", "Users with a child whose profile is incomplete — the message names that child for each recipient."),
+      sendReady: true,
+    },
+    {
+      key: "incompletePersonal",
+      label: L3("لم يُدخل بياناته الشخصية", "Persoonsgegevens niet ingevuld", "Personal details missing"),
+      description: L3("مستخدمون لم يُكملوا بيانات الهوية والعنوان الأساسية.", "Gebruikers die de basisgegevens (identiteit en adres) niet hebben ingevuld.", "Users who have not completed their basic identity and address details."),
+      sendReady: true,
+      titleAr: "أكمل بياناتك الشخصية",
+      bodyAr: `${BASMALA_AR}\n\nلاحظنا أنك لم تُدخل بعد بياناتك الشخصية كاملةً في تطبيق ربّانيّ. إكمالها ضروري لتفعيل خدمات التطبيق كاملةً. يرجى فتح التطبيق وإكمال بياناتك الشخصية.\n\n${CLOSING_AR}`,
+    },
+    {
+      key: "notLinkedSpouse",
+      label: L3("لم يربط ملف الزوج/الزوجة", "Partnerprofiel niet gekoppeld", "Spouse profile not linked"),
+      description: L3("مستخدمون متزوجون لم يربطوا ملف الزوج/الزوجة بعد — بصيغة تراعي جنس المستلم (له/لها).", "Getrouwde gebruikers die het profiel van hun echtgenoot/echtgenote nog niet hebben gekoppeld — de formulering volgt het geslacht van de ontvanger.", "Married users who have not yet linked their spouse's profile — worded for the recipient's gender."),
+      sendReady: true,
+    },
+  ];
+
+  const COMPLETENESS_TOGGLES = [
+    { key: "incompletePersonal", label: L3("لم يُكمل الملف الشخصي", "Persoonlijk profiel niet afgerond", "Personal profile incomplete") },
+    { key: "incompleteAnalytical", label: L3("لم يُكمل الملف التحليلي", "Analytisch profiel niet afgerond", "Analytical profile incomplete") },
+    { key: "incompleteChildren", label: L3("لديه طفل بملف غير مكتمل", "Heeft een kind met een onvolledig profiel", "Has a child with an incomplete profile") },
+  ] as const;
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [subject, setSubject] = useState("");
@@ -195,8 +197,8 @@ export default function BroadcastScreen() {
   );
 
   const send = (trpc.admin as any).sendBroadcast.useMutation({
-    onSuccess: (r: any) => Alert.alert("تم الإرسال", `وصلت الرسالة إلى ${r?.sent ?? 0} جهاز.`, [{ text: "حسنًا", onPress: () => router.back() }]),
-    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر الإرسال. تأكد أنك المالك."),
+    onSuccess: (r: any) => Alert.alert(L3("تم الإرسال", "Verzonden", "Sent"), L3(`وصلت الرسالة إلى ${r?.sent ?? 0} جهاز.`, `Het bericht is bij ${r?.sent ?? 0} apparaten aangekomen.`, `The message reached ${r?.sent ?? 0} devices.`), [{ text: L3("حسنًا", "OK", "OK"), onPress: () => router.back() }]),
+    onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر الإرسال. تأكد أنك المالك.", "Verzenden is mislukt. Controleer of u de eigenaar bent.", "Could not send. Make sure you are the owner.")),
   });
 
   // ─── Recurring automated broadcasts ─────────────────────────────────────
@@ -233,15 +235,15 @@ export default function BroadcastScreen() {
       setNewScheduleHour("9");
       setNewScheduleActive(false);
     },
-    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر إنشاء الجدولة."),
+    onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر إنشاء الجدولة.", "Kon de planning niet aanmaken.", "Could not create the schedule.")),
   });
   const updateScheduleM = (trpc.admin as any).updateSchedule.useMutation({
     onSuccess: refetchSchedules,
-    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر تحديث الجدولة."),
+    onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر تحديث الجدولة.", "Kon de planning niet bijwerken.", "Could not update the schedule.")),
   });
   const deleteScheduleM = (trpc.admin as any).deleteSchedule.useMutation({
     onSuccess: refetchSchedules,
-    onError: (e: any) => Alert.alert("خطأ", e?.message || "تعذّر حذف الجدولة."),
+    onError: (e: any) => Alert.alert(L3("خطأ", "Fout", "Error"), e?.message || L3("تعذّر حذف الجدولة.", "Kon de planning niet verwijderen.", "Could not delete the schedule.")),
   });
 
   // ─── Send reports ────────────────────────────────────────────────────
@@ -249,20 +251,20 @@ export default function BroadcastScreen() {
   const sendLog: any[] = sendLogQuery.data || [];
 
   const addSchedule = () => {
-    if (!newScheduleCategory) { Alert.alert("تنبيه", "اختر فئة الجمهور أولاً."); return; }
+    if (!newScheduleCategory) { Alert.alert(L3("تنبيه", "Let op", "Notice"), L3("اختر فئة الجمهور أولاً.", "Kies eerst een doelgroep.", "Choose an audience category first.")); return; }
     // No "at least one day" check here: newScheduleDays starts at ALL_DAYS
     // and toggleDayInCsv refuses to remove the last remaining day, so it
     // structurally can't reach empty through this screen.
     const sendHour = parseInt(newScheduleHour, 10);
-    if (!Number.isFinite(sendHour) || sendHour < 0 || sendHour > 23) { Alert.alert("تنبيه", "أدخل ساعة صحيحة (0 إلى 23)."); return; }
+    if (!Number.isFinite(sendHour) || sendHour < 0 || sendHour > 23) { Alert.alert(L3("تنبيه", "Let op", "Notice"), L3("أدخل ساعة صحيحة (0 إلى 23).", "Voer een geldig uur in (0 t/m 23).", "Enter a valid hour (0 to 23).")); return; }
     const daysOfWeek = newScheduleDays.slice().sort((a, b) => Number(a) - Number(b)).join(",");
     createScheduleM.mutate({ category: newScheduleCategory, daysOfWeek, sendHour, active: newScheduleActive });
   };
 
   const confirmDeleteSchedule = (id: number) => {
-    Alert.alert("حذف الجدولة", "هل أنت متأكد من حذف هذه الرسالة المتكررة؟", [
-      { text: "إلغاء", style: "cancel" },
-      { text: "حذف", style: "destructive", onPress: () => deleteScheduleM.mutate({ id }) },
+    Alert.alert(L3("حذف الجدولة", "Planning verwijderen", "Delete schedule"), L3("هل أنت متأكد من حذف هذه الرسالة المتكررة؟", "Weet u zeker dat u dit terugkerende bericht wilt verwijderen?", "Are you sure you want to delete this recurring message?"), [
+      { text: L3("إلغاء", "Annuleren", "Cancel"), style: "cancel" },
+      { text: L3("حذف", "Verwijderen", "Delete"), style: "destructive", onPress: () => deleteScheduleM.mutate({ id }) },
     ]);
   };
 
@@ -270,9 +272,9 @@ export default function BroadcastScreen() {
     const result = buildSendPayload(activeCategory, subject, message, roles, audience);
     if (!result.ok) {
       if (result.reason === "not-ready") {
-        Alert.alert("غير متاح بعد", activeCategory?.pendingNote || "هذه الفئة تحتاج تحديثًا في الخادم قبل الإرسال.");
+        Alert.alert(L3("غير متاح بعد", "Nog niet beschikbaar", "Not available yet"), activeCategory?.pendingNote || L3("هذه الفئة تحتاج تحديثًا في الخادم قبل الإرسال.", "Deze categorie vereist eerst een serverupdate.", "This category needs a server update before sending."));
       } else {
-        Alert.alert("تنبيه", "أدخل العنوان والنص.");
+        Alert.alert(L3("تنبيه", "Let op", "Notice"), L3("أدخل العنوان والنص.", "Voer een titel en tekst in.", "Enter a title and message."));
       }
       return;
     }
@@ -287,7 +289,7 @@ export default function BroadcastScreen() {
     selected: string[],
     onToggle: (key: string) => void,
   ) => (
-    <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
+    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginTop: 8 }}>
       {items.map((it) => {
         const on = selected.includes(it.key);
         return (
@@ -305,13 +307,13 @@ export default function BroadcastScreen() {
     <View style={{ flex: 1, backgroundColor: colors.background }}>
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
-        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>رسالة جماعية</Text>
+        <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>{L3("رسالة جماعية", "Groepsbericht", "Broadcast")}</Text>
       </View>
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} keyboardShouldPersistTaps="handled">
-        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>تُرسَل كإشعار فوري إلى المستخدمين المحددين.</Text>
+        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", lineHeight: 20 }}>{L3("تُرسَل كإشعار فوري إلى المستخدمين المحددين.", "Wordt als pushmelding verstuurd naar de geselecteerde gebruikers.", "Sent as a push notification to the selected users.")}</Text>
 
-        {label("فئة الجمهور")}
-        {hint("اختر فئة جاهزة برسالة بصيغة ثابتة (بسم الله ← الرسالة والإجراء المطلوب ← الحمد والسلام)، أو اترك بلا اختيار للتخصيص اليدوي.")}
+        {label(L3("فئة الجمهور", "Doelgroep", "Audience"))}
+        {hint(L3("اختر فئة جاهزة برسالة بصيغة ثابتة (بسم الله ← الرسالة والإجراء المطلوب ← الحمد والسلام)، أو اترك بلا اختيار للتخصيص اليدوي.", "Kies een kant-en-klare categorie met een vaste berichtvorm (basmala → bericht en gevraagde actie → hamd en salaam), of laat leeg om zelf te schrijven.", "Pick a ready-made category with a fixed message form (basmala → message and required action → hamd and salaam), or leave unselected to write your own."))}
         <View style={{ gap: 8, marginTop: 8 }}>
           {CATEGORIES.map((cat) => {
             const on = category === cat.key;
@@ -323,7 +325,7 @@ export default function BroadcastScreen() {
                   <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, flex: 1, textAlign: isRTL ? "right" : "left" }}>{cat.label}</Text>
                   {!cat.sendReady && (
                     <View style={{ backgroundColor: colors.muted + "25", borderRadius: 999, paddingHorizontal: 8, paddingVertical: 2 }}>
-                      <Text style={{ fontSize: 10, fontWeight: "700", color: colors.muted }}>قريبًا</Text>
+                      <Text style={{ fontSize: 10, fontWeight: "700", color: colors.muted }}>{L3("قريبًا", "Binnenkort", "Soon")}</Text>
                     </View>
                   )}
                 </View>
@@ -336,37 +338,37 @@ export default function BroadcastScreen() {
           })}
         </View>
 
-        {label("إلى")}
-        {hint("اختر نوعًا أو أكثر — إن لم تختر شيئًا تُرسل إلى الجميع.")}
-        {chipRow(ROLE_TARGETS.map((t) => ({ key: t.key, label: t.ar })), roles, (k) => setRoles(roles.includes(k) ? roles.filter((r) => r !== k) : [...roles, k]))}
+        {label(L3("إلى", "Aan", "To"))}
+        {hint(L3("اختر نوعًا أو أكثر — إن لم تختر شيئًا تُرسل إلى الجميع.", "Kies een of meer groepen — niets gekozen betekent iedereen.", "Choose one or more groups — nothing selected means everyone."))}
+        {chipRow(ROLE_TARGETS.map((t) => ({ key: t.key, label: t.label })), roles, (k) => setRoles(roles.includes(k) ? roles.filter((r) => r !== k) : [...roles, k]))}
 
-        {label("الدولة")}
-        {hint("اختر دولة أو أكثر — لا شيء يعني كل الدول.")}
+        {label(L3("الدولة", "Land", "Country"))}
+        {hint(L3("اختر دولة أو أكثر — لا شيء يعني كل الدول.", "Kies een of meer landen — niets betekent alle landen.", "Choose one or more countries — nothing means all countries."))}
         {chipRow(COUNTRY_NAMES.map((c) => ({ key: c, label: getCountryAR(c) })), selectedCountries, (k) =>
           setSelectedCountries(selectedCountries.includes(k) ? selectedCountries.filter((c) => c !== k) : [...selectedCountries, k]),
         )}
 
         {selectedCountries.length > 0 && (
           <>
-            {label("المدينة")}
-            {hint("اختر مدينة أو أكثر ضمن الدول المحددة — لا شيء يعني كل المدن.")}
+            {label(L3("المدينة", "Stad", "City"))}
+            {hint(L3("اختر مدينة أو أكثر ضمن الدول المحددة — لا شيء يعني كل المدن.", "Kies een of meer steden binnen de gekozen landen — niets betekent alle steden.", "Choose one or more cities within the selected countries — nothing means all cities."))}
             {chipRow(availableCities.map((c) => ({ key: c, label: getCityAR(c) })), selectedCities, (k) =>
               setSelectedCities(selectedCities.includes(k) ? selectedCities.filter((c) => c !== k) : [...selectedCities, k]),
             )}
           </>
         )}
 
-        {label("الجنس")}
-        {hint("اختر فئة واحدة — لا شيء يعني الجميع.")}
+        {label(L3("الجنس", "Geslacht", "Gender"))}
+        {hint(L3("اختر فئة واحدة — لا شيء يعني الجميع.", "Kies één groep — niets betekent iedereen.", "Choose one group — nothing means everyone."))}
         {chipRow(
-          [{ key: "vrouw", label: "الأمهات" }, { key: "man", label: "الآباء" }],
+          [{ key: "vrouw", label: L3("الأمهات", "Moeders", "Mothers") }, { key: "man", label: L3("الآباء", "Vaders", "Fathers") }],
           gender ? [gender] : [],
           (k) => setGender(gender === k ? null : (k as "man" | "vrouw")),
         )}
 
         {!category && (
           <>
-            {label("اكتمال الملفات")}
+            {label(L3("اكتمال الملفات", "Profielvolledigheid", "Profile completeness"))}
             <View style={{ gap: 8, marginTop: 8 }}>
               {COMPLETENESS_TOGGLES.map((tgl) => {
                 const on = completeness[tgl.key];
@@ -374,7 +376,7 @@ export default function BroadcastScreen() {
                   <TouchableOpacity key={tgl.key} onPress={() => setCompleteness({ ...completeness, [tgl.key]: !on })}
                     style={{ alignSelf: isRTL ? "flex-end" : "flex-start", flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: on ? colors.error : colors.surface, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 14, borderWidth: 1, borderColor: on ? colors.error : colors.border }}>
                     <MaterialIcons name={on ? "check-box" : "check-box-outline-blank"} size={15} color={on ? "#fff" : colors.muted} />
-                    <Text style={{ fontSize: 12, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{tgl.ar}</Text>
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: on ? "#fff" : colors.foreground }}>{tgl.label}</Text>
                   </TouchableOpacity>
                 );
               })}
@@ -386,16 +388,16 @@ export default function BroadcastScreen() {
           <View style={{ marginTop: 10, backgroundColor: colors.surface, borderRadius: 10, borderWidth: 1, borderColor: colors.border, padding: 10, gap: 4 }}>
             {incompleteChildrenRecipients.map((r: any) => (
               <Text key={r.id} style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>
-                {(r.name || "—") + "  —  الأطفال غير المكتملين: " + r.incompleteChildren.join("، ")}
+                {(r.name || "—") + L3("  —  الأطفال غير المكتملين: ", "  —  onvolledige kindprofielen: ", "  —  incomplete child profiles: ") + r.incompleteChildren.join(L3("، ", ", ", ", "))}
               </Text>
             ))}
           </View>
         )}
 
-        {label("العنوان")}
-        <TextInput value={subject} onChangeText={setSubject} placeholder="عنوان الإشعار" placeholderTextColor={colors.muted} style={inputStyle} />
-        {label("النص")}
-        <TextInput value={message} onChangeText={setMessage} multiline placeholder="نص الرسالة" placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 120, textAlignVertical: "top" }} />
+        {label(L3("العنوان", "Titel", "Title"))}
+        <TextInput value={subject} onChangeText={setSubject} placeholder={L3("عنوان الإشعار", "Titel van de melding", "Notification title")} placeholderTextColor={colors.muted} style={inputStyle} />
+        {label(L3("النص", "Tekst", "Message"))}
+        <TextInput value={message} onChangeText={setMessage} multiline placeholder={L3("نص الرسالة", "Berichttekst", "Message text")} placeholderTextColor={colors.muted} style={{ ...inputStyle, minHeight: 120, textAlignVertical: "top" }} />
 
         <View style={{ marginTop: 22, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6 }}>
           {audienceQuery.isLoading ? (
@@ -407,29 +409,29 @@ export default function BroadcastScreen() {
             // 0 users" over an enabled send button — while the send itself
             // still goes out to everyone the roles match.
             <Text style={{ fontSize: 12, fontWeight: "700", color: colors.error, textAlign: "center" }}>
-              {"تعذّر حساب عدد المستلمين — قد يصل الإشعار إلى جميع المستخدمين"}
+              {L3("تعذّر حساب عدد المستلمين — قد يصل الإشعار إلى جميع المستخدمين", "Kon het aantal ontvangers niet berekenen — de melding kan alle gebruikers bereiken", "Could not count recipients — the notification may reach all users")}
             </Text>
           ) : (
             <View style={{ alignItems: "center", gap: 2 }}>
               <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
-                {"سيصل الإشعار إلى " + deliverableCount + " مستخدم"}
+                {L3("سيصل الإشعار إلى " + deliverableCount + " مستخدم", "De melding bereikt " + deliverableCount + " gebruikers", "The notification will reach " + deliverableCount + " users")}
               </Text>
               {deliverableCount < matchedCount && (
                 <Text style={{ fontSize: 11, color: colors.muted, textAlign: "center" }}>
-                  {"من أصل " + matchedCount + " مستهدفًا — لم يُفعّل الباقون الإشعارات في هواتفهم"}
+                  {L3("من أصل " + matchedCount + " مستهدفًا — لم يُفعّل الباقون الإشعارات في هواتفهم", "van de " + matchedCount + " beoogde ontvangers — de overigen hebben meldingen niet ingeschakeld", "out of " + matchedCount + " targeted — the rest have not enabled notifications on their phones")}
                 </Text>
               )}
             </View>
           )}
         </View>
         <TouchableOpacity onPress={submit} disabled={send.isPending} style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10, opacity: send.isPending ? 0.6 : 1 }}>
-          {send.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>إرسال</Text>}
+          {send.isPending ? <ActivityIndicator color="#fff" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>{L3("إرسال", "Verzenden", "Send")}</Text>}
         </TouchableOpacity>
 
         <View style={{ height: 1, backgroundColor: colors.border, marginTop: 28 }} />
 
-        {label("الرسائل التلقائية المتكررة")}
-        {hint("تُرسل تلقائيًا حسب فئة الجمهور بمعدل تكرار محدد بالأيام — لا تعمل الجدولة إلا بعد تفعيلها.")}
+        {label(L3("الرسائل التلقائية المتكررة", "Automatische terugkerende berichten", "Recurring automatic messages"))}
+        {hint(L3("تُرسل تلقائيًا حسب فئة الجمهور بمعدل تكرار محدد بالأيام — لا تعمل الجدولة إلا بعد تفعيلها.", "Worden automatisch per doelgroep verstuurd op de gekozen dagen — een planning werkt pas na activering.", "Sent automatically per audience category on the chosen days — a schedule only runs once activated."))}
         <View style={{ gap: 8, marginTop: 8 }}>
           {schedulesQuery.isLoading && <ActivityIndicator size="small" color={colors.muted} />}
           {schedules.map((s) => (
@@ -450,7 +452,7 @@ export default function BroadcastScreen() {
                   <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, sendHour: (s.sendHour + 23) % 24 })}>
                     <MaterialIcons name="remove-circle-outline" size={20} color={colors.foreground} />
                   </TouchableOpacity>
-                  <Text style={{ fontSize: 13, color: colors.foreground }}>{"الساعة " + s.sendHour + ":00"}</Text>
+                  <Text style={{ fontSize: 13, color: colors.foreground }}>{L3("الساعة ", "Om ", "At ") + s.sendHour + ":00"}</Text>
                   <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, sendHour: (s.sendHour + 1) % 24 })}>
                     <MaterialIcons name="add-circle-outline" size={20} color={colors.foreground} />
                   </TouchableOpacity>
@@ -458,20 +460,20 @@ export default function BroadcastScreen() {
                 <TouchableOpacity onPress={() => updateScheduleM.mutate({ id: s.id, active: !s.active })}
                   style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: s.active ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: s.active ? colors.primary : colors.border }}>
                   <MaterialIcons name={s.active ? "check-box" : "check-box-outline-blank"} size={15} color={s.active ? "#fff" : colors.muted} />
-                  <Text style={{ fontSize: 12, fontWeight: "700", color: s.active ? "#fff" : colors.foreground }}>{s.active ? "نشطة" : "متوقفة"}</Text>
+                  <Text style={{ fontSize: 12, fontWeight: "700", color: s.active ? "#fff" : colors.foreground }}>{s.active ? L3("نشطة", "Actief", "Active") : L3("متوقفة", "Gestopt", "Paused")}</Text>
                 </TouchableOpacity>
               </View>
             </View>
           ))}
           {!schedulesQuery.isLoading && schedules.length === 0 && (
-            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>لا توجد جدولات بعد.</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{L3("لا توجد جدولات بعد.", "Nog geen planningen.", "No schedules yet.")}</Text>
           )}
         </View>
 
-        {label("إضافة جدولة جديدة")}
+        {label(L3("إضافة جدولة جديدة", "Nieuwe planning toevoegen", "Add a new schedule"))}
         {availableCategories.length === 0 ? (
           <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 8 }}>
-            لكل فئة جدولة بالفعل — عدّل الجدولة الحالية بدل إضافة جديدة.
+            {L3("لكل فئة جدولة بالفعل — عدّل الجدولة الحالية بدل إضافة جديدة.", "Elke categorie heeft al een planning — pas de bestaande aan in plaats van een nieuwe toe te voegen.", "Every category already has a schedule — edit the existing one instead of adding a new one.")}
           </Text>
         ) : (
           chipRow(
@@ -484,7 +486,7 @@ export default function BroadcastScreen() {
           <>
             {newScheduleCategory && (
               <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 4 }}>
-                {"سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.deliverable ?? newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم"}
+                {L3("سيصل حاليًا إلى " + (newScheduleAudienceQuery.data?.deliverable ?? newScheduleAudienceQuery.data?.count ?? "…") + " مستخدم", "Bereikt nu " + (newScheduleAudienceQuery.data?.deliverable ?? newScheduleAudienceQuery.data?.count ?? "…") + " gebruikers", "Currently reaches " + (newScheduleAudienceQuery.data?.deliverable ?? newScheduleAudienceQuery.data?.count ?? "…") + " users")}
               </Text>
             )}
             {chipRow(
@@ -493,7 +495,7 @@ export default function BroadcastScreen() {
               (k) => setNewScheduleDays(parseDaysCsv(toggleDayInCsv(newScheduleDays.join(","), k))),
             )}
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginTop: 10 }}>
-              <Text style={{ fontSize: 13, color: colors.foreground }}>الساعة</Text>
+              <Text style={{ fontSize: 13, color: colors.foreground }}>{L3("الساعة", "Uur", "Hour")}</Text>
               <TextInput
                 value={newScheduleHour}
                 onChangeText={setNewScheduleHour}
@@ -503,33 +505,33 @@ export default function BroadcastScreen() {
               <TouchableOpacity onPress={() => setNewScheduleActive(!newScheduleActive)}
                 style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 5, backgroundColor: newScheduleActive ? colors.primary : colors.surface, borderRadius: 10, paddingVertical: 6, paddingHorizontal: 11, borderWidth: 1, borderColor: newScheduleActive ? colors.primary : colors.border }}>
                 <MaterialIcons name={newScheduleActive ? "check-box" : "check-box-outline-blank"} size={15} color={newScheduleActive ? "#fff" : colors.muted} />
-                <Text style={{ fontSize: 12, fontWeight: "700", color: newScheduleActive ? "#fff" : colors.foreground }}>{newScheduleActive ? "نشطة" : "متوقفة"}</Text>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: newScheduleActive ? "#fff" : colors.foreground }}>{newScheduleActive ? L3("نشطة", "Actief", "Active") : L3("متوقفة", "Gestopt", "Paused")}</Text>
               </TouchableOpacity>
             </View>
             <TouchableOpacity onPress={addSchedule} disabled={createScheduleM.isPending}
               style={{ backgroundColor: colors.surface, borderRadius: 12, paddingVertical: 12, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: colors.primary, opacity: createScheduleM.isPending ? 0.6 : 1 }}>
-              {createScheduleM.isPending ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>إضافة جدولة</Text>}
+              {createScheduleM.isPending ? <ActivityIndicator color={colors.primary} /> : <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 14 }}>{L3("إضافة جدولة", "Planning toevoegen", "Add schedule")}</Text>}
             </TouchableOpacity>
           </>
         )}
 
         <View style={{ height: 1, backgroundColor: colors.border, marginTop: 28 }} />
 
-        {label("تقارير الإرسال")}
-        {hint("آخر الرسائل المتكررة التي أُرسلت فعليًا، وعدد من وصلتهم كل رسالة.")}
+        {label(L3("تقارير الإرسال", "Verzendrapporten", "Send reports"))}
+        {hint(L3("آخر الرسائل المتكررة التي أُرسلت فعليًا، وعدد من وصلتهم كل رسالة.", "De laatst daadwerkelijk verzonden terugkerende berichten en hoeveel mensen elk bericht bereikte.", "The latest recurring messages actually sent, and how many people each one reached."))}
         <View style={{ gap: 8, marginTop: 8 }}>
           {sendLogQuery.isLoading && <ActivityIndicator size="small" color={colors.muted} />}
           {sendLog.map((l) => (
             <View key={l.id} style={{ borderRadius: 12, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, padding: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
               <View>
                 <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{categoryLabel(l.category)}</Text>
-                <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>{new Date(l.sentAt).toLocaleString("ar")}</Text>
+                <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginTop: 2 }}>{new Date(l.sentAt).toLocaleString(language)}</Text>
               </View>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>{l.recipientCount + " مستخدمًا"}</Text>
+              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.foreground }}>{l.recipientCount + L3(" مستخدمًا", " gebruikers", " users")}</Text>
             </View>
           ))}
           {!sendLogQuery.isLoading && sendLog.length === 0 && (
-            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>لا توجد عمليات إرسال بعد.</Text>
+            <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{L3("لا توجد عمليات إرسال بعد.", "Nog niets verzonden.", "Nothing sent yet.")}</Text>
           )}
         </View>
       </ScrollView>

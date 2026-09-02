@@ -1,13 +1,13 @@
 import React, { useState } from "react";
 import { View, Text, Pressable, Modal, ScrollView, Platform, StyleSheet } from "react-native";
 import { useColors } from "@/hooks/use-colors";
+import { useI18n } from "@/lib/i18n";
 
 interface DatePickerProps {
   value: string; // ISO date string "YYYY-MM-DD" or ""
   onChange: (date: string) => void;
   placeholder?: string;
   label?: string;
-  isRTL?: boolean;
   maxDate?: Date;
   minDate?: Date;
 }
@@ -26,7 +26,8 @@ if (Platform.OS !== "web") {
   }
 }
 
-export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate, minDate }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder, label, maxDate, minDate }: DatePickerProps) {
+  const { isRTL } = useI18n();
   const colors = useColors();
   const [showPicker, setShowPicker] = useState(false);
 
@@ -63,7 +64,7 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
         {label && <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>{label}</Text>}
         <Pressable
           onPress={() => setShowPicker(true)}
-          style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
         >
           <Text style={{ color: value ? colors.foreground : colors.muted, fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
             {displayText}
@@ -96,7 +97,7 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
         {label && <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>{label}</Text>}
         <Pressable
           onPress={() => setShowPicker(true)}
-          style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+          style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
         >
           <Text style={{ color: value ? colors.foreground : colors.muted, fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
             {displayText}
@@ -108,7 +109,7 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
             supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
             <View style={styles.modalOverlay}>
               <View style={[styles.modalContent, { backgroundColor: colors.background }]}>
-                <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+                <View style={[styles.modalHeader, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <Pressable onPress={() => setShowPicker(false)}>
                     <Text style={{ color: colors.muted, fontSize: 15 }}>Cancel</Text>
                   </Pressable>
@@ -143,7 +144,7 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
       {label && <Text style={{ color: colors.muted, fontSize: 12, marginBottom: 4, fontWeight: "600" }}>{label}</Text>}
       <Pressable
         onPress={() => setShowPicker(true)}
-        style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border }]}
+        style={[styles.dateButton, { backgroundColor: colors.background, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
       >
         <Text style={{ color: value ? colors.foreground : colors.muted, fontSize: 15, textAlign: isRTL ? "right" : "left" }}>
           {displayText}
@@ -160,7 +161,6 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
           onClose={() => setShowPicker(false)}
           maxDate={maxDate}
           minDate={minDate}
-          isRTL={isRTL}
         />
       )}
     </View>
@@ -168,14 +168,14 @@ export function DatePicker({ value, onChange, placeholder, label, isRTL, maxDate
 }
 
 // Custom date picker modal for web
-function CustomDatePickerModal({ value, onChange, onClose, maxDate, minDate, isRTL }: {
+function CustomDatePickerModal({ value, onChange, onClose, maxDate, minDate }: {
   value: string;
   onChange: (date: string) => void;
   onClose: () => void;
   maxDate?: Date;
   minDate?: Date;
-  isRTL?: boolean;
 }) {
+  const { isRTL } = useI18n();
   const colors = useColors();
   const now = new Date();
   const max = maxDate || now;
@@ -209,7 +209,7 @@ function CustomDatePickerModal({ value, onChange, onClose, maxDate, minDate, isR
       <View style={styles.modalOverlay}>
         <View style={[styles.customModalContent, { backgroundColor: colors.background }]}>
           {/* Header */}
-          <View style={[styles.modalHeader, { borderBottomColor: colors.border }]}>
+          <View style={[styles.modalHeader, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Pressable onPress={onClose}>
               <Text style={{ color: colors.error, fontSize: 15, fontWeight: "600" }}>✕</Text>
             </Pressable>
@@ -306,7 +306,6 @@ function formatDate(isoDate: string): string {
 
 const styles = StyleSheet.create({
   dateButton: {
-    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     borderRadius: 8,
@@ -326,7 +325,6 @@ const styles = StyleSheet.create({
     paddingBottom: 40,
   },
   modalHeader: {
-    flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     paddingBottom: 12,
@@ -341,7 +339,6 @@ const styles = StyleSheet.create({
     maxHeight: "70%",
   },
   pickerRow: {
-    flexDirection: "row",
     justifyContent: "space-between",
     marginTop: 12,
   },

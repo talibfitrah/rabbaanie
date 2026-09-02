@@ -109,7 +109,7 @@ export default function UpcomingDaysScreen() {
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
-      <View style={st.topBar}>
+      <View style={[st.topBar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.backBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
@@ -127,7 +127,7 @@ export default function UpcomingDaysScreen() {
             }}
             style={({ pressed }) => [st.dayBox, pressed && { opacity: 0.95 }]}
           >
-            <View style={st.dayHeader}>
+            <View style={[st.dayHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={st.dayNum}>
                 <Text style={st.dayNumText}>{idx + 1}</Text>
               </View>
@@ -141,10 +141,10 @@ export default function UpcomingDaysScreen() {
             {expandedIdx === idx && (
               <View style={st.dayBody}>
                 {day.events.map((ev, ei) => (
-                  <View key={ei} style={st.eventRow}>
+                  <View key={ei} style={[st.eventRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     <View style={st.eventBullet} />
                     <View style={{ flex: 1 }}>
-                      <View style={st.eventNameRow}>
+                      <View style={[st.eventNameRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                         <Text style={st.eventName}>{ev.name}</Text>
                         {ev.fasting === "recommended" && <View style={st.fastingBadge}><Text style={st.fastingText}>{tx(lang,"Vasten","Fasting","صيام")}</Text></View>}
                         {ev.fasting === "prohibited" && <View style={[st.fastingBadge, { backgroundColor: "#FFEBEE" }]}><Text style={[st.fastingText, { color: "#C62828" }]}>{tx(lang,"Niet vasten","No fasting","لا صيام")}</Text></View>}
@@ -152,13 +152,13 @@ export default function UpcomingDaysScreen() {
                       <Text style={st.eventDetail}>{ev.detail}</Text>
                       {ev.evidence && <Text style={st.eventEvidence}>{ev.evidence}</Text>}
                       {ev.preparation && (
-                        <View style={st.eventExtra}>
+                        <View style={[st.eventExtra, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                           <MaterialIcons name="checklist" size={12} color="#6B7B72" />
                           <Text style={st.eventExtraText}>{ev.preparation}</Text>
                         </View>
                       )}
                       {ev.parentAction && (
-                        <View style={st.eventExtra}>
+                        <View style={[st.eventExtra, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                           <MaterialIcons name="family-restroom" size={12} color="#6B7B72" />
                           <Text style={st.eventExtraText}>{ev.parentAction}</Text>
                         </View>
@@ -177,25 +177,25 @@ export default function UpcomingDaysScreen() {
 
 const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#FFFFFF" },
-  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
+  topBar: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   topTitle: { fontSize: 17, fontWeight: "700", color: "#C4A35A" },
 
   dayBox: { marginTop: 16, borderRadius: 14, borderWidth: 1, borderColor: "#E8ECE9", overflow: "hidden", backgroundColor: "#FFFDF8" },
-  dayHeader: { flexDirection: "row", alignItems: "center", gap: 10, padding: 14 },
+  dayHeader: { alignItems: "center", gap: 10, padding: 14 },
   dayNum: { width: 30, height: 30, borderRadius: 15, backgroundColor: "#C4A35A", alignItems: "center", justifyContent: "center" },
   dayNumText: { fontSize: 14, fontWeight: "700", color: "#FFFFFF" },
   dayTitle: { fontSize: 14, fontWeight: "700", color: "#1F2937" },
   dayHijri: { fontSize: 11, color: "#6B7B72", marginTop: 2 },
 
   dayBody: { paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  eventRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, marginTop: 12 },
+  eventRow: { alignItems: "flex-start", gap: 10, marginTop: 12 },
   eventBullet: { width: 8, height: 8, borderRadius: 4, backgroundColor: "#C4A35A", marginTop: 5 },
-  eventNameRow: { flexDirection: "row", alignItems: "center", gap: 8 },
+  eventNameRow: { alignItems: "center", gap: 8 },
   eventName: { fontSize: 13, fontWeight: "700", color: "#1F2937" },
   eventDetail: { fontSize: 12, color: "#374151", lineHeight: 20, marginTop: 2 },
   eventEvidence: { fontSize: 10, color: "#9CA3AF", fontStyle: "italic", marginTop: 4 },
-  eventExtra: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#F9FAFB" },
+  eventExtra: { alignItems: "center", gap: 6, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#F9FAFB" },
   eventExtraText: { flex: 1, fontSize: 11, color: "#6B7B72" },
   fastingBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8, backgroundColor: "#E8F5E9" },
   fastingText: { fontSize: 9, fontWeight: "600", color: "#2E7D32" },

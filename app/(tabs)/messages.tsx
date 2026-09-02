@@ -327,11 +327,11 @@ function MessagesScreenInner() {
           keyboardVerticalOffset={90}
         >
           {/* Chat Header */}
-          <View style={{ flexDirection: "row", alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
-            <TouchableOpacity onPress={() => setSelected(null)} style={{ marginRight: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", padding: 14, borderBottomWidth: 1, borderBottomColor: colors.border, backgroundColor: colors.surface }}>
+            <TouchableOpacity onPress={() => setSelected(null)} style={isRTL ? { marginLeft: 12 } : { marginRight: 12 }}>
               <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.primary} />
             </TouchableOpacity>
-            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "20", alignItems: "center", justifyContent: "center", marginRight: 10 }}>
+            <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "20", alignItems: "center", justifyContent: "center", ...(isRTL ? { marginLeft: 10 } : { marginRight: 10 }) }}>
               <MaterialIcons name="person" size={22} color={colors.primary} />
             </View>
             <View style={{ flex: 1 }}>
@@ -361,7 +361,7 @@ function MessagesScreenInner() {
                 return (
                   <View style={{ alignItems: "center", marginVertical: 10 }}>
                     <View style={{ backgroundColor: colors.primary + "10", borderRadius: 14, paddingVertical: 14, paddingHorizontal: 16, maxWidth: "90%", borderWidth: 1, borderColor: colors.primary + "30" }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
                         <MaterialIcons name="person-add" size={18} color={colors.primary} />
                         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.primary }}>
                           {tx(lang, "Koppelverzoek", "Link Request", "طلب ربط")}
@@ -394,7 +394,7 @@ function MessagesScreenInner() {
                 return (
                   <View style={{ alignItems: "center", marginVertical: 8 }}>
                     <View style={{ backgroundColor: colors.success + "12", borderRadius: 12, paddingVertical: 10, paddingHorizontal: 14, maxWidth: "90%", borderWidth: 1, borderColor: colors.success + "30" }}>
-                      <View style={{ flexDirection: "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginBottom: 4 }}>
                         <MaterialIcons
                           name={item.type === "activity_update" ? "check-circle" : item.type === "environment_update" ? "edit-note" : "help-outline"}
                           size={16}
@@ -420,7 +420,7 @@ function MessagesScreenInner() {
               }
 
               return (
-                <View style={{ marginBottom: 10, alignItems: isMe ? "flex-end" : "flex-start" }}>
+                <View style={{ marginBottom: 10, alignItems: isMe !== isRTL ? "flex-end" : "flex-start" }}>
                   <View
                     style={{
                       maxWidth: "80%",
@@ -432,10 +432,10 @@ function MessagesScreenInner() {
                       borderColor: colors.border,
                     }}
                   >
-                    <Text style={{ fontSize: 14, color: isMe ? "#fff" : colors.foreground }}>
+                    <Text style={{ fontSize: 14, color: isMe ? "#fff" : colors.foreground, textAlign: isRTL ? "right" : "left" }}>
                       {item.content}
                     </Text>
-                    <View style={{ flexDirection: "row", alignItems: "center", justifyContent: isMe ? "flex-end" : "flex-start", marginTop: 4, gap: 4 }}>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: isMe ? "flex-end" : "flex-start", marginTop: 4, gap: 4 }}>
                       <Text style={{ fontSize: 9, color: isMe ? "rgba(255,255,255,0.6)" : colors.muted }}>
                         {new Date(item.createdAt).toLocaleTimeString(lang === "ar" ? "ar-SA" : lang === "en" ? "en-US" : "nl-NL", { hour: "2-digit", minute: "2-digit" })}
                       </Text>
@@ -465,7 +465,7 @@ function MessagesScreenInner() {
           />
 
           {/* Input bar */}
-          <View style={{ flexDirection: "row", alignItems: "center", padding: 10, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", padding: 10, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.background }}>
             <TextInput
               style={{
                 flex: 1,
@@ -477,7 +477,7 @@ function MessagesScreenInner() {
                 paddingVertical: 10,
                 fontSize: 14,
                 color: colors.foreground,
-                marginRight: 8,
+                ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }),
                 textAlign: isRTL ? "right" : "left",
               }}
               placeholder={tx(lang, "Typ een bericht...", "Type a message...", "اكتب رسالة...")}
@@ -542,7 +542,7 @@ function MessagesScreenInner() {
               {t("network.subtitle")}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
             <TouchableOpacity
               onPress={() => setActiveTab("reports")}
               style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: activeTab === "reports" ? colors.primary : colors.surface, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: activeTab === "reports" ? colors.primary : colors.border }}
@@ -591,7 +591,7 @@ function MessagesScreenInner() {
                     // The access gate returns success:false where this used to
                     // succeed (ungated wife, unconfirmed partnership,
                     // unresolvable gender), and there was no branch for it.
-                    showToast(syncRefusedMessage(lang), "info");
+                    showToast(syncRefusedMessage(lang, result.message), "info");
                   }
                 } catch {
                   // The OUTER catch — the one a rejected mutateAsync reaches.
@@ -621,7 +621,7 @@ function MessagesScreenInner() {
               key={tab.key}
               onPress={() => { setActiveTab(tab.key); setShowAddForm(false); }}
               style={{
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 gap: 6,
                 paddingVertical: 10,
@@ -976,7 +976,7 @@ function InvitePartnerForm({ colors, lang, isRTL, userGender }: { colors: any; l
         autoCapitalize="none"
         style={{ backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 12, fontSize: 14, color: colors.foreground, textAlign: isRTL ? "right" : "left" }}
       />
-      <View style={{ flexDirection: "row", gap: 8 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
         {RELATIONSHIPS.map((r) => (
           <TouchableOpacity
             key={r.value}
@@ -1119,7 +1119,7 @@ function ParentsSection({
                         </View>
                       </View>
                     </View>
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                       <TouchableOpacity
                         onPress={() => router.push("/spouse-profile" as any)}
                         style={{ backgroundColor: colors.success + "20", borderRadius: 20, width: 40, height: 40, alignItems: "center", justifyContent: "center" }}
@@ -1185,7 +1185,7 @@ function ParentsSection({
                 returnKeyType="done"
                 onSubmitEditing={handleLinkPartner}
               />
-              <View style={{ flexDirection: "row", gap: 8 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
                 <TouchableOpacity
                   onPress={handleLinkPartner}
                   disabled={linkPartner.isPending}
@@ -1201,7 +1201,7 @@ function ParentsSection({
                 </TouchableOpacity>
                 <TouchableOpacity
                   onPress={() => router.push("/qr-scanner")}
-                  style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.primary, flexDirection: "row", alignItems: "center", gap: 6 }}
+                  style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 14, borderWidth: 1, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
                 >
                   <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
                   <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>QR</Text>
@@ -1384,7 +1384,7 @@ function IdSection({
     <View style={{ gap: 16 }}>
       {/* My ID Card */}
       <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
           <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
             <MaterialIcons name="fingerprint" size={22} color={colors.primary} />
           </View>
@@ -1405,7 +1405,7 @@ function IdSection({
                 {myIdQuery.data.publicId}
               </Text>
             </View>
-            <View style={{ flexDirection: "row", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, flexWrap: "wrap", justifyContent: "center" }}>
               <TouchableOpacity
                 onPress={async () => {
                   const id = myIdQuery.data!.publicId!;
@@ -1420,21 +1420,21 @@ function IdSection({
                     await Share.share({ message: id });
                   }
                 }}
-                style={{ backgroundColor: colors.primary + "15", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: colors.primary }}
+                style={{ backgroundColor: colors.primary + "15", borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, borderWidth: 1, borderColor: colors.primary }}
               >
                 <MaterialIcons name="content-copy" size={16} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>{tx(lang, "Kopieer ID", "Copy ID", "انسخ المعرّف")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => showQr(myIdQuery.data!.publicId!, t("network.my_id"))}
-                style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
               >
                 <MaterialIcons name="qr-code" size={16} color="#fff" />
                 <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>{t("network.share_qr")}</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => router.push("/qr-scanner")}
-                style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: "row", alignItems: "center", gap: 6 }}
+                style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
               >
                 <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>{t("network.scan_qr")}</Text>
@@ -1450,7 +1450,6 @@ function IdSection({
               value={birthDateInput}
               onChange={setBirthDateInput}
               placeholder={tx(lang, "Kies uw geboortedatum", "Select your birth date", "اختر تاريخ ميلادك")}
-              isRTL={lang === "ar"}
               maxDate={new Date(2010, 11, 31)}
               minDate={new Date(1940, 0, 1)}
             />
@@ -1488,7 +1487,7 @@ function IdSection({
       {/* Children IDs */}
       {localChildren.length > 0 && (
         <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
             <MaterialIcons name="child-care" size={20} color={colors.primary} />
             <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>
               {t("network.child_id")}
@@ -1500,7 +1499,7 @@ function IdSection({
               if (!b.birthDate) return -1;
               return new Date(a.birthDate).getTime() - new Date(b.birthDate).getTime();
             }).map((child: any, idx: number) => (
-              <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+              <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
                     {child.name || `Kind ${idx + 1}`}
@@ -1543,7 +1542,7 @@ function ContactsSection({
       {/* Add button */}
       <TouchableOpacity
         onPress={() => setShowAddForm(!showAddForm)}
-        style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: "row", justifyContent: "center", gap: 8 }}
+        style={{ backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 14, alignItems: "center", flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", gap: 8 }}
       >
         <MaterialIcons name={showAddForm ? "close" : "add"} size={20} color="#fff" />
         <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
@@ -1619,14 +1618,14 @@ function ContactsSection({
         <View style={{ gap: 10 }}>
           {contacts.map((person: NetworkPerson) => (
             <View key={person.id} style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 16, borderWidth: 1, borderColor: colors.border }}>
-              <View style={{ flexDirection: "row", alignItems: "flex-start", justifyContent: "space-between" }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-start", justifyContent: "space-between" }}>
                 <View style={{ flex: 1, gap: 4 }}>
                   <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground }}>{person.name}</Text>
                   {person.specialization ? (
                     <Text style={{ fontSize: 12, color: colors.primary }}>{person.specialization}</Text>
                   ) : null}
                   {person.publicId ? (
-                    <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
                       <MaterialIcons name="fingerprint" size={12} color={colors.primary} />
                       <Text style={{ fontSize: 12, color: colors.primary, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>{person.publicId}</Text>
                     </View>
@@ -1656,6 +1655,7 @@ function ContactsSection({
 
 // ============ LINK REQUEST ACTIONS ============
 function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; lang: string }) {
+  const { isRTL } = useI18n();
   const [handled, setHandled] = useState(false);
   const [action, setAction] = useState<"accepted" | "rejected" | null>(null);
   const utils = trpc.useUtils();
@@ -1752,7 +1752,7 @@ function LinkRequestActions({ item, colors, lang }: { item: any; colors: any; la
   };
 
   return (
-    <View style={{ flexDirection: "row", gap: 10 }}>
+    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
       <TouchableOpacity
         onPress={handleAccept}
         disabled={confirmMutation.isPending || removeMutation.isPending}

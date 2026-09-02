@@ -108,13 +108,13 @@ export default function WeatherScreen() {
 
         {/* ترغيب — Arabic label, left-aligned */}
         <View style={{ backgroundColor: "#EAF3EC", borderRadius: 12, padding: 14, marginTop: 12 }}>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#1B4332", marginBottom: 4, textAlign: "left" }}>ترغيب</Text>
-          <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: "left" }}>{refl.targheeb}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#1B4332", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>ترغيب</Text>
+          <Text style={{ fontSize: 14, color: "#374151", lineHeight: 24, textAlign: isRTL ? "right" : "left" }}>{refl.targheeb}</Text>
         </View>
         {/* ترهيب — Arabic label, left-aligned (the key warning is the ghayb note below) */}
         <View style={{ backgroundColor: "#FDECEA", borderRadius: 12, padding: 14, marginTop: 12, borderWidth: 1, borderColor: "#F0B4AE" }}>
-          <Text style={{ fontSize: 14, fontWeight: "800", color: "#B71C1C", marginBottom: 4, textAlign: "left" }}>ترهيب</Text>
-          <Text style={{ fontSize: 14, color: "#7F1D1D", lineHeight: 24, textAlign: "left" }}>{refl.tarheeb}</Text>
+          <Text style={{ fontSize: 14, fontWeight: "800", color: "#B71C1C", marginBottom: 4, textAlign: isRTL ? "right" : "left" }}>ترهيب</Text>
+          <Text style={{ fontSize: 14, color: "#7F1D1D", lineHeight: 24, textAlign: isRTL ? "right" : "left" }}>{refl.tarheeb}</Text>
         </View>
 
         {/* Key warning: the forecast is not certainty — weather is of al-ghayb, in Allaah's hand alone. Red ⚠ triangle. */}

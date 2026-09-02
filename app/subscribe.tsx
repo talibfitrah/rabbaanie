@@ -1168,7 +1168,7 @@ export default function SubscribeScreen() {
               </View>
               <View
                 style={{
-                  flexDirection: "row",
+                  flexDirection: isRTL ? "row-reverse" : "row",
                   flexWrap: "wrap",
                   gap: 6,
                   marginBottom: 8,

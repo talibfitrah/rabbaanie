@@ -168,7 +168,7 @@ export default function TipsTodayScreen() {
   const renderTipRow = (tip: DailyTip, bulletColor: string) => {
     const completed = isTipCompleted(tip.id);
     return (
-      <View key={tip.id} style={[st.tipRow, completed && { backgroundColor: "#F0FDF4" }]}>
+      <View key={tip.id} style={[st.tipRow, { flexDirection: isRTL ? "row-reverse" : "row" }, completed && { backgroundColor: "#F0FDF4" }]}>
         <TouchableOpacity
           onPress={() => handleToggleTip(tip.id)}
           style={[st.checkbox, completed && st.checkboxChecked]}
@@ -187,7 +187,7 @@ export default function TipsTodayScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={st.topBar}>
+      <View style={[st.topBar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.backBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
@@ -199,7 +199,7 @@ export default function TipsTodayScreen() {
 
         {/* Progress Summary */}
         <View style={st.progressBox}>
-          <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={st.progressTitle}>
               {tx(lang, "Voortgang vandaag", "Today's Progress", "تقدم اليوم")}
             </Text>
@@ -216,7 +216,7 @@ export default function TipsTodayScreen() {
         {/* Islamic Section */}
         {islamicTips.length > 0 && (
           <View style={st.sectionBox}>
-            <View style={[st.sectionHeader, { backgroundColor: "#E8F5E9" }]}>
+            <View style={[st.sectionHeader, { backgroundColor: "#E8F5E9", flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="date-range" size={20} color="#1B4332" />
               <Text style={[st.sectionHeaderText, { color: "#1B4332" }]}>{tx(lang, "Islamitische dag", "Islamic Day", "اليوم الإسلامي")} — {hijri.day} {lang === "ar" ? hijri.monthNameAR : hijri.monthName}</Text>
             </View>
@@ -227,7 +227,7 @@ export default function TipsTodayScreen() {
         {/* Parenting Section */}
         {parentingTips.length > 0 && (
           <View style={st.sectionBox}>
-            <View style={[st.sectionHeader, { backgroundColor: "#FFF8E1" }]}>
+            <View style={[st.sectionHeader, { backgroundColor: "#FFF8E1", flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="family-restroom" size={20} color="#F57F17" />
               <Text style={[st.sectionHeaderText, { color: "#F57F17" }]}>{tx(lang, "Opvoedtips", "Parenting Tips", "نصائح تربوية")}</Text>
             </View>
@@ -238,7 +238,7 @@ export default function TipsTodayScreen() {
         {/* Place Section */}
         {placeTips.length > 0 && (
           <View style={st.sectionBox}>
-            <View style={[st.sectionHeader, { backgroundColor: "#E3F2FD" }]}>
+            <View style={[st.sectionHeader, { backgroundColor: "#E3F2FD", flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="place" size={20} color="#1565C0" />
               <Text style={[st.sectionHeaderText, { color: "#1565C0" }]}>{tx(lang, "Plaatsadvies", "Place Tips", "نصائح المكان")} — {displayCity || "?"}</Text>
             </View>
@@ -249,7 +249,7 @@ export default function TipsTodayScreen() {
         {/* Season Section */}
         {seasonTips.length > 0 && (
           <View style={st.sectionBox}>
-            <View style={[st.sectionHeader, { backgroundColor: "#FFF3E0" }]}>
+            <View style={[st.sectionHeader, { backgroundColor: "#FFF3E0", flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="wb-sunny" size={20} color="#E65100" />
               <Text style={[st.sectionHeaderText, { color: "#E65100" }]}>{tx(lang, "Seizoensadvies", "Season Tips", "نصائح الموسم")} — {currentSeason}</Text>
             </View>
@@ -264,7 +264,7 @@ export default function TipsTodayScreen() {
 
 const st = StyleSheet.create({
   root: { flex: 1, backgroundColor: "#FFFFFF" },
-  topBar: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
+  topBar: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "#F3F4F6" },
   backBtn: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   topTitle: { fontSize: 17, fontWeight: "700", color: "#1B4332" },
 
@@ -276,10 +276,10 @@ const st = StyleSheet.create({
   progressCount: { fontSize: 12, color: "#6B7280", marginTop: 6 },
 
   sectionBox: { marginTop: 20, borderRadius: 14, borderWidth: 1, borderColor: "#E8ECE9", overflow: "hidden" },
-  sectionHeader: { flexDirection: "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
+  sectionHeader: { alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 12 },
   sectionHeaderText: { fontSize: 14, fontWeight: "700" },
 
-  tipRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  tipRow: { alignItems: "flex-start", gap: 10, paddingHorizontal: 14, paddingVertical: 12, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: "#D1D5DB", alignItems: "center", justifyContent: "center", marginTop: 2 },
   checkboxChecked: { backgroundColor: "#059669", borderColor: "#059669" },
   tipTitle: { fontSize: 14, fontWeight: "700", color: "#1F2937" },

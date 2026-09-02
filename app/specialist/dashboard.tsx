@@ -62,7 +62,7 @@ export default function SpecialistDashboardScreen() {
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]}>
       {/* Header */}
-      <View style={[s.header, { borderBottomColor: colors.border }]}>
+      <View style={[s.header, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color={colors.foreground} />
         </TouchableOpacity>
@@ -73,11 +73,11 @@ export default function SpecialistDashboardScreen() {
       </View>
 
       {/* Tabs */}
-      <View style={[s.tabBar, { borderBottomColor: colors.border }]}>
+      <View style={[s.tabBar, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {tabs.map((tab) => (
           <TouchableOpacity
             key={tab.key}
-            style={[s.tab, activeTab === tab.key && { borderBottomColor: "#2E7D32", borderBottomWidth: 2 }]}
+            style={[s.tab, { flexDirection: isRTL ? "row-reverse" : "row" }, activeTab === tab.key && { borderBottomColor: "#2E7D32", borderBottomWidth: 2 }]}
             onPress={() => {
               setActiveTab(tab.key);
               if (Platform.OS !== "web") Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -126,7 +126,7 @@ function CaseloadTab({ stats, isLoading, lang, isRTL, colors }: any) {
       <Text style={[s.sectionTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
         {tx(lang, "Caseload Overzicht", "Caseload Overview", "نظرة عامة على الحالات")}
       </Text>
-      <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10 }}>
         {statCards.map((card, idx) => (
           <View key={idx} style={[s.statCard, { backgroundColor: colors.surface, borderColor: colors.border }]}>
             <View style={[s.statIconBox, { backgroundColor: card.color + "15" }]}>
@@ -284,7 +284,7 @@ function FamiliesTab({ families, isLoading, lang, isRTL, colors, router }: any) 
                 {tx(lang, "Recente observaties", "Recent observations", "الملاحظات الأخيرة")}
               </Text>
               {family.observations.slice(0, 5).map((obs: any, oIdx: number) => (
-                <View key={oIdx} style={[s.obsRow, { borderLeftColor: "#2E7D32" }]}>
+                <View key={oIdx} style={[s.obsRow, isRTL ? { borderRightWidth: 3, borderRightColor: "#2E7D32", paddingRight: 10 } : { borderLeftWidth: 3, borderLeftColor: "#2E7D32", paddingLeft: 10 }]}>
                   <Text style={[s.obsChild, { color: "#2E7D32" }]}>{obs.childName}</Text>
                   <Text style={[s.obsContent, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]} numberOfLines={2}>
                     {obs.observation || obs.content || obs.notes || "—"}
@@ -300,7 +300,7 @@ function FamiliesTab({ families, isLoading, lang, isRTL, colors, router }: any) 
           {/* Chat button */}
           {family.parents?.[0] && (
             <TouchableOpacity
-              style={s.chatFamilyBtn}
+              style={[s.chatFamilyBtn, { flexDirection: isRTL ? "row-reverse" : "row" }]}
               onPress={() => router.push(`/specialist-chat?id=${family.parents[0].id}&name=${encodeURIComponent(family.parents[0].name || "Ouder")}`)}
             >
               <MaterialIcons name="chat" size={18} color="#fff" />
@@ -351,7 +351,7 @@ function MessagesTab({ lang, isRTL, colors, router, userId }: any) {
       {conversations.map((conv: any, idx: number) => (
         <TouchableOpacity
           key={idx}
-          style={[s.convCard, { backgroundColor: colors.surface, borderColor: colors.border }]}
+          style={[s.convCard, { backgroundColor: colors.surface, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}
           onPress={() => router.push(`/specialist-chat?id=${conv.otherUserId || conv.senderId}&name=${encodeURIComponent(conv.otherUserName || conv.senderName || "Ouder")}`)}
         >
           <View style={s.convAvatar}>
@@ -395,7 +395,7 @@ function ProfileTab({ profile, lang, isRTL, colors, userId }: any) {
           {tx(lang, "Beschikbaarheid", "Availability", "التوفر")}
         </Text>
         <TouchableOpacity
-          style={[s.availToggle, { backgroundColor: isAvailable ? "#E8F5E9" : "#FFEBEE" }]}
+          style={[s.availToggle, { backgroundColor: isAvailable ? "#E8F5E9" : "#FFEBEE", flexDirection: isRTL ? "row-reverse" : "row" }]}
           onPress={toggleAvailability}
         >
           <MaterialIcons
@@ -451,11 +451,11 @@ function ProfileRow({ icon, label, value, colors, isRTL }: any) {
 }
 
 const s = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 0.5 },
+  header: { alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 0.5 },
   backBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "700" },
-  tabBar: { flexDirection: "row", borderBottomWidth: 0.5, paddingHorizontal: 8 },
-  tab: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
+  tabBar: { borderBottomWidth: 0.5, paddingHorizontal: 8 },
+  tab: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 12 },
   tabText: { fontSize: 13, fontWeight: "600" },
   loadingContainer: { alignItems: "center", paddingVertical: 40 },
   emptyContainer: { alignItems: "center", paddingVertical: 40, gap: 12 },
@@ -471,13 +471,13 @@ const s = StyleSheet.create({
   childRow: { alignItems: "center", gap: 8, paddingVertical: 4 },
   childName: { fontSize: 14, fontWeight: "500" },
   childAge: { fontSize: 11 },
-  obsRow: { borderLeftWidth: 3, paddingLeft: 10, marginVertical: 4 },
+  obsRow: { marginVertical: 4 },
   obsChild: { fontSize: 11, fontWeight: "600" },
   obsContent: { fontSize: 13, lineHeight: 18 },
   obsDate: { fontSize: 10, marginTop: 2 },
-  chatFamilyBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#2E7D32", borderRadius: 12, paddingVertical: 12, marginTop: 12 },
+  chatFamilyBtn: { alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#2E7D32", borderRadius: 12, paddingVertical: 12, marginTop: 12 },
   chatFamilyBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  convCard: { flexDirection: "row", alignItems: "center", gap: 12, padding: 14, borderRadius: 14, borderWidth: 1 },
+  convCard: { alignItems: "center", gap: 12, padding: 14, borderRadius: 14, borderWidth: 1 },
   convAvatar: { width: 42, height: 42, borderRadius: 21, backgroundColor: "#2E7D32", justifyContent: "center", alignItems: "center" },
   convName: { fontSize: 15, fontWeight: "600" },
   convPreview: { fontSize: 13, marginTop: 2 },
@@ -485,7 +485,7 @@ const s = StyleSheet.create({
   unreadText: { color: "#fff", fontSize: 11, fontWeight: "700" },
   profileCard: { borderRadius: 16, padding: 16, borderWidth: 1, gap: 12 },
   profileLabel: { fontSize: 12, fontWeight: "600", textTransform: "uppercase" },
-  availToggle: { flexDirection: "row", alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
+  availToggle: { alignItems: "center", gap: 10, paddingHorizontal: 16, paddingVertical: 12, borderRadius: 12 },
   profileRow: { alignItems: "center", gap: 8, paddingVertical: 4 },
   profileRowLabel: { fontSize: 13 },
   profileRowValue: { fontSize: 14, fontWeight: "500", flex: 1 },

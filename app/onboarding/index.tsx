@@ -347,7 +347,7 @@ export default function OnboardingScreen() {
       </View>
 
       {/* Progress indicator */}
-      <View style={{ flexDirection: "row", justifyContent: "center", gap: 8, marginBottom: 24 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", gap: 8, marginBottom: 24 }}>
         {(() => {
           // "hasChildren" is the front half of the children stage — light the
           // same (3rd) dot for both so the gate adds no visible extra step.
@@ -411,7 +411,6 @@ export default function OnboardingScreen() {
             onChange={setBirthDate}
             label={tx(lang, "Geboortedatum", "Date of Birth", "تاريخ الميلاد") + " *"}
             placeholder={tx(lang, "Kies uw geboortedatum", "Select your date of birth", "اختر تاريخ ميلادك")}
-            isRTL={isRTL}
             maxDate={new Date(2010, 11, 31)}
             minDate={new Date(1940, 0, 1)}
           />
@@ -779,7 +778,6 @@ export default function OnboardingScreen() {
             onChange={setNewChildBirthDate}
             label={tx(lang, "Geboortedatum", "Date of birth", "تاريخ الميلاد") + ` (${tx(lang, "optioneel", "optional", "اختياري")})`}
             placeholder={tx(lang, "Kies geboortedatum", "Select date of birth", "اختر تاريخ الميلاد")}
-            isRTL={isRTL}
           />
           <View style={{ marginBottom: 12 }} />
           <Pressable

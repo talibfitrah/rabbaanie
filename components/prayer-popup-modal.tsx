@@ -14,13 +14,14 @@ import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform, Alert }
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
-import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
+import { RULING_COLORS, RULING_BG_COLORS, rulingLabel } from "@/lib/notification-settings";
 import { trpc } from "@/lib/trpc";
 import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
 import { readStoredLanguage } from "@/lib/notifications";
 import * as NativeAuth from "@/lib/_core/auth";
 import { loadAppState } from "@/lib/store";
+import type { Language } from "@/lib/i18n";
 
 export interface PopupNotification {
   id: string;
@@ -58,10 +59,15 @@ export function PrayerPopupModal({
   // still work pre-auth/pre-onboarding) — useAppState()/useAuth() are not
   // reachable here and would throw. Read gender the same storage-direct way
   // app/_layout.tsx's own notification listeners already read the user
-  // (NativeAuth.getUserInfo()), re-checked each time the popup opens.
+  // (NativeAuth.getUserInfo()), re-checked each time the popup opens. The
+  // language is read the same way, for the same reason (useI18n would throw).
   const [isWoman, setIsWoman] = useState(false);
+  const [language, setLanguage] = useState<Language | null>(null);
   useEffect(() => {
     let cancelled = false;
+    readStoredLanguage().then((lang) => {
+      if (!cancelled) setLanguage(lang);
+    }).catch(() => {});
     // C15: reset synchronously, before the async read starts — otherwise a
     // just-switched-to man briefly (or, if the read then fails, forever)
     // sees the previous woman account's "أنا حائض" button while this
@@ -114,6 +120,9 @@ export function PrayerPopupModal({
 
   const rulingColor = RULING_COLORS[notification.ruling] || "#059669";
   const rulingBgColor = RULING_BG_COLORS[notification.ruling] || "#ECFDF5";
+  // Outside I18nProvider (see above), so the gate comes from the stored language.
+  const isRTL = language === "ar";
+  const rowDir = { flexDirection: isRTL ? "row-reverse" : "row" } as const;
 
   const handleDoNow = () => {
     if (Platform.OS !== "web") {
@@ -175,7 +184,7 @@ export function PrayerPopupModal({
           {/* Ruling Badge */}
           <View style={[st.rulingBadge, { backgroundColor: rulingBgColor }]}>
             <Text style={[st.rulingText, { color: rulingColor }]}>
-              {notification.ruling}
+              {language ? rulingLabel(notification.ruling, language) : ""}
             </Text>
           </View>
 
@@ -187,7 +196,7 @@ export function PrayerPopupModal({
 
           {/* Follow-up question */}
           {isFollowUp && (
-            <View style={st.followUpBanner}>
+            <View style={[st.followUpBanner, rowDir]}>
               <MaterialIcons name="help-outline" size={18} color="#92400E" />
               <Text style={st.followUpText}>هل فعلت ذلك؟</Text>
             </View>
@@ -199,14 +208,14 @@ export function PrayerPopupModal({
               <>
                 <Pressable
                   onPress={handleDoNow}
-                  style={({ pressed }) => [st.primaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check-circle" size={20} color="#FFFFFF" />
                   <Text style={st.primaryButtonText}>نعم، الحمد لله</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
-                  style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="refresh" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>ذكرني مرة أخرى</Text>
@@ -214,7 +223,7 @@ export function PrayerPopupModal({
                 {isWoman && (
                   <Pressable
                     onPress={handleHaid}
-                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                    style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
                     <Text style={st.secondaryButtonText}>أنا حائض</Text>
@@ -225,14 +234,14 @@ export function PrayerPopupModal({
               <>
                 <Pressable
                   onPress={handleDoNow}
-                  style={({ pressed }) => [st.primaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check" size={20} color="#FFFFFF" />
                   <Text style={st.primaryButtonText}>أفعل الآن إن شاء الله</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
-                  style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="access-time" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>أعد تذكيري بعد 10 دقائق</Text>
@@ -240,7 +249,7 @@ export function PrayerPopupModal({
                 {isWoman && (
                   <Pressable
                     onPress={handleHaid}
-                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                    style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
                     <Text style={st.secondaryButtonText}>أنا حائض</Text>
@@ -407,7 +416,6 @@ const st = StyleSheet.create({
     writingDirection: "rtl",
   },
   followUpBanner: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     backgroundColor: "#FFFBEB",
@@ -427,7 +435,6 @@ const st = StyleSheet.create({
     gap: 10,
   },
   primaryButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
@@ -443,7 +450,6 @@ const st = StyleSheet.create({
     writingDirection: "rtl",
   },
   secondaryButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

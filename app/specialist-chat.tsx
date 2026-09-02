@@ -77,7 +77,7 @@ export default function SpecialistChatScreen() {
   const renderMessage = ({ item }: { item: any }) => {
     const isMe = item.senderId === user?.id;
     return (
-      <View style={[s.msgRow, { justifyContent: isMe ? "flex-end" : "flex-start" }]}>
+      <View style={[s.msgRow, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: isMe ? "flex-end" : "flex-start" }]}>
         <View style={[
           s.msgBubble,
           isMe ? { backgroundColor: "#2E7D32" } : { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border }
@@ -85,7 +85,7 @@ export default function SpecialistChatScreen() {
           <Text style={[s.msgText, { color: isMe ? "#fff" : colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
             {item.content}
           </Text>
-          <Text style={[s.msgTime, { color: isMe ? "#ffffffaa" : colors.muted }]}>
+          <Text style={[s.msgTime, { color: isMe ? "#ffffffaa" : colors.muted, alignSelf: isRTL ? "flex-start" : "flex-end" }]}>
             {new Date(item.createdAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}
           </Text>
         </View>
@@ -96,11 +96,11 @@ export default function SpecialistChatScreen() {
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]}>
       {/* Header */}
-      <View style={[s.header, { borderBottomColor: colors.border }]}>
+      <View style={[s.header, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color={colors.foreground} />
         </TouchableOpacity>
-        <View style={s.headerInfo}>
+        <View style={[s.headerInfo, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={s.headerAvatar}>
             <MaterialIcons name="person" size={20} color="#fff" />
           </View>
@@ -146,7 +146,7 @@ export default function SpecialistChatScreen() {
         )}
 
         {/* Input bar */}
-        <View style={[s.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border }]}>
+        <View style={[s.inputBar, { backgroundColor: colors.background, borderTopColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <TextInput
             style={[s.input, { backgroundColor: colors.surface, color: colors.foreground, borderColor: colors.border, textAlign: isRTL ? "right" : "left" }]}
             placeholder={tx(lang, "Typ een bericht...", "Type a message...", "اكتب رسالة...")}
@@ -176,20 +176,20 @@ export default function SpecialistChatScreen() {
 }
 
 const s = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 8, paddingVertical: 10, borderBottomWidth: 0.5 },
+  header: { alignItems: "center", paddingHorizontal: 8, paddingVertical: 10, borderBottomWidth: 0.5 },
   backBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
-  headerInfo: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  headerInfo: { alignItems: "center", gap: 10, flex: 1 },
   headerAvatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#2E7D32", justifyContent: "center", alignItems: "center" },
   headerName: { fontSize: 16, fontWeight: "700" },
   headerSubtitle: { fontSize: 11 },
   loadingContainer: { flex: 1, justifyContent: "center", alignItems: "center" },
   emptyContainer: { flex: 1, justifyContent: "center", alignItems: "center", padding: 32, gap: 12 },
   emptyText: { fontSize: 14, lineHeight: 22, textAlign: "center" },
-  msgRow: { flexDirection: "row", marginBottom: 8 },
+  msgRow: { marginBottom: 8 },
   msgBubble: { maxWidth: "78%", borderRadius: 16, paddingHorizontal: 14, paddingVertical: 10 },
   msgText: { fontSize: 15, lineHeight: 21 },
-  msgTime: { fontSize: 10, marginTop: 4, alignSelf: "flex-end" },
-  inputBar: { flexDirection: "row", alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 0.5, gap: 8 },
+  msgTime: { fontSize: 10, marginTop: 4 },
+  inputBar: { alignItems: "flex-end", paddingHorizontal: 12, paddingVertical: 8, borderTopWidth: 0.5, gap: 8 },
   input: { flex: 1, borderRadius: 20, paddingHorizontal: 16, paddingVertical: 10, fontSize: 15, maxHeight: 100, borderWidth: 1 },
   sendBtn: { width: 42, height: 42, borderRadius: 21, justifyContent: "center", alignItems: "center" },
 });

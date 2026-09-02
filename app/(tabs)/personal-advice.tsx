@@ -152,7 +152,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -189,7 +189,7 @@ function renderFormattedText(text: string, colors: any, isRTL: boolean) {
         <View
           key={key++}
           style={{
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "flex-start",
             gap: 8,
             marginBottom: 4,
@@ -278,6 +278,7 @@ function CollapsibleSection({
 }) {
   const [open, setOpen] = useState(defaultOpen);
   const colors = useColors();
+  const { isRTL } = useI18n();
 
   return (
     <View
@@ -294,7 +295,7 @@ function CollapsibleSection({
         onPress={() => setOpen(!open)}
         style={({ pressed }) => [
           {
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "center",
             padding: 14,
             gap: 10,
@@ -406,7 +407,7 @@ function AdviceSection({
     >
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: isRTL ? "row-reverse" : "row",
           alignItems: "center",
         }}
       >
@@ -415,7 +416,7 @@ function AdviceSection({
           style={({ pressed }) => [
             {
               flex: 1,
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               padding: 16,
               gap: 12,
@@ -451,7 +452,7 @@ function AdviceSection({
           onPress={() => onToggleFavorite(sectionId, title, content, icon)}
           style={({ pressed }) => [
             {
-              paddingRight: 14,
+              ...(isRTL ? { paddingLeft: 14 } : { paddingRight: 14 }),
               paddingVertical: 16,
               opacity: pressed ? 0.5 : 1,
             },
@@ -848,7 +849,7 @@ function PersonalAdviceScreenInner() {
 
         <View
           style={{
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "center",
             gap: 10,
             marginBottom: 16,
@@ -928,7 +929,7 @@ function PersonalAdviceScreenInner() {
                 >
                   <View
                     style={{
-                      flexDirection: "row",
+                      flexDirection: isRTL ? "row-reverse" : "row",
                       alignItems: "center",
                       padding: 14,
                       gap: 10,
@@ -1036,7 +1037,7 @@ function PersonalAdviceScreenInner() {
 
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: isRTL ? "row-reverse" : "row",
           alignItems: "center",
           gap: 10,
           marginBottom: 12,
@@ -1059,7 +1060,7 @@ function PersonalAdviceScreenInner() {
           style={({ pressed }) => [
             {
               opacity: pressed ? 0.6 : 1,
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               gap: 4,
               backgroundColor: "#E5393520",
@@ -1122,12 +1123,8 @@ function PersonalAdviceScreenInner() {
             <View
               key={i}
               style={{
-                // Native RTL is forced app-wide (I18nManager.forceRTL), so a
-                // plain "row" already renders right-to-left; "row-reverse"
-                // double-flipped the icon to the LEFT. Plain "row" = icon on
-                // the RIGHT for Arabic (the reversed alignment Daa3iyah asked
-                // for). Same fix as the daily cards in v1.5.18.
-                flexDirection: "row",
+                // Direction is JS-gated app-wide (lib/i18n.tsx); native RTL is off.
+                flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 gap: 6,
                 marginBottom: 3,
@@ -1171,7 +1168,7 @@ function PersonalAdviceScreenInner() {
               <View
                 key={i}
                 style={{
-                  flexDirection: "row",
+                  flexDirection: isRTL ? "row-reverse" : "row",
                   alignItems: "flex-start",
                   gap: 8,
                   marginTop: 8,
@@ -1212,7 +1209,7 @@ function PersonalAdviceScreenInner() {
       {/* Refresh button */}
       <View
         style={{
-          flexDirection: "row",
+          flexDirection: isRTL ? "row-reverse" : "row",
           justifyContent: "flex-end",
           marginBottom: 12,
         }}
@@ -1223,7 +1220,7 @@ function PersonalAdviceScreenInner() {
             {
               opacity: pressed ? 0.6 : 1,
               padding: 8,
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               gap: 6,
               backgroundColor: colors.surface,
@@ -1341,7 +1338,7 @@ function PersonalAdviceScreenInner() {
           onPress={() => router.push("/ai-chat")}
           style={({ pressed }) => [
             {
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#E8F5E9",
@@ -1398,7 +1395,7 @@ function PersonalAdviceScreenInner() {
           }}
           style={({ pressed }) => [
             {
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center",
               gap: 10,
               backgroundColor: "#FFF3E0",

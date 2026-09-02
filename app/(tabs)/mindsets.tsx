@@ -178,7 +178,7 @@ export default function MindsetsScreen() {
           <View style={{ marginTop: 12, gap: 10 }}>
             {/* Translation loading indicator */}
             {isTranslating && (
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8, padding: 8, backgroundColor: "#7C3AED10", borderRadius: 8 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, padding: 8, backgroundColor: "#7C3AED10", borderRadius: 8 }}>
                 <ActivityIndicator size="small" color="#7C3AED" />
                 <Text style={{ fontSize: 12, color: "#7C3AED" }}>
                   {lang === "nl" ? "Vertalen..." : "Translating..."}

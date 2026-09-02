@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import { emailSettingsFromRow, isEmailSettingsRow, type EmailSettingsInput } from "./email-settings";
 
@@ -22,7 +23,7 @@ export default function EmailDigestScreen() {
   const { isRTL, language } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
+  const L3 = useL3();
   const align: "right" | "left" = isRTL ? "right" : "left";
 
   // null until the row loads: there is no blank default to accidentally save

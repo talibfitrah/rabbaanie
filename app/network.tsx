@@ -88,7 +88,7 @@ function NetworkSettingsScreenInner() {
       <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
         {/* Header */}
         <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, marginBottom: 4 }}>
             <TouchableOpacity onPress={() => router.back()}>
               <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color={colors.primary} />
             </TouchableOpacity>
@@ -105,7 +105,7 @@ function NetworkSettingsScreenInner() {
         <View style={{ paddingHorizontal: 20, gap: 16 }}>
           {/* My ID Card */}
           <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center" }}>
                 <MaterialIcons name="fingerprint" size={22} color={colors.primary} />
               </View>
@@ -126,17 +126,17 @@ function NetworkSettingsScreenInner() {
                     {myIdQuery.data.publicId}
                   </Text>
                 </View>
-                <View style={{ flexDirection: "row", gap: 10 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
                   <TouchableOpacity
                     onPress={() => showQr(myIdQuery.data!.publicId!, t("network.my_id"))}
-                    style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: "row", alignItems: "center", gap: 6 }}
+                    style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
                   >
                     <MaterialIcons name="qr-code" size={16} color="#fff" />
                     <Text style={{ color: "#fff", fontWeight: "600", fontSize: 13 }}>{t("network.share_qr")}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     onPress={() => router.push("/qr-scanner")}
-                    style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: "row", alignItems: "center", gap: 6 }}
+                    style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 10, paddingHorizontal: 16, borderWidth: 1, borderColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
                   >
                     <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontWeight: "600", fontSize: 13 }}>{t("network.scan_qr")}</Text>
@@ -152,7 +152,6 @@ function NetworkSettingsScreenInner() {
                   value={birthDateInput}
                   onChange={setBirthDateInput}
                   placeholder={language === "ar" ? "اختر تاريخ ميلادك" : language === "en" ? "Select your birth date" : "Kies uw geboortedatum"}
-                  isRTL={language === "ar"}
                   maxDate={new Date(2010, 11, 31)}
                   minDate={new Date(1940, 0, 1)}
                 />
@@ -189,7 +188,7 @@ function NetworkSettingsScreenInner() {
 
           {/* Children IDs */}
           <View style={{ backgroundColor: colors.surface, borderRadius: 16, padding: 20, borderWidth: 1, borderColor: colors.border }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10, marginBottom: 12 }}>
               <MaterialIcons name="child-care" size={20} color={colors.primary} />
               <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground }}>
                 {t("network.child_id")}
@@ -199,7 +198,7 @@ function NetworkSettingsScreenInner() {
             {localChildren.length > 0 ? (
               <View style={{ gap: 10 }}>
                 {localChildren.map((child: any, idx: number) => (
-                  <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: "row", alignItems: "center", justifyContent: "space-between" }}>
+                  <View key={child.id} style={{ backgroundColor: colors.background, borderRadius: 10, padding: 12, borderWidth: 1, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}>
                     <View style={{ flex: 1 }}>
                       <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
                         {child.name || `Kind ${idx + 1}`}

@@ -148,12 +148,9 @@ export default function AlgemeenScreen() {
           setSyncResult(msg);
         }
       } else {
-        // This branch predates the access gate and named the only cause there
-        // used to be. success:false now also means the husband has not granted
-        // access, or the partnership is unconfirmed, so telling a wife with a
-        // linked, confirmed husband "no partner linked" contradicts what the
-        // partner screens tell her and sends her to fix the wrong thing.
-        const msg = syncRefusedMessage(lang);
+        // The wording follows the server's message; it is generic only when the
+        // message is unknown (lib/sync-refusal.ts).
+        const msg = syncRefusedMessage(lang, result.message);
         showToast(msg, "error");
         setSyncResult(msg);
       }
@@ -374,8 +371,8 @@ export default function AlgemeenScreen() {
     <ScrollView style={s.scroll} contentContainerStyle={{ paddingBottom: insets.bottom + 100 }} showsVerticalScrollIndicator={false}>
 
       {/* ═══════════ HEADER ═══════════ */}
-      <View style={[s.header, { paddingTop: insets.top + 12 }]}>
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+      <View style={[s.header, { flexDirection: isRTL ? "row-reverse" : "row", paddingTop: insets.top + 12 }]}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10 }}>
           <Pressable onPress={() => router.push("/(tabs)/settings")} style={({ pressed }) => [s.settingsBtn, pressed && { opacity: 0.5 }]}>
             <MaterialIcons name="settings" size={22} color="#6B7B72" />
           </Pressable>
@@ -402,7 +399,7 @@ export default function AlgemeenScreen() {
         </View>
         {/* Brand: logo on the right, name «ربّانيّ» on the left (RTL: dot is
             the first child → renders on the right, name second → left). */}
-        <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
           <Image source={require("@/assets/images/icon.png")} style={s.brandLogo} resizeMode="contain" />
           <Text style={s.headerTitle}>{tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}</Text>
         </View>
@@ -419,7 +416,7 @@ export default function AlgemeenScreen() {
           onPress={() => { setShowQiyamReminder(false); router.push("/qiyam" as any); }}
           style={({ pressed }) => [s.qiyamBanner, pressed && { opacity: 0.9 }]}
         >
-          <View style={s.qiyamBannerInner}>
+          <View style={[s.qiyamBannerInner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MaterialIcons name="nightlight-round" size={28} color="#C4A35A" />
             <View style={{ flex: 1, gap: 4 }}>
               <Text style={s.qiyamTitle}>
@@ -437,7 +434,7 @@ export default function AlgemeenScreen() {
           </View>
           <Pressable
             onPress={() => setShowQiyamReminder(false)}
-            style={({ pressed }) => [s.qiyamDismiss, pressed && { opacity: 0.5 }]}
+            style={({ pressed }) => [s.qiyamDismiss, isRTL ? { right: 6 } : { left: 6 }, pressed && { opacity: 0.5 }]}
           >
             <MaterialIcons name="close" size={18} color="#8BA4B8" />
           </Pressable>
@@ -445,7 +442,7 @@ export default function AlgemeenScreen() {
       )}
 
       {/* ═══════════ DATE PILL ═══════════ */}
-      <View style={s.datePill}>
+      <View style={[s.datePill, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <MaterialIcons name="event" size={14} color="#1B4332" />
         <Text style={s.dateText}>{hijriDateStr}</Text>
         {displayCity ? (
@@ -460,7 +457,7 @@ export default function AlgemeenScreen() {
 
       {/* ═══════════ WEATHER (below the Gregorian date → dedicated page) ═══════════ */}
       {weather ? (
-        <TouchableOpacity onPress={() => router.push("/weather" as any)} activeOpacity={0.8} style={s.weatherPill}>
+        <TouchableOpacity onPress={() => router.push("/weather" as any)} activeOpacity={0.8} style={[s.weatherPill, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
           <Text style={s.weatherTemp}>{weather.temp}°</Text>
           <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
@@ -472,7 +469,7 @@ export default function AlgemeenScreen() {
       {/* ═══════════ PRAYER CARD (always visible) ═══════════ */}
       {nextPrayer && prayerCountdown && prayerTimes ? (
         <Pressable onPress={() => router.push("/(tabs)/prayer-times")} style={({ pressed }) => [s.prayerCard, pressed && { opacity: 0.95 }]}>
-          <View style={s.prayerCardInner}>
+          <View style={[s.prayerCardInner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={s.prayerLeft}>
               <MosqueSvg size={26} />
               <Text style={s.prayerLabel}>{tx(lang, "Volgende", "Next", "القادمة")}</Text>
@@ -487,10 +484,10 @@ export default function AlgemeenScreen() {
             </View>
           </View>
           {/* Adhkar quick buttons */}
-          <View style={s.adhkarRow}>
+          <View style={[s.adhkarRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Pressable
               onPress={() => router.push({ pathname: "/details/adhkar", params: { type: currentTime.getHours() < 15 ? "morning" : "evening" } })}
-              style={({ pressed }) => [s.adhkarChip, { backgroundColor: currentTime.getHours() < 15 ? "#FFF8E1" : "#EDE7F6" }, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [s.adhkarChip, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: currentTime.getHours() < 15 ? "#FFF8E1" : "#EDE7F6" }, pressed && { opacity: 0.7 }]}
             >
               <MaterialIcons name={currentTime.getHours() < 15 ? "wb-sunny" : "nights-stay"} size={14} color={currentTime.getHours() < 15 ? "#F59E0B" : "#5E35B1"} />
               <Text style={[s.adhkarText, { color: currentTime.getHours() < 15 ? "#92400E" : "#4A148C" }]}>
@@ -499,7 +496,7 @@ export default function AlgemeenScreen() {
             </Pressable>
             <Pressable
               onPress={() => router.push({ pathname: "/details/adhkar", params: { type: "post-prayer", prayer: nextPrayer } })}
-              style={({ pressed }) => [s.adhkarChip, { backgroundColor: "#E8F5E9" }, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [s.adhkarChip, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: "#E8F5E9" }, pressed && { opacity: 0.7 }]}
             >
               <MaterialIcons name="mosque" size={14} color="#1B4332" />
               <Text style={[s.adhkarText, { color: "#1B4332" }]}>{tx(lang, "Onthoud adhkaar na gebed", "Remember post-prayer adhkaar", "تذكّر أذكار بعد الصلاة")}</Text>
@@ -508,7 +505,7 @@ export default function AlgemeenScreen() {
         </Pressable>
       ) : (
         <Pressable onPress={() => router.push("/(tabs)/settings")} style={({ pressed }) => [s.prayerCard, pressed && { opacity: 0.95 }]}>
-          <View style={s.prayerCardInner}>
+          <View style={[s.prayerCardInner, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MosqueSvg size={26} />
             <Text style={s.noPrayerText}>{tx(lang, "Stel uw locatie in voor gebedstijden", "Set your location for prayer times", "حدد موقعك لعرض مواقيت الصلاة")}</Text>
             <MaterialIcons name="chevron-right" size={20} color="#9CA3AF" />
@@ -525,7 +522,7 @@ export default function AlgemeenScreen() {
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
         <>
-          <View style={s.sectionHeader}>
+          <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={s.sectionLine} />
             <Text style={s.sectionTitle}>{tx(lang, "Partner", "Spouse", "الزوجة")}</Text>
           </View>
@@ -576,7 +573,7 @@ export default function AlgemeenScreen() {
       {/* ═══════════ CHILDREN SECTION ═══════════ */}
       <>
         <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setChildrenExpanded(!childrenExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-          <View style={s.sectionHeader}>
+          <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <View style={s.sectionLine} />
             <Text style={s.sectionTitle}>{tx(lang, "Uw kinderen", "Your Children", "أبناؤك")}</Text>
             {state.children.length > 0 && (
@@ -584,11 +581,11 @@ export default function AlgemeenScreen() {
                 <Text style={[s.sectionBadgeText, { color: "#E65100" }]}>{state.children.length}</Text>
               </View>
             )}
-            <MaterialIcons name={childrenExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={{ marginLeft: 8 }} />
+            <MaterialIcons name={childrenExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
           </View>
         </Pressable>
 
-        {childrenExpanded && (<View style={s.childrenGrid}>
+        {childrenExpanded && (<View style={[s.childrenGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {childProgress.map(({ child, age, yearKey, weekInYear, totalGoals, completedCount, progressPercent, todayTip }) => (
           <Pressable
             key={child.id}
@@ -596,7 +593,7 @@ export default function AlgemeenScreen() {
             style={({ pressed }) => [s.childCard, pressed && { transform: [{ scale: 0.98 }] }]}
           >
             {/* Child header */}
-            <View style={s.childHeader}>
+            <View style={[s.childHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={[s.childAvatar, { backgroundColor: child.gender === "meisje" ? "#FCE4EC" : "#E3F2FD" }]}>
                 <MaterialIcons name={child.gender === "meisje" ? "face-3" : "face-6"} size={24} color={child.gender === "meisje" ? "#E91E63" : "#1565C0"} />
               </View>
@@ -610,7 +607,7 @@ export default function AlgemeenScreen() {
 
             {/* Weekly progress bar */}
             <View style={s.progressSection}>
-              <View style={s.progressRow}>
+              <View style={[s.progressRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <Text style={s.progressLabel}>{tx(lang, "Weekvoortgang", "Weekly progress", "تقدم الأسبوع")}</Text>
                 <Text style={s.progressValue}>{completedCount}/{totalGoals}</Text>
               </View>
@@ -621,7 +618,7 @@ export default function AlgemeenScreen() {
 
             {/* Today's tip for this child */}
             {todayTip ? (
-              <View style={s.childTipRow}>
+              <View style={[s.childTipRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <MaterialIcons name="tips-and-updates" size={12} color="#C4A35A" />
                 <Text style={s.childTipText} numberOfLines={2}>{todayTip}</Text>
               </View>
@@ -630,7 +627,7 @@ export default function AlgemeenScreen() {
             {/* Quick action: go to weekly plan */}
             <Pressable
               onPress={() => router.push("/(tabs)/weekly")}
-              style={({ pressed }) => [s.childActionBtn, pressed && { opacity: 0.7 }]}
+              style={({ pressed }) => [s.childActionBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
             >
               <MaterialIcons name="checklist" size={12} color="#1B4332" />
               <Text style={s.childActionText}>{tx(lang, "خطة الأسبوع", "Week plan", "خطة الأسبوع")}</Text>
@@ -654,15 +651,15 @@ export default function AlgemeenScreen() {
 
       {/* ═══════════ QUICK ACTIONS GRID ═══════════ */}
       <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setQuickActionsExpanded(!quickActionsExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
-        <View style={s.sectionHeader}>
+        <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <View style={[s.sectionLine, { backgroundColor: "#1565C030" }]} />
           <Text style={[s.sectionTitle, { color: "#1565C0" }]}>{tx(lang, "Snelle acties", "Quick Actions", "إجراءات سريعة")}</Text>
-          <MaterialIcons name={quickActionsExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#1565C0" style={{ marginLeft: 8 }} />
+          <MaterialIcons name={quickActionsExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#1565C0" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
         </View>
       </Pressable>
 
       {quickActionsExpanded && (
-      <View style={s.actionsGrid}>
+      <View style={[s.actionsGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <Pressable onPress={() => router.push("/sunnah" as any)} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
           <View style={[s.actionIcon, { backgroundColor: "#E8F5EC" }]}>
             <MaterialIcons name="auto-stories" size={24} color="#1B4332" />
@@ -751,7 +748,7 @@ export default function AlgemeenScreen() {
 
       {/* ═══════════ PERSONAL ADVICE CARD ═══════════ */}
       <Pressable onPress={() => router.push("/(tabs)/personal-advice" as any)} style={({ pressed }) => [s.adviceCard, pressed && { opacity: 0.9 }]}>
-        <View style={s.adviceHeader}>
+        <View style={[s.adviceHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <MaterialIcons name="psychology" size={20} color="#7B1FA2" />
           <Text style={s.adviceTitle}>{tx(lang, "Persoonlijk advies", "Personal Advice", "نصيحة شخصية")}</Text>
           <MaterialIcons name="chevron-right" size={18} color="#9CA3AF" />
@@ -777,17 +774,17 @@ const s = StyleSheet.create({
   scroll: { flex: 1, backgroundColor: "#FFFFFF" },
   loadingWrap: { flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: "#FFFFFF" },
 
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 10 },
+  header: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 20, paddingBottom: 10 },
   headerTitle: { fontSize: 24, fontWeight: "800", color: "#1B4332" },
   brandLogo: { width: 36, height: 36 },
   headerTitleEn: { fontSize: 24, fontWeight: "300", color: "#1B4332" },
   settingsBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F5F7F6", alignItems: "center", justifyContent: "center" },
 
-  datePill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 5, marginHorizontal: 40, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#F0F7F2", borderRadius: 20, marginBottom: 2 },
+  datePill: { alignItems: "center", justifyContent: "center", gap: 5, marginHorizontal: 40, paddingVertical: 8, paddingHorizontal: 14, backgroundColor: "#F0F7F2", borderRadius: 20, marginBottom: 2 },
   dateText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
   dateSep: { color: "#9CA3AF", marginHorizontal: 2 },
   gregorianDate: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4, marginBottom: 8 },
-  weatherPill: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: "#EAF3EC", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 10 },
+  weatherPill: { alignItems: "center", justifyContent: "center", gap: 6, alignSelf: "center", backgroundColor: "#EAF3EC", borderRadius: 20, paddingVertical: 5, paddingHorizontal: 12, marginBottom: 10 },
   weatherTemp: { fontSize: 15, fontWeight: "800", color: "#1B4332" },
   weatherLabel: { fontSize: 12, color: "#1B4332" },
   weatherRange: { fontSize: 11, color: "#6B7280" },
@@ -803,7 +800,7 @@ const s = StyleSheet.create({
 
   // Prayer card
   prayerCard: { marginHorizontal: 16, marginBottom: 12, backgroundColor: "#FFFFFF", borderRadius: 16, borderWidth: 1.5, borderColor: "#1B433220", padding: 12, shadowColor: "#1B4332", shadowOpacity: 0.06, shadowRadius: 8, shadowOffset: { width: 0, height: 2 }, elevation: 2 },
-  prayerCardInner: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  prayerCardInner: { alignItems: "center", justifyContent: "space-between" },
   prayerLeft: { alignItems: "center", gap: 2 },
   prayerLabel: { fontSize: 9, color: "#6B7B72", fontWeight: "500" },
   prayerCenter: { alignItems: "center" },
@@ -813,8 +810,8 @@ const s = StyleSheet.create({
   countdownLabel: { fontSize: 9, color: "#6B7B72", fontWeight: "500" },
   countdownText: { fontSize: 22, fontWeight: "800", color: "#1B4332", letterSpacing: -1 },
   noPrayerText: { flex: 1, fontSize: 13, color: "#6B7B72", textAlign: "center", marginHorizontal: 12 },
-  adhkarRow: { flexDirection: "row", gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E8ECE9" },
-  adhkarChip: { flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 6, borderRadius: 8 },
+  adhkarRow: { gap: 6, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#E8ECE9" },
+  adhkarChip: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 6, borderRadius: 8 },
   adhkarText: { fontSize: 11, fontWeight: "700", flexShrink: 1 },
 
   // Daily check-in (checkinAnswered/checkinAnsweredText: pre-existing dead
@@ -823,45 +820,45 @@ const s = StyleSheet.create({
   checkinAnsweredText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
 
   // Section headers
-  sectionHeader: { flexDirection: "row", alignItems: "center", paddingHorizontal: 16, marginBottom: 12, gap: 8 },
+  sectionHeader: { alignItems: "center", paddingHorizontal: 16, marginBottom: 12, gap: 8 },
   sectionLine: { flex: 1, height: 1.5, backgroundColor: "#E6510030" },
   sectionTitle: { fontSize: 16, fontWeight: "800", color: "#E65100" },
   sectionBadge: { width: 24, height: 24, borderRadius: 12, alignItems: "center", justifyContent: "center" },
   sectionBadgeText: { fontSize: 12, fontWeight: "800" },
 
   // Child cards
-  childrenGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, gap: 8 },
+  childrenGrid: { flexWrap: "wrap", paddingHorizontal: 12, gap: 8 },
   childCard: { width: "48%", flexGrow: 0, marginBottom: 8, backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1.5, borderColor: "#E8ECE9", padding: 10, shadowColor: "#000", shadowOpacity: 0.04, shadowRadius: 6, shadowOffset: { width: 0, height: 2 }, elevation: 1 },
-  childHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  childHeader: { alignItems: "center", gap: 8 },
   childAvatar: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center" },
   childName: { fontSize: 13, fontWeight: "700", color: "#1F2937" },
   childAge: { fontSize: 10, color: "#6B7B72", marginTop: 1 },
   progressSection: { marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  progressRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
+  progressRow: { justifyContent: "space-between", alignItems: "center", marginBottom: 6 },
   progressLabel: { fontSize: 11, color: "#6B7B72", fontWeight: "600" },
   progressValue: { fontSize: 11, color: "#1B4332", fontWeight: "700" },
   progressBarBg: { height: 6, backgroundColor: "#F3F4F6", borderRadius: 3, overflow: "hidden" },
   progressBarFill: { height: 6, borderRadius: 3 },
-  childTipRow: { flexDirection: "row", alignItems: "center", gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  childTipRow: { alignItems: "center", gap: 6, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
   childTipText: { flex: 1, fontSize: 12, color: "#78350F", fontWeight: "500" },
-  childActionBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, paddingVertical: 8, backgroundColor: "#F0F7F2", borderRadius: 8 },
+  childActionBtn: { alignItems: "center", justifyContent: "center", gap: 6, marginTop: 10, paddingVertical: 8, backgroundColor: "#F0F7F2", borderRadius: 8 },
   childActionText: { fontSize: 12, color: "#1B4332", fontWeight: "700" },
 
   // Quick actions grid
-  actionsGrid: { flexDirection: "row", flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 16, gap: 8 },
+  actionsGrid: { flexWrap: "wrap", paddingHorizontal: 12, marginBottom: 16, gap: 8 },
   actionCard: { width: "30%", flexGrow: 1, alignItems: "center", paddingVertical: 14, backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1, borderColor: "#E8ECE9", shadowColor: "#000", shadowOpacity: 0.03, shadowRadius: 4, shadowOffset: { width: 0, height: 1 }, elevation: 1 },
   actionIcon: { width: 44, height: 44, borderRadius: 12, alignItems: "center", justifyContent: "center", marginBottom: 6 },
   actionLabel: { fontSize: 11, fontWeight: "700", color: "#374151", textAlign: "center" },
 
   // Advice card
   adviceCard: { marginHorizontal: 16, marginBottom: 16, backgroundColor: "#FDFAFF", borderRadius: 14, borderWidth: 1, borderColor: "#E8D5F5", padding: 14 },
-  adviceHeader: { flexDirection: "row", alignItems: "center", gap: 8 },
+  adviceHeader: { alignItems: "center", gap: 8 },
   adviceTitle: { flex: 1, fontSize: 14, fontWeight: "700", color: "#7B1FA2" },
   adviceSubtitle: { fontSize: 12, color: "#6B7B72", marginTop: 6 },
   // Qiyam night banner
   qiyamBanner: { marginHorizontal: 16, marginBottom: 12, backgroundColor: "#0D1B2A", borderRadius: 14, padding: 14, borderWidth: 1, borderColor: "#C4A35A40", position: "relative" },
-  qiyamBannerInner: { flexDirection: "row", alignItems: "center", gap: 12 },
+  qiyamBannerInner: { alignItems: "center", gap: 12 },
   qiyamTitle: { fontSize: 15, fontWeight: "700", color: "#C4A35A" },
   qiyamSubtitle: { fontSize: 12, color: "#8BA4B8", lineHeight: 18 },
-  qiyamDismiss: { position: "absolute", top: 6, left: 6, width: 24, height: 24, borderRadius: 12, backgroundColor: "#1B283880", alignItems: "center", justifyContent: "center" },
+  qiyamDismiss: { position: "absolute", top: 6, width: 24, height: 24, borderRadius: 12, backgroundColor: "#1B283880", alignItems: "center", justifyContent: "center" },
 });

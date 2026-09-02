@@ -59,6 +59,7 @@ export function buildReviewSelections(
  * when the curated bank replaced the generated set.
  */
 export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
+  const isRTL = lang === "ar";
   const utils = trpc.useUtils();
   // Day-scoped input: without `date`, the query key is `{lang}` alone, so a
   // cached response from YESTERDAY (in-memory, or restored from AsyncStorage
@@ -158,7 +159,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
     // an open always waits on one) — a bare `return null` here made the card
     // silently vanish for that whole window with no feedback.
     return (
-      <View style={[s.teaserCard, { flexDirection: "row" }]}>
+      <View style={[s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <ActivityIndicator size="small" color="#1B4332" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]}>
           {tx(lang, "Bezig met laden...", "Loading...", "جارٍ التحميل...")}
@@ -181,7 +182,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
     return (
       <Pressable
         onPress={() => todayQuery.refetch()}
-        style={({ pressed }) => [s.teaserCard, { flexDirection: "row" }, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.teaserCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="error-outline" size={18} color="#B91C1C" />
         <Text style={[s.teaserText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -211,7 +212,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
       {/* The locked header is a label, not a control: the card cannot
           collapse itself — the duo-row half that mounted it is the toggle. */}
       {locked ? (
-        <View style={[s.reviewHeader, { flexDirection: "row" }]}>
+        <View style={[s.reviewHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.title, { marginBottom: 0 }]}>
             {tx(lang, "Uw antwoorden van vandaag", "Your answers today", "إجاباتك اليوم")}
@@ -252,7 +253,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
                   onPress={locked ? undefined : () => setSelected((prev) => ({ ...prev, [q.category]: { label: opt.label, tone: opt.tone } }))}
                   style={({ pressed }) => [
                     s.option,
-                    { flexDirection: "row" },
+                    { flexDirection: isRTL ? "row-reverse" : "row" },
                     isSelected && s.optionSelected,
                     pressed && !locked && { opacity: 0.7 },
                   ]}
@@ -282,7 +283,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
         />
       )}
       {locked ? (
-        <View style={[s.lockedNotice, { flexDirection: "row" }]}>
+        <View style={[s.lockedNotice, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <MaterialIcons name="lock-outline" size={14} color="#52796F" />
           <Text style={[s.lockedNoticeText, { textAlign: lang === "ar" ? "right" : "left" }]}>
             {tx(
@@ -317,6 +318,7 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
             }}
             style={({ pressed }) => [
               s.submitBtn,
+              { flexDirection: isRTL ? "row-reverse" : "row" },
               (!allAnswered || submitMutation.isPending) && s.submitBtnDisabled,
               pressed && allAnswered && { opacity: 0.8 },
             ]}
@@ -364,7 +366,6 @@ const s = StyleSheet.create({
   optionText: { fontSize: 14, fontWeight: "500", color: "#374151" },
   optionTextSelected: { fontWeight: "700", color: "#1B4332" },
   submitBtn: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, FlatList } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -6,10 +6,14 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import {
   ADHKAR_CATEGORIES,
   POST_PRAYER_ADHKAR,
+  categoryTitle,
   type Dhikr,
   type AdhkarCategory,
 } from "@/lib/adhkar-data";
 import { useI18n } from "@/lib/i18n";
+import { loadAdhkarProgress, saveAdhkarProgress } from "@/lib/adhkar-progress";
+import { isoToday } from "@/lib/haid";
+import { rulingLabel } from "@/lib/notification-settings";
 
 // Post-prayer specific additions
 const POST_FAJR_EXTRA: Dhikr[] = [
@@ -23,8 +27,10 @@ const POST_MAGHRIB_EXTRA: Dhikr[] = [
 export default function AdhkarScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { language } = useI18n();
+  const { language, t, isRTL } = useI18n();
   const showTranslit = language === "nl" || language === "en";
+  const rowDir = useMemo(() => ({ flexDirection: isRTL ? "row-reverse" : "row" } as const), [isRTL]);
+  const textDir = useMemo(() => ({ textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" } as const), [isRTL]);
   const params = useLocalSearchParams<{ type?: string; prayer?: string }>();
 
   const isPostPrayer = params.type === "post-prayer";
@@ -46,8 +52,10 @@ export default function AdhkarScreen() {
     if (prayer === "fajr") extras = POST_FAJR_EXTRA;
     else if (prayer === "maghrib") extras = POST_MAGHRIB_EXTRA;
     adhkarList = [...POST_PRAYER_ADHKAR, ...extras];
-    const prayerNames: Record<string, string> = { fajr: "الفجر", dhuhr: "الظهر", asr: "العصر", maghrib: "المغرب", isha: "العشاء" };
-    title = `أذكار بعد ${prayerNames[prayer] || "الصلاة"}`;
+    const name = ["fajr", "dhuhr", "asr", "maghrib", "isha"].includes(prayer)
+      ? t(`prayer.${prayer}`)
+      : language === "nl" ? "het gebed" : language === "en" ? "the prayer" : "الصلاة";
+    title = language === "nl" ? `Adhkaar na ${name}` : language === "en" ? `Adhkaar after ${name}` : `أذكار بعد ${name}`;
     iconName = "mosque";
     accentColor = "#1B4332";
     bgAccent = "#E8F5E9";
@@ -55,7 +63,7 @@ export default function AdhkarScreen() {
     const category = ADHKAR_CATEGORIES.find(c => c.id === selectedCategoryId);
     if (category) {
       adhkarList = category.adhkar;
-      title = category.title;
+      title = categoryTitle(category, language);
       iconName = category.icon;
       accentColor = category.color;
       bgAccent = category.color + "15";
@@ -63,7 +71,7 @@ export default function AdhkarScreen() {
       // Fallback to morning
       const morning = ADHKAR_CATEGORIES[0];
       adhkarList = morning.adhkar;
-      title = morning.title;
+      title = categoryTitle(morning, language);
       iconName = morning.icon;
       accentColor = morning.color;
       bgAccent = morning.color + "15";
@@ -71,18 +79,38 @@ export default function AdhkarScreen() {
   }
 
   const [completedCounts, setCompletedCounts] = useState<Record<string, number>>({});
+  // Only the type=post-prayer route skips persistence; the after_every_prayer
+  // chip category recurs too, and its ids are dropped on save (lib/adhkar-progress.ts).
+  const loadedRef = useRef(isPostPrayer);
+  const dayRef = useRef(isoToday());
+  useEffect(() => {
+    if (!isPostPrayer) loadAdhkarProgress().then((stored) => {
+      setCompletedCounts(stored);
+      loadedRef.current = true;
+    });
+  }, [isPostPrayer]);
+  // The loadedRef gate is what makes this effect safe: it cannot persist {} before the load.
+  useEffect(() => {
+    if (loadedRef.current && !isPostPrayer) saveAdhkarProgress(completedCounts).catch(() => {});
+  }, [completedCounts, isPostPrayer]);
 
   const handleTap = useCallback((dhikrId: string, maxCount: number) => {
+    // Past midnight while mounted, don't re-stamp yesterday's counts as today's.
+    const day = isoToday();
+    const rolled = dayRef.current !== day;
+    dayRef.current = day;
     setCompletedCounts(prev => {
-      const current = prev[dhikrId] || 0;
+      // A tap before the load resolves would be persisted over today's counts.
+      if (!loadedRef.current) return prev;
+      const base: Record<string, number> = rolled ? {} : prev;
+      const current = base[dhikrId] || 0;
       if (current >= maxCount) return prev;
-      return { ...prev, [dhikrId]: current + 1 };
+      return { ...base, [dhikrId]: current + 1 };
     });
   }, []);
 
   const handleCategoryChange = useCallback((catId: string) => {
     setSelectedCategoryId(catId);
-    setCompletedCounts({});
   }, []);
 
   const totalAdhkar = adhkarList.length;
@@ -91,6 +119,7 @@ export default function AdhkarScreen() {
   const renderDhikrItem = useCallback(({ item, index }: { item: Dhikr; index: number }) => {
     const current = completedCounts[item.id] || 0;
     const isDone = current >= item.count;
+    const left = item.count - current;
     return (
       <Pressable
         onPress={() => handleTap(item.id, item.count)}
@@ -100,7 +129,7 @@ export default function AdhkarScreen() {
           pressed && !isDone && { backgroundColor: bgAccent },
         ]}
       >
-        <View style={st.dhikrHeader}>
+        <View style={[st.dhikrHeader, rowDir]}>
           <View style={[st.countBadge, { backgroundColor: isDone ? "#22C55E" : accentColor }]}>
             {isDone ? (
               <MaterialIcons name="check" size={14} color="#FFFFFF" />
@@ -108,11 +137,11 @@ export default function AdhkarScreen() {
               <Text style={st.countBadgeText}>{current}/{item.count}</Text>
             )}
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={[rowDir, { alignItems: "center", gap: 6 }]}>
             {item.ruling && (
               <View style={[st.rulingBadge, { backgroundColor: item.ruling === "واجب" ? "#DC262620" : item.ruling === "سنة مؤكدة" ? "#05966920" : "#0891B220" }]}>
                 <Text style={[st.rulingText, { color: item.ruling === "واجب" ? "#DC2626" : item.ruling === "سنة مؤكدة" ? "#059669" : "#0891B2" }]}>
-                  {item.ruling}
+                  {rulingLabel(item.ruling, language)}
                 </Text>
               </View>
             )}
@@ -132,38 +161,41 @@ export default function AdhkarScreen() {
         {(() => {
           const reward = language === "nl" ? (item.rewardNL || item.reward) : language === "en" ? (item.rewardEN || item.reward) : item.reward;
           return reward ? (
-            <View style={st.rewardRow}>
+            <View style={[st.rewardRow, rowDir]}>
               <MaterialIcons name="star" size={12} color="#C4A35A" />
-              <Text style={st.rewardText}>{reward}</Text>
+              <Text style={[st.rewardText, textDir]}>{reward}</Text>
             </View>
           ) : null;
         })()}
         {(() => {
           const howTo = language === "nl" ? (item.howToNL || item.howTo) : language === "en" ? (item.howToEN || item.howTo) : item.howTo;
           return howTo ? (
-            <Text style={st.sourceText}>{howTo}</Text>
+            <Text style={[st.sourceText, textDir]}>{howTo}</Text>
           ) : null;
         })()}
+        {/* A hadith reference stays Arabic in every language. */}
         {item.source && (
-          <Text style={st.sourceText}>{item.source}</Text>
+          <Text style={[st.sourceText, { textAlign: "right", writingDirection: "rtl" }]}>{item.source}</Text>
         )}
         {item.count > 1 && !isDone && (
-          <Text style={[st.tapHint, { color: accentColor }]}>اضغط {item.count - current} {item.count - current === 1 ? "مرة" : "مرات"}</Text>
+          <Text style={[st.tapHint, { color: accentColor }]}>
+            {language === "nl" ? `Tik nog ${left} keer` : language === "en" ? `Tap ${left} more ${left === 1 ? "time" : "times"}` : `اضغط ${left} ${left === 1 ? "مرة" : "مرات"}`}
+          </Text>
         )}
       </Pressable>
     );
-  }, [completedCounts, accentColor, bgAccent, handleTap, showTranslit, language]);
+  }, [completedCounts, accentColor, bgAccent, handleTap, showTranslit, language, rowDir, textDir]);
 
   return (
     <View style={[st.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={st.header}>
+      <View style={[st.header, rowDir]}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.backBtn, pressed && { opacity: 0.5 }]}>
-          <MaterialIcons name="arrow-forward" size={22} color="#1B4332" />
+          <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={22} color="#1B4332" />
         </Pressable>
-        <View style={st.headerCenter}>
+        <View style={[st.headerCenter, rowDir]}>
           <MaterialIcons name={iconName as any} size={26} color={accentColor} />
-          <Text style={st.headerTitle}>{title}</Text>
+          <Text style={st.headerTitle} numberOfLines={2}>{title}</Text>
         </View>
         <View style={{ width: 36 }} />
       </View>
@@ -182,6 +214,7 @@ export default function AdhkarScreen() {
               onPress={() => handleCategoryChange(cat.id)}
               style={({ pressed }) => [
                 st.categoryTab,
+                rowDir,
                 selectedCategoryId === cat.id && { backgroundColor: cat.color, borderColor: cat.color },
                 pressed && { opacity: 0.7 },
               ]}
@@ -198,7 +231,7 @@ export default function AdhkarScreen() {
                 ]}
                 numberOfLines={1}
               >
-                {cat.title}
+                {categoryTitle(cat, language)}
               </Text>
             </Pressable>
           ))}
@@ -212,9 +245,11 @@ export default function AdhkarScreen() {
           <View style={[st.progressFill, { width: `${totalAdhkar > 0 ? (completedAdhkar / totalAdhkar) * 100 : 0}%`, backgroundColor: accentColor }]} />
         </View>
         {completedAdhkar === totalAdhkar && totalAdhkar > 0 && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+          <View style={[rowDir, { alignItems: "center", gap: 4, marginTop: 4 }]}>
             <MaterialIcons name="check-circle" size={16} color="#22C55E" />
-            <Text style={{ fontSize: 12, fontWeight: "700", color: "#22C55E" }}>أحسنت! أتممت جميع الأذكار</Text>
+            <Text style={{ fontSize: 12, fontWeight: "700", color: "#22C55E" }}>
+              {language === "nl" ? "Goed gedaan! U heeft alle adhkaar voltooid" : language === "en" ? "Well done! You completed all the adhkaar" : "أحسنت! أتممت جميع الأذكار"}
+            </Text>
           </View>
         )}
       </View>
@@ -233,14 +268,13 @@ export default function AdhkarScreen() {
 
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAFBFC" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
+  header: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F0F7F2", alignItems: "center", justifyContent: "center" },
-  headerCenter: { flexDirection: "row", alignItems: "center", gap: 8 },
-  headerTitle: { fontSize: 20, fontWeight: "800", color: "#1B4332" },
-  categoryContainer: { maxHeight: 44, marginBottom: 8 },
+  headerCenter: { flex: 1, alignItems: "center", gap: 8 },
+  headerTitle: { fontSize: 20, fontWeight: "800", color: "#1B4332", flexShrink: 1, textAlign: "center" },
+  categoryContainer: { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
   categoryScroll: { paddingHorizontal: 16, gap: 8, alignItems: "center" },
   categoryTab: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 12,
@@ -250,14 +284,14 @@ const st = StyleSheet.create({
     borderColor: "#E5E7EB",
     backgroundColor: "#FFFFFF",
   },
-  categoryTabText: { fontSize: 12, fontWeight: "600", color: "#374151" },
+  categoryTabText: { fontSize: 12, fontWeight: "600", color: "#374151", maxWidth: 200 },
   progressBar: { marginHorizontal: 16, borderRadius: 12, padding: 12, marginBottom: 12, alignItems: "center", gap: 6 },
   progressText: { fontSize: 13, fontWeight: "700" },
   progressTrack: { width: "100%", height: 6, borderRadius: 3, backgroundColor: "#E5E7EB" },
   progressFill: { height: 6, borderRadius: 3 },
   dhikrCard: { marginHorizontal: 16, marginBottom: 10, backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 16 },
   dhikrCardDone: { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" },
-  dhikrHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  dhikrHeader: { alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, minWidth: 36, alignItems: "center" },
   countBadgeText: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
   rulingBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
@@ -265,9 +299,9 @@ const st = StyleSheet.create({
   dhikrIndex: { fontSize: 12, fontWeight: "600", color: "#9CA3AF" },
   dhikrText: { fontSize: 16, fontWeight: "500", color: "#1F2937", lineHeight: 30, textAlign: "right", writingDirection: "rtl" },
   dhikrTextDone: { color: "#6B7280" },
-  rewardRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  rewardText: { flex: 1, fontSize: 11, color: "#92400E", lineHeight: 18, textAlign: "right", writingDirection: "rtl" },
-  sourceText: { fontSize: 10, color: "#6B7280", textAlign: "right", marginTop: 4 },
+  rewardRow: { alignItems: "flex-start", gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  rewardText: { flex: 1, fontSize: 11, color: "#92400E", lineHeight: 18 },
+  sourceText: { fontSize: 10, color: "#6B7280", marginTop: 4 },
   tapHint: { fontSize: 11, fontWeight: "600", textAlign: "center", marginTop: 8 },
   translitText: { fontSize: 13, color: "#4B5563", lineHeight: 22, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F3F4F6", textAlign: "left", writingDirection: "ltr", fontStyle: "italic" },
   translationText: { fontSize: 13, color: "#374151", lineHeight: 22, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#F3F4F6", textAlign: "left", writingDirection: "ltr" },

@@ -520,7 +520,7 @@ export default function QiblaScreen() {
           <Text style={{ fontSize: 18, fontWeight: "600", color: colors.foreground, marginTop: 4 }}>
             {qiblaDirection}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "center", marginTop: 12, gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginTop: 12, gap: 8 }}>
             <View style={{ height: 1, flex: 1, backgroundColor: "#C4A35A", maxWidth: 80 }} />
             <Text style={{ fontSize: 12, color: "#C4A35A" }}>🕋</Text>
             <View style={{ height: 1, flex: 1, backgroundColor: "#C4A35A", maxWidth: 80 }} />

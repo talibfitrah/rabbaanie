@@ -479,19 +479,19 @@ export default function NotificationSettingsScreen() {
               : getLabel("موقعك غير محفوظ، فلا تُحسب أوقات الصلاة ولا تصل إشعاراتها. حدّد موقعك من صفحة أوقات الصلاة.", "No location saved, so prayer times aren't computed and their notifications won't arrive. Set your location on the Prayer Times page.", "Geen locatie opgeslagen; gebedstijden en hun meldingen ontbreken.")}
           </Text>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10 }}>
-            <Pressable onPress={handleTestNotification} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+            <Pressable onPress={handleTestNotification} style={({ pressed }) => [{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.primary, borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
               <MaterialIcons name="notifications-active" size={18} color="#fff" />
               <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("إشعار تجريبي", "Test", "Test")}</Text>
             </Pressable>
             {Platform.OS === "android" && (
-              <Pressable onPress={handleRestoreSound} style={({ pressed }) => [{ flex: 1, flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary + "50", borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
+              <Pressable onPress={handleRestoreSound} style={({ pressed }) => [{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: colors.background, borderWidth: 1.5, borderColor: colors.primary + "50", borderRadius: 12, paddingVertical: 12, opacity: pressed ? 0.85 : 1 }]}>
                 <MaterialIcons name="volume-up" size={18} color={colors.primary} />
                 <Text style={{ color: colors.primary, fontWeight: "700", fontSize: 13 }}>{getLabel("استعادة الصوت", "Restore sound", "Geluid herstellen")}</Text>
               </Pressable>
             )}
           </View>
           {Platform.OS === "android" && (
-            <Pressable onPress={handleFullScreenTest} style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12, marginTop: 10, opacity: pressed ? 0.85 : 1 }]}>
+            <Pressable onPress={handleFullScreenTest} style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12, marginTop: 10, opacity: pressed ? 0.85 : 1 }]}>
               <MaterialIcons name="fullscreen" size={18} color="#fff" />
               <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{getLabel("اختبار إشعار ملء الشاشة", "Full-screen test", "Volledig-scherm test")}</Text>
             </Pressable>
@@ -521,7 +521,7 @@ export default function NotificationSettingsScreen() {
             <Text style={{ fontSize: 13, fontWeight: "600", color: colors.muted, marginBottom: 8, textAlign: isRTL ? "right" : "left" }}>
               {t("notif.minutes_before")}
             </Text>
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 16 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 16 }}>
               <Pressable onPress={() => { if (notifPrefs.minutesBefore > MIN_MINUTES_BEFORE) handleMinutesBefore(notifPrefs.minutesBefore - 1); }}
                 style={({ pressed }) => [{ width: 36, height: 36, borderRadius: 18, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
                 <MaterialIcons name="remove" size={20} color={colors.primary} />
@@ -566,7 +566,7 @@ export default function NotificationSettingsScreen() {
               <Text style={{ fontSize: 14, color: (notifPrefs.adhanSound || "takbeer_1") === opt.id ? colors.primary : colors.foreground, fontWeight: (notifPrefs.adhanSound || "takbeer_1") === opt.id ? "bold" : "normal" }}>
                 {opt[language === "ar" ? "nameAr" : isEn ? "nameEn" : "nameNl"]}
               </Text>
-              <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                 {(notifPrefs.adhanSound || "takbeer_1") === opt.id && <MaterialIcons name="check-circle" size={18} color={colors.primary} />}
                 <Pressable onPress={() => playPreviewSound(opt.id)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: playingSound === opt.id ? colors.primary : colors.border + "50", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 }]}>
                   <MaterialIcons name={playingSound === opt.id ? "stop" : "play-arrow"} size={18} color={playingSound === opt.id ? "#fff" : colors.foreground} />
@@ -608,7 +608,7 @@ export default function NotificationSettingsScreen() {
                   <Text style={{ fontSize: 14, color: (notifPrefs.natureSound || "water_stream") === opt.id ? "#0891B2" : colors.foreground, fontWeight: (notifPrefs.natureSound || "water_stream") === opt.id ? "bold" : "normal" }}>
                     {opt[language === "ar" ? "nameAr" : isEn ? "nameEn" : "nameNl"]}
                   </Text>
-                  <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                     {(notifPrefs.natureSound || "water_stream") === opt.id && <MaterialIcons name="check-circle" size={18} color="#0891B2" />}
                     <Pressable onPress={() => playPreviewSound(opt.id)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: playingSound === opt.id ? "#0891B2" : colors.border + "50", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.7 : 1 }]}>
                       <MaterialIcons name={playingSound === opt.id ? "stop" : "play-arrow"} size={18} color={playingSound === opt.id ? "#fff" : colors.foreground} />
@@ -645,7 +645,7 @@ export default function NotificationSettingsScreen() {
                 <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
                   {getLabel("بدء الإسكات بعد الأذان بـ (دقائق)", "Start silence after Adhan (minutes)", "Start stilte na Adhan (minuten)")}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   <Pressable onPress={() => handleIqamahTimingChange("minutesAfterAdhan", -1)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
                     <MaterialIcons name="remove" size={18} color={colors.primary} />
                   </Pressable>
@@ -660,7 +660,7 @@ export default function NotificationSettingsScreen() {
                 <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
                   {getLabel("مدة الإسكات (دقائق)", "Silence duration (minutes)", "Duur stilte (minuten)")}
                 </Text>
-                <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   <Pressable onPress={() => handleIqamahTimingChange("silenceDurationMinutes", -1)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
                     <MaterialIcons name="remove" size={18} color={colors.primary} />
                   </Pressable>
@@ -744,13 +744,13 @@ export default function NotificationSettingsScreen() {
                 <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
                   {titles[cat][language === "ar" ? "ar" : isEn ? "en" : "nl"]}
                 </Text>
-                <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6 }}>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6 }}>
                   {DISPLAY_MODE_OPTIONS.map((opt) => (
                     <Pressable
                       key={opt.value}
                       onPress={() => updateDisplayMode(cat, opt.value)}
                       style={({ pressed }) => [{
-                        flexDirection: "row", alignItems: "center", gap: 4,
+                        flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4,
                         paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8,
                         backgroundColor: currentMode === opt.value ? "#8B5CF6" + "15" : colors.background,
                         borderWidth: 1, borderColor: currentMode === opt.value ? "#8B5CF6" : colors.border,

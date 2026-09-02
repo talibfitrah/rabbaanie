@@ -136,7 +136,7 @@ export default function EmotionPathScreen() {
           <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground }}>
             {lang === "ar" ? `الأسبوع ${currentWeek} من 7` : lang === "en" ? `Week ${currentWeek} of 7` : `Week ${currentWeek} van 7`}
           </Text>
-          <View style={{ flexDirection: "row", gap: 4 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 4 }}>
             {[1, 2, 3, 4, 5, 6, 7].map(w => (
               <View key={w} style={{
                 width: 28, height: 28, borderRadius: 14,

@@ -1158,7 +1158,7 @@ export default function SettingsScreen() {
             >
               <Text style={{ fontSize: 24 }}>{COUNTRIES[item].flag}</Text>
               <Text style={{ fontSize: 16, fontWeight: "600", color: colors.foreground }}>{language === "ar" ? getCountryAR(item) : item}</Text>
-              <Text style={{ fontSize: 12, color: colors.muted, marginLeft: "auto" }}>{COUNTRIES[item].cities.length} {t("prayer.cities_count")}</Text>
+              <Text style={{ fontSize: 12, color: colors.muted, ...(isRTL ? { marginRight: "auto" } : { marginLeft: "auto" }) }}>{COUNTRIES[item].cities.length} {t("prayer.cities_count")}</Text>
             </Pressable>
           )}
         />
@@ -1920,7 +1920,7 @@ export default function SettingsScreen() {
         </Text>
         {/* Function badges */}
         {state.parentProfile.gender && (
-          <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: 'wrap', gap: 6, marginBottom: 12 }}>
             <View style={{ backgroundColor: state.parentProfile.gender === 'man' ? '#0277BD' : '#AD1457', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 }}>
               <Text style={{ color: '#fff', fontSize: 12, fontWeight: '600' }}>
                 {state.parentProfile.gender === 'man' ? (language === 'ar' ? '\u0623\u0628' : language === 'en' ? 'Father' : 'Vader') : (language === 'ar' ? '\u0623\u0645' : language === 'en' ? 'Mother' : 'Moeder')}
@@ -2117,7 +2117,7 @@ export default function SettingsScreen() {
           borderRadius: 12,
           paddingVertical: 16,
           paddingHorizontal: 16,
-          flexDirection: "row" as const,
+          flexDirection: isRTL ? "row-reverse" : "row",
           alignItems: "center" as const,
           gap: 12,
           marginTop: 16,
@@ -2146,7 +2146,7 @@ export default function SettingsScreen() {
           borderRadius: 12,
           paddingVertical: 16,
           paddingHorizontal: 16,
-          flexDirection: "row" as const,
+          flexDirection: isRTL ? "row-reverse" : "row",
           alignItems: "center" as const,
           gap: 12,
           marginTop: 16,
@@ -2470,7 +2470,7 @@ function PersonalAdviceSettings({ colors, language, isRTL, router }: { colors: a
         <Text className="text-lg font-bold mb-3" style={{ color: colors.foreground }}>
           {tx("Kies tijdstip", "Choose time", "اختر الوقت")}
         </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8 }}>
           {HOURS.map((h) => (
             <Pressable
               key={h}
@@ -2678,7 +2678,7 @@ function PersonalAdviceSettings({ colors, language, isRTL, router }: { colors: a
         </Pressable>
       )}
       {showSpouseTimePicker && (
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 6, marginBottom: 12, marginLeft: isRTL ? 0 : 26, marginRight: isRTL ? 26 : 0 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 6, marginBottom: 12, marginLeft: isRTL ? 0 : 26, marginRight: isRTL ? 26 : 0 }}>
           {[18, 19, 20, 21, 22].map(h => (
             <Pressable key={h} onPress={() => handleSpouseTimeChange(h)} style={({ pressed }) => [{
               paddingHorizontal: 12, paddingVertical: 6, borderRadius: 8,

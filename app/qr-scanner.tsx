@@ -5,6 +5,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * QR Scanner Screen
@@ -19,6 +20,7 @@ export default function QrScannerScreen() {
   const colors = useColors();
   const router = useRouter();
   const utils = trpc.useUtils();
+  const { isRTL } = useI18n();
   const [scanned, setScanned] = useState(false);
   const [result, setResult] = useState<string | null>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -140,9 +142,9 @@ export default function QrScannerScreen() {
           {/* Overlay */}
           <View style={{ flex: 1, justifyContent: "space-between" }}>
             {/* Top bar */}
-            <View style={{ paddingTop: 60, paddingHorizontal: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+            <View style={{ paddingTop: 60, paddingHorizontal: 20, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
               <TouchableOpacity onPress={() => router.back()}>
-                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>← Terug</Text>
+                <Text style={{ color: "#fff", fontSize: 16, fontWeight: "600" }}>{isRTL ? "→" : "←"} Terug</Text>
               </TouchableOpacity>
               <Text style={{ color: "#fff", fontSize: 14, fontWeight: "500" }}>QR Scanner</Text>
             </View>
@@ -171,7 +173,7 @@ export default function QrScannerScreen() {
           <Text style={{ fontSize: 16, fontWeight: "600", color: colors.foreground, textAlign: "center" }}>
             {result || "Verwerken..."}
           </Text>
-          <View style={{ flexDirection: "row", gap: 12, marginTop: 16 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12, marginTop: 16 }}>
             <TouchableOpacity
               onPress={() => { setScanned(false); setResult(null); }}
               style={{ backgroundColor: colors.surface, borderRadius: 10, paddingVertical: 12, paddingHorizontal: 20, borderWidth: 1, borderColor: colors.border }}

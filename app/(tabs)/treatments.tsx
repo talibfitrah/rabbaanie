@@ -23,7 +23,7 @@ export default function TreatmentsScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, loading } = useAppState();
-  const { t, language } = useI18n();
+  const { t, language, isRTL } = useI18n();
   // Hooks must run unconditionally: this sits above the early returns below so
   // the hook count stays constant when `loading`/onboarding flags flip.
   const { subscribed: _psub } = usePremiumGate();
@@ -146,7 +146,7 @@ export default function TreatmentsScreen() {
               borderRadius: 12,
               padding: 14,
               marginBottom: 16,
-              flexDirection: "row" as const,
+              flexDirection: isRTL ? "row-reverse" : "row",
               alignItems: "center" as const,
               gap: 10,
               opacity: pressed ? 0.8 : 1,

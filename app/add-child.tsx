@@ -110,7 +110,7 @@ function AddChildScreenInner() {
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
-      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 12, flexDirection: "row", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
+      <View style={{ paddingTop: insets.top + 8, paddingHorizontal: 16, paddingBottom: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [{ padding: 8, opacity: pressed ? 0.6 : 1 }]}>
           <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
         </Pressable>

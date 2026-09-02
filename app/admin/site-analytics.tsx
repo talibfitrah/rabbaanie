@@ -5,6 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 
 // Friendly labels for the fixed, small vocabularies the server sends back —
@@ -12,9 +13,6 @@ import { trpc } from "@/lib/trpc";
 // (languages), its literal page ids (site/index.html's <div id="page-*">),
 // and server/site-analytics.ts's own ReferrerCategory union.
 const LANG_LABEL: Record<string, string> = { ar: "العربية", nl: "Nederlands", en: "English", es: "Español", zh: "中文", hi: "हिन्दी", ps: "پښتو", fr: "Français" };
-const PAGE_LABEL: Record<string, string> = { home: "الرئيسية", articles: "المقالات", article: "مقالة", app: "التطبيق", fitrah: "الفطرة والمفاهيم", ages: "الأعمار", shubuhat: "الشبهات", svc: "الخدمات", about: "من نحن" };
-const REF_LABEL: Record<string, string> = { search: "بحث", external: "موقع خارجي", direct: "مباشر" };
-const unknownLabel = (key: string) => (key === "ZZ" || key === "" || key === "unknown" || key === "uncategorized" ? "غير معروف" : key);
 
 /**
  * Website visitor analytics (owner ask, 2026-08-16): how many visitors, what
@@ -26,12 +24,25 @@ const unknownLabel = (key: string) => (key === "ZZ" || key === "" || key === "un
  */
 export default function AdminSiteAnalyticsScreen() {
   const colors = useColors();
-  const { isRTL, language } = useI18n();
+  const { isRTL } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const align = isRTL ? "right" : "left";
-  const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
+  const L3 = useL3();
   const [days, setDays] = useState(30);
+  const PAGE_LABEL: Record<string, string> = {
+    home: L3("الرئيسية", "Home", "Home"),
+    articles: L3("المقالات", "Artikelen", "Articles"),
+    article: L3("مقالة", "Artikel", "Article"),
+    app: L3("التطبيق", "App", "App"),
+    fitrah: L3("الفطرة والمفاهيم", "Fitrah & begrippen", "Fitrah & concepts"),
+    ages: L3("الأعمار", "Leeftijden", "Ages"),
+    shubuhat: L3("الشبهات", "Twijfels (shubuhat)", "Doubts (shubuhat)"),
+    svc: L3("الخدمات", "Diensten", "Services"),
+    about: L3("من نحن", "Over ons", "About us"),
+  };
+  const REF_LABEL: Record<string, string> = { search: L3("بحث", "Zoekmachine", "Search"), external: L3("موقع خارجي", "Externe site", "External site"), direct: L3("مباشر", "Direct", "Direct") };
+  const unknownLabel = (key: string) => (key === "ZZ" || key === "" || key === "unknown" || key === "uncategorized" ? L3("غير معروف", "Onbekend", "Unknown") : key);
 
   // Accessed via an untyped proxy, same as app/admin/feedback.tsx: this
   // repo's own server/routers.ts (the source of lib/trpc.ts's AppRouter
@@ -86,7 +97,7 @@ export default function AdminSiteAnalyticsScreen() {
           </Text>
         ) : (
           <>
-            <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
               <StatCard value={site?.totalVisits ?? 0} label={L3("مشاهدات الصفحات", "Paginaweergaven", "Page views")} icon="visibility" color="#2563EB" colors={colors} isRTL={isRTL} />
               <StatCard value={site?.distinctSessions ?? 0} label={L3("زيارات (تقريبيّ)", "Bezoeken (indicatief)", "Visits (approx.)")} icon="groups" color="#059669" colors={colors} isRTL={isRTL} />
               <StatCard value={articles?.distinctArticlesRead ?? 0} label={L3("مقالات مقروءة", "Gelezen artikelen", "Articles read")} icon="menu-book" color="#E65100" colors={colors} isRTL={isRTL} />

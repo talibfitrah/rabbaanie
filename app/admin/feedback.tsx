@@ -4,6 +4,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 
 /**
@@ -12,11 +13,11 @@ import { trpc } from "@/lib/trpc";
  */
 export default function AdminFeedbackScreen() {
   const colors = useColors();
-  const { isRTL, language } = useI18n();
+  const { isRTL } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const align = isRTL ? "right" : "left";
-  const L3 = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
+  const L3 = useL3();
 
   // Accessed via an untyped proxy: the app vendors a type-only copy of the server
   // router that predates these procedures; the tRPC HTTP proxy resolves them at runtime.
@@ -60,7 +61,7 @@ export default function AdminFeedbackScreen() {
                 ) : null}
                 <Text style={{ fontSize: 14, color: colors.foreground, lineHeight: 22, textAlign: align }}>{f.message}</Text>
                 {isNew && (
-                  <TouchableOpacity onPress={() => markRead.mutate({ id: f.id })} style={{ alignSelf: isRTL ? "flex-start" : "flex-end", marginTop: 10, flexDirection: "row", alignItems: "center", gap: 4 }}>
+                  <TouchableOpacity onPress={() => markRead.mutate({ id: f.id })} style={{ alignSelf: isRTL ? "flex-start" : "flex-end", marginTop: 10, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
                     <MaterialIcons name="done" size={16} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontSize: 13, fontWeight: "700" }}>{L3("تمّت المعالجة", "Afgehandeld", "Mark handled")}</Text>
                   </TouchableOpacity>

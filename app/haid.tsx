@@ -166,7 +166,7 @@ export default function HaidScreen() {
       {/* Quick log for the selected day */}
       <View style={card}>
         {label(tx(lang, "Registreren voor", "Log for", "تسجيل ليوم") + " " + selected)}
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8 }}>
           {(["blood", "spotting", "dry"] as Flow[]).map((f) => (
             <Pressable key={f} onPress={() => log(f)} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}>
               <Text style={{ color: colors.foreground }}>{T.flow[f]}</Text>
@@ -222,6 +222,7 @@ export default function HaidScreen() {
 }
 
 function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisable }: { settings: CycleSettings; lang: Lang; colors: ReturnType<typeof useColors>; align: { textAlign: "left" | "right" }; isSaving: boolean; onSave: (p: Omit<Partial<CycleSettings>, "enabled">) => void; onDisable: () => void }) {
+  const { isRTL } = useI18n();
   const [habit, setHabit] = useState(settings.habitLength ? String(settings.habitLength) : "");
   const [cycle, setCycle] = useState(settings.cycleLength ? String(settings.cycleLength) : "");
   const [pregnant, setPregnant] = useState(settings.pregnantSince ?? "");
@@ -254,8 +255,8 @@ function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisab
       {field(tx(lang, "Bevallingsdatum", "Birth date", "تاريخ الولادة"), birth, setBirth, "YYYY-MM-DD")}
       {field(tx(lang, "Miskraam op", "Miscarriage on", "تاريخ الإسقاط"), misc, setMisc, "YYYY-MM-DD")}
       {field(tx(lang, "Zwangerschapsduur bij miskraam (dagen)", "Gestation at miscarriage (days)", "عمر الحمل عند الإسقاط (أيام)"), gest, setGest, "120")}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Anticonceptie", "Contraception", "موانع الحمل")}</Text><Switch value={contra} onValueChange={setContra} /></View>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Herinnering aan ghusl", "Ghusl reminder", "تذكير بالغسل")}</Text><Switch value={ghuslRem} onValueChange={setGhuslRem} /></View>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Anticonceptie", "Contraception", "موانع الحمل")}</Text><Switch value={contra} onValueChange={setContra} /></View>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Herinnering aan ghusl", "Ghusl reminder", "تذكير بالغسل")}</Text><Switch value={ghuslRem} onValueChange={setGhuslRem} /></View>
       <Pressable onPress={save} disabled={isSaving} style={{ backgroundColor: colors.primary, opacity: isSaving ? 0.6 : 1, padding: 12, borderRadius: 8, alignItems: "center", marginBottom: 8 }}><Text style={{ color: "#FFF", fontWeight: "700" }}>{tx(lang, "Opslaan", "Save", "حفظ")}</Text></Pressable>
       <Pressable onPress={onDisable} style={{ padding: 10, alignItems: "center" }}><Text style={{ color: "#DC2626" }}>{tx(lang, "Uitschakelen en gegevens wissen", "Disable and delete data", "إيقاف الميزة وحذف البيانات")}</Text></Pressable>
     </View>

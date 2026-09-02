@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
@@ -20,6 +21,7 @@ const AUDIENCES = ["all", "parents", "teachers", "specialists"];
 
 export default function NewsletterEditorScreen() {
   const colors = useColors();
+  const L3 = useL3();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
@@ -155,7 +157,7 @@ export default function NewsletterEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="العنوان (عربي)"
+            placeholder={L3("العنوان (عربي)", "Titel (Arabisch)", "Title (Arabic)")}
             placeholderTextColor={colors.muted}
             value={titleAr}
             onChangeText={setTitleAr}
@@ -188,7 +190,7 @@ export default function NewsletterEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="المحتوى (عربي) — يدعم Markdown"
+            placeholder={L3("المحتوى (عربي) — يدعم Markdown", "Inhoud (Arabisch) — Markdown ondersteund", "Content (Arabic) — Markdown supported")}
             placeholderTextColor={colors.muted}
             value={contentAr}
             onChangeText={setContentAr}

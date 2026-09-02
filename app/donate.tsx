@@ -67,7 +67,7 @@ export default function DonateScreen() {
           <Text style={[s.cardDesc, { textAlign: align }]}>
             {tx(language, "Doneer direct en veilig via onze betaalpagina.", "Donate directly and securely through our payment page.", "تصدّق مباشرةً وبأمان عبر صفحة الدفع الخاصّة بنا.")}
           </Text>
-          <TouchableOpacity onPress={openCardPayment} style={s.primaryBtn}>
+          <TouchableOpacity onPress={openCardPayment} style={[s.primaryBtn, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MaterialIcons name="volunteer-activism" size={18} color="#fff" />
             <Text style={s.primaryBtnText}>{tx(language, "Doneer nu (Sadaqah)", "Give Sadaqah now", "تصدّق الآن")}</Text>
           </TouchableOpacity>
@@ -81,7 +81,7 @@ export default function DonateScreen() {
               {tx(language, "Doneren via bunq (Nederland & België)", "Donate via bunq (Netherlands & Belgium)", "التبرّع عبر bunq (هولندا وبلجيكا)")}
             </Text>
           </View>
-          <TouchableOpacity onPress={() => Linking.openURL(BUNQ_URL)} style={s.primaryBtn}>
+          <TouchableOpacity onPress={() => Linking.openURL(BUNQ_URL)} style={[s.primaryBtn, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MaterialIcons name="volunteer-activism" size={18} color="#fff" />
             <Text style={s.primaryBtnText}>{tx(language, "Open bunq.me", "Open bunq.me", "فتح bunq.me")}</Text>
           </TouchableOpacity>
@@ -123,7 +123,7 @@ const s = StyleSheet.create({
   cardHeader: { alignItems: "center", gap: 8, marginBottom: 8 },
   cardTitle: { fontSize: 16, fontWeight: "700", color: "#1B4332", flex: 1 },
   cardDesc: { fontSize: 13, lineHeight: 19, color: "#52796F", marginBottom: 14 },
-  primaryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12 },
+  primaryBtn: { alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 12 },
   primaryBtnText: { color: "#fff", fontWeight: "700", fontSize: 15 },
   detailRow: { alignItems: "center", paddingVertical: 8 },
   detailLabel: { fontSize: 12, color: "#52796F", marginBottom: 2 },

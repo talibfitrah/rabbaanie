@@ -661,7 +661,7 @@ export default function FitrahScreen() {
                   <View style={{ paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 12 }}>
                     {/* Loading indicator */}
                     {translatingName === item.name && lang !== "ar" && (
-                      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 8, gap: 6 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 8, gap: 6 }}>
                         <ActivityIndicator size="small" color={colors.primary} />
                         <Text style={{ fontSize: 11, color: colors.muted }}>{tx(lang, "Vertalen...", "Translating...", "جاري الترجمة...")}</Text>
                       </View>
@@ -857,7 +857,7 @@ export default function FitrahScreen() {
                           {isNameExpanded && (
                             <View style={{ paddingHorizontal: 10, paddingBottom: 12, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 8 }}>
                               {translatingName === (groupKey + "_" + nameKey) && lang !== "ar" && (
-                                <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 4 }}>
+                                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 6, gap: 4 }}>
                                   <ActivityIndicator size="small" color={colors.primary} />
                                   <Text style={{ fontSize: 10, color: colors.muted }}>{tx(lang, "Vertalen...", "Translating...", "جاري الترجمة...")}</Text>
                                 </View>
@@ -983,7 +983,7 @@ export default function FitrahScreen() {
                 {isExpanded && (
                   <View style={{ paddingHorizontal: 14, paddingBottom: 14, borderTopWidth: 0.5, borderTopColor: colors.border, paddingTop: 10 }}>
                     {translatingName === stationKey && lang !== "ar" && (
-                      <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 6, gap: 4 }}>
+                      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", marginBottom: 6, gap: 4 }}>
                         <ActivityIndicator size="small" color={colors.primary} />
                         <Text style={{ fontSize: 10, color: colors.muted }}>{tx(lang, "Vertalen...", "Translating...", "جاري الترجمة...")}</Text>
                       </View>
@@ -1453,7 +1453,7 @@ export default function FitrahScreen() {
           </Text>
           <Pressable
             onPress={() => router.push("/content/fitrah" as any)}
-            style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.success + "12", opacity: pressed ? 0.7 : 1 }]}
+            style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.success + "12", opacity: pressed ? 0.7 : 1 }]}
           >
             <Text style={{ fontSize: 11, color: colors.success, fontWeight: "600" }}>
               {tx(lang, "Artikelen", "Articles", "مقالات")}

@@ -241,7 +241,7 @@ export default function ChatNotesScreen() {
       {showForm && (
         <View style={{ position: "absolute", top: 0, left: 0, right: 0, bottom: 0, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" }}>
           <View style={{ backgroundColor: colors.background, borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, paddingBottom: insets.bottom + 20, maxHeight: "85%" }}>
-            <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
               <Text style={{ fontSize: 18, fontWeight: "700", color: colors.foreground }}>
                 {editingNote ? tx(lang, "Bewerken", "Edit", "تعديل") : tx(lang, "Nieuwe notitie", "New note", "ملاحظة جديدة")}
               </Text>
@@ -271,12 +271,12 @@ export default function ChatNotesScreen() {
               <Text style={{ fontSize: 13, fontWeight: "600", color: colors.foreground, marginBottom: 6 }}>
                 {tx(lang, "Categorie", "Category", "الفئة")}
               </Text>
-              <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 14 }}>
                 {CATEGORIES.map((cat) => (
                   <Pressable
                     key={cat.key}
                     onPress={() => setCategory(cat.key as ChatNote["category"])}
-                    style={{ flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: category === cat.key ? cat.color + "20" : colors.surface, borderWidth: 1, borderColor: category === cat.key ? cat.color : colors.border }}
+                    style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 8, borderRadius: 16, backgroundColor: category === cat.key ? cat.color + "20" : colors.surface, borderWidth: 1, borderColor: category === cat.key ? cat.color : colors.border }}
                   >
                     <MaterialIcons name={cat.icon} size={14} color={category === cat.key ? cat.color : colors.muted} />
                     <Text style={{ fontSize: 12, color: category === cat.key ? cat.color : colors.foreground }}>

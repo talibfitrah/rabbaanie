@@ -252,11 +252,11 @@ export default function MosquesScreen() {
 
     return (
       <View style={[styles.card, { backgroundColor: colors.surface, borderColor: colors.border }]}>
-        <View style={styles.cardHeader}>
-          <View style={[styles.rankBadge, { backgroundColor: colors.primary + "15" }]}>
+        <View style={[styles.cardHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <View style={[styles.rankBadge, { backgroundColor: colors.primary + "15" }, isRTL ? { marginLeft: 10 } : { marginRight: 10 }]}>
             <Text style={[styles.rankText, { color: colors.primary }]}>{index + 1}</Text>
           </View>
-          <View style={styles.cardContent}>
+          <View style={[styles.cardContent, isRTL ? { marginLeft: 8 } : { marginRight: 8 }]}>
             <Text style={[styles.mosqueName, { color: colors.foreground }]} numberOfLines={2}>
               {displayName}
             </Text>
@@ -280,7 +280,7 @@ export default function MosquesScreen() {
         </View>
 
         {/* Extra info row */}
-        <View style={styles.infoRow}>
+        <View style={[styles.infoRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           {item.phone ? (
             <TouchableOpacity
               style={[styles.infoChip, { backgroundColor: colors.primary + "15" }]}
@@ -301,16 +301,16 @@ export default function MosquesScreen() {
         </View>
 
         {/* Action buttons */}
-        <View style={styles.actions}>
+        <View style={[styles.actions, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <TouchableOpacity
-            style={[styles.navButton, { backgroundColor: colors.primary }]}
+            style={[styles.navButton, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.primary }]}
             onPress={() => openNavigation(item.lat, item.lon, displayName)}
           >
             <IconSymbol name="arrow.triangle.turn.up.right.diamond.fill" size={18} color="#fff" />
             <Text style={styles.navButtonText}>{tx(lang, "Route", "Directions", "اتجاهات")}</Text>
           </TouchableOpacity>
           <TouchableOpacity
-            style={[styles.mapLinkButton, { borderColor: colors.primary }]}
+            style={[styles.mapLinkButton, { flexDirection: isRTL ? "row-reverse" : "row", borderColor: colors.primary }]}
             onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${item.lat},${item.lon}`)}
           >
             <IconSymbol name="map.fill" size={16} color={colors.primary} />
@@ -367,8 +367,8 @@ export default function MosquesScreen() {
   return (
     <ScreenContainer className="flex-1">
       {/* Header */}
-      <View style={[styles.header, { borderBottomColor: colors.border }]}>
-        <TouchableOpacity onPress={() => router.push("/(tabs)" as any)} style={styles.backButton}>
+      <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row", borderBottomColor: colors.border }]}>
+        <TouchableOpacity onPress={() => router.push("/(tabs)" as any)} style={[styles.backButton, isRTL ? { marginLeft: 8 } : { marginRight: 8 }]}>
           <IconSymbol name="house.fill" size={22} color={colors.foreground} />
         </TouchableOpacity>
         <Text style={[styles.headerTitle, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}>
@@ -385,8 +385,8 @@ export default function MosquesScreen() {
 
       {/* Search bar + GPS refresh */}
       {(location || showCityInput || citySearch.trim()) && (
-        <View style={[styles.searchContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
-          <View style={[styles.searchInputWrapper, { backgroundColor: colors.background, borderColor: colors.border }]}>
+        <View style={[styles.searchContainer, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+          <View style={[styles.searchInputWrapper, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.background, borderColor: colors.border }]}>
             <IconSymbol name="doc.text.magnifyingglass" size={18} color={colors.muted} />
             <TextInput
               style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
@@ -492,10 +492,10 @@ export default function MosquesScreen() {
 
       {/* View mode toggle */}
       {(location || citySearch.trim()) && mosquesQuery.data && mosquesQuery.data.length > 0 && (
-        <View style={[styles.toggleContainer, { backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
+        <View style={[styles.toggleContainer, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.surface, borderBottomColor: colors.border }]}>
           <TouchableOpacity
             style={[
-              styles.toggleButton,
+              styles.toggleButton, { flexDirection: isRTL ? "row-reverse" : "row" },
               viewMode === "list" && { backgroundColor: colors.primary },
             ]}
             onPress={() => setViewMode("list")}
@@ -507,7 +507,7 @@ export default function MosquesScreen() {
           </TouchableOpacity>
           <TouchableOpacity
             style={[
-              styles.toggleButton,
+              styles.toggleButton, { flexDirection: isRTL ? "row-reverse" : "row" },
               viewMode === "map" && { backgroundColor: colors.primary },
             ]}
             onPress={() => setViewMode("map")}
@@ -663,7 +663,7 @@ function CityAutocomplete({
       {showCityInput && (
         <View style={{ position: "relative", zIndex: 100 }}>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, alignItems: "center" }}>
-            <View style={[styles.searchInputWrapper, { backgroundColor: colors.background, borderColor: colors.border, flex: 1 }]}>
+            <View style={[styles.searchInputWrapper, { flexDirection: isRTL ? "row-reverse" : "row", backgroundColor: colors.background, borderColor: colors.border, flex: 1 }]}>
               <TextInput
                 style={[styles.searchInput, { color: colors.foreground, textAlign: isRTL ? "right" : "left" }]}
                 placeholder={tx(lang, "Voer stadsnaam in...", "Enter city name...", "أدخل اسم المدينة...")}
@@ -761,7 +761,6 @@ const { width: SCREEN_WIDTH } = Dimensions.get("window");
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
@@ -769,7 +768,6 @@ const styles = StyleSheet.create({
   },
   backButton: {
     padding: 4,
-    marginRight: 8,
   },
   headerTitle: {
     flex: 1,
@@ -780,14 +778,12 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   toggleContainer: {
-    flexDirection: "row",
     padding: 8,
     gap: 8,
     borderBottomWidth: 0.5,
   },
   toggleButton: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 6,
@@ -847,7 +843,6 @@ const styles = StyleSheet.create({
     marginBottom: 12,
   },
   cardHeader: {
-    flexDirection: "row",
     alignItems: "flex-start",
   },
   rankBadge: {
@@ -856,7 +851,6 @@ const styles = StyleSheet.create({
     borderRadius: 14,
     justifyContent: "center",
     alignItems: "center",
-    marginRight: 10,
   },
   rankText: {
     fontSize: 14,
@@ -864,7 +858,6 @@ const styles = StyleSheet.create({
   },
   cardContent: {
     flex: 1,
-    marginRight: 8,
   },
   mosqueName: {
     fontSize: 15,
@@ -889,7 +882,6 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   infoRow: {
-    flexDirection: "row",
     flexWrap: "wrap",
     gap: 6,
     marginTop: 8,
@@ -903,12 +895,10 @@ const styles = StyleSheet.create({
     fontSize: 12,
   },
   actions: {
-    flexDirection: "row",
     gap: 8,
     marginTop: 10,
   },
   navButton: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 6,
     paddingHorizontal: 14,
@@ -921,7 +911,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   mapLinkButton: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 4,
     borderWidth: 1,
@@ -945,7 +934,6 @@ const styles = StyleSheet.create({
   },
   // Search styles
   searchContainer: {
-    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 12,
     paddingVertical: 8,
@@ -954,7 +942,6 @@ const styles = StyleSheet.create({
   },
   searchInputWrapper: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     borderWidth: 1,
     borderRadius: 10,
