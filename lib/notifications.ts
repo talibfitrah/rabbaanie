@@ -14,6 +14,8 @@ import {
 import { ADHAN_SOUND_IDS } from "./adhan-sound-ids.js";
 import { scheduleDays } from "./notification-horizons";
 import { enqueue } from "./notification-queue";
+import { readExcusedState } from "./haid-state";
+import * as NativeAuth from "@/lib/_core/auth";
 
 /*
  * WHICH notifications may set interruptionLevel: "timeSensitive" — and why most
@@ -164,6 +166,8 @@ function adhanSoundFile(sound: AdhanSoundOption): string {
 }
 const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
 const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
+/** The haid tracker's daily purity-check + ghusl reminder (lib/haid-notifications.ts). */
+export const HAID_CHANNEL_ID = "haid_reminders_v1";
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -201,6 +205,20 @@ export async function setupNotificationChannels(): Promise<void> {
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     enableLights: true,
     lightColor: "#2563EB",
+  });
+
+  await Notifications.setNotificationChannelAsync(HAID_CHANNEL_ID, {
+    name: "Cyclus Herinneringen / Cycle Reminders",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: "default",
+    bypassDnd: true,
+    // C14: cycle/purity content must never surface on a bystander-readable
+    // lock screen — private conceals it on a secured device; the scheduled
+    // notification text itself is also kept generic as a fallback for
+    // devices with no secure lock (lib/haid-notifications.ts).
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
+    enableLights: true,
+    lightColor: "#DB2777",
   });
 }
 
@@ -458,9 +476,10 @@ const SCHEDULE_ALL_OWN_TYPES: readonly string[] = [PRAYER_TYPE, ADHKAAR_TYPE];
  * then re-run from scratch, so the end state is the LAST call's output.
  */
 export function scheduleAllNotifications(
-  language: "nl" | "en" | "ar" = "nl"
+  language: "nl" | "en" | "ar" = "nl",
+  skipPrayersUntil?: string
 ): Promise<number> {
-  return enqueue(() => scheduleAllNotificationsInner(language));
+  return enqueue(() => scheduleAllNotificationsInner(language, skipPrayersUntil));
 }
 
 /**
@@ -490,12 +509,42 @@ async function cancelOwnScheduled(): Promise<void> {
   }
 }
 
+/**
+ * Resolves the haid prayer-pause (decision 14) for a caller that did not pass
+ * skipPrayersUntil itself — which is ~10 of the call sites, plus the daily
+ * lib/notification-refresh.ts pass. Reads the signed-in user the same way
+ * app/_layout.tsx's own notification listeners do.
+ *
+ * syncHaidNotifications (lib/haid-notifications.ts) still passes an explicit
+ * value and always wins here: when she is no longer excused it clears the
+ * stored flag BEFORE calling scheduleAllNotifications(lang, undefined), so
+ * this resolves to undefined too — no arguments.length trick needed.
+ */
+async function resolveHaidSkipUntil(): Promise<string | undefined> {
+  const user = await NativeAuth.getUserInfo();
+  if (!user?.id) return undefined;
+  return (await readExcusedState(user.id)).until;
+}
+
+/**
+ * Reads the stored UI language directly from AsyncStorage — for callers
+ * (e.g. components/prayer-popup-modal.tsx) that render outside I18nProvider
+ * and so cannot use useI18n(). Same key + validated fallback app/_layout.tsx's
+ * own launch-time read already uses.
+ */
+export async function readStoredLanguage(): Promise<"nl" | "en" | "ar"> {
+  const raw = await AsyncStorage.getItem("@app_language");
+  return raw === "ar" || raw === "en" || raw === "nl" ? raw : "nl";
+}
+
 async function scheduleAllNotificationsInner(
-  language: "nl" | "en" | "ar"
+  language: "nl" | "en" | "ar",
+  skipPrayersUntil?: string
 ): Promise<number> {
   // The raw pass, not the queued wrapper: this already runs inside the queue,
   // and re-entering it would wait on a job that cannot finish until we return.
   await cancelOwnScheduled();
+  const effectiveSkipUntil = skipPrayersUntil ?? (await resolveHaidSkipUntil());
 
   // Load preferences
   const prefs = await loadNotificationPrefs();
@@ -528,6 +577,9 @@ async function scheduleAllNotificationsInner(
   for (let dayOffset = 0; dayOffset < prayerDays; dayOffset++) {
     const date = new Date(now);
     date.setDate(date.getDate() + dayOffset);
+    // Local date parts, not toISOString: this Date is device-local, and a UTC
+    // conversion near midnight can land on the wrong YYYY-MM-DD.
+    const dayIso = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
 
     const times = calculatePrayerTimes(date, location.lat, location.lng, method, location.tz);
 
@@ -536,6 +588,9 @@ async function scheduleAllNotificationsInner(
 
     for (const prayer of prayerKeys) {
       if (!prefs.prayers[prayer]) continue;
+      // Haid/nifas pause (decision 14): skip only prayer notifications for
+      // excused days. Adhkaar below is untouched.
+      if (effectiveSkipUntil && dayIso <= effectiveSkipUntil) continue;
 
       const timeStr = times[prayer];
       const [h, m] = timeStr.split(":").map(Number);

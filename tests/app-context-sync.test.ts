@@ -44,6 +44,7 @@ vi.mock("@/lib/authed-fetch", () => ({
   authedFetch: (...args: unknown[]) => authedFetch(...args),
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { defaultAppState, isProfileComplete } from "@/lib/store";
 import {
   syncToServer,
@@ -52,6 +53,8 @@ import {
   mergeServerState,
   fillParentProfileFromServer,
   applyPartnerReplace,
+  applyPartnerReplaceForAccount,
+  isStillCurrentAccount,
   locationSettingsForSync,
   locationSettingsFromServer,
 } from "@/lib/app-context";
@@ -684,5 +687,215 @@ describe("applyPartnerReplace (guards the linked-partner full replace)", () => {
     const result = applyPartnerReplace(completeLocal, freshEditedGender);
 
     expect(result.parentProfile.gender).toBe("vrouw");
+  });
+
+  // hasNoChildren is a boolean, so fillParentProfileFromServer's string-only
+  // fill (above) never recovers it: a linked wife who declared "no children"
+  // (app/onboarding/index.tsx) has that flag wiped by the next partner sync
+  // whose fresh copy carries hasNoChildren false/undefined, demoting her back
+  // to onboarding's "children" step forever.
+  it("keeps hasNoChildren:true from local when the fresh copy has it missing or false", () => {
+    const localChildless = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: true },
+      children: [],
+    };
+    const freshMissing = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [],
+    };
+    const freshFalse = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: false },
+      children: [],
+    };
+
+    expect(applyPartnerReplace(localChildless, freshMissing).parentProfile.hasNoChildren).toBe(true);
+    expect(applyPartnerReplace(localChildless, freshFalse).parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("does not invent hasNoChildren when local never declared it", () => {
+    const freshNoDeclaration = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [child],
+    };
+
+    // completeLocal never sets hasNoChildren (see the fixture above).
+    const result = applyPartnerReplace(completeLocal, freshNoDeclaration);
+
+    expect(result.parentProfile.hasNoChildren).not.toBe(true);
+  });
+
+  it("[regression] a fresh copy with blank gender/maritalStatus and 10 children stays profile-complete", () => {
+    const tenChildren = Array.from({ length: 10 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Child ${i}`,
+      birthDate: "2015-01-01",
+    })) as any;
+    const freshBlankGenderManyChildren = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "", maritalStatus: "" },
+      children: tenChildren,
+    };
+
+    const result = applyPartnerReplace(completeLocal, freshBlankGenderManyChildren);
+
+    expect(isProfileComplete(result)).toBe(true);
+  });
+});
+
+/**
+ * rehydrateFromServer's two raw replaces (post-login, and after a partner
+ * sync re-fetch) need the same applyPartnerReplace guard hydrate() got — but
+ * they cannot use stateRef.current as the recovery source the way hydrate()
+ * does. hydrate() only ever guards its OWN account's in-memory state, already
+ * loaded for that account at mount. rehydrateFromServer runs right after
+ * login: the Log Out button explicitly calls resetState() before logout()
+ * BECAUSE otherwise "the next account to log in on this device inherits it"
+ * (see app/(tabs)/settings.tsx) — a session that ends without that button
+ * (e.g. a token expiring) leaves a PREVIOUS account's profile sitting in
+ * stateRef.current, and applyPartnerReplace(stateRef.current, fresh) would
+ * leak that account's gender/maritalStatus/hasNoChildren into whoever logs
+ * in next. applyPartnerReplaceForAccount loads THIS account's own saved copy
+ * from disk (keyed by userId) instead, which is correctly scoped regardless
+ * of what is sitting in memory.
+ */
+describe("applyPartnerReplaceForAccount (rehydrateFromServer's post-login guard)", () => {
+  const ownSavedProfile = {
+    firstName: "Yusuf",
+    lastName: "Ali",
+    birthDate: "1990-01-01",
+    country: "Netherlands",
+    city: "Amsterdam",
+    street: "Hoofdstraat",
+    houseNumber: "1",
+    phoneNumber: "0612345678",
+    gender: "man",
+    maritalStatus: "getrouwd",
+    hasNoChildren: true,
+  };
+
+  beforeEach(() => {
+    vi.mocked(AsyncStorage.getItem).mockClear();
+  });
+
+  it("recovers this account's own saved profile, not whatever is currently in memory", async () => {
+    vi.mocked(AsyncStorage.getItem).mockResolvedValueOnce(
+      JSON.stringify({
+        ...defaultAppState,
+        onboardingCompleted: true,
+        parentProfile: { ...defaultAppState.parentProfile, ...ownSavedProfile },
+        children: [],
+      }),
+    );
+    const freshFromLogin = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      // profile.get right after login: own per-user fields still blank.
+      parentProfile: { ...defaultAppState.parentProfile },
+      children: [],
+    };
+
+    const result = await applyPartnerReplaceForAccount(42, freshFromLogin);
+
+    expect(isProfileComplete(result)).toBe(true);
+    expect(result.parentProfile.gender).toBe("man");
+    expect(result.parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("reads this account's own AsyncStorage key (scoped by userId), not the in-memory state", async () => {
+    await applyPartnerReplaceForAccount(42, {
+      ...defaultAppState,
+      onboardingCompleted: true,
+    });
+
+    expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+      expect.stringContaining("_42"),
+    );
+  });
+});
+
+/**
+ * C1: applyPartnerReplaceForAccount (above) already scopes the MERGE step to
+ * this account's own disk copy — but rehydrateFromServer/hydrate then also
+ * SAVE under userIdRef.current at the time each await resolves. userIdRef is
+ * a mutable ref shared across the whole provider: if a different account
+ * signs in (or this one logs out) while a fetch is still in flight,
+ * userIdRef has moved on by the time the save runs, and account A's
+ * fetched/merged data would be written under account B's key. Every async
+ * checkpoint below has to re-check against the id IT captured at the start,
+ * not the live ref, and discard (no setState/save) on a mismatch.
+ */
+describe("isStillCurrentAccount (C1 discard-on-account-switch guard)", () => {
+  it("is true only while the ref still matches the id captured when the async op started", () => {
+    const ref = { current: 5 as number | null };
+    expect(isStillCurrentAccount(ref, 5)).toBe(true);
+    ref.current = 6; // a different account signed in mid-flight
+    expect(isStillCurrentAccount(ref, 5)).toBe(false);
+  });
+
+  it("treats two logged-out reads (both null) as still current", () => {
+    expect(isStillCurrentAccount({ current: null }, null)).toBe(true);
+  });
+
+  it("catches a logout (ref goes to null) while an op captured a real account id", () => {
+    expect(isStillCurrentAccount({ current: null }, 5)).toBe(false);
+  });
+});
+
+describe("rehydrateFromServer discards a stale account's result instead of saving it under whoever is current now (C1)", () => {
+  const src = readFileSync(join(__dirname, "..", "lib", "app-context.tsx"), "utf8");
+  const flat = src.replace(/\s+/g, " ");
+
+  function body(): string {
+    const start = flat.indexOf("const rehydrateFromServer = useCallback(async () => {");
+    expect(start, "rehydrateFromServer not found").toBeGreaterThan(-1);
+    const end = flat.indexOf("}, []);", start);
+    expect(end, "rehydrateFromServer's end not found").toBeGreaterThan(start);
+    return flat.slice(start, end);
+  }
+
+  it("captures accountId once and re-checks it after every await before touching state or disk", () => {
+    const b = body();
+    expect(b).toContain("const accountId = user?.id ?? null;");
+    expect(b).toContain("isStillCurrentAccount(userIdRef, accountId)");
+    // Every write below keys off the captured accountId, not the live
+    // (mutable) ref — the exact substitution the bug needed.
+    expect(b).toContain("applyPartnerReplaceForAccount( accountId,");
+    expect(b).toContain("saveAppState(safeServerState, accountId)");
+    expect(b).toContain("loadAppState(accountId)");
+    expect(b).toContain("saveAppState(localState, accountId)");
+    expect(b).toContain("saveAppState(safeMergedState, accountId)");
+    // The only remaining userIdRef.current in this function is the initial
+    // capture — nothing else re-reads the live ref directly.
+    const directReads = (b.match(/userIdRef\.current/g) ?? []).length;
+    expect(directReads).toBe(1);
+  });
+});
+
+describe("hydrate's background syncs discard a stale account's result too (C1)", () => {
+  const src = readFileSync(join(__dirname, "..", "lib", "app-context.tsx"), "utf8");
+  const flat = src.replace(/\s+/g, " ");
+
+  it("pins the post-mount syncFromServer/autoSyncWithPartner chains to the account hydrate() started for", () => {
+    const hydrateStart = flat.indexOf("async function hydrate() {");
+    expect(hydrateStart).toBeGreaterThan(-1);
+    const branchStart = flat.indexOf("if (localState.onboardingCompleted) {", hydrateStart);
+    const branchEnd = flat.indexOf("// 3. If local state is empty", branchStart);
+    expect(branchStart).toBeGreaterThan(hydrateStart);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    const branch = flat.slice(branchStart, branchEnd);
+
+    expect(branch).toContain("const accountId = userIdRef.current;");
+    expect(branch).toContain("isStillCurrentAccount(userIdRef, accountId)");
+    expect(branch).toContain("saveAppState(updatedState, accountId)");
+    expect(branch).toContain("saveAppState(safeState, accountId)");
   });
 });

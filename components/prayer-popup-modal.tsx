@@ -10,10 +10,17 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform, Alert } from "react-native";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
+import { trpc } from "@/lib/trpc";
+import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
+import { syncHaidNotifications } from "@/lib/haid-notifications";
+import { readStoredLanguage } from "@/lib/notifications";
+import * as NativeAuth from "@/lib/_core/auth";
+import { loadAppState } from "@/lib/store";
 
 export interface PopupNotification {
   id: string;
@@ -42,6 +49,67 @@ export function PrayerPopupModal({
   onRemindLater,
   isFollowUp = false,
 }: PrayerPopupModalProps) {
+  // Rules of Hooks: notification alternates null/non-null across renders
+  // (usePopupNotifications shows/dismisses in place), so every hook this
+  // component uses must run before the early return below, not after it.
+  //
+  // This modal is rendered in app/_layout.tsx as a sibling AFTER
+  // AppProvider/AuthProvider close ("renders above everything", so popups
+  // still work pre-auth/pre-onboarding) — useAppState()/useAuth() are not
+  // reachable here and would throw. Read gender the same storage-direct way
+  // app/_layout.tsx's own notification listeners already read the user
+  // (NativeAuth.getUserInfo()), re-checked each time the popup opens.
+  const [isWoman, setIsWoman] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    // C15: reset synchronously, before the async read starts — otherwise a
+    // just-switched-to man briefly (or, if the read then fails, forever)
+    // sees the previous woman account's "أنا حائض" button while this
+    // account's own read is still in flight.
+    setIsWoman(false);
+    (async () => {
+      const u = await NativeAuth.getUserInfo();
+      if (!u?.id) return;
+      const appState = await loadAppState(u.id);
+      if (!cancelled) setIsWoman(appState.parentProfile?.gender === "vrouw");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const utils = trpc.useUtils();
+  // Her tracker-enabled state — the server rejects a cycle write outright
+  // (PRECONDITION_FAILED) when she hasn't enabled it, so handleHaid below
+  // checks this first instead of silently no-op'ing on a rejected write.
+  const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
+  const markHaid = trpc.cycle.upsertDay.useMutation({
+    onSuccess: async () => {
+      utils.cycle.getMine.invalidate();
+      // C7: writing the day (or invalidating the cache) alone never touches
+      // prayer alarms already scheduled with the OS — only the next
+      // scheduleAllNotifications call reads the excused flag. C8: an
+      // ifAbsent no-op ({written:false} — today's row already existed) must
+      // never be read as "she is excused" either. Fetch the authoritative
+      // rows and run the SAME sync app/haid.tsx's own screen uses: it
+      // derives the flag from the real classified days (never from the
+      // write attempt) and actually cancels/reschedules the OS
+      // notifications to match — regardless of whether this call wrote
+      // anything or was a no-op.
+      const u = await NativeAuth.getUserInfo();
+      if (!u?.id) return;
+      const fresh = await utils.cycle.getMine.fetch().catch(() => null);
+      if (!fresh?.enabled) return;
+      const days: CycleDay[] = fresh.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
+      const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}), enabled: true };
+      const language = await readStoredLanguage();
+      await syncHaidNotifications({ userId: u.id, days, settings, language }).catch(() => {});
+    },
+    // On failure nothing above runs (no flag write, no reschedule); tell her
+    // so a swallowed network/precondition error isn't mistaken for success.
+    onError: () => { Alert.alert("تعذّر الحفظ", "لم يُحفَظ، حاولي مرة أخرى."); },
+  });
+
   if (!notification) return null;
 
   const rulingColor = RULING_COLORS[notification.ruling] || "#059669";
@@ -59,6 +127,23 @@ export function PrayerPopupModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     onRemindLater(notification);
+  };
+
+  const handleHaid = () => {
+    if (mine.data?.enabled === true) {
+      markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
+    } else {
+      // Not enabled (or not yet known — fails safe toward not writing): the
+      // server rejects the write outright, so attempting it here would
+      // silently do nothing. Send her to enable it first — the consent
+      // notice + «تفعيل» button live on that screen.
+      router.push("/haid");
+    }
+    // onDoNow, not onDismiss: this component holds no follow-up-timer ref of
+    // its own (it lives in usePopupNotifications, app/_layout.tsx's caller),
+    // and onDoNow is already wired to that hook's handleDoNow, which clears
+    // any pending follow-up before dismissing — onDismiss alone would not.
+    onDoNow(notification);
   };
 
   return (
@@ -126,6 +211,15 @@ export function PrayerPopupModal({
                   <MaterialIcons name="refresh" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>ذكرني مرة أخرى</Text>
                 </Pressable>
+                {isWoman && (
+                  <Pressable
+                    onPress={handleHaid}
+                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                  >
+                    <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
+                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                  </Pressable>
+                )}
               </>
             ) : (
               <>
@@ -143,6 +237,15 @@ export function PrayerPopupModal({
                   <MaterialIcons name="access-time" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>أعد تذكيري بعد 10 دقائق</Text>
                 </Pressable>
+                {isWoman && (
+                  <Pressable
+                    onPress={handleHaid}
+                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                  >
+                    <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
+                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                  </Pressable>
+                )}
               </>
             )}
           </View>

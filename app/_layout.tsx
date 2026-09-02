@@ -10,7 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { Platform, BackHandler, View } from "react-native";
+import { Platform, BackHandler, View, AppState } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import * as SplashScreen from "expo-splash-screen";
@@ -86,6 +86,7 @@ import {
   loadUnifiedNotifPrefs,
   resolveShouldShowPopup,
 } from "@/lib/notification-settings";
+import { readExcusedState, HAID_NOTIFICATION_TYPES } from "@/lib/haid-state";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { isEmailNotVerifiedError } from "@/lib/verification";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
@@ -350,6 +351,7 @@ function NotificationLifecycle({
 }) {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
+  const utils = trpc.useUtils();
   // Finishing the permissions screen has to re-run this pass, and nothing else
   // makes it. app/permissions-setup.tsx requests permission and then calls
   // completePermissionsSetup(), which flips this flag and persists it — it
@@ -480,6 +482,26 @@ function NotificationLifecycle({
     permissionsSetupDone,
   ]);
 
+  // C10: an already-open device otherwise never refetches these. The
+  // QueryClient defaults below (staleTime 5min, refetchOnWindowFocus:false)
+  // mean a remote purity/disable on another device, or a co-wife
+  // name-revoke (husband hides names elsewhere), can sit stale on an open
+  // screen well past when it matters. Deliberately a SECOND, independent
+  // listener rather than folding into rescheduleOnForeground above: that one
+  // is throttled to once per calendar day for iOS's notification-horizon
+  // refill, but a same-day remote change must not wait for a new day.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next !== "active") return;
+      utils.cycle.getMine.invalidate();
+      utils.cycle.getPartner.invalidate();
+      utils.links.coWives.invalidate();
+      utils.links.coWivesVisibility.invalidate();
+    });
+    return () => subscription.remove();
+  }, [isAuthenticated, utils]);
+
   return null;
 }
 
@@ -525,7 +547,11 @@ export default function RootLayout() {
 
         // Check if this notification should show as popup
         const prefs = await loadUnifiedNotifPrefs();
-        const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
+        const currentUser = await NativeAuth.getUserInfo();
+        const excused = currentUser?.id
+          ? (await readExcusedState(currentUser.id)).excused
+          : false;
+        const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes, excused);
 
         if (shouldPopup) {
           const popupNotif: PopupNotification = {
@@ -569,6 +595,17 @@ export default function RootLayout() {
             return;
           }
 
+          // Same idea for the daily purity check / ghusl reminder: they are
+          // actionable (update today's status), not a religious reminder, so
+          // route straight to the tracker instead of the "مستحب" popup.
+          if (
+            data.type === HAID_NOTIFICATION_TYPES.purityCheck ||
+            data.type === HAID_NOTIFICATION_TYPES.ghuslReminder
+          ) {
+            setTimeout(() => router.push("/haid?purityCheck=1" as any), 800);
+            return;
+          }
+
           // Always show popup when user taps a notification
           const popupNotif: PopupNotification = {
             id: response.notification.request.identifier,
@@ -607,12 +644,16 @@ export default function RootLayout() {
         // Get all delivered (but not yet dismissed) notifications
         const delivered = await Notifications.getPresentedNotificationsAsync();
         if (delivered.length === 0) return;
+        // Same excused gate as the live listener above: a prayer notification
+        // that landed while she is حائض/نفساء must not pop up on launch either.
+        const missedUser = await NativeAuth.getUserInfo();
+        const excused = missedUser?.id ? (await readExcusedState(missedUser.id)).excused : false;
 
         for (const notif of delivered) {
           const data = notif.request.content.data as any;
           if (!data) continue;
 
-          const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
+          const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes, excused);
 
           if (shouldPopup) {
             const popupNotif: PopupNotification = {

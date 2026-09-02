@@ -443,7 +443,54 @@ export function applyPartnerReplace(local: AppState, fresh: AppState): AppState 
     fresh.parentProfile,
     local.parentProfile,
   );
-  return { ...fresh, parentProfile: profile };
+  // hasNoChildren is a boolean, so the string-only fill above never recovers
+  // it: a linked wife who declared "no children" at onboarding would have
+  // this wiped by the next partner sync and be demoted back to the
+  // "children" onboarding step. A non-empty (true) value from either side
+  // wins, same non-clobbering rule fillParentProfileFromServer uses.
+  const hasNoChildren =
+    fresh.parentProfile.hasNoChildren === true ||
+    local.parentProfile.hasNoChildren === true
+      ? true
+      : fresh.parentProfile.hasNoChildren;
+  return { ...fresh, parentProfile: { ...profile, hasNoChildren } };
+}
+
+/**
+ * applyPartnerReplace for rehydrateFromServer's two raw replaces (below),
+ * which run right after login and cannot use stateRef.current as the "local"
+ * recovery source the way hydrate() does. The Log Out button explicitly
+ * calls resetState() before logout() BECAUSE otherwise "the next account to
+ * log in on this device inherits it" (see app/(tabs)/settings.tsx) — a
+ * session that ends without that button (e.g. a token expiring) leaves a
+ * PREVIOUS account's profile sitting in stateRef.current, and merging from it
+ * would leak that account's gender/maritalStatus/hasNoChildren into whoever
+ * logs in next. Loading this account's own saved copy from disk (keyed by
+ * userId) is scoped correctly regardless of what is sitting in memory.
+ */
+export async function applyPartnerReplaceForAccount(
+  userId: number | null,
+  fresh: AppState,
+): Promise<AppState> {
+  return applyPartnerReplace(await loadAppState(userId), fresh);
+}
+
+/**
+ * C1: applyPartnerReplaceForAccount above scopes the MERGE step to the right
+ * account, but rehydrateFromServer/hydrate's background syncs still SAVE
+ * under userIdRef.current at the time each await resolves — a mutable ref
+ * shared across the whole provider. If a different account signs in (or
+ * this one logs out) while a fetch is still in flight, userIdRef has moved
+ * on by the time the save runs, and account A's fetched/merged data would
+ * be written under account B's key. Every async checkpoint captures the id
+ * it started for ONCE and calls this before any setState/saveAppState; a
+ * mismatch means discard silently rather than write.
+ */
+export function isStillCurrentAccount(
+  userIdRef: { current: number | null },
+  accountId: number | null,
+): boolean {
+  return userIdRef.current === accountId;
 }
 
 /**
@@ -724,6 +771,12 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // and merge against a stale defaultAppState.
           stateRef.current = localState;
           setLoading(false);
+          // C1: pin the background syncs below to the account hydrate() is
+          // running for — accountId, not userIdRef, which a concurrent
+          // login/logout elsewhere (rehydrateFromServer, resetState) can
+          // move on before these (network-bound) chains resolve.
+          const accountId = userIdRef.current;
+          const stillCurrent = () => isStillCurrentAccount(userIdRef, accountId);
           // Also sync from server in background to merge linked children +
           // environments from partner. Merge against LIVE stateRef.current (set
           // = localState just after setState above, then kept current by
@@ -735,7 +788,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // syncFromServer / locationSettingsForSync).
           syncFromServer(localState.locationSettings)
             .then((serverState) => {
-              if (!serverState) return;
+              if (!serverState || !stillCurrent()) return;
               const { state: updatedState, changed } = mergeServerState(
                 stateRef.current,
                 serverState,
@@ -744,7 +797,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
               if (changed) {
                 setState(updatedState);
                 stateRef.current = updatedState;
-                saveAppState(updatedState, userIdRef.current);
+                saveAppState(updatedState, accountId);
               }
             })
             .catch(() => {});
@@ -752,6 +805,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           // Auto-sync with partner on app open (fire-and-forget)
           autoSyncWithPartner()
             .then((syncResult) => {
+              if (!stillCurrent()) return;
               if (syncResult && syncResult.changed) {
                 // Re-fetch from server to get the merged data. Deliberately a full
                 // REPLACE (not a union-merge): it is the one sync path that
@@ -766,6 +820,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 // needs its own change.
                 syncFromServer(localState.locationSettings)
                   .then((freshState) => {
+                    if (!stillCurrent()) return;
                     if (freshState && freshState.onboardingCompleted) {
                       // Recover this user's own profile fields the server copy
                       // left blank so a linked-partner sync can't demote a
@@ -776,7 +831,7 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                       );
                       setState(safeState);
                       stateRef.current = safeState;
-                      saveAppState(safeState, userIdRef.current);
+                      saveAppState(safeState, accountId);
                       console.log(
                         "[AutoSync] State refreshed after partner sync",
                       );
@@ -1184,16 +1239,33 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
   const rehydrateFromServer = useCallback(async () => {
     console.log("[AppContext] rehydrateFromServer called");
     const user = await Auth.getUserInfo();
-    userIdRef.current = user?.id ?? null;
+    const accountId = user?.id ?? null;
+    userIdRef.current = accountId;
+    // C1: pin this invocation to the account it started for. A concurrent
+    // login/logout can move userIdRef on while the awaits below are still
+    // in flight — every checkpoint re-checks against the CAPTURED accountId
+    // and discards (no setState/save) the moment they diverge, instead of
+    // saving this call's fetched/merged data under whoever is current now.
+    const stillCurrent = () => isStillCurrentAccount(userIdRef, accountId);
     try {
       const serverState = await syncFromServer(
         stateRef.current?.locationSettings,
       );
+      if (!stillCurrent()) return;
       if (serverState && serverState.onboardingCompleted) {
         console.log("[AppContext] Server has data, restoring...");
-        setState(serverState);
-        stateRef.current = serverState;
-        await saveAppState(serverState, userIdRef.current);
+        // Guard against demoting a complete profile — see
+        // applyPartnerReplaceForAccount: profile.get can report
+        // onboardingCompleted:true while this user's own gender/
+        // maritalStatus/hasNoChildren are blank server-side.
+        const safeServerState = await applyPartnerReplaceForAccount(
+          accountId,
+          serverState,
+        );
+        if (!stillCurrent()) return;
+        setState(safeServerState);
+        stateRef.current = safeServerState;
+        await saveAppState(safeServerState, accountId);
         console.log("[AppContext] State restored from server after login");
       } else {
         // Also try local state (maybe user had data locally before logout).
@@ -1202,28 +1274,36 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // could otherwise re-surface "Kind N" placeholders. Persist the pruned
         // result so disk doesn't keep the placeholders until the next mutation.
         const { state: localState, removedCount: localFallbackPruned } = pruneEmptyPlaceholderChildren(
-          await loadAppState(userIdRef.current)
+          await loadAppState(accountId)
         );
+        if (!stillCurrent()) return;
         if (localState.onboardingCompleted) {
           console.log("[AppContext] Local state has data, using it");
           setState(localState);
           stateRef.current = localState;
-          if (localFallbackPruned > 0) await saveAppState(localState, userIdRef.current);
+          if (localFallbackPruned > 0) await saveAppState(localState, accountId);
         }
       }
       // Always try to sync with partner after login
       console.log("[AppContext] Attempting partner sync after login...");
       const syncResult = await autoSyncWithPartner();
+      if (!stillCurrent()) return;
       if (syncResult?.changed) {
         console.log("[AppContext] Partner sync merged data, re-fetching...");
         // Re-fetch the merged state from server
         const mergedState = await syncFromServer(
           stateRef.current?.locationSettings,
         );
+        if (!stillCurrent()) return;
         if (mergedState && mergedState.onboardingCompleted) {
-          setState(mergedState);
-          stateRef.current = mergedState;
-          await saveAppState(mergedState, userIdRef.current);
+          const safeMergedState = await applyPartnerReplaceForAccount(
+            accountId,
+            mergedState,
+          );
+          if (!stillCurrent()) return;
+          setState(safeMergedState);
+          stateRef.current = safeMergedState;
+          await saveAppState(safeMergedState, accountId);
         }
       }
     } catch (e) {

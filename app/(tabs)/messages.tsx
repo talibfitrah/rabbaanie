@@ -14,6 +14,7 @@ import {
   Alert,
   Modal,
   Share,
+  Switch,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
@@ -38,6 +39,7 @@ import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { toggleProfileAccess } from "@/lib/partner-profile-toggle";
+import { WifeCycleStatus } from "@/components/wife-cycle-status";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -1011,6 +1013,7 @@ function ParentsSection({
   linkResult, linkError, router, t,
 }: any) {
   const [showInvite, setShowInvite] = useState(false);
+  const utils = trpc.useUtils();
   // Incoming partner-link requests awaiting my confirmation. This is the surface
   // that was missing: an unconfirmed request never shows in coParents and its
   // DM thread is gated, so without this the recipient got a notification but had
@@ -1021,6 +1024,18 @@ function ParentsSection({
     staleTime: 0,
   });
   const incomingRequests = incomingRequestsQuery.data ?? [];
+  // Co-wife visibility (spec 2026-09-02-cowife-visibility-design.md): husband-only
+  // switch + the wife-facing names-only list it unlocks.
+  const coWivesVis = trpc.links.coWivesVisibility.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
+  const setCoWivesVis = trpc.links.setCoWivesVisible.useMutation({
+    onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); },
+  });
+  const coWivesQuery = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
+  // C13: her cycle status must show for a husband even with no family row
+  // (no children) — CoParentPermissions returns null before it ever renders
+  // in that case. Sourced directly from listPartners, independent of it.
+  const husbandWivesQuery = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
+  const husbandWives = (husbandWivesQuery.data ?? []).filter((p) => p.confirmed === true);
   // Sort children by birth date (oldest first)
   const sortedChildren = [...(localChildren || [])].sort((a: any, b: any) => {
     if (!a.birthDate) return 1;
@@ -1223,6 +1238,52 @@ function ParentsSection({
           other. */}
       {coParents.length > 0 && (
         <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} setSelected={setSelected} />
+      )}
+
+      {/* C13: independent of CoParentPermissions/family membership — a
+          childless husband is still a confirmed spouse and must see this. */}
+      {knownToBeMan && husbandWives.map((wife) => (
+        <WifeCycleStatus key={wife.id} wifeId={wife.id} />
+      ))}
+
+      {/* === CO-WIFE VISIBILITY (spec 2026-09-02-cowife-visibility-design.md) ===
+          Husband-only switch; the wife-facing list it unlocks is names + a
+          badge only — no chat button, no navigation, no children. */}
+      {knownToBeMan && (
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+          <Text style={{ color: colors.foreground, flex: 1, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+            {tx(lang, "Mijn echtgenotes mogen elkaars naam zien", "Let my wives see each other's names", "السماح لزوجاتي بمعرفة بعضهن (بالاسم فقط)")}
+          </Text>
+          <Switch
+            value={!!coWivesVis.data?.visible}
+            disabled={setCoWivesVis.isPending}
+            onValueChange={(v) => setCoWivesVis.mutate({ visible: v })}
+          />
+        </View>
+      )}
+      {userGender === "vrouw" && (coWivesQuery.data?.length ?? 0) > 0 && (
+        <View style={{ gap: 4 }}>
+          <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, textAlign: isRTL ? "right" : "left", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
+            {tx(lang, "Mede-echtgenotes", "Co-wives", "الأخوات الشريكات")}
+          </Text>
+          <View style={{ gap: 8 }}>
+            {coWivesQuery.data!.map((w) => (
+              <View
+                key={w.id}
+                style={{ backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between" }}
+              >
+                <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+                  {w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}
+                </Text>
+                <View style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 2, paddingHorizontal: 8 }}>
+                  <Text style={{ fontSize: 11, color: "#fff", fontWeight: "700" }}>
+                    {tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}
+                  </Text>
+                </View>
+              </View>
+            ))}
+          </View>
+        </View>
       )}
 
       {/* === CHILDREN SECTION === */}

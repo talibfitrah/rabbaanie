@@ -17,6 +17,7 @@
 import {
   eq,
   and,
+  asc,
   desc,
   sql,
   isNull,
@@ -128,6 +129,10 @@ import {
   InsertBroadcastSchedule,
   broadcastSendLog,
   InsertBroadcastSendLog,
+  cycleDays,
+  cycleSettings,
+  CycleDayRow,
+  CycleSettingsRow,
 } from "../drizzle/schema";
 // Family groups use existing `families` table - no separate familyGroups/familyGroupMembers tables
 import { ENV } from "./_core/env";
@@ -5863,3 +5868,138 @@ export async function getParentAiConsultationsForOwner(
     .orderBy(desc(parentAiConsultations.updatedAt));
 }
 
+// ============================================================
+// WOMEN'S CYCLE TRACKER — dialect-agnostic (select-then-insert/update, no
+// onDuplicateKeyUpdate) so the same shape hand-ports to the Postgres
+// production copy. See docs/superpowers/plans/2026-09-02-haid-tracker-*.
+// ============================================================
+export type CycleDayInput = { date: string; flow: "blood" | "spotting" | "dry"; color?: "black" | "red" | null; ghusl?: boolean };
+export type CycleSettingsPatch = Partial<Pick<CycleSettingsRow, "enabled" | "habitLength" | "cycleLength" | "pregnantSince" | "birthDate" | "miscarriageDate" | "gestationDays" | "contraception" | "ghuslReminder">>;
+
+export async function getCycleSettings(userId: number): Promise<CycleSettingsRow | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(cycleSettings).where(eq(cycleSettings.userId, userId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function saveCycleSettings(userId: number, patch: CycleSettingsPatch): Promise<CycleSettingsRow> {
+  const db = await getDb();
+  const existing = await getCycleSettings(userId);
+  const becomesEnabled = patch.enabled === true && !existing?.enabled;
+  const consentAt = existing?.consentAt ?? (becomesEnabled ? new Date() : null);
+  const values = { ...patch, consentAt, updatedAt: new Date() };
+  if (db) {
+    if (existing) {
+      await db.update(cycleSettings).set(values).where(eq(cycleSettings.userId, userId));
+    } else {
+      await db.insert(cycleSettings).values({ userId, contraception: false, ghuslReminder: true, enabled: false, ...values });
+    }
+  }
+  return (await getCycleSettings(userId))!;
+}
+
+export async function listCycleDays(userId: number, sinceDate: string): Promise<CycleDayRow[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(cycleDays)
+    .where(and(eq(cycleDays.userId, userId), gte(cycleDays.date, sinceDate)))
+    .orderBy(asc(cycleDays.date));
+}
+
+export async function upsertCycleDay(userId: number, day: CycleDayInput, ifAbsent?: boolean): Promise<{ written: boolean }> {
+  const db = await getDb();
+  if (!db) return { written: false };
+  const existing = await db.select({ userId: cycleDays.userId }).from(cycleDays)
+    .where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date))).limit(1);
+  if (existing.length && ifAbsent) return { written: false };
+  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, updatedAt: new Date() };
+  if (existing.length) {
+    await db.update(cycleDays).set(values).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date)));
+  } else {
+    await db.insert(cycleDays).values({ userId, date: day.date, ...values });
+  }
+  return { written: true };
+}
+
+export async function deleteCycleDay(userId: number, date: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(cycleDays).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, date)));
+}
+
+export async function deleteAllCycleDays(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(cycleDays).where(eq(cycleDays.userId, userId));
+}
+
+export async function disableCycleTracker(userId: number): Promise<void> {
+  await deleteAllCycleDays(userId);
+  await saveCycleSettings(userId, { enabled: false });
+}
+
+// ---- co-wife visibility (husband-gated, names only) ----
+// spec: docs/superpowers/specs/2026-09-02-cowife-visibility-design.md
+
+/** Rows this husband is a party to that are currently active AND confirmed. */
+function hisActiveConfirmedRows(husbandId: number) {
+  return and(
+    or(eq(partnerships.userId1, husbandId), eq(partnerships.userId2, husbandId)),
+    eq(partnerships.status, "active"),
+    eq(partnerships.confirmed, true),
+  );
+}
+
+/**
+ * Flags/unflags every one of the husband's active+confirmed partnership rows
+ * and returns how many that was. Not `affectedRows()` on the UPDATE itself:
+ * MySQL's affectedRows for UPDATE counts rows actually CHANGED, not matched
+ * (see affectedRows()'s own porting-hazard comment above) — re-toggling to
+ * the same value would undercount. A SELECT of the same WHERE has no such
+ * ambiguity on either dialect (same idiom as updateBroadcastSchedule).
+ */
+export async function setCoWivesVisible(husbandId: number, visible: boolean): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const where = hisActiveConfirmedRows(husbandId);
+  const matched = await db.select({ id: partnerships.id }).from(partnerships).where(where);
+  // updatedAt is onUpdateNow() on this column — no need to stamp it here.
+  await db.update(partnerships).set({ coWivesVisible: visible }).where(where);
+  return matched.length;
+}
+
+/** True only when the husband has ≥1 active confirmed partnership and every one of them is flagged. */
+export async function getCoWivesVisibility(husbandId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ v: partnerships.coWivesVisible }).from(partnerships).where(hisActiveConfirmedRows(husbandId));
+  return rows.length > 0 && rows.every((r) => r.v);
+}
+
+/**
+ * A wife's co-wives, by id and name only. [] unless HER OWN row has the flag
+ * on (INV-1 stays the default) — and, per wife, only for co-wives whose OWN
+ * row is also flagged (a wife added after the husband's last toggle starts
+ * unflagged on both sides until he re-toggles).
+ */
+export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const mine = await db
+    .select()
+    .from(partnerships)
+    .where(and(or(eq(partnerships.userId1, wifeId), eq(partnerships.userId2, wifeId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true)))
+    .limit(1);
+  const row = mine[0];
+  if (!row || !row.coWivesVisible) return [];
+  const husbandId = row.userId1 === wifeId ? row.userId2 : row.userId1;
+  const others = await db
+    .select({ u1: partnerships.userId1, u2: partnerships.userId2, v: partnerships.coWivesVisible })
+    .from(partnerships)
+    .where(hisActiveConfirmedRows(husbandId));
+  const ids = others.filter((o) => o.v).map((o) => (o.u1 === husbandId ? o.u2 : o.u1)).filter((id) => id !== wifeId);
+  if (!ids.length) return [];
+  const names = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids));
+  return names.map((n) => ({ id: n.id, name: n.name ?? null }));
+}

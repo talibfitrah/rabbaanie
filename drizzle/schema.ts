@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex, primaryKey } from "drizzle-orm/mysql-core";
 
 // ============================================================
 // 1. USERS TABLE (existing, extended with profile fields)
@@ -957,6 +957,13 @@ export const partnerships = mysqlTable("partnerships", {
    * event, not a decline (see revokePartnerProfileAccess in server/db.ts).
    */
   profileAccessDeclinedAt: timestamp("profileAccessDeclinedAt"),
+  /**
+   * Husband-only switch (spec 2026-09-02-cowife-visibility-design.md, msg
+   * 2549): while true on ALL of his active confirmed rows, each of those
+   * wives may see the OTHER wives' names via links.coWives. Defaults false;
+   * a partnership created later starts false too — no inheritance (YAGNI).
+   */
+  coWivesVisible: boolean("coWivesVisible").notNull().default(false),
 });
 
 export type Partnership = typeof partnerships.$inferSelect;
@@ -1454,3 +1461,36 @@ export const parentAiConsultations = mysqlTable("parent_ai_consultations", {
 });
 export type ParentAiConsultation = typeof parentAiConsultations.$inferSelect;
 export type InsertParentAiConsultation = typeof parentAiConsultations.$inferInsert;
+
+// ============================================================
+// WOMEN'S CYCLE TRACKER — حيض/استحاضة/نفاس (client-repo parity copy for
+// trpc.cycle.* typing; see docs/superpowers/plans/2026-09-02-haid-tracker-*)
+// ============================================================
+export const cycleDays = mysqlTable(
+  "cycle_days",
+  {
+    userId: int("userId").notNull(),
+    date: varchar("date", { length: 10 }).notNull(),
+    flow: varchar("flow", { length: 16 }).notNull(),
+    color: varchar("color", { length: 16 }),
+    ghusl: boolean("ghusl").notNull().default(false),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.date] }) }),
+);
+export type CycleDayRow = typeof cycleDays.$inferSelect;
+export const cycleSettings = mysqlTable("cycle_settings", {
+  userId: int("userId").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  consentAt: timestamp("consentAt"),
+  habitLength: int("habitLength"),
+  cycleLength: int("cycleLength"),
+  pregnantSince: varchar("pregnantSince", { length: 10 }),
+  birthDate: varchar("birthDate", { length: 10 }),
+  miscarriageDate: varchar("miscarriageDate", { length: 10 }),
+  gestationDays: int("gestationDays"),
+  contraception: boolean("contraception").notNull().default(false),
+  ghuslReminder: boolean("ghuslReminder").notNull().default(true),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
+});
+export type CycleSettingsRow = typeof cycleSettings.$inferSelect;

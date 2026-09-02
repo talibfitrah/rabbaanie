@@ -28,6 +28,12 @@ vi.mock("react-native", () => ({
   Platform: { OS: "android" },
 }));
 
+// scheduleAllNotificationsInner now resolves the haid prayer-pause itself when
+// no skipPrayersUntil is passed (item A) — reads the user id the way
+// app/_layout.tsx does. Default to "no user", so every pre-existing test below
+// (none of them exercise the haid pause) keeps today's unpaused behaviour.
+vi.mock("@/lib/_core/auth", () => ({ getUserInfo: vi.fn().mockResolvedValue(null) }));
+
 import {
   prayerChannelId,
   DEFAULT_NOTIFICATION_PREFS,
@@ -39,10 +45,13 @@ import {
   cancelScheduleAllNotifications,
   getScheduledCount,
   sendTestNotification,
+  HAID_CHANNEL_ID,
+  readStoredLanguage,
   type NotificationPrefs,
 } from "../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import * as NativeAuth from "@/lib/_core/auth";
 
 describe("Notifications module", () => {
   beforeEach(() => {
@@ -118,9 +127,9 @@ describe("Notifications module", () => {
   });
 
   describe("setupNotificationChannels", () => {
-    it("creates one prayer channel per adhan sound, plus adhkaar and weekly", async () => {
+    it("creates one prayer channel per adhan sound, plus adhkaar, weekly and haid", async () => {
       await setupNotificationChannels();
-      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(5);
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(6);
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         prayerChannelId("takbeer_1"),
         expect.objectContaining({ sound: "takbeer_1" })
@@ -136,6 +145,20 @@ describe("Notifications module", () => {
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         "adhkaar_reminders_v2",
         expect.objectContaining({ name: "Adhkaar Herinneringen / Adhkaar Reminders" })
+      );
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        HAID_CHANNEL_ID,
+        expect.objectContaining({ importance: Notifications.AndroidImportance.HIGH })
+      );
+    });
+
+    // C14: «هل طهرتِ؟» / «الطهر متوقَّع اليوم» must not be readable by a
+    // bystander on a locked device — the channel itself must not be PUBLIC.
+    it("locks the haid channel to a private lock-screen visibility", async () => {
+      await setupNotificationChannels();
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        HAID_CHANNEL_ID,
+        expect.objectContaining({ lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE })
       );
     });
   });
@@ -281,6 +304,47 @@ describe("Notifications module", () => {
   });
 
   /**
+   * Item A (haid tracker): scheduleAllNotifications is called from ~10 places
+   * with no skipPrayersUntil argument, plus once a day from
+   * lib/notification-refresh.ts. Without this, the prayer pause (decision 14)
+   * only ever survived the ONE call lib/haid-notifications.ts makes itself —
+   * every other call silently un-paused her prayer reminders.
+   */
+  describe("scheduleAllNotifications — resolves the haid pause itself (item A)", () => {
+    it("a bare call still pauses prayer notifications through the stored excused-until date, but keeps adhkaar", async () => {
+      (NativeAuth.getUserInfo as any).mockResolvedValueOnce({ id: 5 });
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
+        if (key === "@prayer_method") return "uoif";
+        if (key === "@haid_excused_5") return JSON.stringify({ excused: true, until: "2099-01-07" }); // far future: always still excused
+        return null;
+      });
+
+      await scheduleAllNotifications("ar");
+
+      const calls = (Notifications.scheduleNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.content.data.type === "prayer")).toBe(false);
+      expect(calls.some((c: any) => c.content.data.type === "adhkaar")).toBe(true);
+    });
+
+    it("with no stored excused flag, prayers are scheduled normally", async () => {
+      (NativeAuth.getUserInfo as any).mockResolvedValueOnce({ id: 5 });
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
+        if (key === "@prayer_method") return "uoif";
+        return null; // no @haid_excused_5 key stored
+      });
+
+      await scheduleAllNotifications("ar");
+
+      const calls = (Notifications.scheduleNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.content.data.type === "prayer")).toBe(true);
+    });
+  });
+
+  /**
    * The settings screens' master toggle used cancelAllScheduledNotificationsAsync(),
    * so switching prayer reminders off also silently switched off iqaamah silence,
    * iman, islamic reminders, weekly goals and spouse advice.
@@ -382,6 +446,23 @@ describe("Notifications module", () => {
 
     it("is stable for the same sound choice", () => {
       expect(prayerChannelId("takbeer_2")).toBe(prayerChannelId("takbeer_2"));
+    });
+  });
+
+  // C7: components/prayer-popup-modal.tsx renders outside I18nProvider and
+  // needs a language for syncHaidNotifications — same storage key +
+  // validated fallback app/_layout.tsx's own launch-time read already uses.
+  describe("readStoredLanguage", () => {
+    it("returns a stored valid language", async () => {
+      (AsyncStorage.getItem as any).mockResolvedValueOnce("ar");
+      expect(await readStoredLanguage()).toBe("ar");
+    });
+
+    it("falls back to nl for nothing stored or an invalid value", async () => {
+      (AsyncStorage.getItem as any).mockResolvedValueOnce(null);
+      expect(await readStoredLanguage()).toBe("nl");
+      (AsyncStorage.getItem as any).mockResolvedValueOnce("fr");
+      expect(await readStoredLanguage()).toBe("nl");
     });
   });
 });
