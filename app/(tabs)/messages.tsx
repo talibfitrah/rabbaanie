@@ -753,8 +753,8 @@ function MessagesScreenInner() {
 }
 
 function CoParentPermissions({
-  colors, lang, isRTL,
-}: { colors: any; lang: string; isRTL: boolean }) {
+  colors, lang, isRTL, setSelected,
+}: { colors: any; lang: string; isRTL: boolean; setSelected: (c: SelectedConversation) => void }) {
   const familyListQuery = trpc.family.list.useQuery();
   const myFamily = (familyListQuery.data as any[])?.[0];
   const membersQuery = trpc.family.members.useQuery(
@@ -829,6 +829,7 @@ function CoParentPermissions({
           wife={wife}
           member={members.find((m) => m.userId === wife.id)}
           PERMS={PERMS}
+          setSelected={setSelected}
           colors={colors}
           lang={lang}
           isRTL={isRTL}
@@ -853,11 +854,12 @@ function PermBadge({ allowed, colors, lang }: { allowed: boolean; colors: any; l
 // query + grant/revoke live here (one hook-set per wife) rather than in the
 // parent, which is what makes the per-wife split polygyny-correct.
 function WifePermissionsPanel({
-  wife, member, PERMS, colors, lang, isRTL,
+  wife, member, PERMS, setSelected, colors, lang, isRTL,
 }: {
   wife: { id: number; name?: string | null };
   member: any;
   PERMS: Array<{ key: "canEditChildren" | "canManageGoals"; label: string }>;
+  setSelected: (c: SelectedConversation) => void;
   colors: any; lang: string; isRTL: boolean;
 }) {
   const [expanded, setExpanded] = useState(false);
@@ -886,13 +888,23 @@ function WifePermissionsPanel({
 
   return (
     <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
-      <TouchableOpacity
-        onPress={() => setExpanded((e) => !e)}
-        style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", padding: 14 }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name}</Text>
-        <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
-      </TouchableOpacity>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, paddingHorizontal: 14, paddingVertical: 10 }}>
+        <TouchableOpacity
+          onPress={() => setExpanded((e) => !e)}
+          style={{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 }}
+        >
+          <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name}</Text>
+          <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+        </TouchableOpacity>
+        {/* Message this wife independently — her own private conversation. */}
+        <TouchableOpacity
+          onPress={() => setSelected({ type: "coparent", id: wife.id, name })}
+          accessibilityLabel={tx(lang, "Bericht sturen", "Message", "مراسلة")}
+          style={{ backgroundColor: colors.primary, borderRadius: 16, width: 34, height: 34, alignItems: "center", justifyContent: "center" }}
+        >
+          <MaterialIcons name="chat" size={18} color="#fff" />
+        </TouchableOpacity>
+      </View>
       {expanded && (
         <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
           {member ? PERMS.map((p) => {
@@ -1210,7 +1222,7 @@ function ParentsSection({
           so a confirmed wife is always present in both — never one without the
           other. */}
       {coParents.length > 0 && (
-        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} />
+        <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} setSelected={setSelected} />
       )}
 
       {/* === CHILDREN SECTION === */}
