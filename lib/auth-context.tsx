@@ -13,6 +13,7 @@ import * as Auth from "@/lib/_core/auth";
 import * as Api from "@/lib/_core/api";
 import { clearPersistedQueryCache } from "@/lib/query-persistence";
 import { qasmStorageKey } from "@/lib/qasm";
+import { clearExcusedState } from "@/lib/haid-state";
 
 type AuthContextType = {
   user: Auth.User | null;
@@ -131,6 +132,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await clearPersistedQueryCache();
       if (loggedOutUser?.id) {
         await AsyncStorage.removeItem(qasmStorageKey(loggedOutUser.id));
+        await clearExcusedState(loggedOutUser.id);
       }
       setUser(null);
       setError(null);

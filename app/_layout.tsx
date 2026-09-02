@@ -86,6 +86,7 @@ import {
   loadUnifiedNotifPrefs,
   resolveShouldShowPopup,
 } from "@/lib/notification-settings";
+import { readExcusedState, HAID_NOTIFICATION_TYPES } from "@/lib/haid-state";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { isEmailNotVerifiedError } from "@/lib/verification";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
@@ -525,7 +526,11 @@ export default function RootLayout() {
 
         // Check if this notification should show as popup
         const prefs = await loadUnifiedNotifPrefs();
-        const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
+        const currentUser = await NativeAuth.getUserInfo();
+        const excused = currentUser?.id
+          ? (await readExcusedState(currentUser.id)).excused
+          : false;
+        const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes, excused);
 
         if (shouldPopup) {
           const popupNotif: PopupNotification = {
@@ -566,6 +571,17 @@ export default function RootLayout() {
           // home, where the same طلبات الربط accept/decline cards are reachable.
           if (data.type === "partner_link" || data.type === "link_request") {
             setTimeout(() => router.navigate("/(tabs)/messages" as any), 800);
+            return;
+          }
+
+          // Same idea for the daily purity check / ghusl reminder: they are
+          // actionable (update today's status), not a religious reminder, so
+          // route straight to the tracker instead of the "مستحب" popup.
+          if (
+            data.type === HAID_NOTIFICATION_TYPES.purityCheck ||
+            data.type === HAID_NOTIFICATION_TYPES.ghuslReminder
+          ) {
+            setTimeout(() => router.push("/haid?purityCheck=1" as any), 800);
             return;
           }
 

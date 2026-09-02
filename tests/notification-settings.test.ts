@@ -57,4 +57,11 @@ describe("resolveShouldShowPopup", () => {
     expect(resolveShouldShowPopup(null, modes({}))).toBe(false);
     expect(resolveShouldShowPopup(undefined, modes({}))).toBe(false);
   });
+
+  it("an excused woman gets no prayer popup, but other categories still show", () => {
+    const m = modes({ prayer: "popup", reminders: "popup" });
+    expect(resolveShouldShowPopup({ type: "prayer" }, m, true)).toBe(false);
+    expect(resolveShouldShowPopup({ type: "prayer" }, m, false)).toBe(true);
+    expect(resolveShouldShowPopup({ type: "test_reminder" }, m, true)).toBe(true);
+  });
 });

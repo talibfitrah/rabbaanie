@@ -312,11 +312,13 @@ export function resolveShouldShowPopup(
   // case is the test notification itself, matched by type below.
   data: { type?: string } | null | undefined,
   displayModes: NotifDisplayModes,
+  excused = false,
 ): boolean {
   if (!data) return false;
   if (data.type === "test_reminder") return true;
 
   const category = categoryForType(data.type || "");
+  if (excused && category === "prayer") return false;
   if (!category) return false;
 
   const mode = displayModes[category];
