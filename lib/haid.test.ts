@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, type CycleDay, type CycleSettings } from "./haid";
+import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
 const blood = (dates: string[], color?: "black" | "red"): CycleDay[] => dates.map((date) => ({ date, flow: "blood", color }));
@@ -124,5 +125,66 @@ describe("learning", () => {
     expect(learnCycleLength(days, S())).toBe(28);
     expect(learnHabit(days, S(), "2026-05-20")).toBe(6);
     expect(learnHabit([], S())).toBeUndefined();
+  });
+});
+
+describe("rulingsFor (decisions 5, 6, 7, 8, 9; his book on ghusl)", () => {
+  it("haid/nifas: prayer excused, fasting forbidden with qadaa, intercourse forbidden, all three disputed acts permitted, kaffarah only as info", () => {
+    for (const status of ["haid", "nifas"] as const) {
+      const r = rulingsFor({ status, ghuslDue: false });
+      expect(r).toMatchObject({ prayer: "excused", fasting: "forbidden_qadaa", intercourse: "forbidden", ghusl: "none" });
+      expect(r.permitted).toEqual(expect.arrayContaining(["quran_recitation", "touching_mushaf", "staying_in_mosque"]));
+      expect(r.notes).toContain("kaffarah_info");
+      expect(r.notes).toContain("qadaa_prayer_if_missed_at_onset");
+    }
+  });
+  it("istihada: prays with wudu per prayer (may combine), fasts, intercourse permitted with a note", () => {
+    const r = rulingsFor({ status: "istihada", ghuslDue: false });
+    expect(r).toMatchObject({ prayer: "obligatory", fasting: "allowed", intercourse: "permitted_with_note", ghusl: "none" });
+    expect(r.notes).toContain("istihada_wudu_per_prayer_may_combine");
+  });
+  it("purity before ghusl: prayer due after ghusl, fasting allowed, intercourse only after ghusl", () => {
+    expect(rulingsFor({ status: "tuhr_pending_ghusl", ghuslDue: true })).toMatchObject({ prayer: "due_after_ghusl", fasting: "allowed", intercourse: "after_ghusl", ghusl: "due" });
+    expect(rulingsFor({ status: "istihada", ghuslDue: true })).toMatchObject({ prayer: "due_after_ghusl", intercourse: "after_ghusl", ghusl: "due" });
+  });
+  it("tuhr: everything normal", () => {
+    expect(rulingsFor({ status: "tuhr", ghuslDue: false })).toMatchObject({ prayer: "obligatory", fasting: "allowed", intercourse: "permitted", ghusl: "none" });
+  });
+});
+
+describe("predict", () => {
+  const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
+  it("next start, ovulation −14, fertile window −5…+1, rolled forward past today", () => {
+    const p = predict(history, S(), "2026-08-30");
+    expect(p.cycleLength).toBe(28);
+    expect(p.nextStart).toBe("2026-09-21");
+    expect(p.ovulation).toBe("2026-09-07");
+    expect(p.fertile).toEqual(["2026-09-02", "2026-09-08"]);
+  });
+  it("expected purity during a run = start + habit; during nifas = birth + 40", () => {
+    const p = predict([...history, ...blood(span("2026-08-24", 3))], S(), "2026-08-26");
+    expect(p.expectedPurity).toBe("2026-08-29");
+    const n = predict(blood(span("2026-09-01", 5)), S({ pregnantSince: "2026-01-01", birthDate: "2026-09-01" }), "2026-09-05");
+    expect(n.expectedPurity).toBe("2026-10-11");
+  });
+  it("no predictions while pregnant; defaults to 28 with no history", () => {
+    expect(predict(history, S({ pregnantSince: "2026-08-01" }), "2026-08-30").nextStart).toBeUndefined();
+    expect(predict([], S(), "2026-08-30")).toMatchObject({ cycleLength: 28 });
+  });
+});
+
+describe("ramadan + excused state (decision 14)", () => {
+  it("counts haid/nifas days in Ramadan of the latest year only", () => {
+    const cls = classify(blood(span("2026-03-01", 5)), S({ habitLength: 5 }), "2026-03-01", "2026-03-10");
+    const hijriOf = (d: string) => ({ month: d <= "2026-03-03" ? 9 : 10, year: 1447 });
+    expect(ramadanQadaaDays(cls, hijriOf)).toEqual({ year: 1447, days: 3 });
+    expect(ramadanQadaaDays(cls, () => ({ month: 1, year: 1447 }))).toBeNull();
+  });
+  it("excusedState: until = day before expected purity, at least today", () => {
+    const days = blood(span("2026-09-01", 2));
+    const cls = classify(days, S({ habitLength: 7 }), "2026-08-01", "2026-09-02");
+    expect(isExcusedToday(cls, "2026-09-02")).toBe(true);
+    expect(excusedState(cls, predict(days, S({ habitLength: 7 }), "2026-09-02"), "2026-09-02")).toEqual({ excused: true, until: "2026-09-07" });
+    expect(excusedState(cls, predict(days, S(), "2026-09-02"), "2026-08-15")).toEqual({ excused: false });
   });
 });

@@ -175,3 +175,92 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
   }
   return out;
 }
+
+export type PermittedKey = "quran_recitation" | "touching_mushaf" | "staying_in_mosque" | "dhikr_dua";
+export type NoteKey =
+  | "kaffarah_info"
+  | "istihada_wudu_per_prayer_may_combine"
+  | "istihada_intercourse_caution"
+  | "prayer_of_this_time_due_after_ghusl"
+  | "qadaa_prayer_if_missed_at_onset"
+  | "fasting_qadaa_required";
+export interface Rulings {
+  prayer: "excused" | "due_after_ghusl" | "obligatory";
+  fasting: "forbidden_qadaa" | "allowed";
+  intercourse: "forbidden" | "after_ghusl" | "permitted" | "permitted_with_note";
+  ghusl: "due" | "none";
+  permitted: PermittedKey[];
+  notes: NoteKey[];
+}
+
+export function rulingsFor(day: Pick<ClassifiedDay, "status" | "ghuslDue">): Rulings {
+  switch (day.status) {
+    case "haid":
+    case "nifas":
+      return {
+        prayer: "excused", fasting: "forbidden_qadaa", intercourse: "forbidden", ghusl: "none",
+        permitted: ["quran_recitation", "touching_mushaf", "staying_in_mosque", "dhikr_dua"], // decision 5: الكل مباح
+        notes: ["fasting_qadaa_required", "qadaa_prayer_if_missed_at_onset", "kaffarah_info"], // decisions 7, 6-ب
+      };
+    case "istihada":
+      return day.ghuslDue
+        ? { prayer: "due_after_ghusl", fasting: "allowed", intercourse: "after_ghusl", ghusl: "due", permitted: [],
+            notes: ["prayer_of_this_time_due_after_ghusl", "istihada_wudu_per_prayer_may_combine", "istihada_intercourse_caution"] }
+        : { prayer: "obligatory", fasting: "allowed", intercourse: "permitted_with_note", ghusl: "none", permitted: [],
+            notes: ["istihada_wudu_per_prayer_may_combine", "istihada_intercourse_caution"] }; // decisions 8, 9-ب
+    case "tuhr_pending_ghusl":
+      return { prayer: "due_after_ghusl", fasting: "allowed", intercourse: "after_ghusl", ghusl: "due", permitted: [], notes: ["prayer_of_this_time_due_after_ghusl"] }; // his book: فإذا طهرت واغتسلت حلّ
+    case "tuhr":
+      return { prayer: "obligatory", fasting: "allowed", intercourse: "permitted", ghusl: "none", permitted: [], notes: [] };
+  }
+}
+
+export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string }
+
+export function predict(days: CycleDay[], settings: CycleSettings, today: string): Prediction {
+  const runs = bloodRuns(days);
+  const habit = settings.habitLength ?? learnHabit(days, settings);
+  const cycleLength = settings.cycleLength ?? learnCycleLength(days, settings) ?? DEFAULT_CYCLE_LENGTH;
+  const p: Prediction = { habit, cycleLength };
+  const current = runs.find((r) => r.start <= today && diffDays(r.end, today) <= 1);
+  if (current) {
+    if (nifasDayOf(settings, current.start) !== null) p.expectedPurity = addDays(effectiveBirth(settings)!, NIFAS_MAX_DAYS);
+    else if (habit) p.expectedPurity = addDays(current.start, habit);
+  }
+  if (isPregnant(settings, today)) return p;
+  const normal = runs.filter((r) => isNormalRun(r, settings));
+  const last = normal[normal.length - 1];
+  if (last) {
+    let next = addDays(last.start, cycleLength);
+    while (next < today) next = addDays(next, cycleLength);
+    p.nextStart = next;
+    p.ovulation = addDays(next, -LUTEAL_DAYS);
+    p.fertile = [addDays(p.ovulation, -FERTILE_BEFORE), addDays(p.ovulation, FERTILE_AFTER)];
+  }
+  return p;
+}
+
+export function ramadanQadaaDays(classified: ClassifiedDay[], hijriOf: (date: string) => { month: number; year: number }): { year: number; days: number } | null {
+  const perYear = new Map<number, number>();
+  for (const d of classified) {
+    if (d.status !== "haid" && d.status !== "nifas") continue;
+    const h = hijriOf(d.date);
+    if (h.month === 9) perYear.set(h.year, (perYear.get(h.year) ?? 0) + 1);
+  }
+  if (!perYear.size) return null;
+  const year = Math.max(...perYear.keys());
+  return { year, days: perYear.get(year)! };
+}
+
+export function isExcusedToday(classified: ClassifiedDay[], today: string): boolean {
+  const d = classified.find((c) => c.date === today);
+  return !!d && (d.status === "haid" || d.status === "nifas");
+}
+
+export interface ExcusedState { excused: boolean; until?: string }
+/** Persisted for popup suppression + notification pause; `until` is the last expected excused day. */
+export function excusedState(classified: ClassifiedDay[], prediction: Prediction, today: string): ExcusedState {
+  if (!isExcusedToday(classified, today)) return { excused: false };
+  const until = prediction.expectedPurity && prediction.expectedPurity > today ? addDays(prediction.expectedPurity, -1) : today;
+  return { excused: true, until };
+}
