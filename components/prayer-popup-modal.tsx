@@ -14,6 +14,11 @@ import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
+import { trpc } from "@/lib/trpc";
+import { writeExcusedState } from "@/lib/haid-state";
+import { isoToday } from "@/lib/haid";
+import * as NativeAuth from "@/lib/_core/auth";
+import { loadAppState } from "@/lib/store";
 
 export interface PopupNotification {
   id: string;
@@ -42,6 +47,35 @@ export function PrayerPopupModal({
   onRemindLater,
   isFollowUp = false,
 }: PrayerPopupModalProps) {
+  // Rules of Hooks: notification alternates null/non-null across renders
+  // (usePopupNotifications shows/dismisses in place), so every hook this
+  // component uses must run before the early return below, not after it.
+  //
+  // This modal is rendered in app/_layout.tsx as a sibling AFTER
+  // AppProvider/AuthProvider close ("renders above everything", so popups
+  // still work pre-auth/pre-onboarding) — useAppState()/useAuth() are not
+  // reachable here and would throw. Read gender the same storage-direct way
+  // app/_layout.tsx's own notification listeners already read the user
+  // (NativeAuth.getUserInfo()), re-checked each time the popup opens.
+  const [isWoman, setIsWoman] = useState(false);
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const u = await NativeAuth.getUserInfo();
+      if (!u?.id) return;
+      const appState = await loadAppState(u.id);
+      if (!cancelled) setIsWoman(appState.parentProfile?.gender === "vrouw");
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [visible]);
+
+  const utils = trpc.useUtils();
+  const markHaid = trpc.cycle.upsertDay.useMutation({
+    onSuccess: () => utils.cycle.getMine.invalidate(),
+  });
+
   if (!notification) return null;
 
   const rulingColor = RULING_COLORS[notification.ruling] || "#059669";
@@ -59,6 +93,21 @@ export function PrayerPopupModal({
       Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
     }
     onRemindLater(notification);
+  };
+
+  const handleHaid = () => {
+    // Suppress today's prayer popups immediately; the tracker's own sync
+    // (syncHaidNotifications, run on the next data fetch) recomputes and
+    // extends `until` from the saved server rows.
+    NativeAuth.getUserInfo().then((u) => {
+      if (u?.id) writeExcusedState(u.id, { excused: true, until: isoToday() }).catch(() => {});
+    });
+    markHaid.mutate({ date: isoToday(), flow: "blood" });
+    // onDoNow, not onDismiss: this component holds no follow-up-timer ref of
+    // its own (it lives in usePopupNotifications, app/_layout.tsx's caller),
+    // and onDoNow is already wired to that hook's handleDoNow, which clears
+    // any pending follow-up before dismissing — onDismiss alone would not.
+    onDoNow(notification);
   };
 
   return (
@@ -126,6 +175,15 @@ export function PrayerPopupModal({
                   <MaterialIcons name="refresh" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>ذكرني مرة أخرى</Text>
                 </Pressable>
+                {isWoman && (
+                  <Pressable
+                    onPress={handleHaid}
+                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                  >
+                    <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
+                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                  </Pressable>
+                )}
               </>
             ) : (
               <>
@@ -143,6 +201,15 @@ export function PrayerPopupModal({
                   <MaterialIcons name="access-time" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>أعد تذكيري بعد 10 دقائق</Text>
                 </Pressable>
+                {isWoman && (
+                  <Pressable
+                    onPress={handleHaid}
+                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                  >
+                    <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
+                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                  </Pressable>
+                )}
               </>
             )}
           </View>
