@@ -8,7 +8,6 @@ import {
   POST_PRAYER_ADHKAR,
   categoryTitle,
   type Dhikr,
-  type AdhkarCategory,
 } from "@/lib/adhkar-data";
 import { useI18n } from "@/lib/i18n";
 import { loadAdhkarProgress, saveAdhkarProgress } from "@/lib/adhkar-progress";

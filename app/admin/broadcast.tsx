@@ -35,7 +35,8 @@ import { buildSendPayload, type CategoryConfig, type CategoryKey } from "./broad
 const BASMALA_AR = "بسم الله الرحمن الرحيم";
 const CLOSING_AR = "والحمد لله رب العالمين، والسلام عليكم ورحمة الله وبركاته.";
 
-type CompletenessKey = "incompletePersonal" | "incompleteAnalytical" | "incompleteChildren";
+const COMPLETENESS_KEYS = ["incompletePersonal", "incompleteAnalytical", "incompleteChildren"] as const;
+type CompletenessKey = (typeof COMPLETENESS_KEYS)[number];
 
 // ─── Recurring schedule: day-of-week + hour ─────────────────────────────
 // index 0..6 = Sunday..Saturday, matching JS Date#getDay() and
@@ -102,11 +103,12 @@ export default function BroadcastScreen() {
     },
   ];
 
-  const COMPLETENESS_TOGGLES = [
-    { key: "incompletePersonal", label: L3("لم يُكمل الملف الشخصي", "Persoonlijk profiel niet afgerond", "Personal profile incomplete") },
-    { key: "incompleteAnalytical", label: L3("لم يُكمل الملف التحليلي", "Analytisch profiel niet afgerond", "Analytical profile incomplete") },
-    { key: "incompleteChildren", label: L3("لديه طفل بملف غير مكتمل", "Heeft een kind met een onvolledig profiel", "Has a child with an incomplete profile") },
-  ] as const;
+  const COMPLETENESS_LABELS: Record<CompletenessKey, string> = {
+    incompletePersonal: L3("لم يُكمل الملف الشخصي", "Persoonlijk profiel niet afgerond", "Personal profile incomplete"),
+    incompleteAnalytical: L3("لم يُكمل الملف التحليلي", "Analytisch profiel niet afgerond", "Analytical profile incomplete"),
+    incompleteChildren: L3("لديه طفل بملف غير مكتمل", "Heeft een kind met een onvolledig profiel", "Has a child with an incomplete profile"),
+  };
+  const COMPLETENESS_TOGGLES = COMPLETENESS_KEYS.map((key) => ({ key, label: COMPLETENESS_LABELS[key] }));
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [subject, setSubject] = useState("");
@@ -344,7 +346,7 @@ export default function BroadcastScreen() {
 
         {label(L3("الدولة", "Land", "Country"))}
         {hint(L3("اختر دولة أو أكثر — لا شيء يعني كل الدول.", "Kies een of meer landen — niets betekent alle landen.", "Choose one or more countries — nothing means all countries."))}
-        {chipRow(COUNTRY_NAMES.map((c) => ({ key: c, label: getCountryAR(c) })), selectedCountries, (k) =>
+        {chipRow(COUNTRY_NAMES.map((c) => ({ key: c, label: language === "ar" ? getCountryAR(c) : c })), selectedCountries, (k) =>
           setSelectedCountries(selectedCountries.includes(k) ? selectedCountries.filter((c) => c !== k) : [...selectedCountries, k]),
         )}
 
@@ -352,7 +354,7 @@ export default function BroadcastScreen() {
           <>
             {label(L3("المدينة", "Stad", "City"))}
             {hint(L3("اختر مدينة أو أكثر ضمن الدول المحددة — لا شيء يعني كل المدن.", "Kies een of meer steden binnen de gekozen landen — niets betekent alle steden.", "Choose one or more cities within the selected countries — nothing means all cities."))}
-            {chipRow(availableCities.map((c) => ({ key: c, label: getCityAR(c) })), selectedCities, (k) =>
+            {chipRow(availableCities.map((c) => ({ key: c, label: language === "ar" ? getCityAR(c) : c })), selectedCities, (k) =>
               setSelectedCities(selectedCities.includes(k) ? selectedCities.filter((c) => c !== k) : [...selectedCities, k]),
             )}
           </>

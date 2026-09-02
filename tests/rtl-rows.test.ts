@@ -12,8 +12,6 @@ import { join, relative } from "path";
  */
 const ROOT = join(__dirname, "..");
 const ALLOWED_PLAIN: Record<string, { count: number; why: string }> = {
-  "app/(tabs)/index.tsx": { count: 2, why: "weatherForecast/checkinAnswered: dead static entries, no render site" },
-  "app/(tabs)/weekly.tsx": { count: 1, why: "weekNav: dead static entry, no render site" },
   "app/language-select.tsx": { count: 1, why: "trilingual picker shown before a language exists" },
   "components/animated-splash.tsx": { count: 1, why: "symmetric line/glyph/line row, rendered before the provider" },
   "app/child-account/login.tsx": { count: 1, why: "symmetric line/or/line divider" },
@@ -44,7 +42,11 @@ describe("every flexDirection row is gated on isRTL", () => {
   });
 
   it("keeps the gated rows (presence, not just absence)", () => {
-    const gated = files.reduce((n, f) => n + count(readFileSync(f, "utf8"), 'isRTL ? "row-reverse" : "row"'), 0);
+    // Any gated spelling counts: the inline ternary, or a shared helper object
+    // built from it (adhkar.tsx's rowDir), so consolidating gates cannot erode
+    // the floor.
+    const GATE = /isRTL\s*\?\s*"row-reverse"\s*:\s*"row"|\browDir\b/g;
+    const gated = files.reduce((n, f) => n + (readFileSync(f, "utf8").match(GATE) || []).length, 0);
     expect(gated).toBeGreaterThanOrEqual(650);
   });
 });

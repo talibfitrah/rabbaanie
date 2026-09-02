@@ -793,7 +793,6 @@ const s = StyleSheet.create({
   weatherDua: { fontSize: 16, color: "#1B4332", fontWeight: "700", textAlign: "center", lineHeight: 28 },
   weatherSrc: { fontSize: 11, color: "#9CA3AF", textAlign: "center", marginTop: 4 },
   weatherGhayb: { fontSize: 11, color: "#6B7280", textAlign: "center", marginTop: 10, fontStyle: "italic" },
-  weatherForecast: { flexDirection: "row", justifyContent: "space-between", marginTop: 12, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
   wfDay: { alignItems: "center", gap: 3, flex: 1 },
   wfDate: { fontSize: 10, color: "#9CA3AF" },
   wfTemp: { fontSize: 11, color: "#374151", fontWeight: "600" },
@@ -814,10 +813,6 @@ const s = StyleSheet.create({
   adhkarChip: { flex: 1, alignItems: "center", justifyContent: "center", gap: 4, paddingVertical: 6, borderRadius: 8 },
   adhkarText: { fontSize: 11, fontWeight: "700", flexShrink: 1 },
 
-  // Daily check-in (checkinAnswered/checkinAnsweredText: pre-existing dead
-  // code, never rendered by any JSX even before this change — left as-is)
-  checkinAnswered: { flexDirection: "row" as const, alignItems: "center" as const, gap: 4, marginTop: 8, justifyContent: "center" as const },
-  checkinAnsweredText: { fontSize: 11, color: "#1B4332", fontWeight: "600" },
 
   // Section headers
   sectionHeader: { alignItems: "center", paddingHorizontal: 16, marginBottom: 12, gap: 8 },

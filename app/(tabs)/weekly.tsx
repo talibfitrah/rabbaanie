@@ -1300,7 +1300,6 @@ const s = StyleSheet.create({
   progressFill: { height: 5, borderRadius: 3 },
   progressCard: { borderRadius: 14, padding: 16, marginBottom: 16, borderWidth: 1.5 },
   sectionHeader: { borderRadius: 14, padding: 14, borderWidth: 1.5 },
-  weekNav: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 16, paddingVertical: 10, paddingHorizontal: 8, borderRadius: 12, borderWidth: 1 },
   weekNavBtn: { width: 40, height: 40, borderRadius: 20, alignItems: "center", justifyContent: "center" },
   weekNavCenter: { alignItems: "center", flex: 1 },
   goalCard: { borderRadius: 10, padding: 12, marginBottom: 8, borderWidth: 1 },

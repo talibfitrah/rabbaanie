@@ -1,5 +1,5 @@
 import { useState, useCallback, useMemo, useEffect, useRef } from "react";
-import { View, Text, ScrollView, Pressable, FlatList, TextInput , KeyboardAvoidingView, Platform, ActivityIndicator, I18nManager} from "react-native";
+import { View, Text, ScrollView, Pressable, FlatList, TextInput , KeyboardAvoidingView, Platform, ActivityIndicator } from "react-native";
 import * as Application from "expo-application";
 import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
