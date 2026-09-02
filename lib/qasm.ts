@@ -68,11 +68,12 @@ export interface QasmExpenseRecord {
 /** Captured by advance() just before it changes turnIndex/initialStayQueue,
  * so undoLastNight() can restore them exactly afterwards — advance()'s two
  * branches (steady rotation vs. initial-stay countdown) are otherwise
- * ambiguous to reverse from the resulting state alone. Also carries what
- * `undoStack` itself was right before that advance, so undoing recovers a
- * PRIOR pending snapshot too, not just this one's rotation fields — that is
- * what makes `undoLastNight(advance(s))` reproduce `s` exactly, field for
- * field, no matter how many advances came before. */
+ * ambiguous to reverse from the resulting state alone. It is FLAT: it does
+ * NOT embed the prior undoStack (which would grow the persisted state
+ * without bound), and undo is a single level — undoing empties the stack.
+ * The turnIndex here is POSITIONAL, so any change to `order`
+ * (reorderRotation/addWife/syncWivesFromPartners) clears the pending
+ * snapshot rather than letting undo restore a now-stale index. */
 export interface QasmUndoSnapshot {
   turnIndex: number;
   initialStayQueue: { wifeId: number; nightsLeft: number }[];
