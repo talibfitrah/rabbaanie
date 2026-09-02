@@ -3384,6 +3384,41 @@ export default function FamilyScreen() {
           </Pressable>
         )}
 
+        {/* Women's حيض/استحاضة/نفاس tracker entry — mirrors the men's قسم
+            card above (same style, gated the other way): private, per-woman,
+            no partner-count requirement (see app/haid.tsx and
+            docs/superpowers/specs/2026-09-02-haid-tracker-design.md §3.3). */}
+        {isAuthenticated && pp.gender === "vrouw" && (
+          <Pressable
+            onPress={() => router.push("/haid" as any)}
+            style={({ pressed }) => [
+              {
+                flexDirection: isRTL ? "row-reverse" : "row",
+                alignItems: "center",
+                gap: 10,
+                backgroundColor: colors.surface,
+                borderRadius: 14,
+                padding: 14,
+                marginBottom: 10,
+                borderWidth: 1,
+                borderColor: colors.border,
+                opacity: pressed ? 0.85 : 1,
+              },
+            ]}
+          >
+            <MaterialIcons name="favorite-border" size={22} color={colors.primary} />
+            <View style={{ flex: 1 }}>
+              <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Menstruatie en reinheid", "Menses and purity", "متابعة الحيض والطهر")}
+              </Text>
+              <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2, textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Privé — alleen u en uw echtgenoot", "Private — only you and your husband", "خاص — لكِ ولزوجكِ فقط")}
+              </Text>
+            </View>
+            <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={20} color={colors.muted} />
+          </Pressable>
+        )}
+
         {/* ═══════ SPOUSE SELECTOR (polygyny) ═══════ */}
         {/* Only ever rendered once there's an actual choice — a
             single-partner user sees nothing here, matching today's UI
