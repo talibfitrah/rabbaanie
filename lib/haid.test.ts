@@ -61,6 +61,12 @@ describe("classify — spotting and purity (decisions 3, 4)", () => {
     expect(statusOf(out, "2026-09-06").ghuslDue).toBe(true);
     expect(statusOf(out, "2026-09-07").status).toBe("tuhr_pending_ghusl");
   });
+  it("a spotting day ABSORBED inside a blood run is never haid (decision 3); the following blood day resumes haid and clears ghuslDue", () => {
+    const days: CycleDay[] = [...blood(["2026-09-01", "2026-09-02"]), { date: "2026-09-03", flow: "spotting" }, ...blood(["2026-09-04", "2026-09-05"])];
+    const out = classify(days, S({ habitLength: 7 }), "2026-09-01", "2026-09-05");
+    expect(statusOf(out, "2026-09-03")).toMatchObject({ status: "tuhr_pending_ghusl", ghuslDue: true });
+    expect(statusOf(out, "2026-09-04")).toMatchObject({ status: "haid", ghuslDue: false });
+  });
   it("a single dry day between blood days stays haid; ghusl clears the pending state", () => {
     const days: CycleDay[] = [...blood(["2026-09-01", "2026-09-02"]), { date: "2026-09-03", flow: "dry" }, ...blood(["2026-09-04", "2026-09-05"]), { date: "2026-09-06", flow: "dry", ghusl: true }];
     const out = classify(days, S({ habitLength: 7 }), "2026-09-01", "2026-09-08");
@@ -77,17 +83,50 @@ describe("classify — spotting and purity (decisions 3, 4)", () => {
   });
 });
 
+describe("classify — unlogged days extend a run to the habit (item E-2; `today` param bounds it, not `to`)", () => {
+  it("no entry after the last logged blood day is assumed blood, up to today", () => {
+    const out = classify(blood(["2026-09-01"]), S({ habitLength: 7 }), "2026-09-01", "2026-09-03", "2026-09-03");
+    expect(statusOf(out, "2026-09-02").status).toBe("haid");
+    expect(statusOf(out, "2026-09-03").status).toBe("haid");
+    expect(isExcusedToday(out, "2026-09-03")).toBe(true);
+  });
+  it("the assumption stops at the habit cap even when today is later — run ends at day 7", () => {
+    const out = classify(blood(["2026-09-01"]), S({ habitLength: 7 }), "2026-09-01", "2026-09-09", "2026-09-09");
+    expect(statusOf(out, "2026-09-07").status).toBe("haid"); // day 7, the last habit day
+    expect(statusOf(out, "2026-09-08")).toMatchObject({ status: "tuhr_pending_ghusl", ghuslDue: true });
+    expect(statusOf(out, "2026-09-09").status).toBe("tuhr_pending_ghusl");
+  });
+  it("an explicit dry entry ends the assumption right there, before the habit cap", () => {
+    const days: CycleDay[] = [{ date: "2026-09-01", flow: "blood" }, { date: "2026-09-04", flow: "dry" }];
+    const out = classify(days, S({ habitLength: 7 }), "2026-09-01", "2026-09-09", "2026-09-09");
+    expect(statusOf(out, "2026-09-03").status).toBe("haid"); // still assumed, before the dry entry
+    expect(statusOf(out, "2026-09-04").status).not.toBe("haid");
+    expect(statusOf(out, "2026-09-09").status).not.toBe("haid");
+  });
+  it("LEARNING keeps using only logged blood days — an unlogged extension never lengthens the learned habit", () => {
+    const days = [...blood(span("2026-05-01", 5)), ...blood(span("2026-05-29", 5)), { date: "2026-06-26", flow: "blood" as const }];
+    expect(learnHabit(days, S())).toBe(5); // the day-3 run's assumed extension (habit-capped) must not count
+  });
+});
+
 describe("classify — pregnancy and nifas (decisions 10, 11)", () => {
   it("pregnant: every blood day is istihada with the pregnancy advisory", () => {
     const out = classify(blood(span("2026-09-01", 3)), S({ pregnantSince: "2026-06-01" }), "2026-09-01", "2026-09-03");
     expect(statusOf(out, "2026-09-02")).toMatchObject({ status: "istihada" });
     expect(statusOf(out, "2026-09-02").advisories).toContain("bleeding_in_pregnancy");
   });
-  it("nifas: birth day to day 40 is nifas; day 41 of the same run is istihada", () => {
+  it("nifas: birth day to day 40 is nifas; day 41 of the same run is istihada (no cycle history to match against)", () => {
     const out = classify(blood(span("2026-09-01", 42)), S({ pregnantSince: "2026-01-01", birthDate: "2026-09-01" }), "2026-09-01", "2026-10-12");
     expect(statusOf(out, "2026-09-01").status).toBe("nifas");
     expect(statusOf(out, "2026-10-10").status).toBe("nifas"); // day 40
     expect(statusOf(out, "2026-10-11").status).toBe("istihada"); // day 41
+  });
+  it("day 41+ of a nifas run is haid (habit-capped) when it lands within ±3 days of an expected period (item E-3)", () => {
+    const priorPeriod = blood(span("2026-01-04", 5)); // establishes the last NORMAL run's start
+    const days = [...priorPeriod, ...blood(span("2026-09-01", 41))]; // birth day1=09-01 ... day41=10-11
+    const out = classify(days, S({ pregnantSince: "2026-01-10", birthDate: "2026-09-01", cycleLength: 28, habitLength: 5 }), "2026-09-01", "2026-10-11");
+    // day 41 = Jan 4 + 10×28 days exactly, so it falls inside the ±3-day window.
+    expect(statusOf(out, "2026-10-11").status).toBe("haid");
   });
   it("labour blood up to 3 days before the birth is nifas (decision 10-أ)", () => {
     const out = classify(blood(span("2026-08-29", 6)), S({ pregnantSince: "2026-01-01", birthDate: "2026-09-01" }), "2026-08-28", "2026-09-03");

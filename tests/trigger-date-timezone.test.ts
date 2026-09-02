@@ -26,6 +26,10 @@ const read = (rel: string) => readFileSync(join(__dirname, "..", rel), "utf8");
 
 // lib/notifications.ts reaches React Native globals at module scope.
 vi.stubGlobal("__DEV__", false);
+// It also now reads the signed-in user to resolve the haid prayer-pause when
+// no skipPrayersUntil is passed (item A) — the real module pulls in
+// expo-secure-store, which chokes outside a real RN runtime.
+vi.mock("@/lib/_core/auth", () => ({ getUserInfo: vi.fn().mockResolvedValue(null) }));
 vi.mock("expo-notifications", () => ({
   setNotificationChannelAsync: vi.fn(),
   scheduleNotificationAsync: vi.fn(),

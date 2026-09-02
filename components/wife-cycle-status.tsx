@@ -10,12 +10,12 @@ type Lang = "nl" | "en" | "ar";
 const tx = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
 
 /** Husband-side, per wife. Server gate: active confirmed partnership only (INV-1/INV-4). */
-export function WifeCycleStatus({ wifeId, expanded }: { wifeId: number; expanded: boolean }) {
+export function WifeCycleStatus({ wifeId }: { wifeId: number }) {
   const colors = useColors();
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const T = haidText(lang);
-  const q = trpc.cycle.getPartner.useQuery({ partnerId: wifeId }, { enabled: expanded, staleTime: 60_000 });
+  const q = trpc.cycle.getPartner.useQuery({ partnerId: wifeId }, { staleTime: 60_000 });
   const today = isoToday();
   const view = useMemo(() => {
     if (!q.data?.enabled) return null;
@@ -25,7 +25,7 @@ export function WifeCycleStatus({ wifeId, expanded }: { wifeId: number; expanded
     const t = cls[cls.length - 1];
     return { t, r: rulingsFor(t), p: predict(days, settings, today) };
   }, [q.data, today]);
-  if (!expanded || !view) return null;
+  if (!view) return null;
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
   const line = (s: string) => <Text style={[{ color: colors.foreground, fontSize: 12, marginTop: 2 }, align]}>{s}</Text>;
   return (

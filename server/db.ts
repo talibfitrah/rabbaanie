@@ -5873,7 +5873,7 @@ export async function getParentAiConsultationsForOwner(
 // onDuplicateKeyUpdate) so the same shape hand-ports to the Postgres
 // production copy. See docs/superpowers/plans/2026-09-02-haid-tracker-*.
 // ============================================================
-export type CycleDayInput = { date: string; flow: "blood" | "spotting" | "dry"; color?: "black" | "red" | null; ghusl?: boolean; note?: string | null };
+export type CycleDayInput = { date: string; flow: "blood" | "spotting" | "dry"; color?: "black" | "red" | null; ghusl?: boolean };
 export type CycleSettingsPatch = Partial<Pick<CycleSettingsRow, "enabled" | "habitLength" | "cycleLength" | "pregnantSince" | "birthDate" | "miscarriageDate" | "gestationDays" | "contraception" | "ghuslReminder">>;
 
 export async function getCycleSettings(userId: number): Promise<CycleSettingsRow | null> {
@@ -5907,17 +5907,19 @@ export async function listCycleDays(userId: number, sinceDate: string): Promise<
     .orderBy(asc(cycleDays.date));
 }
 
-export async function upsertCycleDay(userId: number, day: CycleDayInput): Promise<void> {
+export async function upsertCycleDay(userId: number, day: CycleDayInput, ifAbsent?: boolean): Promise<{ written: boolean }> {
   const db = await getDb();
-  if (!db) return;
-  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, note: day.note ?? null, updatedAt: new Date() };
+  if (!db) return { written: false };
   const existing = await db.select({ userId: cycleDays.userId }).from(cycleDays)
     .where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date))).limit(1);
+  if (existing.length && ifAbsent) return { written: false };
+  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, updatedAt: new Date() };
   if (existing.length) {
     await db.update(cycleDays).set(values).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date)));
   } else {
     await db.insert(cycleDays).values({ userId, date: day.date, ...values });
   }
+  return { written: true };
 }
 
 export async function deleteCycleDay(userId: number, date: string): Promise<void> {
@@ -5930,6 +5932,11 @@ export async function deleteAllCycleDays(userId: number): Promise<void> {
   const db = await getDb();
   if (!db) return;
   await db.delete(cycleDays).where(eq(cycleDays.userId, userId));
+}
+
+export async function disableCycleTracker(userId: number): Promise<void> {
+  await deleteAllCycleDays(userId);
+  await saveCycleSettings(userId, { enabled: false });
 }
 
 // ---- co-wife visibility (husband-gated, names only) ----

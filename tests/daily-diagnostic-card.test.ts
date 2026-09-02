@@ -17,14 +17,14 @@ vi.mock("react-native", () => ({
 }));
 vi.mock("@expo/vector-icons/MaterialIcons", () => ({ default: "MaterialIcons" }));
 vi.mock("@/components/report-ai-content", () => ({ ReportAiContent: () => null }));
-// The card now reads gender (haid tracker's excused-answer hook) via
+// The card also reads gender (haid tracker's excused-answer hook) via
 // useAppState — real @/lib/app-context pulls in @react-native-async-storage
 // via lib/store.ts, which this file's own bare-bones "react" mock (no
 // createContext/useContext) cannot survive. Same recipe as
-// tests/family-calendar-scripture.test.ts. Fixed at "man" so every
-// pre-existing test below (none of them exercise the excused hook) keeps
-// isWoman false, exactly like before this component knew about gender.
-vi.mock("@/lib/app-context", () => ({ useAppState: () => ({ state: { parentProfile: { gender: "man" } } }) }));
+// tests/family-calendar-scripture.test.ts. `h.gender` defaults to "man" so
+// every pre-existing test below (none of them exercise the excused hook)
+// keeps isWoman false, exactly like before this component knew about gender.
+vi.mock("@/lib/app-context", () => ({ useAppState: () => ({ state: { parentProfile: { gender: h.gender } } }) }));
 
 // The card is also exercised as a component below (the freshness suite), so
 // trpc needs more than an empty stub: this fake stands in for the query cache
@@ -39,6 +39,13 @@ const h = vi.hoisted(() => ({
   queryOpts: undefined as any,
   submitOpts: undefined as any,
   invalidateCalls: [] as any[],
+  // item B: excused-answer hook fixtures.
+  gender: "man" as "man" | "vrouw",
+  mine: { data: undefined, isSuccess: false } as any,
+  upsertCalls: [] as any[],
+  // Overrides the `selected` useState below so a test can simulate "she
+  // already tapped an option" without a real renderer/click.
+  selectedOverride: undefined as Record<string, { label: string; tone: string }> | undefined,
 }));
 
 vi.mock("@/lib/trpc", () => ({
@@ -55,12 +62,10 @@ vi.mock("@/lib/trpc", () => ({
         },
       },
     },
-    // Called unconditionally every render by the excused-answer hook
-    // (isWoman is fixed false above, so its mutate is never reached by any
-    // test here) — only present so the hook calls themselves don't throw.
+    // Called unconditionally every render by the excused-answer hook.
     cycle: {
-      getMine: { useQuery: () => ({ data: undefined }) },
-      upsertDay: { useMutation: () => ({ mutate: () => {} }) },
+      getMine: { useQuery: () => h.mine },
+      upsertDay: { useMutation: () => ({ mutate: (input: any) => { h.upsertCalls.push(input); } }) },
     },
   },
 }));
@@ -68,10 +73,21 @@ vi.mock("@/lib/trpc", () => ({
 // No renderer is installed in this project, so a first render is simulated the
 // only way it can be: call the component function with useState pinned to its
 // initial value and useEffect run inline — which is exactly what mount does.
+// `selectedOverride` lets a test stand in for the one useState call this
+// component makes (the `selected` answers map) without a real click.
 vi.mock("react", () => ({
-  useState: (init: any) => [typeof init === "function" ? init() : init, () => {}],
+  useState: (init: any) => [h.selectedOverride !== undefined ? h.selectedOverride : (typeof init === "function" ? init() : init), () => {}],
   useEffect: (fn: () => void) => { fn(); },
 }));
+
+/** Walks a returned element tree collecting every `onPress` handler found. */
+function collectOnPress(node: any, acc: Function[] = []): Function[] {
+  if (Array.isArray(node)) { node.forEach((n) => collectOnPress(n, acc)); return acc; }
+  if (!node || typeof node !== "object") return acc;
+  if (typeof node.props?.onPress === "function") acc.push(node.props.onPress);
+  collectOnPress(node.props?.children, acc);
+  return acc;
+}
 
 import { buildReviewSelections, DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
 
@@ -215,5 +231,86 @@ describe("DailyDiagnosticCard freshness — an explicit open must ask the server
 
     expect(text).toContain("Your answers today");
     expect(text).not.toContain("Personal review");
+  });
+});
+
+/**
+ * Item B (haid tracker spec, decision 13-ب): choosing the women-only
+ * "excused today" prayer option seeds the tracker with today's blood day —
+ * but only with her consent (tracker enabled), never overwriting an existing
+ * entry, and at the tracker's own LOCAL date (lib/haid.ts isoToday()), not
+ * this card's UTC todayKey.
+ */
+describe("DailyDiagnosticCard — excused-answer hook writes to the cycle tracker with consent (item B)", () => {
+  const today = new Date().toISOString().slice(0, 10);
+  const excusedLabel = "معذورة اليوم";
+  const questions = [
+    {
+      category: "prayer",
+      text: "Q?",
+      options: [
+        { label: "A", tone: "positive" as const },
+        { label: excusedLabel, tone: "neutral" as const, kind: "excused" as const },
+      ],
+    },
+  ];
+  const query = {
+    data: { date: today, questions, answers: null, source: "generated" },
+    isError: false, isLoading: false, isFetching: false, error: undefined, refetch: () => {},
+  };
+
+  beforeEach(() => {
+    h.query = query;
+    h.upsertCalls = [];
+    h.selectedOverride = undefined;
+    h.gender = "man";
+    h.mine = { data: undefined, isSuccess: false };
+  });
+
+  function tapSubmit() {
+    const tree = DailyDiagnosticCard({ lang: "en" });
+    const submit = collectOnPress(tree).find((fn) => fn.toString().includes("submitMutation.mutate"));
+    submit?.();
+  }
+
+  it("woman, tracker enabled, excused option chosen: logs blood with ifAbsent at the tracker's local date", async () => {
+    const { isoToday } = await import("@/lib/haid");
+    h.gender = "vrouw";
+    h.mine = { data: { enabled: true, settings: {}, days: [] }, isSuccess: true };
+    h.selectedOverride = { prayer: { label: excusedLabel, tone: "neutral" } };
+
+    tapSubmit();
+
+    expect(h.upsertCalls).toEqual([{ date: isoToday(), flow: "blood", ifAbsent: true }]);
+  });
+
+  it("woman, tracker NOT enabled: does not write", () => {
+    h.gender = "vrouw";
+    h.mine = { data: { enabled: false, settings: null, days: [] }, isSuccess: true };
+    h.selectedOverride = { prayer: { label: excusedLabel, tone: "neutral" } };
+
+    tapSubmit();
+
+    expect(h.upsertCalls).toEqual([]);
+  });
+
+  it("man: does not write even if the excused option is somehow selected", () => {
+    h.gender = "man";
+    h.mine = { data: undefined, isSuccess: false };
+    h.selectedOverride = { prayer: { label: excusedLabel, tone: "neutral" } };
+
+    tapSubmit();
+
+    expect(h.upsertCalls).toEqual([]);
+  });
+
+  it("woman, tracker enabled, excused option NOT chosen: does not write", () => {
+    h.gender = "vrouw";
+    h.mine = { data: { enabled: true, settings: {}, days: [] }, isSuccess: true };
+    h.selectedOverride = { prayer: { label: "A", tone: "positive" } };
+
+    tapSubmit();
+
+    expect(h.upsertCalls).toEqual([]);
   });
 });

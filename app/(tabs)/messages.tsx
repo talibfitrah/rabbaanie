@@ -938,7 +938,7 @@ function WifePermissionsPanel({
               ? <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted }}>…</Text>
               : <PermBadge allowed={profileGranted} colors={colors} lang={lang} />}
           </TouchableOpacity>
-          <WifeCycleStatus wifeId={wife.id} expanded={expanded} />
+          <WifeCycleStatus wifeId={wife.id} />
         </View>
       )}
     </View>

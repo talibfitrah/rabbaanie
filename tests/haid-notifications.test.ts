@@ -12,7 +12,10 @@ vi.mock("expo-notifications", () => ({
   SchedulableTriggerInputTypes: { DATE: "date" },
 }));
 const scheduleAll = vi.fn(async (..._args: any[]) => 0);
-vi.mock("../lib/notifications", () => ({ scheduleAllNotifications: (...a: any[]) => scheduleAll(...a) }));
+vi.mock("../lib/notifications", () => ({
+  scheduleAllNotifications: (...a: any[]) => scheduleAll(...a),
+  HAID_CHANNEL_ID: "haid_reminders_v1",
+}));
 const store = new Map<string, string>();
 vi.mock("@react-native-async-storage/async-storage", () => ({ default: {
   getItem: vi.fn(async (k: string) => store.get(k) ?? null), setItem: vi.fn(async (k: string, v: string) => { store.set(k, v); }), removeItem: vi.fn(async (k: string) => { store.delete(k); }) } }));
@@ -58,5 +61,52 @@ describe("syncHaidNotifications", () => {
   it("ghusl reminder respects the setting (decision 16 is optional)", async () => {
     await syncHaidNotifications({ userId: 5, days, settings: { ...settings, ghuslReminder: false }, language: "ar", today });
     expect(scheduled.filter((r) => r.content.data.type === "haid_ghusl_reminder")).toHaveLength(0);
+  });
+
+  // Item D-2: expo-notifications reads channelId off the TRIGGER, not the
+  // content (tests/trigger-date-timezone.test.ts documents the same rule for
+  // lib/notifications.ts) — both of this module's own notifications need one
+  // so they land on a channel the user can find/mute, instead of Android's
+  // unlabelled default.
+  it("gives both notifications an Android channelId, set on the trigger", async () => {
+    await syncHaidNotifications({ userId: 5, days, settings, language: "ar", today });
+    const checks = scheduled.filter((r) => r.content.data.type === "haid_purity_check");
+    const ghusl = scheduled.filter((r) => r.content.data.type === "haid_ghusl_reminder");
+    expect(checks.length).toBeGreaterThan(0);
+    expect(ghusl.length).toBeGreaterThan(0);
+    expect(checks.every((r) => typeof r.trigger.channelId === "string")).toBe(true);
+    expect(ghusl.every((r) => typeof r.trigger.channelId === "string")).toBe(true);
+    expect(checks.every((r) => r.content.data.url === undefined)).toBe(true);
+    expect(ghusl.every((r) => r.content.data.url === undefined)).toBe(true);
+  });
+
+  // Item D-3: the iOS 64-pending-request budget (lib/notification-horizons)
+  // means a single sync must not schedule further ahead than a handful of
+  // days — re-syncing on every app open already slides the window forward as
+  // she keeps using the app.
+  it("caps the purity-check loop at 7 days ahead, however far `until` really is", async () => {
+    const longHabit = { enabled: true, habitLength: 21, contraception: false, ghuslReminder: true };
+    const st = await syncHaidNotifications({ userId: 5, days: [{ date: today, flow: "blood" as const }], settings: longHabit, language: "ar", today });
+    expect(st.until).toBe("2026-09-22"); // today + 20, per predict()'s start+habit-1 until
+    expect(scheduled.filter((r) => r.content.data.type === "haid_purity_check")).toHaveLength(7); // capped to today..today+6
+  });
+
+  // Item D-1: cancelOwn()'s read-then-cancel and the schedule loop that
+  // follows are not atomic. Two overlapping syncHaidNotifications calls (e.g.
+  // two listeners reacting to the same getMine refetch) used to both read the
+  // pending list before either had written its own, double-scheduling the
+  // purity check/ghusl reminder. NOT routed through lib/notification-queue's
+  // enqueue: that queue also holds scheduleAllNotifications, which this
+  // function calls — enqueueing here would deadlock waiting on itself.
+  it("coalesces two calls fired in the same tick into one scheduling pass for the final state", async () => {
+    const p1 = syncHaidNotifications({ userId: 5, days, settings, language: "ar", today });
+    const p2 = syncHaidNotifications({ userId: 5, days: [], settings, language: "nl", today });
+
+    const [r1, r2] = await Promise.all([p1, p2]);
+
+    expect(scheduleAll).toHaveBeenCalledTimes(1);
+    expect(scheduleAll).toHaveBeenCalledWith("nl", undefined);
+    expect(r1).toEqual({ excused: false });
+    expect(r2).toEqual({ excused: false });
   });
 });
