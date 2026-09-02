@@ -1,4 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+// lib/haid-notifications.ts reads Platform.OS (iOS sound field); the real
+// react-native package contains Flow syntax vitest's parser rejects outright,
+// same reason tests/notifications.test.ts and friends stub it instead of
+// importing it for real.
+vi.mock("react-native", () => ({ Platform: { OS: "android" } }));
 const scheduled: any[] = [];
 vi.mock("expo-notifications", () => ({
   scheduleNotificationAsync: vi.fn(async (req: any) => { scheduled.push(req); return `id${scheduled.length}`; }),

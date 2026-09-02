@@ -1,4 +1,5 @@
 import * as Notifications from "expo-notifications";
+import { Platform } from "react-native";
 import { addDays, classify, excusedState, predict, type CycleDay, type CycleSettings, type ExcusedState, isoToday } from "./haid";
 import { HAID_NOTIFICATION_TYPES, writeExcusedState, clearExcusedState } from "./haid-state";
 import { scheduleAllNotifications } from "./notifications";
@@ -43,6 +44,10 @@ export async function syncHaidNotifications({ userId, days, settings, language, 
         title: tx(language, "Bent u weer rein?", "Have you become pure?", "هل طهرتِ؟"),
         body: tx(language, "Tik om uw dag bij te werken.", "Tap to update today.", "اضغطي لتحديث حال اليوم."),
         data: { type: HAID_NOTIFICATION_TYPES.purityCheck, url: "/haid?purityCheck=1" },
+        // No interruptionLevel: timeSensitive — that entitlement is justified
+        // to Apple once, on the prayer notifications (tests/adhan-ios-sound
+        // .test.ts). It still gets a sound like every other iOS reminder.
+        ...(Platform.OS === "ios" ? { sound: "default" } : {}),
       },
       trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
     });
@@ -55,6 +60,7 @@ export async function syncHaidNotifications({ userId, days, settings, language, 
           title: tx(language, "Verwachte reinheid vandaag", "Expected purity today", "الطهر متوقَّع اليوم"),
           body: tx(language, "Ziet u reinheid? Verricht de ghusl en bid.", "If you see purity, perform ghusl and pray.", "إن رأيتِ الطهر فاغتسلي وصلّي."),
           data: { type: HAID_NOTIFICATION_TYPES.ghuslReminder, url: "/haid" },
+          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },
         trigger: { type: Notifications.SchedulableTriggerInputTypes.DATE, date: when },
       });
