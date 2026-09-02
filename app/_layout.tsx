@@ -623,12 +623,16 @@ export default function RootLayout() {
         // Get all delivered (but not yet dismissed) notifications
         const delivered = await Notifications.getPresentedNotificationsAsync();
         if (delivered.length === 0) return;
+        // Same excused gate as the live listener above: a prayer notification
+        // that landed while she is حائض/نفساء must not pop up on launch either.
+        const missedUser = await NativeAuth.getUserInfo();
+        const excused = missedUser?.id ? (await readExcusedState(missedUser.id)).excused : false;
 
         for (const notif of delivered) {
           const data = notif.request.content.data as any;
           if (!data) continue;
 
-          const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes);
+          const shouldPopup = resolveShouldShowPopup(data, prefs.displayModes, excused);
 
           if (shouldPopup) {
             const popupNotif: PopupNotification = {
