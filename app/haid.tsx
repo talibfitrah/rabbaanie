@@ -79,7 +79,6 @@ export default function HaidScreen() {
   const classified = useMemo(() => classify(days, settings, addDays(today, -400), addDays(today, 45), today), [days, settings, today]);
   const byDate = useMemo(() => new Map(classified.map((c) => [c.date, c])), [classified]);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
-  const todayCls = byDate.get(today)!;
   // An out-of-classify-window date (grid navigated far past/future) has no
   // entry — show a neutral pure day for THAT date, not today's rulings.
   const selectedCls = byDate.get(selected) ?? { date: selected, status: "tuhr" as const, ghuslDue: false, advisories: [] };
