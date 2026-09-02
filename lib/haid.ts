@@ -149,7 +149,7 @@ export function learnCycleLength(days: CycleDay[], settings: CycleSettings, befo
   const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && (!before || r.end < before)).slice(-7).map((r) => r.start);
   const gaps: number[] = [];
   for (let i = 1; i < starts.length; i++) gaps.push(diffDays(starts[i - 1], starts[i]));
-  return median(gaps.slice(-6));
+  return median(gaps); // already ≤6: 7 starts (sliced above) give at most 6 gaps
 }
 
 /** The runs classify()/predict() see: the last one extended through unlogged days up to the habit (item E-2). */
