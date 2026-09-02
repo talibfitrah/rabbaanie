@@ -25,14 +25,23 @@ describe("the profile wizard does not re-ask gender or marital status already gi
       "utf8",
     ).replace(/\s+/g, " ");
 
+    // Gate on a MOUNT snapshot (`known`), not live `p`: referencing live state
+    // hid a question the instant it was answered inside the wizard. `known` is
+    // captured from state.parentProfile at mount, so a prefilled answer is
+    // skipped while an answer given in the wizard never vanishes.
     expect(
       src,
-      "gender question has no conditional -- it is asked again even when profile.gender is already set",
-    ).toMatch(/conditional:\s*\(p\)\s*=>\s*!p\.gender/);
+      "gender question is not skip-if-prefilled via the mount snapshot",
+    ).toMatch(/conditional:\s*\(\)\s*=>\s*!known\?\.gender/);
 
     expect(
       src,
-      "maritalStatus question has no conditional -- it is asked again even when profile.maritalStatus is already set",
-    ).toMatch(/conditional:\s*\(p\)\s*=>\s*!p\.maritalStatus/);
+      "maritalStatus question is not skip-if-prefilled via the mount snapshot",
+    ).toMatch(/conditional:\s*\(\)\s*=>\s*!known\?\.maritalStatus/);
+
+    expect(
+      src,
+      "the mount snapshot is not captured from state.parentProfile",
+    ).toMatch(/knownAtMount\s*=\s*useRef/);
   });
 });

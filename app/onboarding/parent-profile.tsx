@@ -34,7 +34,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-function getPHASES(lang: Lang, gender?: string): Phase[] {
+function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; maritalStatus: boolean }): Phase[] {
   const hint = tx(lang, "Kies een optie of schrijf uw eigen antwoord", "Choose an option or write your own answer", "اختر خيارًا أو اكتب إجابتك الخاصة");
   const isMale = gender === "man";
   const isFemale = gender === "vrouw";
@@ -55,7 +55,7 @@ function getPHASES(lang: Lang, gender?: string): Phase[] {
         key: "gender",
         label: tx(lang, "Wat is uw geslacht?", "What is your gender?", "ما هو جنسك؟"),
         type: "select",
-        conditional: (p) => !p.gender,
+        conditional: () => !known?.gender,
         options: [
           { value: "man", label: tx(lang, "Man", "Man", "رجل") },
           { value: "vrouw", label: tx(lang, "Vrouw", "Woman", "امرأة") },
@@ -65,7 +65,7 @@ function getPHASES(lang: Lang, gender?: string): Phase[] {
         key: "maritalStatus",
         label: tx(lang, "Wat is uw burgerlijke staat?", "What is your marital status?", "ما هي حالتك الاجتماعية؟"),
         type: "select",
-        conditional: (p) => !p.maritalStatus,
+        conditional: () => !known?.maritalStatus,
         options: [
           { value: "getrouwd", label: tx(lang, "Getrouwd", "Married", gAr("متزوج", "متزوجة", "متزوج/ة")) },
           { value: "gescheiden", label: tx(lang, "Gescheiden", "Divorced", gAr("مطلّق", "مطلّقة", "مطلق/ة")) },
@@ -769,8 +769,15 @@ export default function ParentProfileScreen() {
   const fieldPositions = useRef<Record<string, number>>({});
 
   const [profile, setProfile] = useState<ParentProfile>(state.parentProfile);
+  // Snapshot at mount: skip gender/marital ONLY if they were already answered
+  // before the wizard (prefilled from the short flow). Referencing live state
+  // in their `conditional` made an in-wizard answer hide its own question.
+  const knownAtMount = useRef({
+    gender: !!state.parentProfile.gender,
+    maritalStatus: !!state.parentProfile.maritalStatus,
+  });
 
-  const PHASES = useMemo(() => getPHASES(lang, profile.gender), [lang, profile.gender]);
+  const PHASES = useMemo(() => getPHASES(lang, profile.gender, knownAtMount.current), [lang, profile.gender]);
   const [currentPhaseIndex, setCurrentPhaseIndex] = useState(0);
   const [errors, setErrors] = useState<Set<string>>(new Set());
   const [showValidation, setShowValidation] = useState(false);
