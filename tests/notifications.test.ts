@@ -45,6 +45,7 @@ import {
   cancelScheduleAllNotifications,
   getScheduledCount,
   sendTestNotification,
+  HAID_CHANNEL_ID,
   type NotificationPrefs,
 } from "../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -125,9 +126,9 @@ describe("Notifications module", () => {
   });
 
   describe("setupNotificationChannels", () => {
-    it("creates one prayer channel per adhan sound, plus adhkaar and weekly", async () => {
+    it("creates one prayer channel per adhan sound, plus adhkaar, weekly and haid", async () => {
       await setupNotificationChannels();
-      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(5);
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledTimes(6);
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         prayerChannelId("takbeer_1"),
         expect.objectContaining({ sound: "takbeer_1" })
@@ -143,6 +144,10 @@ describe("Notifications module", () => {
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         "adhkaar_reminders_v2",
         expect.objectContaining({ name: "Adhkaar Herinneringen / Adhkaar Reminders" })
+      );
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        HAID_CHANNEL_ID,
+        expect.objectContaining({ importance: Notifications.AndroidImportance.HIGH })
       );
     });
   });

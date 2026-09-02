@@ -166,6 +166,8 @@ function adhanSoundFile(sound: AdhanSoundOption): string {
 }
 const ADHKAAR_CHANNEL_ID = "adhkaar_reminders_v2";
 const WEEKLY_CHANNEL_ID = "weekly_reminders_v2";
+/** The haid tracker's daily purity-check + ghusl reminder (lib/haid-notifications.ts). */
+export const HAID_CHANNEL_ID = "haid_reminders_v1";
 
 export async function setupNotificationChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -203,6 +205,16 @@ export async function setupNotificationChannels(): Promise<void> {
     lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
     enableLights: true,
     lightColor: "#2563EB",
+  });
+
+  await Notifications.setNotificationChannelAsync(HAID_CHANNEL_ID, {
+    name: "Cyclus Herinneringen / Cycle Reminders",
+    importance: Notifications.AndroidImportance.HIGH,
+    sound: "default",
+    bypassDnd: true,
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    enableLights: true,
+    lightColor: "#DB2777",
   });
 }
 
