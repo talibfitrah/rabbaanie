@@ -293,11 +293,11 @@ export function rulingsFor(day: Pick<ClassifiedDay, "status" | "ghuslDue">): Rul
 export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string }
 
 export function predict(days: CycleDay[], settings: CycleSettings, today: string): Prediction {
-  const runs = extendedRuns(days, settings, today);
+  const runs = extendedRuns(days, settings, today).filter((r) => r.start <= today); // bug 5: a future-dated log hasn't happened yet — ignore it entirely
   const habit = settings.habitLength ?? learnHabit(days, settings);
   const cycleLength = settings.cycleLength ?? learnCycleLength(days, settings) ?? DEFAULT_CYCLE_LENGTH;
   const p: Prediction = { habit, cycleLength };
-  const current = runs.find((r) => r.start <= today && diffDays(r.end, today) <= 1);
+  const current = runs.find((r) => today <= r.end); // bug 5: an already-ended run (today > end) is no longer "current"
   if (current) {
     if (nifasDayOf(settings, current.start) !== null) p.expectedPurity = addDays(effectiveBirth(settings)!, NIFAS_MAX_DAYS);
     else if (habit) p.expectedPurity = addDays(current.start, habit);

@@ -263,6 +263,14 @@ describe("predict", () => {
     expect(predict(history, S({ pregnantSince: "2026-08-01" }), "2026-08-30").nextStart).toBeUndefined();
     expect(predict([], S(), "2026-08-30")).toMatchObject({ cycleLength: 28 });
   });
+  it("bug 5: a run already closed by an explicit dry+ghusl entry is no longer 'current' — no stale expectedPurity", () => {
+    const days: CycleDay[] = [{ date: "2026-09-01", flow: "blood" }, { date: "2026-09-02", flow: "blood" }, { date: "2026-09-03", flow: "dry", ghusl: true }];
+    expect(predict(days, S({ habitLength: 7 }), "2026-09-03").expectedPurity).toBeUndefined(); // she is pure as of today, not "still projected to 09-08"
+  });
+  it("bug 5: a future-dated log must not move nextStart — only runs that have started by today count", () => {
+    const p = predict([{ date: "2026-10-01", flow: "blood" }], S(), "2026-09-02");
+    expect(p.nextStart).toBeUndefined(); // nothing has actually happened yet to predict from
+  });
 });
 
 describe("ramadan + excused state (decision 14)", () => {
