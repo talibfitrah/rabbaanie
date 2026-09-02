@@ -187,6 +187,22 @@ describe("classify — contraception (decision 12)", () => {
     expect(statusOf(onTime, "2026-08-25").status).toBe("haid");
     expect(statusOf(offTime, "2026-08-13").status).toBe("istihada");
   });
+  it("bug 6: the expected-start window rolls by WHOLE cycles across a skipped period, not just one cycle ahead", () => {
+    // Last period 06-01; nothing logged again until 08-24 — exactly 3×28 days later. A single
+    // cycleLen hop from 06-01 lands on 06-29, nowhere near 08-24, so the naive check would wrongly
+    // call this a breakthrough; rolled by whole cycles it lands exactly on 08-24.
+    const days = [...blood(["2026-06-01"]), ...blood(span("2026-08-24", 3))];
+    const out = classify(days, S({ contraception: true, cycleLength: 28, habitLength: 5 }), "2026-08-24", "2026-08-26");
+    expect(statusOf(out, "2026-08-25").status).toBe("haid");
+  });
+  it("bug 6: a breakthrough (off-schedule) run never anchors nextStart for the runs after it", () => {
+    const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
+    const settings = S({ contraception: true, cycleLength: 28 });
+    const withoutBreakthrough = predict(history, settings, "2026-08-10").nextStart;
+    const withBreakthrough = predict([...history, ...blood(["2026-08-05", "2026-08-06"])], settings, "2026-08-10").nextStart; // off-window
+    expect(withBreakthrough).toBe(withoutBreakthrough); // the breakthrough run must not move it
+    expect(withoutBreakthrough).toBe("2026-08-24"); // still 28 days after her last REAL period (07-27)
+  });
 });
 
 describe("learning", () => {
