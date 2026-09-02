@@ -212,7 +212,11 @@ export async function setupNotificationChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     bypassDnd: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    // C14: cycle/purity content must never surface on a bystander-readable
+    // lock screen — private conceals it on a secured device; the scheduled
+    // notification text itself is also kept generic as a fallback for
+    // devices with no secure lock (lib/haid-notifications.ts).
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     enableLights: true,
     lightColor: "#DB2777",
   });

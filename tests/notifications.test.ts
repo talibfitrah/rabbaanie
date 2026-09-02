@@ -150,6 +150,16 @@ describe("Notifications module", () => {
         expect.objectContaining({ importance: Notifications.AndroidImportance.HIGH })
       );
     });
+
+    // C14: «هل طهرتِ؟» / «الطهر متوقَّع اليوم» must not be readable by a
+    // bystander on a locked device — the channel itself must not be PUBLIC.
+    it("locks the haid channel to a private lock-screen visibility", async () => {
+      await setupNotificationChannels();
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        HAID_CHANNEL_ID,
+        expect.objectContaining({ lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE })
+      );
+    });
   });
 
   describe("requestNotificationPermissions", () => {
