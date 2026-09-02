@@ -50,7 +50,19 @@ export default function HaidScreen() {
   const upsertDay = trpc.cycle.upsertDay.useMutation({ onSuccess: invalidate, onError: onMutationError });
   const deleteDay = trpc.cycle.deleteDay.useMutation({ onSuccess: invalidate, onError: onMutationError });
   const saveSettings = trpc.cycle.saveSettings.useMutation({ onSuccess: invalidate, onError: onMutationError });
-  const disable = trpc.cycle.disable.useMutation({ onSuccess: invalidate, onError: onMutationError });
+  const disable = trpc.cycle.disable.useMutation({
+    onSuccess: () => {
+      invalidate();
+      // C9: don't rely on the screen effect below — it explicitly bails
+      // when settings.enabled is false, so a stale excused flag + purity/
+      // ghusl alarms from before disabling would otherwise survive. Disable
+      // deletes all her days server-side, so an empty list here always
+      // resolves to excused:false, clearing the flag and rescheduling
+      // prayers immediately.
+      if (user?.id) syncHaidNotifications({ userId: user.id, days: [], settings: DEFAULT_SETTINGS, language: lang }).catch(() => {});
+    },
+    onError: onMutationError,
+  });
 
   const days: CycleDay[] = useMemo(() => (q.data?.days ?? []).map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl })), [q.data]);
   const settings: CycleSettings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...(q.data?.settings ?? {}), enabled: !!q.data?.enabled }), [q.data]);
@@ -93,7 +105,11 @@ export default function HaidScreen() {
 
   const log = (flow: Flow, extra: Partial<CycleDay> = {}) => {
     const existing = days.find((d) => d.date === selected);
-    upsertDay.mutate({ date: selected, flow, color: extra.color ?? existing?.color ?? null, ghusl: extra.ghusl ?? false });
+    // C12: color only applies to flow "blood" (server refine) — never carry
+    // a prior blood day's colour onto a dry/spotting entry, or the server
+    // rejects the write and she stays stuck classified excused.
+    const color = flow === "blood" ? (extra.color ?? existing?.color ?? null) : null;
+    upsertDay.mutate({ date: selected, flow, color, ghusl: extra.ghusl ?? false });
   };
 
   if (!isAuthenticated || !isWoman) return null;

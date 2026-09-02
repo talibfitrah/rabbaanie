@@ -11,12 +11,14 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "react-native";
+import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
 import { trpc } from "@/lib/trpc";
-import { writeExcusedState } from "@/lib/haid-state";
-import { isoToday } from "@/lib/haid";
+import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
+import { syncHaidNotifications } from "@/lib/haid-notifications";
+import { readStoredLanguage } from "@/lib/notifications";
 import * as NativeAuth from "@/lib/_core/auth";
 import { loadAppState } from "@/lib/store";
 
@@ -60,6 +62,11 @@ export function PrayerPopupModal({
   const [isWoman, setIsWoman] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    // C15: reset synchronously, before the async read starts — otherwise a
+    // just-switched-to man briefly (or, if the read then fails, forever)
+    // sees the previous woman account's "أنا حائض" button while this
+    // account's own read is still in flight.
+    setIsWoman(false);
     (async () => {
       const u = await NativeAuth.getUserInfo();
       if (!u?.id) return;
@@ -72,19 +79,33 @@ export function PrayerPopupModal({
   }, [visible]);
 
   const utils = trpc.useUtils();
+  // Her tracker-enabled state — the server rejects a cycle write outright
+  // (PRECONDITION_FAILED) when she hasn't enabled it, so handleHaid below
+  // checks this first instead of silently no-op'ing on a rejected write.
+  const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
   const markHaid = trpc.cycle.upsertDay.useMutation({
-    onSuccess: () => {
+    onSuccess: async () => {
       utils.cycle.getMine.invalidate();
-      // Silence prayer reminders only once the server has actually accepted
-      // today's entry (a pre-write here used to pause prayers even when the
-      // mutation later failed). The tracker's own sync
-      // (syncHaidNotifications, run on the next data fetch) recomputes and
-      // extends `until` from the saved server rows.
-      NativeAuth.getUserInfo().then((u) => {
-        if (u?.id) writeExcusedState(u.id, { excused: true, until: isoToday() }).catch(() => {});
-      });
+      // C7: writing the day (or invalidating the cache) alone never touches
+      // prayer alarms already scheduled with the OS — only the next
+      // scheduleAllNotifications call reads the excused flag. C8: an
+      // ifAbsent no-op ({written:false} — today's row already existed) must
+      // never be read as "she is excused" either. Fetch the authoritative
+      // rows and run the SAME sync app/haid.tsx's own screen uses: it
+      // derives the flag from the real classified days (never from the
+      // write attempt) and actually cancels/reschedules the OS
+      // notifications to match — regardless of whether this call wrote
+      // anything or was a no-op.
+      const u = await NativeAuth.getUserInfo();
+      if (!u?.id) return;
+      const fresh = await utils.cycle.getMine.fetch().catch(() => null);
+      if (!fresh?.enabled) return;
+      const days: CycleDay[] = fresh.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
+      const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}), enabled: true };
+      const language = await readStoredLanguage();
+      await syncHaidNotifications({ userId: u.id, days, settings, language }).catch(() => {});
     },
-    // No-op: on failure the flag above is simply never written.
+    // No-op: on failure nothing above runs — no flag write, no reschedule.
     onError: () => {},
   });
 
@@ -108,7 +129,15 @@ export function PrayerPopupModal({
   };
 
   const handleHaid = () => {
-    markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
+    if (mine.data?.enabled === true) {
+      markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
+    } else {
+      // Not enabled (or not yet known — fails safe toward not writing): the
+      // server rejects the write outright, so attempting it here would
+      // silently do nothing. Send her to enable it first — the consent
+      // notice + «تفعيل» button live on that screen.
+      router.push("/haid");
+    }
     // onDoNow, not onDismiss: this component holds no follow-up-timer ref of
     // its own (it lives in usePopupNotifications, app/_layout.tsx's caller),
     // and onDoNow is already wired to that hook's handleDoNow, which clears

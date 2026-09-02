@@ -212,7 +212,11 @@ export async function setupNotificationChannels(): Promise<void> {
     importance: Notifications.AndroidImportance.HIGH,
     sound: "default",
     bypassDnd: true,
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PUBLIC,
+    // C14: cycle/purity content must never surface on a bystander-readable
+    // lock screen — private conceals it on a secured device; the scheduled
+    // notification text itself is also kept generic as a fallback for
+    // devices with no secure lock (lib/haid-notifications.ts).
+    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
     enableLights: true,
     lightColor: "#DB2777",
   });
@@ -520,6 +524,17 @@ async function resolveHaidSkipUntil(): Promise<string | undefined> {
   const user = await NativeAuth.getUserInfo();
   if (!user?.id) return undefined;
   return (await readExcusedState(user.id)).until;
+}
+
+/**
+ * Reads the stored UI language directly from AsyncStorage — for callers
+ * (e.g. components/prayer-popup-modal.tsx) that render outside I18nProvider
+ * and so cannot use useI18n(). Same key + validated fallback app/_layout.tsx's
+ * own launch-time read already uses.
+ */
+export async function readStoredLanguage(): Promise<"nl" | "en" | "ar"> {
+  const raw = await AsyncStorage.getItem("@app_language");
+  return raw === "ar" || raw === "en" || raw === "nl" ? raw : "nl";
 }
 
 async function scheduleAllNotificationsInner(

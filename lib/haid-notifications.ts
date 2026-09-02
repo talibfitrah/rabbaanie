@@ -48,8 +48,11 @@ async function syncHaidNotificationsOnce({ userId, days, settings, language, tod
     if (when.getTime() <= Date.now()) continue;
     await Notifications.scheduleNotificationAsync({
       content: {
-        title: tx(language, "Bent u weer rein?", "Have you become pure?", "هل طهرتِ؟"),
-        body: tx(language, "Tik om uw dag bij te werken.", "Tap to update today.", "اضغطي لتحديث حال اليوم."),
+        // C14: generic on purpose — a bystander on a locked screen must not
+        // learn anything about her cycle from the notification itself; the
+        // detail lives only inside the app once opened.
+        title: tx(language, "Herinnering", "Reminder", "تذكير"),
+        body: tx(language, "Open de app voor details.", "Open the app for details.", "افتحي التطبيق للتفاصيل."),
         data: { type: HAID_NOTIFICATION_TYPES.purityCheck },
         // No interruptionLevel: timeSensitive — that entitlement is justified
         // to Apple once, on the prayer notifications (tests/adhan-ios-sound
@@ -68,8 +71,9 @@ async function syncHaidNotificationsOnce({ userId, days, settings, language, tod
     if (when.getTime() > Date.now()) {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: tx(language, "Verwachte reinheid vandaag", "Expected purity today", "الطهر متوقَّع اليوم"),
-          body: tx(language, "Ziet u reinheid? Verricht de ghusl en bid.", "If you see purity, perform ghusl and pray.", "إن رأيتِ الطهر فاغتسلي وصلّي."),
+          // C14: generic for the same reason as the purity check above.
+          title: tx(language, "Herinnering", "Reminder", "تذكير"),
+          body: tx(language, "Open de app voor details.", "Open the app for details.", "افتحي التطبيق للتفاصيل."),
           data: { type: HAID_NOTIFICATION_TYPES.ghuslReminder },
           ...(Platform.OS === "ios" ? { sound: "default" } : {}),
         },

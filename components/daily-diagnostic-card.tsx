@@ -4,7 +4,9 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { useAppState } from "@/lib/app-context";
-import { isoToday } from "@/lib/haid";
+import { useAuth } from "@/hooks/use-auth";
+import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
+import { syncHaidNotifications } from "@/lib/haid-notifications";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
 type Lang = "nl" | "en" | "ar";
@@ -102,9 +104,24 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
   // mine.data.enabled — she must have consented to the tracker (activation
   // is its own consent notice, app/haid.tsx) before this card writes to it.
   const { state } = useAppState();
+  const { user } = useAuth();
   const isWoman = state.parentProfile.gender === "vrouw";
   const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
-  const logBlood = trpc.cycle.upsertDay.useMutation({ onSuccess: () => utils.cycle.getMine.invalidate() });
+  const logBlood = trpc.cycle.upsertDay.useMutation({
+    onSuccess: async () => {
+      utils.cycle.getMine.invalidate();
+      // C7: writing the day (or invalidating the cache) alone never touches
+      // prayer alarms already scheduled with the OS — only
+      // syncHaidNotifications actually cancels and reschedules them, from
+      // the real (freshly-fetched) cycle state.
+      if (!user?.id) return;
+      const fresh = await utils.cycle.getMine.fetch().catch(() => null);
+      if (!fresh?.enabled) return;
+      const days: CycleDay[] = fresh.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
+      const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}), enabled: true };
+      syncHaidNotifications({ userId: user.id, days, settings, language: lang }).catch(() => {});
+    },
+  });
   const cycleEnabled = mine.isSuccess && mine.data?.enabled === true;
 
   const [selected, setSelected] = useState<Record<string, { label: string; tone: DiagnosticTone }>>({});

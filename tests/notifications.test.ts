@@ -46,6 +46,7 @@ import {
   getScheduledCount,
   sendTestNotification,
   HAID_CHANNEL_ID,
+  readStoredLanguage,
   type NotificationPrefs,
 } from "../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -148,6 +149,16 @@ describe("Notifications module", () => {
       expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
         HAID_CHANNEL_ID,
         expect.objectContaining({ importance: Notifications.AndroidImportance.HIGH })
+      );
+    });
+
+    // C14: «هل طهرتِ؟» / «الطهر متوقَّع اليوم» must not be readable by a
+    // bystander on a locked device — the channel itself must not be PUBLIC.
+    it("locks the haid channel to a private lock-screen visibility", async () => {
+      await setupNotificationChannels();
+      expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
+        HAID_CHANNEL_ID,
+        expect.objectContaining({ lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE })
       );
     });
   });
@@ -435,6 +446,23 @@ describe("Notifications module", () => {
 
     it("is stable for the same sound choice", () => {
       expect(prayerChannelId("takbeer_2")).toBe(prayerChannelId("takbeer_2"));
+    });
+  });
+
+  // C7: components/prayer-popup-modal.tsx renders outside I18nProvider and
+  // needs a language for syncHaidNotifications — same storage key +
+  // validated fallback app/_layout.tsx's own launch-time read already uses.
+  describe("readStoredLanguage", () => {
+    it("returns a stored valid language", async () => {
+      (AsyncStorage.getItem as any).mockResolvedValueOnce("ar");
+      expect(await readStoredLanguage()).toBe("ar");
+    });
+
+    it("falls back to nl for nothing stored or an invalid value", async () => {
+      (AsyncStorage.getItem as any).mockResolvedValueOnce(null);
+      expect(await readStoredLanguage()).toBe("nl");
+      (AsyncStorage.getItem as any).mockResolvedValueOnce("fr");
+      expect(await readStoredLanguage()).toBe("nl");
     });
   });
 });

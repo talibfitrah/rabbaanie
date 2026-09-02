@@ -10,7 +10,7 @@ import { StatusBar } from "expo-status-bar";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { GestureHandlerRootView } from "react-native-gesture-handler";
 import "react-native-reanimated";
-import { Platform, BackHandler, View } from "react-native";
+import { Platform, BackHandler, View, AppState } from "react-native";
 import "@/lib/_core/nativewind-pressable";
 import { ThemeProvider } from "@/lib/theme-provider";
 import * as SplashScreen from "expo-splash-screen";
@@ -351,6 +351,7 @@ function NotificationLifecycle({
 }) {
   const { isAuthenticated, loading: authLoading } = useAuthContext();
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
+  const utils = trpc.useUtils();
   // Finishing the permissions screen has to re-run this pass, and nothing else
   // makes it. app/permissions-setup.tsx requests permission and then calls
   // completePermissionsSetup(), which flips this flag and persists it — it
@@ -480,6 +481,26 @@ function NotificationLifecycle({
     // why the .finally above keys on the current eligibility.
     permissionsSetupDone,
   ]);
+
+  // C10: an already-open device otherwise never refetches these. The
+  // QueryClient defaults below (staleTime 5min, refetchOnWindowFocus:false)
+  // mean a remote purity/disable on another device, or a co-wife
+  // name-revoke (husband hides names elsewhere), can sit stale on an open
+  // screen well past when it matters. Deliberately a SECOND, independent
+  // listener rather than folding into rescheduleOnForeground above: that one
+  // is throttled to once per calendar day for iOS's notification-horizon
+  // refill, but a same-day remote change must not wait for a new day.
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const subscription = AppState.addEventListener("change", (next) => {
+      if (next !== "active") return;
+      utils.cycle.getMine.invalidate();
+      utils.cycle.getPartner.invalidate();
+      utils.links.coWives.invalidate();
+      utils.links.coWivesVisibility.invalidate();
+    });
+    return () => subscription.remove();
+  }, [isAuthenticated, utils]);
 
   return null;
 }

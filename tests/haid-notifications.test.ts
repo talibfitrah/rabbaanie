@@ -91,6 +91,22 @@ describe("syncHaidNotifications", () => {
     expect(scheduled.filter((r) => r.content.data.type === "haid_purity_check")).toHaveLength(7); // capped to today..today+6
   });
 
+  // C14: a bystander glancing at a locked device must not learn anything
+  // about her cycle from the notification text itself — even with a private
+  // channel, an insecure/no lock screen still shows title+body in full.
+  it("keeps both notifications' title and body generic — no cycle/purity detail outside the app (C14)", async () => {
+    await syncHaidNotifications({ userId: 5, days, settings, language: "ar", today });
+    const checks = scheduled.filter((r) => r.content.data.type === "haid_purity_check");
+    const ghusl = scheduled.filter((r) => r.content.data.type === "haid_ghusl_reminder");
+    expect(checks.length).toBeGreaterThan(0);
+    expect(ghusl.length).toBeGreaterThan(0);
+    const leaky = /طهر|حائض|نفاس|غسل|pure|purity|cycle|period|ghusl/i;
+    for (const r of [...checks, ...ghusl]) {
+      expect(leaky.test(r.content.title)).toBe(false);
+      expect(leaky.test(r.content.body)).toBe(false);
+    }
+  });
+
   // Item D-1: cancelOwn()'s read-then-cancel and the schedule loop that
   // follows are not atomic. Two overlapping syncHaidNotifications calls (e.g.
   // two listeners reacting to the same getMine refetch) used to both read the
