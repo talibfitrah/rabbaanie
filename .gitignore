@@ -103,3 +103,6 @@ package-lock.json
 # User-supplied bug-report media (voice notes, screenshots) — not project files
 bugs/
 reg-prompt.png
+
+# Isolated worktrees for agent-driven implementation
+.worktrees/
