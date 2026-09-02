@@ -154,12 +154,13 @@ export function learnHabit(days: CycleDay[], settings: CycleSettings, before?: s
   const runs = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before));
   return median(runs.slice(-3).map((r) => r.dates.length));
 }
-/** Median of the last ≤6 start-to-start intervals of normal runs. */
+const MIN_CYCLE_INTERVALS = 3; // spec: "median of the last 3-6 start-to-start intervals" — below 3 is too thin to trust
+/** Median of the last ≤6 start-to-start intervals of normal runs; undefined below MIN_CYCLE_INTERVALS. */
 export function learnCycleLength(days: CycleDay[], settings: CycleSettings, before?: string): number | undefined {
   const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before)).slice(-7).map((r) => r.start);
   const gaps: number[] = [];
   for (let i = 1; i < starts.length; i++) gaps.push(diffDays(starts[i - 1], starts[i]));
-  return median(gaps); // already ≤6: 7 starts (sliced above) give at most 6 gaps
+  return gaps.length >= MIN_CYCLE_INTERVALS ? median(gaps) : undefined; // already ≤6: 7 starts (sliced above) give at most 6 gaps
 }
 
 /** The runs classify()/predict() see: the last one extended through unlogged days up to the habit (item E-2). */

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, type CycleDay, type CycleSettings } from "./haid";
+import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
@@ -156,9 +156,11 @@ describe("classify — pregnancy and nifas (decisions 10, 11)", () => {
 
 describe("classify — contraception (decision 12)", () => {
   it("with contraception, bleeding far from the expected start is istihada; bleeding at the expected start is haid", () => {
+    // 3 historical runs = only 2 start-to-start intervals — too thin to auto-learn (bug 2), so the
+    // "known cycle length" decision 12 requires is supplied explicitly, as a real settings override would.
     const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
-    const onTime = classify([...history, ...blood(span("2026-08-24", 3))], S({ contraception: true, habitLength: 5 }), "2026-08-24", "2026-08-26");
-    const offTime = classify([...history, ...blood(span("2026-08-12", 3))], S({ contraception: true, habitLength: 5 }), "2026-08-12", "2026-08-14");
+    const onTime = classify([...history, ...blood(span("2026-08-24", 3))], S({ contraception: true, habitLength: 5, cycleLength: 28 }), "2026-08-24", "2026-08-26");
+    const offTime = classify([...history, ...blood(span("2026-08-12", 3))], S({ contraception: true, habitLength: 5, cycleLength: 28 }), "2026-08-12", "2026-08-14");
     expect(statusOf(onTime, "2026-08-25").status).toBe("haid");
     expect(statusOf(offTime, "2026-08-13").status).toBe("istihada");
   });
@@ -182,6 +184,16 @@ describe("learning", () => {
     const cls = classify(days, S(), "2026-09-01", "2026-09-03", "2026-09-03");
     expect(isExcusedToday(cls, "2026-09-03")).toBe(true); // classify still assumes haid (DEFAULT_HAID_DAYS window)
     expect(excusedState(cls, p, "2026-09-03")).toEqual({ excused: true, until: "2026-09-03" }); // safe "at least today" — agrees with classify, asserts nothing further
+  });
+  it("bug 2: needs at least 3 start-to-start intervals (4 complete runs) before learning a cycle length", () => {
+    const closedRun = (start: string) => [...blood([start]), { date: addDays(start, 1), flow: "dry" as const }];
+    const twoRuns = [...closedRun("2026-07-21"), ...closedRun("2026-09-01")]; // 1 interval — too thin
+    expect(learnCycleLength(twoRuns, S())).toBeUndefined();
+    expect(predict(twoRuns, S(), "2026-09-05").cycleLength).toBe(DEFAULT_CYCLE_LENGTH); // falls back
+    expect(predict(twoRuns, S({ cycleLength: 21 }), "2026-09-05").cycleLength).toBe(21); // manual override always wins
+
+    const fourRuns = [...closedRun("2026-06-01"), ...closedRun("2026-06-29"), ...closedRun("2026-07-27"), ...closedRun("2026-08-24")]; // 3 intervals of 28 — enough
+    expect(learnCycleLength(fourRuns, S())).toBe(28);
   });
 });
 
