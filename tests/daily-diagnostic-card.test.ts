@@ -25,6 +25,21 @@ vi.mock("@/components/report-ai-content", () => ({ ReportAiContent: () => null }
 // every pre-existing test below (none of them exercise the excused hook)
 // keeps isWoman false, exactly like before this component knew about gender.
 vi.mock("@/lib/app-context", () => ({ useAppState: () => ({ state: { parentProfile: { gender: h.gender } } }) }));
+// C7: the excused-answer hook now also needs the signed-in user id
+// (syncHaidNotifications's userId) — useAuth delegates to a real React
+// context (@/lib/auth-context) this file's bare-bones react mock cannot
+// support, same reason useAppState above is stubbed rather than imported.
+vi.mock("@/hooks/use-auth", () => ({ useAuth: () => ({ user: h.user }) }));
+// C7: syncHaidNotifications is what actually cancels/reschedules the OS
+// prayer alarms — stubbed so this file stays a pure unit test of the
+// card's own wiring, not lib/haid-notifications' (that module owns its own
+// tests/haid-notifications.test.ts).
+vi.mock("@/lib/haid-notifications", () => ({
+  syncHaidNotifications: (input: unknown) => {
+    h.syncCalls.push(input);
+    return Promise.resolve({ excused: false });
+  },
+}));
 
 // The card is also exercised as a component below (the freshness suite), so
 // trpc needs more than an empty stub: this fake stands in for the query cache
@@ -46,12 +61,21 @@ const h = vi.hoisted(() => ({
   // Overrides the `selected` useState below so a test can simulate "she
   // already tapped an option" without a real renderer/click.
   selectedOverride: undefined as Record<string, { label: string; tone: string }> | undefined,
+  // C7: excused-answer hook's post-write sync fixtures.
+  user: { id: 7 } as any,
+  freshMine: { enabled: true, settings: {}, days: [] } as any,
+  syncCalls: [] as any[],
+  // logBlood's mock mutate() invokes onSuccess synchronously and stashes
+  // whatever it returns here, so a test can await the real (async)
+  // onSuccess before asserting on h.syncCalls.
+  logBloodOnSuccess: undefined as Promise<unknown> | undefined,
 }));
 
 vi.mock("@/lib/trpc", () => ({
   trpc: {
     useUtils: () => ({
       dailyDiagnostic: { getToday: { invalidate: async (input?: unknown) => { h.invalidateCalls.push(input); } } },
+      cycle: { getMine: { invalidate: () => {}, fetch: async () => h.freshMine } },
     }),
     dailyDiagnostic: {
       getToday: { useQuery: (_input: unknown, opts?: unknown) => { h.queryOpts = opts; return h.query; } },
@@ -65,7 +89,14 @@ vi.mock("@/lib/trpc", () => ({
     // Called unconditionally every render by the excused-answer hook.
     cycle: {
       getMine: { useQuery: () => h.mine },
-      upsertDay: { useMutation: () => ({ mutate: (input: any) => { h.upsertCalls.push(input); } }) },
+      upsertDay: {
+        useMutation: (opts?: any) => ({
+          mutate: (input: any) => {
+            h.upsertCalls.push(input);
+            h.logBloodOnSuccess = opts?.onSuccess?.();
+          },
+        }),
+      },
     },
   },
 }));
@@ -265,6 +296,10 @@ describe("DailyDiagnosticCard — excused-answer hook writes to the cycle tracke
     h.selectedOverride = undefined;
     h.gender = "man";
     h.mine = { data: undefined, isSuccess: false };
+    h.user = { id: 7 };
+    h.freshMine = { enabled: true, settings: {}, days: [] };
+    h.syncCalls = [];
+    h.logBloodOnSuccess = undefined;
   });
 
   function tapSubmit() {
@@ -282,6 +317,38 @@ describe("DailyDiagnosticCard — excused-answer hook writes to the cycle tracke
     tapSubmit();
 
     expect(h.upsertCalls).toEqual([{ date: isoToday(), flow: "blood", ifAbsent: true }]);
+  });
+
+  // C7: writing the day (or invalidating the cache) alone never touches
+  // prayer alarms already scheduled with the OS — only syncHaidNotifications
+  // actually cancels and reschedules them, from a freshly-fetched, real
+  // cycle state (never from the write attempt itself).
+  it("C7: after logging blood, awaits a fresh fetch and runs syncHaidNotifications so prayer alarms actually pause", async () => {
+    const { isoToday } = await import("@/lib/haid");
+    h.gender = "vrouw";
+    h.mine = { data: { enabled: true, settings: {}, days: [] }, isSuccess: true };
+    h.selectedOverride = { prayer: { label: excusedLabel, tone: "neutral" } };
+    h.freshMine = { enabled: true, settings: { habitLength: 7 }, days: [{ date: isoToday(), flow: "blood" }] };
+
+    tapSubmit();
+    await h.logBloodOnSuccess;
+
+    expect(h.syncCalls).toHaveLength(1);
+    expect(h.syncCalls[0]).toMatchObject({ userId: 7, language: "en" });
+    expect(h.syncCalls[0].days).toEqual([{ date: isoToday(), flow: "blood", color: undefined, ghusl: undefined }]);
+    expect(h.syncCalls[0].settings).toMatchObject({ enabled: true, habitLength: 7 });
+  });
+
+  it("C7: the tracker reporting disabled by the time of the fresh fetch skips the sync entirely", async () => {
+    h.gender = "vrouw";
+    h.mine = { data: { enabled: true, settings: {}, days: [] }, isSuccess: true };
+    h.selectedOverride = { prayer: { label: excusedLabel, tone: "neutral" } };
+    h.freshMine = { enabled: false, settings: null, days: [] };
+
+    tapSubmit();
+    await h.logBloodOnSuccess;
+
+    expect(h.syncCalls).toEqual([]);
   });
 
   it("woman, tracker NOT enabled: does not write", () => {

@@ -21,34 +21,37 @@ describe("prayer popup — haid button (item C: never overwrite, pause only afte
     expect(src).toContain("ifAbsent: true");
   });
 
-  it("pauses prayers (writeExcusedState) only inside the mutation's onSuccess, never before it fires", () => {
+  // C7: writing the day (or invalidating the cache) alone never touches
+  // prayer alarms already scheduled with the OS — only syncHaidNotifications
+  // actually cancels and reschedules them. C8: an ifAbsent no-op
+  // ({written:false} — today's row already existed) must not be read as
+  // "she is excused" either. onSuccess now awaits a fresh getMine fetch and
+  // runs the SAME sync app/haid.tsx's own screen uses: it derives the
+  // excused flag from the real classified days (never from the mutation's
+  // own write-attempt result) and reschedules the OS notifications to match.
+  it("pauses prayers via syncHaidNotifications, from freshly-fetched real cycle data, only inside the mutation's onSuccess", () => {
     const mutationStart = src.indexOf("trpc.cycle.upsertDay.useMutation(");
     const mutationEnd = src.indexOf("if (!notification)", mutationStart);
     expect(mutationStart).toBeGreaterThan(-1);
     expect(mutationEnd).toBeGreaterThan(mutationStart);
     const mutationCall = src.slice(mutationStart, mutationEnd);
     expect(mutationCall).toContain("onSuccess");
-    expect(mutationCall).toContain("writeExcusedState");
+    expect(mutationCall).toContain("utils.cycle.getMine.fetch()");
+    expect(mutationCall).toContain("syncHaidNotifications(");
     expect(mutationCall).toContain("onError");
+    // Never forced true from the mutation's own result — nothing in this
+    // file reads written/result any more, only the refetched real rows.
+    expect(mutationCall).not.toContain("writeExcusedState(u.id, { excused: true, until: isoToday() })");
 
     // handleHaid used to write the excused flag itself, before calling
-    // mutate() — the exact "blind pre-write" this item removes. The flag's
-    // only remaining source is the mutation config above.
+    // mutate() — the exact "blind pre-write" item C removed. The pause only
+    // ever comes from the mutation config above.
     const handleHaidStart = src.indexOf("const handleHaid");
     expect(handleHaidStart).toBeGreaterThan(-1);
     const handleHaidEnd = src.indexOf("\n  };", handleHaidStart);
     const handleHaidBody = src.slice(handleHaidStart, handleHaidEnd);
     expect(handleHaidBody).not.toContain("writeExcusedState");
-  });
-
-  // C8: an ifAbsent no-op ({written:false} — today's row already existed)
-  // must not be read as "she is excused". onSuccess now derives the flag
-  // from the write result via lib/haid-state's deriveExcusedAfterWrite
-  // instead of unconditionally forcing {excused:true}.
-  it("derives the excused flag from the write result instead of assuming success means excused", () => {
-    expect(src).toContain("deriveExcusedAfterWrite");
-    expect(src).toContain("result.written");
-    expect(src).not.toContain("writeExcusedState(u.id, { excused: true, until: isoToday() })");
+    expect(handleHaidBody).not.toContain("syncHaidNotifications");
   });
 });
 

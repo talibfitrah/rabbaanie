@@ -15,8 +15,9 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
 import { trpc } from "@/lib/trpc";
-import { writeExcusedState, deriveExcusedAfterWrite } from "@/lib/haid-state";
-import { isoToday } from "@/lib/haid";
+import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
+import { syncHaidNotifications } from "@/lib/haid-notifications";
+import { readStoredLanguage } from "@/lib/notifications";
 import * as NativeAuth from "@/lib/_core/auth";
 import { loadAppState } from "@/lib/store";
 
@@ -78,25 +79,28 @@ export function PrayerPopupModal({
 
   const utils = trpc.useUtils();
   const markHaid = trpc.cycle.upsertDay.useMutation({
-    onSuccess: async (result) => {
+    onSuccess: async () => {
       utils.cycle.getMine.invalidate();
-      // Silence prayer reminders only once the server has actually accepted
-      // today's entry (a pre-write here used to pause prayers even when the
-      // mutation later failed). The tracker's own sync
-      // (syncHaidNotifications, run on the next data fetch) recomputes and
-      // extends `until` from the saved server rows.
-      //
-      // C8: {written:false} means today's row already existed and
-      // ifAbsent:true left it untouched — refetch and derive the real state
-      // instead of assuming she's excused just because the mutation
-      // "succeeded".
-      const fresh = result.written ? null : await utils.cycle.getMine.fetch().catch(() => null);
-      const state = deriveExcusedAfterWrite(result.written, fresh, isoToday());
-      if (!state) return;
+      // C7: writing the day (or invalidating the cache) alone never touches
+      // prayer alarms already scheduled with the OS — only the next
+      // scheduleAllNotifications call reads the excused flag. C8: an
+      // ifAbsent no-op ({written:false} — today's row already existed) must
+      // never be read as "she is excused" either. Fetch the authoritative
+      // rows and run the SAME sync app/haid.tsx's own screen uses: it
+      // derives the flag from the real classified days (never from the
+      // write attempt) and actually cancels/reschedules the OS
+      // notifications to match — regardless of whether this call wrote
+      // anything or was a no-op.
       const u = await NativeAuth.getUserInfo();
-      if (u?.id) writeExcusedState(u.id, state).catch(() => {});
+      if (!u?.id) return;
+      const fresh = await utils.cycle.getMine.fetch().catch(() => null);
+      if (!fresh?.enabled) return;
+      const days: CycleDay[] = fresh.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
+      const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(fresh.settings ?? {}), enabled: true };
+      const language = await readStoredLanguage();
+      await syncHaidNotifications({ userId: u.id, days, settings, language }).catch(() => {});
     },
-    // No-op: on failure the flag above is simply never written.
+    // No-op: on failure nothing above runs — no flag write, no reschedule.
     onError: () => {},
   });
 

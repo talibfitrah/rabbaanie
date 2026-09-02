@@ -526,6 +526,17 @@ async function resolveHaidSkipUntil(): Promise<string | undefined> {
   return (await readExcusedState(user.id)).until;
 }
 
+/**
+ * Reads the stored UI language directly from AsyncStorage — for callers
+ * (e.g. components/prayer-popup-modal.tsx) that render outside I18nProvider
+ * and so cannot use useI18n(). Same key + validated fallback app/_layout.tsx's
+ * own launch-time read already uses.
+ */
+export async function readStoredLanguage(): Promise<"nl" | "en" | "ar"> {
+  const raw = await AsyncStorage.getItem("@app_language");
+  return raw === "ar" || raw === "en" || raw === "nl" ? raw : "nl";
+}
+
 async function scheduleAllNotificationsInner(
   language: "nl" | "en" | "ar",
   skipPrayersUntil?: string

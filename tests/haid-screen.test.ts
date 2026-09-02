@@ -37,7 +37,11 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
   });
 
   it("every mutation gets an onError handler alongside its onSuccess", () => {
-    const successCount = (src.match(/onSuccess: invalidate/g) || []).length;
+    // Not "onSuccess: invalidate" specifically — disable's onSuccess (C9) is
+    // a custom function that calls invalidate() plus syncHaidNotifications,
+    // not the bare shorthand the other three use. The invariant is that
+    // every mutation with a success handler also has this error handler.
+    const successCount = (src.match(/onSuccess: /g) || []).length;
     const errorCount = (src.match(/onError: onMutationError/g) || []).length;
     expect(successCount).toBe(4); // upsertDay, deleteDay, saveSettings, disable
     expect(errorCount).toBe(4);
@@ -61,6 +65,22 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
 
   it("date fields are validated with a real calendar round-trip, not just the regex shape", () => {
     expect(src).toContain('new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s');
+  });
+});
+
+// C9: disable() used to only invalidate cycle.getMine — the screen effect
+// that would otherwise call syncHaidNotifications explicitly bails when
+// settings.enabled is false, so a stale excused flag + purity/ghusl alarms
+// from before disabling survived indefinitely. Disable deletes all her days
+// server-side, so an empty days list always resolves to excused:false.
+describe("app/haid.tsx disable() clears the pause immediately (C9)", () => {
+  it("does not rely on the screen effect — it syncs (empty days) right in onSuccess", () => {
+    const start = src.indexOf("const disable = trpc.cycle.disable.useMutation({");
+    const end = src.indexOf("\n\n", start);
+    expect(start).toBeGreaterThan(-1);
+    expect(end).toBeGreaterThan(start);
+    const block = src.slice(start, end);
+    expect(block).toContain("syncHaidNotifications({ userId: user.id, days: [], settings: DEFAULT_SETTINGS, language: lang })");
   });
 });
 
