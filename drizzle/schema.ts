@@ -957,6 +957,13 @@ export const partnerships = mysqlTable("partnerships", {
    * event, not a decline (see revokePartnerProfileAccess in server/db.ts).
    */
   profileAccessDeclinedAt: timestamp("profileAccessDeclinedAt"),
+  /**
+   * Husband-only switch (spec 2026-09-02-cowife-visibility-design.md, msg
+   * 2549): while true on ALL of his active confirmed rows, each of those
+   * wives may see the OTHER wives' names via links.coWives. Defaults false;
+   * a partnership created later starts false too — no inheritance (YAGNI).
+   */
+  coWivesVisible: boolean("coWivesVisible").notNull().default(false),
 });
 
 export type Partnership = typeof partnerships.$inferSelect;

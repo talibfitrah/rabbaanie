@@ -5931,3 +5931,68 @@ export async function deleteAllCycleDays(userId: number): Promise<void> {
   if (!db) return;
   await db.delete(cycleDays).where(eq(cycleDays.userId, userId));
 }
+
+// ---- co-wife visibility (husband-gated, names only) ----
+// spec: docs/superpowers/specs/2026-09-02-cowife-visibility-design.md
+
+/** Rows this husband is a party to that are currently active AND confirmed. */
+function hisActiveConfirmedRows(husbandId: number) {
+  return and(
+    or(eq(partnerships.userId1, husbandId), eq(partnerships.userId2, husbandId)),
+    eq(partnerships.status, "active"),
+    eq(partnerships.confirmed, true),
+  );
+}
+
+/**
+ * Flags/unflags every one of the husband's active+confirmed partnership rows
+ * and returns how many that was. Not `affectedRows()` on the UPDATE itself:
+ * MySQL's affectedRows for UPDATE counts rows actually CHANGED, not matched
+ * (see affectedRows()'s own porting-hazard comment above) — re-toggling to
+ * the same value would undercount. A SELECT of the same WHERE has no such
+ * ambiguity on either dialect (same idiom as updateBroadcastSchedule).
+ */
+export async function setCoWivesVisible(husbandId: number, visible: boolean): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const where = hisActiveConfirmedRows(husbandId);
+  const matched = await db.select({ id: partnerships.id }).from(partnerships).where(where);
+  // updatedAt is onUpdateNow() on this column — no need to stamp it here.
+  await db.update(partnerships).set({ coWivesVisible: visible }).where(where);
+  return matched.length;
+}
+
+/** True only when the husband has ≥1 active confirmed partnership and every one of them is flagged. */
+export async function getCoWivesVisibility(husbandId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ v: partnerships.coWivesVisible }).from(partnerships).where(hisActiveConfirmedRows(husbandId));
+  return rows.length > 0 && rows.every((r) => r.v);
+}
+
+/**
+ * A wife's co-wives, by id and name only. [] unless HER OWN row has the flag
+ * on (INV-1 stays the default) — and, per wife, only for co-wives whose OWN
+ * row is also flagged (a wife added after the husband's last toggle starts
+ * unflagged on both sides until he re-toggles).
+ */
+export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null }>> {
+  const db = await getDb();
+  if (!db) return [];
+  const mine = await db
+    .select()
+    .from(partnerships)
+    .where(and(or(eq(partnerships.userId1, wifeId), eq(partnerships.userId2, wifeId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true)))
+    .limit(1);
+  const row = mine[0];
+  if (!row || !row.coWivesVisible) return [];
+  const husbandId = row.userId1 === wifeId ? row.userId2 : row.userId1;
+  const others = await db
+    .select({ u1: partnerships.userId1, u2: partnerships.userId2, v: partnerships.coWivesVisible })
+    .from(partnerships)
+    .where(hisActiveConfirmedRows(husbandId));
+  const ids = others.filter((o) => o.v).map((o) => (o.u1 === husbandId ? o.u2 : o.u1)).filter((id) => id !== wifeId);
+  if (!ids.length) return [];
+  const names = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids));
+  return names.map((n) => ({ id: n.id, name: n.name ?? null }));
+}

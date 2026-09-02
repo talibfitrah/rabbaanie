@@ -2643,6 +2643,45 @@ export const linksRouter = router({
   }),
 
   /**
+   * Husband-only switch (spec 2026-09-02-cowife-visibility-design.md, msg
+   * 2549, after the live cross-wife leak in msgs 2544-2547): while on, every
+   * one of his wives sees the other wives' NAMES only (links.coWives).
+   */
+  setCoWivesVisible: protectedProcedure
+    .input(z.object({ visible: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const myGender = resolveGender(
+        (ctx.user as any).gender,
+        (ctx.user.profileData as any)?.parentProfile?.gender,
+      );
+      if (myGender !== "man") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "not allowed" });
+      }
+      await db.setCoWivesVisible(ctx.user.id, input.visible);
+      return { visible: input.visible };
+    }),
+
+  /** Husband reads his own switch state; anyone else gets `false`. */
+  coWivesVisibility: protectedProcedure.query(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "man") return { visible: false };
+    return { visible: await db.getCoWivesVisibility(ctx.user.id) };
+  }),
+
+  /** Wife-only: her co-wives' names, only while her husband's switch is on. */
+  coWives: protectedProcedure.query(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "vrouw") return [];
+    return db.listCoWives(ctx.user.id);
+  }),
+
+  /**
    * Get partner's profile data. Owner-mandated gender gating: a husband
    * reads his wife's full profile unconditionally; a wife reads her
    * husband's full profile only with his active grant — and only once the
