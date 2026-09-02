@@ -10,7 +10,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform } from "react-native";
+import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform, Alert } from "react-native";
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
@@ -105,8 +105,9 @@ export function PrayerPopupModal({
       const language = await readStoredLanguage();
       await syncHaidNotifications({ userId: u.id, days, settings, language }).catch(() => {});
     },
-    // No-op: on failure nothing above runs — no flag write, no reschedule.
-    onError: () => {},
+    // On failure nothing above runs (no flag write, no reschedule); tell her
+    // so a swallowed network/precondition error isn't mistaken for success.
+    onError: () => { Alert.alert("تعذّر الحفظ", "لم يُحفَظ، حاولي مرة أخرى."); },
   });
 
   if (!notification) return null;

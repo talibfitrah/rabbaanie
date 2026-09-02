@@ -80,7 +80,9 @@ export default function HaidScreen() {
   const byDate = useMemo(() => new Map(classified.map((c) => [c.date, c])), [classified]);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const todayCls = byDate.get(today)!;
-  const selectedCls = byDate.get(selected) ?? todayCls;
+  // An out-of-classify-window date (grid navigated far past/future) has no
+  // entry — show a neutral pure day for THAT date, not today's rulings.
+  const selectedCls = byDate.get(selected) ?? { date: selected, status: "tuhr" as const, ghuslDue: false, advisories: [] };
   const rulings = rulingsFor(selectedCls);
   const ramadan = useMemo(() => ramadanQadaaDays(classified.filter((c) => c.date <= today), (d) => { const h = getIslamicDate(new Date(`${d}T12:00:00`), null); return { month: h.month, year: h.year }; }), [classified, today]);
 
