@@ -28,6 +28,12 @@ vi.mock("react-native", () => ({
   Platform: { OS: "android" },
 }));
 
+// scheduleAllNotificationsInner now resolves the haid prayer-pause itself when
+// no skipPrayersUntil is passed (item A) — reads the user id the way
+// app/_layout.tsx does. Default to "no user", so every pre-existing test below
+// (none of them exercise the haid pause) keeps today's unpaused behaviour.
+vi.mock("@/lib/_core/auth", () => ({ getUserInfo: vi.fn().mockResolvedValue(null) }));
+
 import {
   prayerChannelId,
   DEFAULT_NOTIFICATION_PREFS,
@@ -43,6 +49,7 @@ import {
 } from "../lib/notifications";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import * as Notifications from "expo-notifications";
+import * as NativeAuth from "@/lib/_core/auth";
 
 describe("Notifications module", () => {
   beforeEach(() => {
@@ -277,6 +284,47 @@ describe("Notifications module", () => {
       releaseFirst();
       await Promise.all([a, b]);
       expect(starts).toEqual(["first", "second"]);
+    });
+  });
+
+  /**
+   * Item A (haid tracker): scheduleAllNotifications is called from ~10 places
+   * with no skipPrayersUntil argument, plus once a day from
+   * lib/notification-refresh.ts. Without this, the prayer pause (decision 14)
+   * only ever survived the ONE call lib/haid-notifications.ts makes itself —
+   * every other call silently un-paused her prayer reminders.
+   */
+  describe("scheduleAllNotifications — resolves the haid pause itself (item A)", () => {
+    it("a bare call still pauses prayer notifications through the stored excused-until date, but keeps adhkaar", async () => {
+      (NativeAuth.getUserInfo as any).mockResolvedValueOnce({ id: 5 });
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
+        if (key === "@prayer_method") return "uoif";
+        if (key === "@haid_excused_5") return JSON.stringify({ excused: true, until: "2099-01-07" }); // far future: always still excused
+        return null;
+      });
+
+      await scheduleAllNotifications("ar");
+
+      const calls = (Notifications.scheduleNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.content.data.type === "prayer")).toBe(false);
+      expect(calls.some((c: any) => c.content.data.type === "adhkaar")).toBe(true);
+    });
+
+    it("with no stored excused flag, prayers are scheduled normally", async () => {
+      (NativeAuth.getUserInfo as any).mockResolvedValueOnce({ id: 5 });
+      (AsyncStorage.getItem as any).mockImplementation((key: string) => {
+        if (key === "@notification_prefs") return JSON.stringify({ ...DEFAULT_NOTIFICATION_PREFS, enabled: true });
+        if (key === "@prayer_location") return JSON.stringify({ country: "Nederland", city: "Amsterdam", lat: 52.37, lng: 4.89, tz: "Europe/Amsterdam" });
+        if (key === "@prayer_method") return "uoif";
+        return null; // no @haid_excused_5 key stored
+      });
+
+      await scheduleAllNotifications("ar");
+
+      const calls = (Notifications.scheduleNotificationAsync as any).mock.calls.map((c: any[]) => c[0]);
+      expect(calls.some((c: any) => c.content.data.type === "prayer")).toBe(true);
     });
   });
 

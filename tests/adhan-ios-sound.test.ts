@@ -24,6 +24,10 @@ const mockPlatform = vi.hoisted(() => ({
   OS: "ios" as "ios" | "android" | "web",
 }));
 vi.mock("react-native", () => ({ Platform: mockPlatform }));
+// lib/notifications.ts now reads the signed-in user to resolve the haid
+// prayer-pause when no skipPrayersUntil is passed (item A) — the real
+// module pulls in expo-secure-store, which chokes outside a real RN runtime.
+vi.mock("@/lib/_core/auth", () => ({ getUserInfo: vi.fn().mockResolvedValue(null) }));
 
 vi.mock("expo-notifications", () => ({
   setNotificationChannelAsync: vi.fn().mockResolvedValue(null),
