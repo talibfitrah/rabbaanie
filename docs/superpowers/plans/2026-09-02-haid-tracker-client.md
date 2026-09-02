@@ -1369,3 +1369,59 @@ Adapt `selected.prayer` to the card's real selection shape (`selected[q.category
 - [ ] `npx vitest run 2>&1 | tail -5` → failed count still 26 (the pre-existing env set) and the new tests all pass; paste the tail.
 - [ ] `git log --oneline main..HEAD` lists C1–C9 commits (plus the spec/plan commits).
 - [ ] Report literal outputs. Do not push, build, or deploy.
+
+---
+
+### Task C11: Co-wife visibility UI (spec `docs/superpowers/specs/2026-09-02-cowife-visibility-design.md`)
+
+**Files:**
+- Modify: `drizzle/schema.ts` (parity: `coWivesVisible` on `partnerships`), `server/db.ts` + `server/routers.ts` (parity copy of server-plan S6 Step 3, dialect-agnostic as written), `app/(tabs)/messages.tsx`
+- Test: `tests/cowife-visibility-ui.test.ts` (source guard) + `tests/cowife-visibility.test.ts` (parity copy of S6 Step 2)
+
+- [ ] **Step 1: Parity server surface** — copy S6 (schema column with `boolean("coWivesVisible").notNull().default(false)` in mysql-core, db functions, router procedures, tests). `npx tsc --noEmit` clean.
+
+- [ ] **Step 2: Failing UI source-guard test:**
+```ts
+import { describe, it, expect } from "vitest";
+import { readFileSync } from "fs";
+describe("co-wife visibility UI", () => {
+  const src = readFileSync("app/(tabs)/messages.tsx", "utf8");
+  it("husband has the switch; wife has a names-only list with the co-wife badge", () => {
+    expect(src).toContain("trpc.links.coWivesVisibility");
+    expect(src).toContain("trpc.links.setCoWivesVisible");
+    expect(src).toContain("trpc.links.coWives");
+    expect(src).toContain("الأخت الشريكة");
+    expect(src).toContain("السماح لزوجاتي بمعرفة بعضهن");
+  });
+});
+```
+
+- [ ] **Step 3: Implement in `app/(tabs)/messages.tsx`** (أسرتي section, next to the per-wife panels / partner cards):
+```tsx
+// husband: switch (render where knownToBeMan)
+const coWivesVis = trpc.links.coWivesVisibility.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
+const setCoWivesVis = trpc.links.setCoWivesVisible.useMutation({ onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); } });
+// ...
+{knownToBeMan && (
+  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
+    <Text style={{ color: colors.foreground, flex: 1 }}>{tx(lang, "Mijn echtgenotes mogen elkaars naam zien", "Let my wives see each other's names", "السماح لزوجاتي بمعرفة بعضهن (بالاسم فقط)")}</Text>
+    <Switch value={!!coWivesVis.data?.visible} disabled={setCoWivesVis.isPending} onValueChange={(v) => setCoWivesVis.mutate({ visible: v })} />
+  </View>
+)}
+// wife: names-only list (render where the viewer is a woman)
+const coWives = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
+{userGender === "vrouw" && (coWives.data?.length ?? 0) > 0 && (
+  <View style={{ marginTop: 12 }}>
+    <Text style={/* section header style used for "Partner" */}>{tx(lang, "Mede-echtgenotes", "Co-wives", "الأخوات الشريكات")}</Text>
+    {coWives.data!.map((w) => (
+      <View key={w.id} style={/* partner card style */}>
+        <Text style={/* name style */}>{w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}</Text>
+        <Text style={/* badge style */}>{tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}</Text>
+      </View>
+    ))}
+  </View>
+)}
+```
+Import `Switch` from react-native if not already imported. No chat button, no navigation, no children under a co-wife.
+
+- [ ] **Step 4: Run → PASS; `npx tsc --noEmit` clean; commit** `feat(links): co-wife names visible only when the husband allows it`.

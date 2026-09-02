@@ -451,3 +451,87 @@ Use the file's real `tOf(lang)` helper signature (`:136-138`). The submit valida
 - [ ] `npx vitest run 2>&1 | tail -4` → all new tests pass; only the 11 pre-existing `@apple/app-store-server-library` load failures remain
 - [ ] `npm run build` → exit 0 (esbuild bundle builds; do NOT copy `dist` anywhere)
 - [ ] `git log --oneline master..HEAD` shows S1–S4 commits. Report the exact outputs of the three commands above. Do not push, do not deploy.
+
+---
+
+### Task S6: Co-wife visibility, husband-gated (spec `docs/superpowers/specs/2026-09-02-cowife-visibility-design.md`)
+
+**Files:**
+- Modify: `drizzle/schema.ts` (`partnerships` table: add `coWivesVisible: boolean("coWivesVisible").notNull().default(false)`), `server/db.ts` (append), `server/routers.ts` (`linksRouter`: three procedures)
+- Create: `drizzle/postgres-partnerships-cowives-visible.sql`
+- Test: `tests/cowife-visibility.test.ts`
+
+**Interfaces (Produces):**
+```ts
+// server/db.ts
+export async function setCoWivesVisible(husbandId: number, visible: boolean): Promise<number>  // rows updated (active+confirmed only)
+export async function getCoWivesVisibility(husbandId: number): Promise<boolean>              // ≥1 active confirmed row and all flagged
+export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null }>>
+// routers.ts linksRouter
+links.setCoWivesVisible({ visible: boolean }) → { visible }      // FORBIDDEN unless caller resolves to "man"
+links.coWivesVisibility() → { visible }                            // men only; women get { visible: false }
+links.coWives() → Array<{ id; name }>                              // women only; men get []
+```
+
+- [ ] **Step 1: Migration** `drizzle/postgres-partnerships-cowives-visible.sql`:
+```sql
+ALTER TABLE partnerships ADD COLUMN IF NOT EXISTS "coWivesVisible" boolean NOT NULL DEFAULT false;
+```
+and the matching column in `drizzle/schema.ts`.
+
+- [ ] **Step 2: Failing tests** `tests/cowife-visibility.test.ts` using the fake-pg-client style of `tests/polygamy-privacy-and-cap.test.ts` (or the db-mock style of `tests/cycle-router-access.test.ts` for the router layer). Fixture: husband H(man, id 1), wives A(vrouw, 2) and B(vrouw, 3) with active confirmed rows, ex-wife X(4) with a dissolved row, unrelated man M(5).
+  - `setCoWivesVisible(1, true)` returns 2 (A and B rows), leaves X's row untouched.
+  - After enabling: `listCoWives(2)` → `[{ id: 3, name: "B" }]`, `listCoWives(3)` → `[{ id: 2, name: "A" }]`; payload keys are exactly `id`,`name`.
+  - Before enabling / after `setCoWivesVisible(1, false)`: both → `[]`.
+  - `listCoWives(4)` (dissolved) → `[]`; `listCoWives(1)` (a man) → `[]`.
+  - Router: `links.setCoWivesVisible` as wife A → FORBIDDEN; `links.coWives` as H → `[]`.
+
+- [ ] **Step 3: Implement** in `server/db.ts`:
+```ts
+export async function setCoWivesVisible(husbandId: number, visible: boolean): Promise<number> {
+  const db = await getDb(); if (!db) throw new Error("Database not available");
+  const rows = await db.update(partnerships).set({ coWivesVisible: visible, updatedAt: new Date() })
+    .where(and(or(eq(partnerships.userId1, husbandId), eq(partnerships.userId2, husbandId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true)))
+    .returning({ id: partnerships.id });
+  return rows.length;
+}
+export async function getCoWivesVisibility(husbandId: number): Promise<boolean> {
+  const db = await getDb(); if (!db) return false;
+  const rows = await db.select({ v: partnerships.coWivesVisible }).from(partnerships)
+    .where(and(or(eq(partnerships.userId1, husbandId), eq(partnerships.userId2, husbandId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true)));
+  return rows.length > 0 && rows.every((r) => r.v);
+}
+export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null }>> {
+  const db = await getDb(); if (!db) return [];
+  const mine = await db.select().from(partnerships)
+    .where(and(or(eq(partnerships.userId1, wifeId), eq(partnerships.userId2, wifeId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true))).limit(1);
+  const row = mine[0];
+  if (!row || !row.coWivesVisible) return [];
+  const husbandId = row.userId1 === wifeId ? row.userId2 : row.userId1;
+  const others = await db.select({ u1: partnerships.userId1, u2: partnerships.userId2, v: partnerships.coWivesVisible }).from(partnerships)
+    .where(and(or(eq(partnerships.userId1, husbandId), eq(partnerships.userId2, husbandId)), eq(partnerships.status, "active"), eq(partnerships.confirmed, true)));
+  const ids = others.filter((o) => o.v).map((o) => (o.u1 === husbandId ? o.u2 : o.u1)).filter((id) => id !== wifeId);
+  if (!ids.length) return [];
+  const names = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids));
+  return names.map((n) => ({ id: n.id, name: n.name ?? null }));
+}
+```
+and in `linksRouter` (next to `listPartners`), using the file's `callerGender`:
+```ts
+setCoWivesVisible: protectedProcedure.input(z.object({ visible: z.boolean() })).mutation(async ({ ctx, input }) => {
+  if ((await callerGender(ctx.user.id)) !== "man") throw new TRPCError({ code: "FORBIDDEN", message: "not allowed" });
+  await db.setCoWivesVisible(ctx.user.id, input.visible);
+  return { visible: input.visible };
+}),
+coWivesVisibility: protectedProcedure.query(async ({ ctx }) => {
+  if ((await callerGender(ctx.user.id)) !== "man") return { visible: false };
+  return { visible: await db.getCoWivesVisibility(ctx.user.id) };
+}),
+coWives: protectedProcedure.query(async ({ ctx }) => {
+  if ((await callerGender(ctx.user.id)) !== "vrouw") return [];
+  return db.listCoWives(ctx.user.id);
+}),
+```
+(`listCoWives` itself never returns anything for a man because a man's partnership row is looked up from his side; the router gate is the second layer.)
+
+- [ ] **Step 4: Run → PASS; typecheck 48; full suite; commit** `feat(links): husband-gated co-wife visibility (names only)`.
