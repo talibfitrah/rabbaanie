@@ -324,7 +324,17 @@ export function syncWivesFromPartners(
     }
   }
 
-  return { state: { ...state, wives, order, initialStayQueue, turnIndex, undoStack: [] }, newWives };
+  // Only clear a pending undo when the rotation ACTUALLY changed structure
+  // (a wife left, or the turn moved). A sync that finds nothing different
+  // (the common periodic case) must not silently discard the husband's undo.
+  const structural =
+    order.length !== state.order.length ||
+    order.some((id, i) => id !== state.order[i]) ||
+    turnIndex !== state.turnIndex;
+  return {
+    state: { ...state, wives, order, initialStayQueue, turnIndex, undoStack: structural ? [] : state.undoStack },
+    newWives,
+  };
 }
 
 /**

@@ -210,6 +210,16 @@ describe("undoLastNight", () => {
     expect(withNew.undoStack).toEqual([]);
   });
 
+  it("a sync that changes nothing structural KEEPS the pending undo (P3)", () => {
+    let s = createQasmState([HIND, ZAYNAB]);
+    s = advance(s, {}, "d1");
+    expect(s.undoStack.length).toBe(1);
+    // same wives, same order -> no structural change -> undo survives
+    const { state: synced } = syncWivesFromPartners(s, [HIND, ZAYNAB]);
+    expect(synced.undoStack).toEqual(s.undoStack);
+    expect(undoLastNight(synced).history.length).toBe(0);
+  });
+
   it("the undoStack never nests or grows unbounded across many advances (P2/P3)", () => {
     let s = createQasmState([HIND, ZAYNAB]);
     for (let i = 0; i < 20; i++) s = advance(s, {}, `d${i}`);

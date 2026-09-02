@@ -534,7 +534,7 @@ export default function QasmScreen() {
                     <View style={{ flexDirection: rowDir, alignItems: "center", gap: 6 }}>
                       {h.gifted && <MaterialIcons name="card-giftcard" size={13} color={colors.warning} />}
                       <Text style={{ fontSize: 12, color: colors.muted }}>{h.date}</Text>
-                      <Pressable onPress={() => handleDeleteNightRecord(index)} hitSlop={8}>
+                      <Pressable onPress={debounced(`del-night-${index}`, () => handleDeleteNightRecord(index))} hitSlop={8}>
                         <MaterialIcons name="delete-outline" size={16} color={colors.error} />
                       </Pressable>
                     </View>
@@ -586,7 +586,7 @@ export default function QasmScreen() {
                       <Text style={{ fontSize: 12, color: colors.foreground }}>{nameFor(d.wifeId)}</Text>
                       <View style={{ flexDirection: rowDir, alignItems: "center", gap: 6 }}>
                         <Text style={{ fontSize: 11, color: colors.muted }}>{d.date}</Text>
-                        <Pressable onPress={() => handleDeleteDrawRecord(index)} hitSlop={8}>
+                        <Pressable onPress={debounced(`del-draw-${index}`, () => handleDeleteDrawRecord(index))} hitSlop={8}>
                           <MaterialIcons name="delete-outline" size={15} color={colors.error} />
                         </Pressable>
                       </View>
