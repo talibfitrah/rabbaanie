@@ -457,6 +457,25 @@ export function applyPartnerReplace(local: AppState, fresh: AppState): AppState 
 }
 
 /**
+ * applyPartnerReplace for rehydrateFromServer's two raw replaces (below),
+ * which run right after login and cannot use stateRef.current as the "local"
+ * recovery source the way hydrate() does. The Log Out button explicitly
+ * calls resetState() before logout() BECAUSE otherwise "the next account to
+ * log in on this device inherits it" (see app/(tabs)/settings.tsx) — a
+ * session that ends without that button (e.g. a token expiring) leaves a
+ * PREVIOUS account's profile sitting in stateRef.current, and merging from it
+ * would leak that account's gender/maritalStatus/hasNoChildren into whoever
+ * logs in next. Loading this account's own saved copy from disk (keyed by
+ * userId) is scoped correctly regardless of what is sitting in memory.
+ */
+export async function applyPartnerReplaceForAccount(
+  userId: number | null,
+  fresh: AppState,
+): Promise<AppState> {
+  return applyPartnerReplace(await loadAppState(userId), fresh);
+}
+
+/**
  * Combines a hydrated local AppState with a freshly-fetched server AppState
  * (see syncFromServer) into what hydrate()'s background sync should persist.
  * Merges children/environments/issues/actionPlans/partner-info — unchanged
@@ -1201,9 +1220,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       if (serverState && serverState.onboardingCompleted) {
         console.log("[AppContext] Server has data, restoring...");
-        setState(serverState);
-        stateRef.current = serverState;
-        await saveAppState(serverState, userIdRef.current);
+        // Guard against demoting a complete profile — see
+        // applyPartnerReplaceForAccount: profile.get can report
+        // onboardingCompleted:true while this user's own gender/
+        // maritalStatus/hasNoChildren are blank server-side.
+        const safeServerState = await applyPartnerReplaceForAccount(
+          userIdRef.current,
+          serverState,
+        );
+        setState(safeServerState);
+        stateRef.current = safeServerState;
+        await saveAppState(safeServerState, userIdRef.current);
         console.log("[AppContext] State restored from server after login");
       } else {
         // Also try local state (maybe user had data locally before logout).
@@ -1231,9 +1258,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           stateRef.current?.locationSettings,
         );
         if (mergedState && mergedState.onboardingCompleted) {
-          setState(mergedState);
-          stateRef.current = mergedState;
-          await saveAppState(mergedState, userIdRef.current);
+          const safeMergedState = await applyPartnerReplaceForAccount(
+            userIdRef.current,
+            mergedState,
+          );
+          setState(safeMergedState);
+          stateRef.current = safeMergedState;
+          await saveAppState(safeMergedState, userIdRef.current);
         }
       }
     } catch (e) {

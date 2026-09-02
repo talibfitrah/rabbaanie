@@ -44,6 +44,7 @@ vi.mock("@/lib/authed-fetch", () => ({
   authedFetch: (...args: unknown[]) => authedFetch(...args),
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { defaultAppState, isProfileComplete } from "@/lib/store";
 import {
   syncToServer,
@@ -52,6 +53,7 @@ import {
   mergeServerState,
   fillParentProfileFromServer,
   applyPartnerReplace,
+  applyPartnerReplaceForAccount,
   locationSettingsForSync,
   locationSettingsFromServer,
 } from "@/lib/app-context";
@@ -745,5 +747,76 @@ describe("applyPartnerReplace (guards the linked-partner full replace)", () => {
     const result = applyPartnerReplace(completeLocal, freshBlankGenderManyChildren);
 
     expect(isProfileComplete(result)).toBe(true);
+  });
+});
+
+/**
+ * rehydrateFromServer's two raw replaces (post-login, and after a partner
+ * sync re-fetch) need the same applyPartnerReplace guard hydrate() got — but
+ * they cannot use stateRef.current as the recovery source the way hydrate()
+ * does. hydrate() only ever guards its OWN account's in-memory state, already
+ * loaded for that account at mount. rehydrateFromServer runs right after
+ * login: the Log Out button explicitly calls resetState() before logout()
+ * BECAUSE otherwise "the next account to log in on this device inherits it"
+ * (see app/(tabs)/settings.tsx) — a session that ends without that button
+ * (e.g. a token expiring) leaves a PREVIOUS account's profile sitting in
+ * stateRef.current, and applyPartnerReplace(stateRef.current, fresh) would
+ * leak that account's gender/maritalStatus/hasNoChildren into whoever logs
+ * in next. applyPartnerReplaceForAccount loads THIS account's own saved copy
+ * from disk (keyed by userId) instead, which is correctly scoped regardless
+ * of what is sitting in memory.
+ */
+describe("applyPartnerReplaceForAccount (rehydrateFromServer's post-login guard)", () => {
+  const ownSavedProfile = {
+    firstName: "Yusuf",
+    lastName: "Ali",
+    birthDate: "1990-01-01",
+    country: "Netherlands",
+    city: "Amsterdam",
+    street: "Hoofdstraat",
+    houseNumber: "1",
+    phoneNumber: "0612345678",
+    gender: "man",
+    maritalStatus: "getrouwd",
+    hasNoChildren: true,
+  };
+
+  beforeEach(() => {
+    vi.mocked(AsyncStorage.getItem).mockClear();
+  });
+
+  it("recovers this account's own saved profile, not whatever is currently in memory", async () => {
+    vi.mocked(AsyncStorage.getItem).mockResolvedValueOnce(
+      JSON.stringify({
+        ...defaultAppState,
+        onboardingCompleted: true,
+        parentProfile: { ...defaultAppState.parentProfile, ...ownSavedProfile },
+        children: [],
+      }),
+    );
+    const freshFromLogin = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      // profile.get right after login: own per-user fields still blank.
+      parentProfile: { ...defaultAppState.parentProfile },
+      children: [],
+    };
+
+    const result = await applyPartnerReplaceForAccount(42, freshFromLogin);
+
+    expect(isProfileComplete(result)).toBe(true);
+    expect(result.parentProfile.gender).toBe("man");
+    expect(result.parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("reads this account's own AsyncStorage key (scoped by userId), not the in-memory state", async () => {
+    await applyPartnerReplaceForAccount(42, {
+      ...defaultAppState,
+      onboardingCompleted: true,
+    });
+
+    expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+      expect.stringContaining("_42"),
+    );
   });
 });
