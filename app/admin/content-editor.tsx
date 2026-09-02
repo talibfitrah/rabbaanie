@@ -13,6 +13,7 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
@@ -22,6 +23,7 @@ const AGE_RANGES = ["0-2", "3-5", "5-7", "7-10", "10-12", "12-16", "all"];
 
 export default function ContentEditorScreen() {
   const colors = useColors();
+  const L3 = useL3();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
@@ -206,7 +208,7 @@ export default function ContentEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="العنوان (عربي)"
+            placeholder={L3("العنوان (عربي)", "Titel (Arabisch)", "Title (Arabic)")}
             placeholderTextColor={colors.muted}
             value={titleAr}
             onChangeText={setTitleAr}
@@ -239,7 +241,7 @@ export default function ContentEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="المحتوى (عربي)"
+            placeholder={L3("المحتوى (عربي)", "Inhoud (Arabisch)", "Content (Arabic)")}
             placeholderTextColor={colors.muted}
             value={contentAr}
             onChangeText={setContentAr}
@@ -271,7 +273,7 @@ export default function ContentEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="المصدر (عربي)"
+            placeholder={L3("المصدر (عربي)", "Bron (Arabisch)", "Source (Arabic)")}
             placeholderTextColor={colors.muted}
             value={sourceAr}
             onChangeText={setSourceAr}

@@ -530,7 +530,7 @@ export default function ChildDetailScreen() {
         <View className="mb-6">
           <View
             style={{
-              flexDirection: "row",
+              flexDirection: isRTL ? "row-reverse" : "row",
               justifyContent: "space-between",
               alignItems: "center",
             }}
@@ -860,7 +860,6 @@ export default function ChildDetailScreen() {
                   "Choose a date",
                   "اختر تاريخًا",
                 )}
-                isRTL={lang === "ar"}
                 maxDate={new Date()}
                 minDate={new Date(2000, 0, 1)}
               />
@@ -875,7 +874,7 @@ export default function ChildDetailScreen() {
               >
                 {tx(lang, "Geslacht", "Gender", "الجنس")}
               </Text>
-              <View style={{ flexDirection: "row", gap: 8, marginBottom: 16 }}>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 16 }}>
                 <Pressable
                   onPress={() => setEditGender("jongen")}
                   style={({ pressed }) => [
@@ -1189,7 +1188,7 @@ export default function ChildDetailScreen() {
           style={{
             backgroundColor: colors.primary + "08",
             borderColor: colors.primary + "30",
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             alignItems: "center",
             gap: 12,
           }}
@@ -1233,7 +1232,7 @@ export default function ChildDetailScreen() {
         />
 
         {/* PDF Export & Chat Notes */}
-        <View style={{ flexDirection: "row", gap: 10, marginBottom: 16 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginBottom: 16 }}>
           <Pressable
             onPress={async () => {
               const { generateChildDossier, shareChildDossier } =
@@ -1262,7 +1261,7 @@ export default function ChildDetailScreen() {
                 borderRadius: 12,
                 paddingVertical: 14,
                 alignItems: "center",
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 justifyContent: "center",
                 gap: 8,
                 borderWidth: 1,
@@ -1285,7 +1284,7 @@ export default function ChildDetailScreen() {
                 borderRadius: 12,
                 paddingVertical: 14,
                 alignItems: "center",
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 justifyContent: "center",
                 gap: 8,
                 borderWidth: 1,
@@ -1419,7 +1418,7 @@ export default function ChildDetailScreen() {
                 }}
                 style={({ pressed }) => [
                   {
-                    flexDirection: "row",
+                    flexDirection: isRTL ? "row-reverse" : "row",
                     alignItems: "center",
                     gap: 6,
                     backgroundColor: "#E8F5E9",
@@ -2141,6 +2140,7 @@ function AdvisorPlansForChild({
   lang: Lang;
   colors: any;
 }) {
+  const { isRTL } = useI18n();
   const [plans, setPlans] = useState<any[]>([]);
   const [expanded, setExpanded] = useState<string | null>(null);
 
@@ -2256,7 +2256,7 @@ function AdvisorPlansForChild({
             style={({ pressed }) => [
               {
                 padding: 14,
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 justifyContent: "space-between",
                 opacity: pressed ? 0.7 : 1,
@@ -2285,7 +2285,7 @@ function AdvisorPlansForChild({
               </Text>
             </View>
             <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 10 }}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 10 }}
             >
               <Pressable
                 onPress={() => removePlan(plan.id)}
@@ -2605,7 +2605,7 @@ function StructuredIssueCard({
               )}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
             {isFather && (
               <Pressable
                 onPress={(e) => {

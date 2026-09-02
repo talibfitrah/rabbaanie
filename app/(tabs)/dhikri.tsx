@@ -175,7 +175,7 @@ export default function DhikriScreen() {
 
         {/* Repetitions badge */}
         {item.repetitions > 1 && (
-          <View style={styles.repBadge}>
+          <View style={[styles.repBadge, isRTL ? { right: 8 } : { left: 8 }]}>
             <Text style={styles.repText}>{item.repetitions}x</Text>
           </View>
         )}
@@ -213,7 +213,7 @@ export default function DhikriScreen() {
       {/* Qur'aan access - FIRST */}
       <Pressable
         onPress={() => router.push("/(tabs)/concepts")}
-        style={({ pressed }) => [styles.quranCard, pressed && { opacity: 0.9 }]}
+        style={({ pressed }) => [styles.quranCard, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.9 }]}
       >
         <MaterialIcons name="auto-stories" size={32} color="#1B4332" />
         <View style={{ flex: 1, gap: 2 }}>
@@ -231,7 +231,7 @@ export default function DhikriScreen() {
       <Text style={styles.sectionGroupTitle}>
         {tx(lang, "Adhkaar van nu", "Current Adhkaar", "أذكار الوقت الحالي")}
       </Text>
-      <View style={styles.quickAccessRow}>
+      <View style={[styles.quickAccessRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {ADHKAR_SECTIONS.slice(0, 4).map((sec) => (
           <Pressable
             key={sec.id}
@@ -250,7 +250,7 @@ export default function DhikriScreen() {
       <Text style={styles.sectionGroupTitle}>
         {tx(lang, "Gebed & aanbidding", "Prayer & Worship", "الصلاة والعبادة")}
       </Text>
-      <View style={styles.quickAccessRow}>
+      <View style={[styles.quickAccessRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {ADHKAR_SECTIONS.slice(4, 8).map((sec) => (
           <Pressable
             key={sec.id}
@@ -269,7 +269,7 @@ export default function DhikriScreen() {
       <Text style={styles.sectionGroupTitle}>
         {tx(lang, "Situaties & toestanden", "Situations & States", "الأحوال والمواقف")}
       </Text>
-      <View style={styles.quickAccessRow}>
+      <View style={[styles.quickAccessRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         {ADHKAR_SECTIONS.slice(8).map((sec) => (
           <Pressable
             key={sec.id}
@@ -287,7 +287,7 @@ export default function DhikriScreen() {
       {/* All categories button */}
       <Pressable
         onPress={() => setTabMode("all_categories")}
-        style={({ pressed }) => [styles.allCategoriesBtn, pressed && { opacity: 0.8 }]}
+        style={({ pressed }) => [styles.allCategoriesBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.8 }]}
       >
         <MaterialIcons name="apps" size={20} color="#1B4332" />
         <Text style={styles.allCategoriesBtnText}>
@@ -395,7 +395,7 @@ export default function DhikriScreen() {
 
     return (
       <ScrollView contentContainerStyle={styles.sectionsContainer} showsVerticalScrollIndicator={false}>
-        <Pressable onPress={() => setTabMode("adhkar")} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}>
+        <Pressable onPress={() => setTabMode("adhkar")} style={({ pressed }) => [styles.backBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={24} color="#1B4332" />
           <Text style={styles.backBtnText}>{tx(lang, "Terug", "Back", "رجوع")}</Text>
         </Pressable>
@@ -405,7 +405,7 @@ export default function DhikriScreen() {
             <Text style={styles.categoryGroupTitle}>
               {categoryNames[catKey]?.[lang] || catKey}
             </Text>
-            <View style={styles.contextGrid}>
+            <View style={[styles.contextGrid, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               {contexts.map((ctx) => (
                 <Pressable
                   key={ctx}
@@ -427,7 +427,7 @@ export default function DhikriScreen() {
   // Adhkar list view
   const renderAdhkarList = () => (
     <View style={{ flex: 1 }}>
-      <Pressable onPress={() => { setSelectedContext(null); setAdhkarList([]); }} style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.7 }]}>
+      <Pressable onPress={() => { setSelectedContext(null); setAdhkarList([]); }} style={({ pressed }) => [styles.backBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}>
         <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={24} color="#1B4332" />
         <Text style={styles.backBtnText}>{tx(lang, "Terug", "Back", "رجوع")}</Text>
       </Pressable>
@@ -494,7 +494,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   quickAccessRow: {
-    flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
   },
@@ -513,7 +512,6 @@ const styles = StyleSheet.create({
     textAlign: "center",
   },
   allCategoriesBtn: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
@@ -530,7 +528,6 @@ const styles = StyleSheet.create({
     color: "#1B4332",
   },
   quranCard: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 14,
     marginTop: 20,
@@ -551,7 +548,6 @@ const styles = StyleSheet.create({
   },
   // Adhkar list styles
   backBtn: {
-    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 10,
@@ -610,7 +606,6 @@ const styles = StyleSheet.create({
   repBadge: {
     position: "absolute",
     top: 8,
-    left: 8,
     backgroundColor: "#DBEAFE",
     borderRadius: 10,
     paddingHorizontal: 8,
@@ -660,7 +655,6 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   contextGrid: {
-    flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
   },

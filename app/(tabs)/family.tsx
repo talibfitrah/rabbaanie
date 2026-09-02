@@ -1135,7 +1135,7 @@ function AdviceCard({
           marginBottom: 8,
         }}
       >
-        <Text style={{ fontSize: 16, marginRight: 8 }}>{icon}</Text>
+        <Text style={{ fontSize: 16, ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }) }}>{icon}</Text>
         <Text style={{ color: accent, fontSize: 13, fontWeight: "700" }}>
           {title}
         </Text>
@@ -1426,7 +1426,7 @@ function DayDetailCard({
               borderRadius: 8,
               paddingHorizontal: 6,
               paddingVertical: 2,
-              marginLeft: 6,
+              ...(isRTL ? { marginRight: 6 } : { marginLeft: 6 }),
             }}
           >
             <Text style={{ color: chipColor, fontSize: 8, fontWeight: "700" }}>
@@ -1434,7 +1434,7 @@ function DayDetailCard({
             </Text>
           </View>
         )}
-        <Text style={{ color: colors.muted, fontSize: 10, marginLeft: 6 }}>
+        <Text style={{ color: colors.muted, fontSize: 10, ...(isRTL ? { marginRight: 6 } : { marginLeft: 6 }) }}>
           {expanded ? "▲" : "▼"}
         </Text>
       </Pressable>
@@ -1582,7 +1582,7 @@ function StatusBadge({
         paddingVertical: 4,
       }}
     >
-      <Text style={{ fontSize: 9, marginRight: 3, color: textColor }}>
+      <Text style={{ fontSize: 9, ...(isRTL ? { marginLeft: 3 } : { marginRight: 3 }), color: textColor }}>
         {icon}
       </Text>
       <Text style={{ fontSize: 10, fontWeight: "500", color: textColor }}>
@@ -2214,7 +2214,7 @@ export default function FamilyScreen() {
               ) : null}
             </View>
           </View>
-          <View style={{ flexDirection: "row", gap: 8, alignItems: "center" }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, alignItems: "center" }}>
             <Pressable
               onPress={() => {
                 if (!partnerChoiceReady) {
@@ -2522,7 +2522,7 @@ export default function FamilyScreen() {
               </View>
             </View>
             <View
-              style={{ flexDirection: "row", alignItems: "center", gap: 8 }}
+              style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}
             >
               <Pressable
                 onPress={() =>
@@ -2726,7 +2726,7 @@ export default function FamilyScreen() {
                       +{ev.daysUntil}
                     </Text>
                   </View>
-                  <View style={{ flex: 1, marginLeft: 6 }}>
+                  <View style={{ flex: 1, ...(isRTL ? { marginRight: 6 } : { marginLeft: 6 }) }}>
                     <View
                       style={{
                         flexDirection: isRTL ? "row-reverse" : "row",

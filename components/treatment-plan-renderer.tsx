@@ -479,7 +479,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   taskRow: {
-    flexDirection: "row",
     alignItems: "flex-start",
     paddingVertical: 8,
     gap: 10,

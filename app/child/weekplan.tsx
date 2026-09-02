@@ -767,7 +767,7 @@ export default function WeekplanScreen() {
             },
           ]}
         >
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
             {refreshing && <ActivityIndicator size="small" color="#fff" />}
             <Text style={{ color: "#fff", fontSize: 14, fontWeight: "700" }}>
               {refreshing
@@ -812,6 +812,7 @@ export default function WeekplanScreen() {
                 style={[
                   s.groupHeader,
                   {
+                    flexDirection: isRTL ? "row-reverse" : "row",
                     backgroundColor: group.bgColor,
                     borderColor: group.borderColor,
                   },
@@ -1047,7 +1048,6 @@ const s = StyleSheet.create({
   loadingBox: { alignItems: "center", paddingVertical: 40 },
   groupContainer: { marginBottom: 20 },
   groupHeader: {
-    flexDirection: "row",
     alignItems: "center",
     padding: 14,
     borderRadius: 14,

@@ -63,7 +63,7 @@ export default function FindSpecialistScreen() {
 
   return (
     <ScreenContainer edges={["top", "left", "right", "bottom"]}>
-      <View style={[s.header, { borderBottomColor: colors.border }]}>
+      <View style={[s.header, { borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <TouchableOpacity onPress={() => router.back()} style={s.backBtn}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color={colors.foreground} />
         </TouchableOpacity>
@@ -88,7 +88,7 @@ export default function FindSpecialistScreen() {
 
         {/* Location info */}
         {city ? (
-          <View style={[s.locationBadge, { backgroundColor: "#E8F5E9" }]}>
+          <View style={[s.locationBadge, { backgroundColor: "#E8F5E9", flexDirection: isRTL ? "row-reverse" : "row", alignSelf: isRTL ? "flex-end" : "flex-start" }]}>
             <MaterialIcons name="location-on" size={16} color="#2E7D32" />
             <Text style={{ color: "#2E7D32", fontSize: 13, fontWeight: "500" }}>
               {tx(lang, `Zoeken in: ${city}`, `Searching in: ${city}`, `البحث في: ${city}`)}
@@ -108,7 +108,7 @@ export default function FindSpecialistScreen() {
 
         {/* Match type indicator */}
         {!isLoading && specialists.length > 0 && (
-          <View style={[s.matchBadge, { backgroundColor: matchType === "city" ? "#E8F5E9" : "#FFF3E0" }]}>
+          <View style={[s.matchBadge, { backgroundColor: matchType === "city" ? "#E8F5E9" : "#FFF3E0", flexDirection: isRTL ? "row-reverse" : "row", alignSelf: isRTL ? "flex-end" : "flex-start" }]}>
             <MaterialIcons
               name={matchType === "city" ? "location-city" : "near-me"}
               size={16}
@@ -182,7 +182,7 @@ export default function FindSpecialistScreen() {
             {/* Actions */}
             <View style={[s.actionRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <TouchableOpacity
-                style={[s.chatBtn, { backgroundColor: "#2E7D32" }]}
+                style={[s.chatBtn, { backgroundColor: "#2E7D32", flexDirection: isRTL ? "row-reverse" : "row" }]}
                 onPress={() => openChat(spec.userId || spec.user?.id, spec.displayName || spec.user?.name || "Educational Supervisor", spec.functionRoles)}
               >
                 <MaterialIcons name="chat" size={18} color="#fff" />
@@ -193,7 +193,7 @@ export default function FindSpecialistScreen() {
 
               {spec.phone && (
                 <TouchableOpacity
-                  style={[s.phoneBtn, { borderColor: "#2E7D32" }]}
+                  style={[s.phoneBtn, { borderColor: "#2E7D32", flexDirection: isRTL ? "row-reverse" : "row" }]}
                   onPress={() => callPhone(spec.phone)}
                 >
                   <MaterialIcons name="phone" size={18} color="#2E7D32" />
@@ -229,7 +229,7 @@ export default function FindSpecialistScreen() {
               fallbackPhones.map((fp: any, idx: number) => (
                 <TouchableOpacity
                   key={idx}
-                  style={s.phoneCard}
+                  style={[s.phoneCard, { flexDirection: isRTL ? "row-reverse" : "row" }]}
                   onPress={() => callPhone(fp.phone)}
                 >
                   <View style={{ flex: 1 }}>
@@ -255,7 +255,7 @@ export default function FindSpecialistScreen() {
         {/* Retry button */}
         {!isLoading && specialists.length === 0 && (
           <TouchableOpacity
-            style={[s.retryBtn, { backgroundColor: colors.primary }]}
+            style={[s.retryBtn, { backgroundColor: colors.primary, flexDirection: isRTL ? "row-reverse" : "row" }]}
             onPress={() => { findQuery.refetch(); browseQuery.refetch(); }}
           >
             <MaterialIcons name="refresh" size={20} color="#fff" />
@@ -270,15 +270,15 @@ export default function FindSpecialistScreen() {
 }
 
 const s = StyleSheet.create({
-  header: { flexDirection: "row", alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 0.5 },
+  header: { alignItems: "center", paddingHorizontal: 12, paddingVertical: 12, borderBottomWidth: 0.5 },
   backBtn: { width: 40, height: 40, justifyContent: "center", alignItems: "center" },
   headerTitle: { flex: 1, fontSize: 18, fontWeight: "700" },
   introCard: { borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1, alignItems: "center", gap: 10 },
   introText: { fontSize: 14, lineHeight: 22 },
-  locationBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, alignSelf: "flex-start", marginBottom: 12 },
+  locationBadge: { alignItems: "center", gap: 6, paddingHorizontal: 12, paddingVertical: 6, borderRadius: 20, marginBottom: 12 },
   loadingContainer: { alignItems: "center", gap: 12, paddingVertical: 40 },
   loadingText: { fontSize: 14 },
-  matchBadge: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, alignSelf: "flex-start", marginBottom: 12 },
+  matchBadge: { alignItems: "center", gap: 6, paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12, marginBottom: 12 },
   specialistCard: { borderRadius: 16, padding: 16, marginBottom: 12, borderWidth: 1 },
   specialistHeader: { alignItems: "center", marginBottom: 10 },
   avatar: { width: 48, height: 48, borderRadius: 24, backgroundColor: "#2E7D32", justifyContent: "center", alignItems: "center" },
@@ -292,18 +292,18 @@ const s = StyleSheet.create({
   roleText: { fontSize: 11, color: "#1565C0", fontWeight: "500" },
   bioText: { fontSize: 13, lineHeight: 19, marginBottom: 12 },
   actionRow: { gap: 10, marginTop: 4 },
-  chatBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
+  chatBtn: { alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12 },
   chatBtnText: { color: "#fff", fontWeight: "600", fontSize: 14 },
-  phoneBtn: { flexDirection: "row", alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
+  phoneBtn: { alignItems: "center", gap: 6, paddingHorizontal: 16, paddingVertical: 10, borderRadius: 12, borderWidth: 1.5 },
   phoneBtnText: { fontWeight: "600", fontSize: 14 },
   fallbackCard: { borderRadius: 16, padding: 16, borderWidth: 1, gap: 10, marginBottom: 16 },
   fallbackTitle: { fontSize: 16, fontWeight: "700", color: "#E65100" },
   fallbackDesc: { fontSize: 13, color: "#795548" },
-  phoneCard: { flexDirection: "row", alignItems: "center", backgroundColor: "#fff", borderRadius: 12, padding: 12, marginTop: 8 },
+  phoneCard: { alignItems: "center", backgroundColor: "#fff", borderRadius: 12, padding: 12, marginTop: 8 },
   phoneName: { fontSize: 15, fontWeight: "600", color: "#1a1a1a" },
   phoneLocation: { fontSize: 12, color: "#666", marginTop: 2 },
   phoneNumber: { fontSize: 14, color: "#2E7D32", fontWeight: "500", marginTop: 4 },
   noPhoneText: { fontSize: 13, color: "#795548", marginTop: 8 },
-  retryBtn: { flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, marginTop: 8 },
+  retryBtn: { alignItems: "center", justifyContent: "center", gap: 8, paddingVertical: 14, borderRadius: 12, marginTop: 8 },
   retryText: { color: "#fff", fontWeight: "600", fontSize: 15 },
 });

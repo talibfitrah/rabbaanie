@@ -229,7 +229,7 @@ export default function ReadScreen() {
 
           {/* Translation loading indicator */}
           {isTranslating && lang !== "ar" && (
-            <View style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", marginBottom: 16, gap: 8 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", marginBottom: 16, gap: 8 }}>
               <ActivityIndicator size="small" color={colors.primary} />
               <Text style={{ fontSize: 12, color: colors.muted }}>
                 {tx(lang, "Vertalen...", "Translating...", "\u062c\u0627\u0631\u064a \u0627\u0644\u062a\u0631\u062c\u0645\u0629...")}

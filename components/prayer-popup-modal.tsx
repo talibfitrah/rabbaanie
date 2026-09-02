@@ -120,6 +120,9 @@ export function PrayerPopupModal({
 
   const rulingColor = RULING_COLORS[notification.ruling] || "#059669";
   const rulingBgColor = RULING_BG_COLORS[notification.ruling] || "#ECFDF5";
+  // Outside I18nProvider (see above), so the gate comes from the stored language.
+  const isRTL = language === "ar";
+  const rowDir = { flexDirection: isRTL ? "row-reverse" : "row" } as const;
 
   const handleDoNow = () => {
     if (Platform.OS !== "web") {
@@ -193,7 +196,7 @@ export function PrayerPopupModal({
 
           {/* Follow-up question */}
           {isFollowUp && (
-            <View style={st.followUpBanner}>
+            <View style={[st.followUpBanner, rowDir]}>
               <MaterialIcons name="help-outline" size={18} color="#92400E" />
               <Text style={st.followUpText}>هل فعلت ذلك؟</Text>
             </View>
@@ -205,14 +208,14 @@ export function PrayerPopupModal({
               <>
                 <Pressable
                   onPress={handleDoNow}
-                  style={({ pressed }) => [st.primaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check-circle" size={20} color="#FFFFFF" />
                   <Text style={st.primaryButtonText}>نعم، الحمد لله</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
-                  style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="refresh" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>ذكرني مرة أخرى</Text>
@@ -220,7 +223,7 @@ export function PrayerPopupModal({
                 {isWoman && (
                   <Pressable
                     onPress={handleHaid}
-                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                    style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
                     <Text style={st.secondaryButtonText}>أنا حائض</Text>
@@ -231,14 +234,14 @@ export function PrayerPopupModal({
               <>
                 <Pressable
                   onPress={handleDoNow}
-                  style={({ pressed }) => [st.primaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check" size={20} color="#FFFFFF" />
                   <Text style={st.primaryButtonText}>أفعل الآن إن شاء الله</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
-                  style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
+                  style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="access-time" size={18} color="#4B5563" />
                   <Text style={st.secondaryButtonText}>أعد تذكيري بعد 10 دقائق</Text>
@@ -246,7 +249,7 @@ export function PrayerPopupModal({
                 {isWoman && (
                   <Pressable
                     onPress={handleHaid}
-                    style={({ pressed }) => [st.secondaryButton, pressed && { opacity: 0.85 }]}
+                    style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
                     <Text style={st.secondaryButtonText}>أنا حائض</Text>
@@ -413,7 +416,6 @@ const st = StyleSheet.create({
     writingDirection: "rtl",
   },
   followUpBanner: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     backgroundColor: "#FFFBEB",
@@ -433,7 +435,6 @@ const st = StyleSheet.create({
     gap: 10,
   },
   primaryButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,
@@ -449,7 +450,6 @@ const st = StyleSheet.create({
     writingDirection: "rtl",
   },
   secondaryButton: {
-    flexDirection: "row",
     alignItems: "center",
     justifyContent: "center",
     gap: 8,

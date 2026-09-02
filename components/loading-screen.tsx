@@ -59,7 +59,7 @@ function PulsingDot({ delay, colors }: { delay: number; colors: any }) {
 
 export function LoadingScreen() {
   const colors = useColors();
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
   const logoScale = useSharedValue(0.9);
   const logoOpacity = useSharedValue(0);
 
@@ -115,7 +115,7 @@ export function LoadingScreen() {
       </Text>
 
       {/* Loading dots */}
-      <View style={styles.dotsContainer}>
+      <View style={[styles.dotsContainer, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <PulsingDot delay={0} colors={colors} />
         <PulsingDot delay={200} colors={colors} />
         <PulsingDot delay={400} colors={colors} />
@@ -178,7 +178,6 @@ const styles = StyleSheet.create({
     marginBottom: 40,
   },
   dotsContainer: {
-    flexDirection: "row",
     alignItems: "center",
     marginBottom: 16,
   },

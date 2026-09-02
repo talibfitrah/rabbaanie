@@ -1,6 +1,7 @@
 import { useEffect, useRef } from "react";
 import { Animated, Text, View, StyleSheet, Platform } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useI18n } from "@/lib/i18n";
 
 interface SyncToastProps {
   visible: boolean;
@@ -13,6 +14,7 @@ interface SyncToastProps {
 export function SyncToast({ visible, message, type = "success", onHide, duration = 3500 }: SyncToastProps) {
   const translateY = useRef(new Animated.Value(100)).current;
   const opacity = useRef(new Animated.Value(0)).current;
+  const { isRTL } = useI18n();
 
   useEffect(() => {
     if (visible) {
@@ -43,12 +45,12 @@ export function SyncToast({ visible, message, type = "success", onHide, duration
     <Animated.View
       style={[
         styles.container,
-        { backgroundColor: bgColor, transform: [{ translateY }], opacity },
+        { backgroundColor: bgColor, transform: [{ translateY }], opacity, flexDirection: isRTL ? "row-reverse" : "row" },
       ]}
       pointerEvents="none"
     >
       <MaterialIcons name={iconName} size={20} color="#FFFFFF" />
-      <Text style={styles.text} numberOfLines={2}>{message}</Text>
+      <Text style={[styles.text, { textAlign: isRTL ? "right" : "left" }]} numberOfLines={2}>{message}</Text>
     </Animated.View>
   );
 }
@@ -59,7 +61,6 @@ const styles = StyleSheet.create({
     bottom: Platform.OS === "web" ? 30 : 100,
     left: 20,
     right: 20,
-    flexDirection: "row",
     alignItems: "center",
     gap: 10,
     paddingVertical: 14,

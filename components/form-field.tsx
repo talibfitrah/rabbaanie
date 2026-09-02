@@ -80,7 +80,7 @@ interface SelectFieldProps {
 
 export function SelectField({ value, options, onSelect, onChangeText, error = false }: SelectFieldProps) {
   const colors = useColors();
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
 
   const isOptionSelected = options.some(o => o.value === value);
   const [mode, setMode] = React.useState<"choice" | "open">(
@@ -102,7 +102,7 @@ export function SelectField({ value, options, onSelect, onChangeText, error = fa
   return (
     <View>
       {/* Toggle buttons: اختيار / جواب مفتوح */}
-      <View style={{ flexDirection: "row", marginBottom: 10, gap: 8 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginBottom: 10, gap: 8 }}>
         <Pressable
           onPress={handleSwitchToChoice}
           style={{
@@ -153,7 +153,7 @@ export function SelectField({ value, options, onSelect, onChangeText, error = fa
                 style={{
                   paddingHorizontal: 16, paddingVertical: 14,
                   backgroundColor: value === option.value ? colors.primary + "15" : colors.background,
-                  flexDirection: "row",
+                  flexDirection: isRTL ? "row-reverse" : "row",
                   alignItems: "center",
                   gap: 10,
                 }}
@@ -227,6 +227,7 @@ interface MultiSelectFieldProps {
 }
 
 export function MultiSelectField({ values, options, onToggle, error = false }: MultiSelectFieldProps) {
+  const { isRTL } = useI18n();
   const colors = useColors();
   return (
     <View style={{ borderRadius: 12, borderWidth: 1, borderColor: error ? colors.error : colors.border, overflow: "hidden" }}>
@@ -239,7 +240,7 @@ export function MultiSelectField({ values, options, onToggle, error = false }: M
               style={{
                 paddingHorizontal: 16, paddingVertical: 14,
                 backgroundColor: selected ? colors.primary + "15" : colors.background,
-                flexDirection: "row",
+                flexDirection: isRTL ? "row-reverse" : "row",
                 alignItems: "center",
                 gap: 10,
               }}
@@ -285,7 +286,7 @@ interface HybridFieldProps {
 
 export function HybridField({ value, options, onSelect, onChangeText, placeholder, error = false }: HybridFieldProps) {
   const colors = useColors();
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
   const isOptionSelected = options.some(o => o.value === value);
   const [mode, setMode] = React.useState<"choice" | "open">(
     !isOptionSelected && value.length > 0 ? "open" : "choice"
@@ -310,7 +311,7 @@ export function HybridField({ value, options, onSelect, onChangeText, placeholde
   return (
     <View>
       {/* Toggle buttons: اختيار / جواب مفتوح */}
-      <View style={{ flexDirection: "row", marginBottom: 10, gap: 8 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginBottom: 10, gap: 8 }}>
         <Pressable
           onPress={handleSwitchToChoice}
           style={{
@@ -361,7 +362,7 @@ export function HybridField({ value, options, onSelect, onChangeText, placeholde
                 style={{
                   paddingHorizontal: 16, paddingVertical: 14,
                   backgroundColor: value === option.value ? colors.primary + "15" : colors.background,
-                  flexDirection: "row",
+                  flexDirection: isRTL ? "row-reverse" : "row",
                   alignItems: "center",
                   gap: 10,
                 }}
@@ -473,7 +474,7 @@ interface HasanaatProgressBarProps {
 
 export function HasanaatProgressBar({ answeredCount, totalCount }: HasanaatProgressBarProps) {
   const colors = useColors();
-  const { language } = useI18n();
+  const { language, isRTL } = useI18n();
   const percentage = totalCount > 0 ? Math.round((answeredCount / totalCount) * 100) : 0;
 
   const getMessage = () => {
@@ -515,7 +516,7 @@ export function HasanaatProgressBar({ answeredCount, totalCount }: HasanaatProgr
       }}
     >
       {/* Header row */}
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: "#166534" }}>
           {language === "ar" ? "\u2728 حسنات الصدق" : language === "en" ? "\u2728 Hasanaat of Honesty" : "\u2728 Hasanaat van Eerlijkheid"}
         </Text>

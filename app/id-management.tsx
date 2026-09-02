@@ -8,6 +8,7 @@ import { trpc } from "@/lib/trpc";
 import { useRouter } from "expo-router";
 import QRCode from "react-native-qrcode-svg";
 import { DatePicker } from "@/components/date-picker";
+import { useI18n } from "@/lib/i18n";
 
 /**
  * ID Management & Parent-Child Linking Screen
@@ -23,6 +24,7 @@ import { DatePicker } from "@/components/date-picker";
 export default function IdManagementScreen() {
   const colors = useColors();
   const router = useRouter();
+  const { isRTL } = useI18n();
   const [birthDate, setBirthDate] = useState("");
   const [childPublicId, setChildPublicId] = useState("");
   const [relationship, setRelationship] = useState("parent");
@@ -167,7 +169,7 @@ export default function IdManagementScreen() {
           {/* QR Scanner Button */}
           <TouchableOpacity
             onPress={() => router.push("/qr-scanner")}
-            style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 14, alignItems: "center", marginBottom: 12, flexDirection: "row", justifyContent: "center", gap: 8 }}
+            style={{ backgroundColor: colors.primary, borderRadius: 10, paddingVertical: 14, alignItems: "center", marginBottom: 12, flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", gap: 8 }}
           >
             <Text style={{ color: "#fff", fontSize: 18 }}>📷</Text>
             <Text style={{ color: "#fff", fontWeight: "700", fontSize: 15 }}>
@@ -198,7 +200,7 @@ export default function IdManagementScreen() {
           />
 
           {/* Relationship selector */}
-          <View style={{ flexDirection: "row", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginBottom: 12, flexWrap: "wrap" }}>
             {[
               { value: "biological_father", label: "Vader / Father / أب" },
               { value: "biological_mother", label: "Moeder / Mother / أم" },
@@ -310,20 +312,21 @@ export default function IdManagementScreen() {
 
 function ChildCard({ child, colors, onShowQr }: { child: any; colors: any; onShowQr: (value: string, label: string) => void }) {
   const childParentsQuery = trpc.links.childParents.useQuery({ childId: child.id });
+  const { isRTL } = useI18n();
 
   return (
     <View style={{ backgroundColor: colors.background, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-      <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground }}>{child.name}</Text>
-          <Text style={{ fontSize: 12, color: colors.muted }}>
+          <Text style={{ fontSize: 15, fontWeight: "600", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{child.name}</Text>
+          <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>
             {child.birthDate || "Geen geboortedatum"}
           </Text>
         </View>
         {child.publicId && (
           <TouchableOpacity
             onPress={() => onShowQr(child.publicId, `${child.name} - QR`)}
-            style={{ backgroundColor: colors.primary + "15", borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: "row", alignItems: "center", gap: 4 }}
+            style={{ backgroundColor: colors.primary + "15", borderRadius: 8, paddingVertical: 6, paddingHorizontal: 10, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}
           >
             <Text style={{ fontSize: 11, fontWeight: "600", color: colors.primary, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace" }}>
               {child.publicId}
@@ -340,7 +343,7 @@ function ChildCard({ child, colors, onShowQr }: { child: any; colors: any; onSho
             Gekoppelde ouders / Linked parents / الوالدان المرتبطان:
           </Text>
           {childParentsQuery.data.map((parent: any) => (
-            <View key={parent.id} style={{ flexDirection: "row", alignItems: "center", gap: 6, marginTop: 4 }}>
+            <View key={parent.id} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginTop: 4 }}>
               <View style={{ width: 6, height: 6, borderRadius: 3, backgroundColor: parent.link?.confirmed ? colors.success : colors.warning }} />
               <Text style={{ fontSize: 12, color: colors.foreground }}>
                 {parent.name || "Onbekend"} ({parent.link?.relationship || "ouder"})

@@ -573,9 +573,9 @@ export default function LoginScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoCorrect={false}
-                    textAlign={isRTL ? "right" : "left"}
                     returnKeyType="next"
                     style={{
+                      textAlign: isRTL ? "right" : "left",
                       backgroundColor: colors.surface,
                       borderRadius: 10,
                       paddingHorizontal: 14,
@@ -607,15 +607,15 @@ export default function LoginScreen() {
                       placeholderTextColor={colors.muted}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
-                      textAlign={isRTL ? "right" : "left"}
                       returnKeyType="done"
                       onSubmitEditing={handleEmailLogin}
                       style={{
+                        textAlign: isRTL ? "right" : "left",
                         backgroundColor: colors.surface,
                         borderRadius: 10,
                         paddingHorizontal: 14,
                         paddingVertical: 12,
-                        paddingRight: 48,
+                        ...(isRTL ? { paddingLeft: 48 } : { paddingRight: 48 }),
                         fontSize: 15,
                         color: colors.foreground,
                         borderWidth: 1,
@@ -641,7 +641,7 @@ export default function LoginScreen() {
                       hitSlop={8}
                       style={{
                         position: "absolute",
-                        right: 4,
+                        ...(isRTL ? { left: 4 } : { right: 4 }),
                         top: 0,
                         minWidth: 44,
                         minHeight: 44,
@@ -727,7 +727,7 @@ export default function LoginScreen() {
                   <>
                     <View
                       style={{
-                        flexDirection: "row",
+                        flexDirection: isRTL ? "row-reverse" : "row",
                         alignItems: "center",
                         marginVertical: 12,
                       }}
@@ -761,7 +761,7 @@ export default function LoginScreen() {
                       onPress={() => handleGoogleAuth()}
                       disabled={loading}
                       style={{
-                        flexDirection: "row",
+                        flexDirection: isRTL ? "row-reverse" : "row",
                         alignItems: "center",
                         justifyContent: "center",
                         gap: 10,
@@ -807,7 +807,7 @@ export default function LoginScreen() {
                         disabled={loading}
                         accessibilityRole="button"
                         style={{
-                          flexDirection: "row",
+                          flexDirection: isRTL ? "row-reverse" : "row",
                           alignItems: "center",
                           justifyContent: "center",
                           gap: 10,

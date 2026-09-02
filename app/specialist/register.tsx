@@ -5,6 +5,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { useColors } from "@/hooks/use-colors";
 import { trpc } from "@/lib/trpc";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+import { useI18n } from "@/lib/i18n";
 
 const EXPERTISE_OPTIONS = [
   { id: "tarbiya", label: "تربية (Opvoeding)" },
@@ -27,6 +28,8 @@ const LANGUAGE_OPTIONS = [
 export default function SpecialistRegisterScreen() {
   const router = useRouter();
   const colors = useColors();
+  const { isRTL } = useI18n();
+  const rowDir = { flexDirection: isRTL ? "row-reverse" : "row" } as const;
   const [step, setStep] = useState<"code" | "profile">("code");
   const [code, setCode] = useState("");
   const [codeValid, setCodeValid] = useState(false);
@@ -123,9 +126,9 @@ export default function SpecialistRegisterScreen() {
     <ScreenContainer edges={["top", "left", "right", "bottom"]}>
       <ScrollView contentContainerStyle={{ flexGrow: 1, padding: 20 }}>
         {/* Header */}
-        <View style={styles.header}>
-          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-            <MaterialIcons name="arrow-back" size={24} color={colors.foreground} />
+        <View style={[styles.header, rowDir]}>
+          <TouchableOpacity onPress={() => router.back()} style={[styles.backBtn, isRTL ? { marginLeft: 12 } : { marginRight: 12 }]}>
+            <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
           </TouchableOpacity>
           <Text style={[styles.title, { color: colors.foreground }]}>
             Pedagogisch begeleider Registratie
@@ -175,7 +178,7 @@ export default function SpecialistRegisterScreen() {
             </Text>
 
             {/* Display Name */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Naam *</Text>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Naam *</Text>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
               placeholder="Je volledige naam"
@@ -185,7 +188,7 @@ export default function SpecialistRegisterScreen() {
             />
 
             {/* Bio */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Bio</Text>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Bio</Text>
             <TextInput
               style={[styles.input, styles.textArea, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
               placeholder="Vertel iets over jezelf en je ervaring..."
@@ -197,8 +200,8 @@ export default function SpecialistRegisterScreen() {
             />
 
             {/* Expertise */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Expertise *</Text>
-            <View style={styles.chipContainer}>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Expertise *</Text>
+            <View style={[styles.chipContainer, rowDir]}>
               {EXPERTISE_OPTIONS.map(opt => (
                 <TouchableOpacity
                   key={opt.id}
@@ -221,8 +224,8 @@ export default function SpecialistRegisterScreen() {
             </View>
 
             {/* Languages */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Talen</Text>
-            <View style={styles.chipContainer}>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Talen</Text>
+            <View style={[styles.chipContainer, rowDir]}>
               {LANGUAGE_OPTIONS.map(opt => (
                 <TouchableOpacity
                   key={opt.id}
@@ -245,7 +248,7 @@ export default function SpecialistRegisterScreen() {
             </View>
 
             {/* City */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Stad</Text>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Stad</Text>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
               placeholder="Bijv. Amsterdam"
@@ -255,7 +258,7 @@ export default function SpecialistRegisterScreen() {
             />
 
             {/* Country */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Land</Text>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Land</Text>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
               placeholder="Bijv. Nederland"
@@ -265,7 +268,7 @@ export default function SpecialistRegisterScreen() {
             />
 
             {/* Phone */}
-            <Text style={[styles.label, { color: colors.foreground }]}>Telefoonnummer</Text>
+            <Text style={[styles.label, { color: colors.foreground, alignSelf: isRTL ? "flex-end" : "flex-start" }]}>Telefoonnummer</Text>
             <TextInput
               style={[styles.input, { borderColor: colors.border, color: colors.foreground, backgroundColor: colors.surface }]}
               placeholder="+31 6 12345678"
@@ -296,13 +299,11 @@ export default function SpecialistRegisterScreen() {
 
 const styles = StyleSheet.create({
   header: {
-    flexDirection: "row",
     alignItems: "center",
     marginBottom: 24,
   },
   backBtn: {
     padding: 8,
-    marginRight: 12,
   },
   title: {
     fontSize: 22,
@@ -335,7 +336,6 @@ const styles = StyleSheet.create({
   label: {
     fontSize: 14,
     fontWeight: "600",
-    alignSelf: "flex-start",
     marginBottom: 6,
     marginTop: 16,
   },
@@ -351,7 +351,6 @@ const styles = StyleSheet.create({
     textAlignVertical: "top",
   },
   chipContainer: {
-    flexDirection: "row",
     flexWrap: "wrap",
     gap: 8,
     width: "100%",

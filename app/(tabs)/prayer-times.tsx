@@ -258,7 +258,7 @@ export default function PrayerTimesScreen() {
               {language === "ar" ? getCityAR(savedLocation.city) : savedLocation.city}, {language === "ar" ? getCountryAR(savedLocation.country) : savedLocation.country}
             </Text>
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
             <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>{t("prayer.change_location")}</Text>
             <View style={{ width: 24, height: 24, borderRadius: 12, backgroundColor: colors.primary + "20", alignItems: "center", justifyContent: "center" }}>
               <Text style={{ fontSize: 12 }}>↻</Text>

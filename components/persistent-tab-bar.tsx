@@ -47,7 +47,7 @@ export function PersistentTabBar() {
   const pathname = usePathname();
   const insets = useSafeAreaInsets();
   const colors = useColors();
-  const { t } = useI18n();
+  const { t, isRTL } = useI18n();
 
   // Don't show on hidden routes
   const shouldHide = HIDDEN_ROUTES.some((r) => pathname.startsWith(r));
@@ -72,6 +72,8 @@ export function PersistentTabBar() {
       style={[
         styles.container,
         {
+          // Native RTL is off (lib/i18n.tsx); mirror like app/(tabs)/_layout.tsx.
+          flexDirection: isRTL ? "row-reverse" : "row",
           height: tabBarHeight,
           paddingBottom: bottomPadding,
           backgroundColor: colors.background,
@@ -120,7 +122,6 @@ const styles = StyleSheet.create({
   // Rendered in flow below the Stack (see app/_layout.tsx) so scrollable
   // screens can never slide their content under the bar.
   container: {
-    flexDirection: "row",
     alignItems: "center",
     paddingTop: 8,
     borderTopWidth: 0.5,

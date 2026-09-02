@@ -78,7 +78,7 @@ export default function AgeCheckScreen() {
         <View
           style={{ width: "100%", maxWidth: 420, alignSelf: "center", gap: 20 }}
         >
-          <View style={{ flexDirection: "row", alignSelf: "center", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignSelf: "center", gap: 8 }}>
             {(["nl", "en", "ar"] as const).map((item) => (
               <TouchableOpacity
                 key={item}

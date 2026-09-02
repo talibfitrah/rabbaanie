@@ -932,6 +932,13 @@ const config: ExpoConfig = {
     withIosLocalizedPurposeStrings as any,
     withIosAdhanSounds as any,
     "expo-router",
+    // Direction is handled in JS (lib/i18n.tsx); keep native RTL off before the
+    // bundle loads, so a fresh install on an Arabic-locale phone does not boot
+    // mirrored. Do NOT add `forcesRTL: false`: on iOS the mere presence of that
+    // Info.plist key makes expo-localization allow RTL and force it for an
+    // Arabic-locale device (LocalizationModule.swift OnCreate). Android's stale
+    // forceRTL pref from older builds is cleared in JS instead (lib/i18n.tsx).
+    ["expo-localization", { supportsRTL: false }],
     // Wires the Sign in with Apple native capability into the iOS project on
     // prebuild (entitlement + AuthenticationServices). iOS-only; a no-op for the
     // Android/Play build.

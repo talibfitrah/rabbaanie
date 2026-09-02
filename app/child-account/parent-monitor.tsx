@@ -257,7 +257,7 @@ export default function ParentMonitorScreen() {
         <Text style={{ color: colors.foreground, fontSize: 18, fontWeight: "bold", textAlign, marginBottom: 12 }}>
           {language === "ar" ? "ملخص اليوم" : language === "nl" ? "Samenvatting vandaag" : "Today's Summary"}
         </Text>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 12 }}>
           <View style={{ flex: 1, minWidth: 100, alignItems: "center", padding: 8 }}>
             <Text style={{ fontSize: 24 }}>{dailySummary?.morningAdhkarDone ? "✅" : "❌"}</Text>
             <Text style={{ color: colors.muted, fontSize: 11, marginTop: 4 }}>{language === "ar" ? "أذكار الصباح" : "Ochtend adhkaar"}</Text>
@@ -284,7 +284,7 @@ export default function ParentMonitorScreen() {
           </View>
           )}
         </View>
-        <View style={{ flexDirection: "row", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 12, marginTop: 12 }}>
           <View style={{ flex: 1, minWidth: 100, alignItems: "center", padding: 8 }}>
             <Text style={{ fontSize: 24 }}>📋</Text>
             <Text style={{ color: colors.foreground, fontWeight: "bold", fontSize: 14, marginTop: 4 }}>
@@ -321,7 +321,7 @@ export default function ParentMonitorScreen() {
           <Text style={{ color: colors.muted, fontSize: 12, textAlign, marginBottom: 8 }}>
             {language === "ar" ? "وقت الشاشة (بالدقائق)" : language === "nl" ? "Schermtijd (minuten)" : "Screen Time (minutes)"}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, paddingTop: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-end", justifyContent: "space-between", height: 100, paddingTop: 8 }}>
             {(() => {
               const days = [];
               const dayNames = language === "ar" 
@@ -358,7 +358,7 @@ export default function ParentMonitorScreen() {
           <Text style={{ color: colors.muted, fontSize: 12, textAlign, marginBottom: 8 }}>
             {language === "ar" ? "المهام المنجزة" : language === "nl" ? "Voltooide taken" : "Tasks Completed"}
           </Text>
-          <View style={{ flexDirection: "row", alignItems: "flex-end", justifyContent: "space-between", height: 80, paddingTop: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-end", justifyContent: "space-between", height: 80, paddingTop: 8 }}>
             {(() => {
               const days = [];
               const dayNames = language === "ar" 
@@ -391,7 +391,7 @@ export default function ParentMonitorScreen() {
           <Text style={{ color: colors.muted, fontSize: 12, textAlign, marginBottom: 8 }}>
             {language === "ar" ? "الأذكار اليومية" : language === "nl" ? "Dagelijkse adhkaar" : "Daily Adhkaar"}
           </Text>
-          <View style={{ flexDirection: "row", justifyContent: "space-between" }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between" }}>
             {(() => {
               const days = [];
               const dayNames = language === "ar" 
@@ -418,15 +418,15 @@ export default function ParentMonitorScreen() {
             })()}
           </View>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 12, marginTop: 8, justifyContent: "center" }}>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.success + "30" }} />
               <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "كاملة" : "Volledig"}</Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.warning + "30" }} />
               <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "جزئية" : "Gedeeltelijk"}</Text>
             </View>
-            <View style={{ flexDirection: "row", alignItems: "center", gap: 4 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4 }}>
               <View style={{ width: 10, height: 10, borderRadius: 5, backgroundColor: colors.border + "50" }} />
               <Text style={{ color: colors.muted, fontSize: 10 }}>{language === "ar" ? "لم تُكمل" : "Niet gedaan"}</Text>
             </View>
@@ -434,7 +434,7 @@ export default function ParentMonitorScreen() {
         </View>
 
         {/* Weekly Summary Numbers */}
-        <View style={{ flexDirection: "row", justifyContent: "space-around", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-around", marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: colors.border }}>
           {CHILD_MONITORING_ENABLED && (
           <View style={{ alignItems: "center" }}>
             <Text style={{ color: colors.primary, fontSize: 20, fontWeight: "bold" }}>
@@ -540,7 +540,7 @@ export default function ParentMonitorScreen() {
         />
         {/* Category selector */}
         <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 12 }}>
-          <View style={{ flexDirection: "row", gap: 8 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
             {["prayer", "quran", "study", "chores", "sport", "other"].map((cat) => (
               <TouchableOpacity
                 key={cat}
@@ -903,7 +903,7 @@ export default function ParentMonitorScreen() {
         <View style={{ flex: 1 }}>
           {/* Tabs */}
           <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginBottom: 16, maxHeight: 44 }}>
-            <View style={{ flexDirection: "row", gap: 8 }}>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
               {((CHILD_MONITORING_ENABLED ? ["overview", "tasks", "chat", "apps", "ai"] : ["overview", "tasks", "chat", "ai"]) as TabType[]).map(renderTab)}
             </View>
           </ScrollView>

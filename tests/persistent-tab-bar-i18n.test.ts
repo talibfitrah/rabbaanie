@@ -75,4 +75,12 @@ describe("PersistentTabBar labels follow the app language", () => {
     expect(src).toContain("useI18n()");
     expect(src).toMatch(/\bt\(\w+\.key\)/);
   });
+
+  // Native RTL is off (see lib/i18n.tsx), so direction is JS-gated: the row
+  // must mirror on isRTL like the real tab bar, or Arabic gets an LTR bar
+  // outside the tab group and an RTL one inside it.
+  it("mirrors the row on isRTL", () => {
+    expect(src).toMatch(/\{[^}]*\bisRTL\b[^}]*\} = useI18n\(\)/);
+    expect(src).toMatch(/flexDirection:\s*isRTL\s*\?\s*"row-reverse"\s*:\s*"row"/);
+  });
 });

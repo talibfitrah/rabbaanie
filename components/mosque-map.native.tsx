@@ -1,5 +1,6 @@
 import React from "react";
 import { View, Text, Linking, Platform, TouchableOpacity, ScrollView } from "react-native";
+import { useI18n } from "@/lib/i18n";
 
 interface Mosque {
   name: string;
@@ -32,6 +33,7 @@ function formatDist(d: number): string {
 }
 
 export function MosqueMap({ mosques, lang, resultCount, colors }: MosqueMapProps) {
+  const { isRTL } = useI18n();
   return (
     <ScrollView style={{ flex: 1, padding: 12 }}>
       {/* Header with count */}
@@ -63,12 +65,12 @@ export function MosqueMap({ mosques, lang, resultCount, colors }: MosqueMapProps
             marginBottom: 8,
             borderWidth: 0.5,
             borderColor: colors.border,
-            flexDirection: "row",
+            flexDirection: isRTL ? "row-reverse" : "row",
             justifyContent: "space-between",
             alignItems: "center",
           }}
         >
-          <View style={{ flex: 1, marginRight: 8 }}>
+          <View style={{ flex: 1, ...(isRTL ? { marginLeft: 8 } : { marginRight: 8 }) }}>
             <Text style={{ fontWeight: "700", fontSize: 14, color: colors.foreground }}>{mosque.name}</Text>
             {mosque.address ? <Text style={{ fontSize: 11, color: "#777", marginTop: 2 }} numberOfLines={1}>{mosque.address}</Text> : null}
           </View>

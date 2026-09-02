@@ -490,3 +490,18 @@ describe("the iOS-only mods are still registered", () => {
     ).toContain(`${mod} as any`);
   });
 });
+
+// Direction is handled in JS (lib/i18n.tsx). expo-localization writes these two
+// Info.plist keys, and its native module turns them into RCTI18nUtil_allowRTL /
+// forceRTL = false before the bundle loads — so a fresh install on an
+// Arabic-locale phone never boots natively mirrored. Asserted by VALUE: an
+// absent key means "allow RTL" (react-native's default), which is the bug.
+describe("iOS config — native RTL is off", () => {
+  it("declares supportsRTL=false and carries NO forcesRTL key", () => {
+    expect(infoPlist.ExpoLocalization_supportsRTL).toBe(false);
+    // Presence of the key — even `false` — makes the native module call
+    // setRTLPreferences(true, false): RTL allowed and forced for an Arabic
+    // locale. Absence is the invariant here.
+    expect(infoPlist.ExpoLocalization_forcesRTL).toBeUndefined();
+  });
+});

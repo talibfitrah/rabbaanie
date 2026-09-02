@@ -765,6 +765,7 @@ export default function ParentProfileScreen() {
   const { state, updateParentProfile, completeParentProfile, completeOnboarding } = useAppState();
   const { language } = useI18n();
   const lang: Lang = language as Lang;
+  const isRTL = lang === "ar";
   const scrollRef = useRef<ScrollView>(null);
   const fieldPositions = useRef<Record<string, number>>({});
 
@@ -972,7 +973,7 @@ export default function ParentProfileScreen() {
 
         {/* Time indication - only on first phase (Fix #1) */}
         {currentPhaseIndex === 0 && (
-          <View style={{ backgroundColor: '#E3F2FD', borderRadius: 10, padding: 12, marginBottom: 16, flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <View style={{ backgroundColor: '#E3F2FD', borderRadius: 10, padding: 12, marginBottom: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: 'center', gap: 8 }}>
             <Text style={{ fontSize: 18 }}>{"\u23F1"}</Text>
             <Text style={{ fontSize: 13, color: '#1565C0', flex: 1 }}>
               {tx(lang, "Dit duurt ongeveer 5 minuten", "This takes about 5 minutes", "يستغرق هذا حوالي ٥ دقائق")}
@@ -1071,7 +1072,6 @@ export default function ParentProfileScreen() {
                     value={(profile[key] as string) || ""}
                     onChange={(date) => updateField(q.key, date)}
                     placeholder={tx(lang, "Kies een datum", "Choose a date", "اختر تاريخًا")}
-                    isRTL={lang === "ar"}
                     maxDate={new Date()}
                     minDate={new Date(1950, 0, 1)}
                   />

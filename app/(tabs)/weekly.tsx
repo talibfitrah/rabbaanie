@@ -400,7 +400,7 @@ export default function WeeklyScreen() {
           </Text>
           <Pressable
             onPress={() => router.push("/library" as any)}
-            style={({ pressed }) => [{ flexDirection: "row", alignItems: "center", gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.primary + "12", opacity: pressed ? 0.7 : 1 }]}
+            style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, paddingVertical: 4, paddingHorizontal: 8, borderRadius: 8, backgroundColor: colors.primary + "12", opacity: pressed ? 0.7 : 1 }]}
           >
             <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600" }}>
               {tx(lang, "Bibliotheek", "Library", "المكتبة")}
@@ -851,7 +851,7 @@ function SectionAccordion({ title, icon, color, bgColor, goals, expanded, onTogg
               {completed}/{goals.length}
             </Text>
           </View>
-          <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={22} color={color} style={{ marginLeft: 4 }} />
+          <MaterialIcons name={expanded ? "expand-less" : "expand-more"} size={22} color={color} style={isRTL ? { marginRight: 4 } : { marginLeft: 4 }} />
         </View>
       </Pressable>
 
@@ -1251,7 +1251,7 @@ function AdvisorPlansSection({ childId, childName, colors, isRTL, lang }: {
                     <Text style={{ color: colors.muted, fontSize: 10, fontWeight: "600" }}>{progress}%</Text>
                   </View>
                 </View>
-                <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={22} color={colors.muted} style={{ marginLeft: 8 }} />
+                <MaterialIcons name={isExpanded ? "expand-less" : "expand-more"} size={22} color={colors.muted} style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
               </View>
             </Pressable>
 

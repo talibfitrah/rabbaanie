@@ -96,6 +96,7 @@ export function toggleDeedDone(deeds: Deed[], deedId: string, done: boolean): De
  * to guard against and this fetches on mount with no `enabled` gate.
  */
 export function DailyDeedsCard({ lang }: Props) {
+  const isRTL = lang === "ar";
   const dailyDeeds = trpc as unknown as { dailyDeeds: DailyDeedsHookApi };
   const utils = trpc.useUtils() as unknown as { dailyDeeds: DailyDeedsUtilsApi };
   const queryClient = useQueryClient();
@@ -157,7 +158,7 @@ export function DailyDeedsCard({ lang }: Props) {
   // (daily-diagnostic-card.tsx), in the same order.
   if (todayQuery.isLoading) {
     return (
-      <View style={[s.card, s.statusRow]}>
+      <View style={[s.card, s.statusRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <ActivityIndicator size="small" color="#1B4332" />
         <Text style={[s.statusText, { textAlign: lang === "ar" ? "right" : "left" }]}>
           {tx(lang, "Bezig met laden...", "Loading...", "جارٍ التحميل...")}
@@ -181,7 +182,7 @@ export function DailyDeedsCard({ lang }: Props) {
     return (
       <Pressable
         onPress={() => todayQuery.refetch()}
-        style={({ pressed }) => [s.card, s.statusRow, pressed && { opacity: 0.85 }]}
+        style={({ pressed }) => [s.card, s.statusRow, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
       >
         <MaterialIcons name="error-outline" size={18} color="#B91C1C" />
         <Text style={[s.statusText, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={2}>
@@ -206,7 +207,7 @@ export function DailyDeedsCard({ lang }: Props) {
           key={deed.id}
           disabled={pendingDeedId === deed.id}
           onPress={() => toggleMutation.mutate({ deedId: deed.id, done: !deed.done })}
-          style={({ pressed }) => [s.row, { flexDirection: "row" }, pressed && { opacity: 0.7 }]}
+          style={({ pressed }) => [s.row, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
         >
           <View style={[s.checkbox, deed.done && s.checkboxChecked]}>
             {deed.done && <MaterialIcons name="check" size={14} color="#fff" />}
@@ -242,7 +243,7 @@ const s = StyleSheet.create({
   checkboxChecked: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
   label: { flex: 1, fontSize: 14, fontWeight: "500", color: "#374151" },
   labelDone: { color: "#9CA3AF", textDecorationLine: "line-through" },
-  statusRow: { flexDirection: "row", alignItems: "center", gap: 10 },
+  statusRow: { alignItems: "center", gap: 10 },
   statusText: { flex: 1, fontSize: 14, fontWeight: "700", color: "#1B4332" },
   errorText: { fontSize: 12, fontWeight: "600", color: "#B91C1C", marginTop: 8 },
 });

@@ -32,10 +32,10 @@ export function DailyDuoRow({ lang, isRTL }: Props) {
 
   return (
     <>
-      <View style={{ flexDirection: "row", gap: 10, marginHorizontal: 16, marginBottom: 16 }}>
+      <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 10, marginHorizontal: 16, marginBottom: 16 }}>
         <Pressable
           onPress={() => setOpen((prev) => (prev === "review" ? null : "review"))}
-          style={({ pressed }) => [s.half, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [s.half, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
         >
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.label, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={1}>
@@ -45,7 +45,7 @@ export function DailyDuoRow({ lang, isRTL }: Props) {
         </Pressable>
         <Pressable
           onPress={() => setOpen((prev) => (prev === "deeds" ? null : "deeds"))}
-          style={({ pressed }) => [s.half, pressed && { opacity: 0.85 }]}
+          style={({ pressed }) => [s.half, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}
         >
           <MaterialIcons name="check-circle" size={16} color="#1B4332" />
           <Text style={[s.label, { textAlign: lang === "ar" ? "right" : "left" }]} numberOfLines={1}>
@@ -63,7 +63,6 @@ export function DailyDuoRow({ lang, isRTL }: Props) {
 const s = StyleSheet.create({
   half: {
     flex: 1,
-    flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: "#F1F8F2",

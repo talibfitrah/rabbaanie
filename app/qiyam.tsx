@@ -16,7 +16,7 @@ export default function QiyamScreen() {
   return (
     <View style={[styles.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={[styles.header, isRTL && styles.headerRTL]}>
+      <View style={[styles.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
         <Pressable
           onPress={() => router.back()}
           style={({ pressed }) => [styles.backBtn, pressed && { opacity: 0.6 }]}
@@ -58,7 +58,7 @@ export default function QiyamScreen() {
 
         {/* Hadith Card */}
         <View style={styles.hadithCard}>
-          <View style={styles.hadithHeader}>
+          <View style={[styles.hadithHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MaterialIcons name="menu-book" size={22} color="#1B4332" />
             <Text style={[styles.hadithLabel, isRTL && styles.textRTL]}>
               {language === "ar" ? "الحديث" : language === "en" ? "The Hadieth" : "De hadieth"}
@@ -95,7 +95,7 @@ export default function QiyamScreen() {
           <Text style={[styles.dhikrText, isRTL && styles.textRTL]}>
             اللَّهُمَّ اغْفِرْ لِي
           </Text>
-          <View style={styles.rewardBox}>
+          <View style={[styles.rewardBox, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <MaterialIcons name="star" size={16} color="#C4A35A" />
             <Text style={[styles.rewardText, isRTL && styles.textRTL]}>
               {language === "ar"
@@ -153,16 +153,12 @@ const styles = StyleSheet.create({
     backgroundColor: "#0D1B2A",
   },
   header: {
-    flexDirection: "row",
     alignItems: "center",
     paddingHorizontal: 16,
     paddingVertical: 12,
     backgroundColor: "#1B2838",
     borderBottomWidth: 1,
     borderBottomColor: "#2A3F54",
-  },
-  headerRTL: {
-    flexDirection: "row-reverse",
   },
   backBtn: {
     width: 40,
@@ -216,7 +212,6 @@ const styles = StyleSheet.create({
     borderColor: "#C4A35A40",
   },
   hadithHeader: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     marginBottom: 12,
@@ -272,7 +267,6 @@ const styles = StyleSheet.create({
     writingDirection: "rtl",
   },
   rewardBox: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 8,
     backgroundColor: "#C4A35A15",

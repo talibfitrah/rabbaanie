@@ -95,7 +95,7 @@ export default function SupportScreen() {
         </ScrollView>
 
         <View style={{ paddingHorizontal: 12, paddingBottom: insets.bottom + 8, paddingTop: 6, borderTopWidth: 0.5, borderTopColor: colors.border, backgroundColor: colors.surface }}>
-          <TouchableOpacity onPress={contactHuman} style={{ flexDirection: "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: escalate ? "#25D366" : "transparent", borderWidth: escalate ? 0 : 1, borderColor: "#25D366", borderRadius: 12, paddingVertical: 10, marginBottom: 8 }}>
+          <TouchableOpacity onPress={contactHuman} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 8, backgroundColor: escalate ? "#25D366" : "transparent", borderWidth: escalate ? 0 : 1, borderColor: "#25D366", borderRadius: 12, paddingVertical: 10, marginBottom: 8 }}>
             <MaterialIcons name="chat" size={18} color={escalate ? "#fff" : "#128C7E"} />
             <Text style={{ color: escalate ? "#fff" : "#128C7E", fontWeight: "700", fontSize: 14 }}>{L3("التواصل مع الفريق مباشرةً (واتساب)", "Direct contact met het team (WhatsApp)", "Contact the team directly (WhatsApp)")}</Text>
           </TouchableOpacity>

@@ -159,10 +159,10 @@ export default function ForgotPasswordScreen() {
                     keyboardType="email-address"
                     autoCapitalize="none"
                     autoComplete="email"
-                    textAlign={isRTL ? "right" : "left"}
                     returnKeyType="done"
                     onSubmitEditing={handleRequestCode}
                     style={{
+                      textAlign: isRTL ? "right" : "left",
                       backgroundColor: colors.surface,
                       borderRadius: 10,
                       paddingHorizontal: 14,
@@ -246,13 +246,13 @@ export default function ForgotPasswordScreen() {
                       placeholderTextColor={colors.muted}
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
-                      textAlign={isRTL ? "right" : "left"}
                       style={{
+                        textAlign: isRTL ? "right" : "left",
                         backgroundColor: colors.surface,
                         borderRadius: 10,
                         paddingHorizontal: 14,
                         paddingVertical: 12,
-                        paddingRight: 48,
+                        ...(isRTL ? { paddingLeft: 48 } : { paddingRight: 48 }),
                         fontSize: 15,
                         color: colors.foreground,
                         borderWidth: 1,
@@ -261,7 +261,7 @@ export default function ForgotPasswordScreen() {
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
-                      style={{ position: "absolute", right: 12, top: 12 }}
+                      style={{ position: "absolute", ...(isRTL ? { left: 12 } : { right: 12 }), top: 12 }}
                       activeOpacity={0.6}
                     >
                       <Text style={{ fontSize: 13, color: colors.primary }}>
@@ -283,10 +283,10 @@ export default function ForgotPasswordScreen() {
                     placeholderTextColor={colors.muted}
                     secureTextEntry={!showPassword}
                     autoCapitalize="none"
-                    textAlign={isRTL ? "right" : "left"}
                     returnKeyType="done"
                     onSubmitEditing={handleResetPassword}
                     style={{
+                      textAlign: isRTL ? "right" : "left",
                       backgroundColor: colors.surface,
                       borderRadius: 10,
                       paddingHorizontal: 14,

@@ -7,6 +7,7 @@ import {
   KeyboardAvoidingView,
   Platform,
   TextInput,
+  type TextStyle,
 } from "react-native";
 import { ScreenContainer } from "@/components/screen-container";
 import { useState } from "react";
@@ -50,7 +51,8 @@ export default function RegisterScreen() {
   const tx = (nl: string, en: string, ar: string) =>
     language === "ar" ? ar : language === "en" ? en : nl;
 
-  const inputStyle = {
+  const inputStyle: TextStyle = {
+    textAlign: isRTL ? "right" : "left",
     backgroundColor: colors.surface,
     borderRadius: 10,
     paddingHorizontal: 14,
@@ -234,7 +236,6 @@ export default function RegisterScreen() {
                 placeholder={tx("Uw voornaam", "Your first name", "اسمك الأول")}
                 placeholderTextColor={colors.muted}
                 autoCapitalize="words"
-                textAlign={isRTL ? "right" : "left"}
                 returnKeyType="next"
                 style={inputStyle}
               />
@@ -248,7 +249,6 @@ export default function RegisterScreen() {
                 placeholder={tx("Uw achternaam", "Your last name", "اسم عائلتك")}
                 placeholderTextColor={colors.muted}
                 autoCapitalize="words"
-                textAlign={isRTL ? "right" : "left"}
                 returnKeyType="next"
                 style={inputStyle}
               />
@@ -270,7 +270,6 @@ export default function RegisterScreen() {
                 keyboardType="email-address"
                 autoCapitalize="none"
                 autoCorrect={false}
-                textAlign={isRTL ? "right" : "left"}
                 returnKeyType="next"
                 style={inputStyle}
               />
@@ -292,7 +291,6 @@ export default function RegisterScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                textAlign={isRTL ? "right" : "left"}
                 returnKeyType="next"
                 style={inputStyle}
               />
@@ -317,7 +315,6 @@ export default function RegisterScreen() {
                 secureTextEntry
                 autoCapitalize="none"
                 autoCorrect={false}
-                textAlign={isRTL ? "right" : "left"}
                 returnKeyType="done"
                 onSubmitEditing={handleRegister}
                 style={inputStyle}

@@ -5,6 +5,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState } from "react";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
+import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 
 // Assign / unassign families to one specialist.
@@ -13,6 +14,7 @@ export default function SpecialistDetailScreen() {
   const specialistId = Number(id);
   const colors = useColors();
   const { isRTL } = useI18n();
+  const L3 = useL3();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const [search, setSearch] = useState("");
@@ -44,21 +46,21 @@ export default function SpecialistDetailScreen() {
       <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
         <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
         <View style={{ flex: 1 }}>
-          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name || "مشرف تربوي"}</Text>
-          <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{assignedIds.size} عائلة مُسندة</Text>
+          <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name || L3("مشرف تربوي", "Pedagogisch begeleider", "Educational specialist")}</Text>
+          <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{L3(`${assignedIds.size} عائلة مُسندة`, `${assignedIds.size} gezinnen toegewezen`, `${assignedIds.size} families assigned`)}</Text>
         </View>
       </View>
 
       <View style={{ paddingHorizontal: 12, paddingTop: 12 }}>
-        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>اضغط على عائلة لإسنادها أو إلغاء إسنادها لهذا المشرف التربوي:</Text>
-        <TextInput value={search} onChangeText={setSearch} placeholder="بحث عن عائلة…" placeholderTextColor={colors.muted}
+        <Text style={{ fontSize: 12, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}>{L3("اضغط على عائلة لإسنادها أو إلغاء إسنادها لهذا المشرف التربوي:", "Tik op een gezin om het aan deze begeleider toe te wijzen of de toewijzing op te heffen:", "Tap a family to assign it to this specialist, or to unassign it:")}</Text>
+        <TextInput value={search} onChangeText={setSearch} placeholder={L3("بحث عن عائلة…", "Gezin zoeken…", "Search families…")} placeholderTextColor={colors.muted}
           style={{ backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 14, paddingVertical: 10, color: colors.foreground, textAlign: isRTL ? "right" : "left", borderWidth: 1, borderColor: colors.border }} />
       </View>
 
       {familiesQ.isLoading || specialistsQ.isLoading ? (
         <ActivityIndicator style={{ marginTop: 40 }} color={colors.primary} />
       ) : familiesQ.error || specialistsQ.error ? (
-        <Text style={{ textAlign: "center", marginTop: 40, color: colors.error, paddingHorizontal: 24, lineHeight: 22 }}>تعذّر التحميل. تأكد أنك مسجّل الدخول بحساب المالك.</Text>
+        <Text style={{ textAlign: "center", marginTop: 40, color: colors.error, paddingHorizontal: 24, lineHeight: 22 }}>{L3("تعذّر التحميل. تأكد أنك مسجّل الدخول بحساب المالك.", "Laden mislukt. Controleer of u bent ingelogd met het eigenaarsaccount.", "Could not load. Make sure you're signed in with the owner account.")}</Text>
       ) : (
         <ScrollView contentContainerStyle={{ padding: 12, paddingBottom: insets.bottom + 40, gap: 10 }}
           refreshControl={<RefreshControl refreshing={specialistsQ.isFetching} onRefresh={() => { specialistsQ.refetch(); familiesQ.refetch(); }} tintColor={colors.primary} />}>
@@ -70,12 +72,12 @@ export default function SpecialistDetailScreen() {
                 <MaterialIcons name={on ? "check-circle" : "radio-button-unchecked"} size={22} color={on ? colors.primary : colors.muted} />
                 <View style={{ flex: 1 }}>
                   <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{f.name || "—"}</Text>
-                  <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{`${f.memberCount ?? 0} أفراد · ${f.childCount ?? 0} أطفال`}</Text>
+                  <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>{L3(`${f.memberCount ?? 0} أفراد · ${f.childCount ?? 0} أطفال`, `${f.memberCount ?? 0} leden · ${f.childCount ?? 0} kinderen`, `${f.memberCount ?? 0} members · ${f.childCount ?? 0} children`)}</Text>
                 </View>
               </TouchableOpacity>
             );
           })}
-          {families.length === 0 && <Text style={{ textAlign: "center", marginTop: 40, color: colors.muted }}>لا توجد عائلات</Text>}
+          {families.length === 0 && <Text style={{ textAlign: "center", marginTop: 40, color: colors.muted }}>{L3("لا توجد عائلات", "Geen gezinnen", "No families")}</Text>}
         </ScrollView>
       )}
     </View>

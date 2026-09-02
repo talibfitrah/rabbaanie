@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, FlatList } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -27,8 +27,10 @@ const POST_MAGHRIB_EXTRA: Dhikr[] = [
 export default function AdhkarScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { language, t } = useI18n();
+  const { language, t, isRTL } = useI18n();
   const showTranslit = language === "nl" || language === "en";
+  const rowDir = useMemo(() => ({ flexDirection: isRTL ? "row-reverse" : "row" } as const), [isRTL]);
+  const textDir = useMemo(() => ({ textAlign: isRTL ? "right" : "left", writingDirection: isRTL ? "rtl" : "ltr" } as const), [isRTL]);
   const params = useLocalSearchParams<{ type?: string; prayer?: string }>();
 
   const isPostPrayer = params.type === "post-prayer";
@@ -127,7 +129,7 @@ export default function AdhkarScreen() {
           pressed && !isDone && { backgroundColor: bgAccent },
         ]}
       >
-        <View style={st.dhikrHeader}>
+        <View style={[st.dhikrHeader, rowDir]}>
           <View style={[st.countBadge, { backgroundColor: isDone ? "#22C55E" : accentColor }]}>
             {isDone ? (
               <MaterialIcons name="check" size={14} color="#FFFFFF" />
@@ -135,7 +137,7 @@ export default function AdhkarScreen() {
               <Text style={st.countBadgeText}>{current}/{item.count}</Text>
             )}
           </View>
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 6 }}>
+          <View style={[rowDir, { alignItems: "center", gap: 6 }]}>
             {item.ruling && (
               <View style={[st.rulingBadge, { backgroundColor: item.ruling === "واجب" ? "#DC262620" : item.ruling === "سنة مؤكدة" ? "#05966920" : "#0891B220" }]}>
                 <Text style={[st.rulingText, { color: item.ruling === "واجب" ? "#DC2626" : item.ruling === "سنة مؤكدة" ? "#059669" : "#0891B2" }]}>
@@ -159,20 +161,21 @@ export default function AdhkarScreen() {
         {(() => {
           const reward = language === "nl" ? (item.rewardNL || item.reward) : language === "en" ? (item.rewardEN || item.reward) : item.reward;
           return reward ? (
-            <View style={st.rewardRow}>
+            <View style={[st.rewardRow, rowDir]}>
               <MaterialIcons name="star" size={12} color="#C4A35A" />
-              <Text style={st.rewardText}>{reward}</Text>
+              <Text style={[st.rewardText, textDir]}>{reward}</Text>
             </View>
           ) : null;
         })()}
         {(() => {
           const howTo = language === "nl" ? (item.howToNL || item.howTo) : language === "en" ? (item.howToEN || item.howTo) : item.howTo;
           return howTo ? (
-            <Text style={st.sourceText}>{howTo}</Text>
+            <Text style={[st.sourceText, textDir]}>{howTo}</Text>
           ) : null;
         })()}
+        {/* A hadith reference stays Arabic in every language. */}
         {item.source && (
-          <Text style={st.sourceText}>{item.source}</Text>
+          <Text style={[st.sourceText, { textAlign: "right", writingDirection: "rtl" }]}>{item.source}</Text>
         )}
         {item.count > 1 && !isDone && (
           <Text style={[st.tapHint, { color: accentColor }]}>
@@ -181,16 +184,16 @@ export default function AdhkarScreen() {
         )}
       </Pressable>
     );
-  }, [completedCounts, accentColor, bgAccent, handleTap, showTranslit, language]);
+  }, [completedCounts, accentColor, bgAccent, handleTap, showTranslit, language, rowDir, textDir]);
 
   return (
     <View style={[st.container, { paddingTop: insets.top }]}>
       {/* Header */}
-      <View style={st.header}>
+      <View style={[st.header, rowDir]}>
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.backBtn, pressed && { opacity: 0.5 }]}>
-          <MaterialIcons name="arrow-forward" size={22} color="#1B4332" />
+          <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={22} color="#1B4332" />
         </Pressable>
-        <View style={st.headerCenter}>
+        <View style={[st.headerCenter, rowDir]}>
           <MaterialIcons name={iconName as any} size={26} color={accentColor} />
           <Text style={st.headerTitle} numberOfLines={2}>{title}</Text>
         </View>
@@ -211,6 +214,7 @@ export default function AdhkarScreen() {
               onPress={() => handleCategoryChange(cat.id)}
               style={({ pressed }) => [
                 st.categoryTab,
+                rowDir,
                 selectedCategoryId === cat.id && { backgroundColor: cat.color, borderColor: cat.color },
                 pressed && { opacity: 0.7 },
               ]}
@@ -241,7 +245,7 @@ export default function AdhkarScreen() {
           <View style={[st.progressFill, { width: `${totalAdhkar > 0 ? (completedAdhkar / totalAdhkar) * 100 : 0}%`, backgroundColor: accentColor }]} />
         </View>
         {completedAdhkar === totalAdhkar && totalAdhkar > 0 && (
-          <View style={{ flexDirection: "row", alignItems: "center", gap: 4, marginTop: 4 }}>
+          <View style={[rowDir, { alignItems: "center", gap: 4, marginTop: 4 }]}>
             <MaterialIcons name="check-circle" size={16} color="#22C55E" />
             <Text style={{ fontSize: 12, fontWeight: "700", color: "#22C55E" }}>
               {language === "nl" ? "Goed gedaan! U heeft alle adhkaar voltooid" : language === "en" ? "Well done! You completed all the adhkaar" : "أحسنت! أتممت جميع الأذكار"}
@@ -264,14 +268,13 @@ export default function AdhkarScreen() {
 
 const st = StyleSheet.create({
   container: { flex: 1, backgroundColor: "#FAFBFC" },
-  header: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
+  header: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, paddingVertical: 12 },
   backBtn: { width: 36, height: 36, borderRadius: 18, backgroundColor: "#F0F7F2", alignItems: "center", justifyContent: "center" },
-  headerCenter: { flex: 1, flexDirection: "row", alignItems: "center", gap: 8 },
+  headerCenter: { flex: 1, alignItems: "center", gap: 8 },
   headerTitle: { fontSize: 20, fontWeight: "800", color: "#1B4332", flexShrink: 1, textAlign: "center" },
   categoryContainer: { flexGrow: 0, flexShrink: 0, marginBottom: 8 },
   categoryScroll: { paddingHorizontal: 16, gap: 8, alignItems: "center" },
   categoryTab: {
-    flexDirection: "row",
     alignItems: "center",
     gap: 5,
     paddingHorizontal: 12,
@@ -288,7 +291,7 @@ const st = StyleSheet.create({
   progressFill: { height: 6, borderRadius: 3 },
   dhikrCard: { marginHorizontal: 16, marginBottom: 10, backgroundColor: "#FFFFFF", borderRadius: 14, borderWidth: 1, borderColor: "#E5E7EB", padding: 16 },
   dhikrCardDone: { backgroundColor: "#F0FDF4", borderColor: "#BBF7D0" },
-  dhikrHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
+  dhikrHeader: { alignItems: "center", justifyContent: "space-between", marginBottom: 10 },
   countBadge: { paddingHorizontal: 8, paddingVertical: 3, borderRadius: 10, minWidth: 36, alignItems: "center" },
   countBadgeText: { fontSize: 11, fontWeight: "700", color: "#FFFFFF" },
   rulingBadge: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6 },
@@ -296,9 +299,9 @@ const st = StyleSheet.create({
   dhikrIndex: { fontSize: 12, fontWeight: "600", color: "#9CA3AF" },
   dhikrText: { fontSize: 16, fontWeight: "500", color: "#1F2937", lineHeight: 30, textAlign: "right", writingDirection: "rtl" },
   dhikrTextDone: { color: "#6B7280" },
-  rewardRow: { flexDirection: "row", alignItems: "flex-start", gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
-  rewardText: { flex: 1, fontSize: 11, color: "#92400E", lineHeight: 18, textAlign: "right", writingDirection: "rtl" },
-  sourceText: { fontSize: 10, color: "#6B7280", textAlign: "right", marginTop: 4 },
+  rewardRow: { alignItems: "flex-start", gap: 4, marginTop: 10, paddingTop: 10, borderTopWidth: 1, borderTopColor: "#F3F4F6" },
+  rewardText: { flex: 1, fontSize: 11, color: "#92400E", lineHeight: 18 },
+  sourceText: { fontSize: 10, color: "#6B7280", marginTop: 4 },
   tapHint: { fontSize: 11, fontWeight: "600", textAlign: "center", marginTop: 8 },
   translitText: { fontSize: 13, color: "#4B5563", lineHeight: 22, marginTop: 8, paddingTop: 8, borderTopWidth: 1, borderTopColor: "#F3F4F6", textAlign: "left", writingDirection: "ltr", fontStyle: "italic" },
   translationText: { fontSize: 13, color: "#374151", lineHeight: 22, marginTop: 6, paddingTop: 6, borderTopWidth: 1, borderTopColor: "#F3F4F6", textAlign: "left", writingDirection: "ltr" },
