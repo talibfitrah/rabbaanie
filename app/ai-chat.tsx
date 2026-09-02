@@ -1237,7 +1237,8 @@ function AIChatScreenInner() {
     return (
       <View style={[
         styles.messageBubble,
-        isUser ? styles.userBubble : styles.aiBubble,
+        // Tail corner on the side the bubble sits on (own bubble is at the left in Arabic).
+        isUser !== isRTL ? { borderBottomRightRadius: 4 } : { borderBottomLeftRadius: 4 },
         { alignSelf: isUser !== isRTL ? "flex-end" : "flex-start" },
         { backgroundColor: isUser ? colors.primary : colors.surface },
       ]}>
@@ -2160,12 +2161,6 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     borderRadius: 16,
     marginBottom: 8,
-  },
-  userBubble: {
-    borderBottomRightRadius: 4,
-  },
-  aiBubble: {
-    borderBottomLeftRadius: 4,
   },
   aiHeader: {
     alignItems: "center",

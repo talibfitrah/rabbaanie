@@ -92,7 +92,7 @@ export default function SunnahScreen() {
 
   const Header = (
     <View style={{ paddingTop: insets.top + 8, paddingBottom: 12, paddingHorizontal: 16, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12, backgroundColor: colors.surface, borderBottomWidth: 0.5, borderBottomColor: colors.border }}>
-      <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={"arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
+      <TouchableOpacity onPress={() => router.back()}><MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} /></TouchableOpacity>
       <View style={{ flex: 1 }}>
         <Text style={{ fontSize: 18, fontWeight: "800", color: colors.foreground, ...uiAlign }}>{tt("Metgezel van de Soennah", "Sunnah Companion", "رفيق السنّة")}</Text>
         <Text style={{ fontSize: 12, color: colors.muted, ...uiAlign }}>{tt("Bij elk moment: ikhlaas, doe'aa's, uitspraak, daden & advies", "Each moment: sincerity, du'as, pronunciation, deeds & advice", "لكلِّ موضعٍ: إخلاصٌ وأدعيةٌ ونطقٌ وأعمالٌ ونصائح")}</Text>
