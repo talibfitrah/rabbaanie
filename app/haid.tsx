@@ -57,7 +57,10 @@ export default function HaidScreen() {
   const [monthStart, setMonthStart] = useState(today.slice(0, 7) + "-01");
   const [showSettings, setShowSettings] = useState(false);
 
-  const classified = useMemo(() => classify(days, settings, addDays(today, -400), addDays(today, 45)), [days, settings, today]);
+  // Explicit `today` (item E-2): `to` extends 45 days into the future for the
+  // calendar/predictions display, but the unlogged-day extension must stop at
+  // the real today, not assume blood through not-yet-lived future days.
+  const classified = useMemo(() => classify(days, settings, addDays(today, -400), addDays(today, 45), today), [days, settings, today]);
   const byDate = useMemo(() => new Map(classified.map((c) => [c.date, c])), [classified]);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const todayCls = byDate.get(today)!;

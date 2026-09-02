@@ -52,14 +52,38 @@ export function isoToday(): string {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}-${String(n.getDate()).padStart(2, "0")}`;
 }
 
-/** Maximal groups of blood days where at most ONE non-blood day separates neighbours (decision 4). */
-export function bloodRuns(days: CycleDay[]): BloodRun[] {
+interface BloodRunsOptions {
+  /** Bounds the item E-2 extension below; omit for the unextended runs LEARNING uses. */
+  today?: string;
+  /** Last day the LAST run may be assumed to extend through, given its start date. */
+  capOf?: (runStart: string) => string;
+}
+
+/**
+ * Maximal groups of blood days where at most ONE non-blood day separates
+ * neighbours (decision 4). With `opts.today`, the LAST run is also extended
+ * (item E-2) through trailing days that have NO entry at all — she has not
+ * logged today yet, so the bleeding is assumed to continue — up to
+ * `min(opts.today, opts.capOf(start))`. An explicit entry (dry/spotting) on a
+ * later date ends the extension right there. Only the last run can be
+ * ambiguous this way: an earlier run's end is already bounded by the next
+ * run's start. LEARNING (learnHabit, learnCycleLength) calls this with no
+ * opts, so it only ever sees logged blood days.
+ */
+export function bloodRuns(days: CycleDay[], opts?: BloodRunsOptions): BloodRun[] {
   const dates = days.filter((d) => d.flow === "blood").map((d) => d.date).sort();
   const runs: BloodRun[] = [];
   for (const date of dates) {
     const cur = runs[runs.length - 1];
     if (cur && diffDays(cur.end, date) <= 2) cur.end = date;
     else runs.push({ start: date, end: date, dates: [] });
+  }
+  const last = runs[runs.length - 1];
+  if (last && opts?.today) {
+    const logged = new Set(days.map((d) => d.date));
+    const cap = opts.capOf ? opts.capOf(last.start) : opts.today;
+    const limit = cap < opts.today ? cap : opts.today;
+    for (let d = addDays(last.end, 1); d <= limit && !logged.has(d); d = addDays(d, 1)) last.end = d;
   }
   for (const r of runs) {
     r.dates = [];
@@ -101,6 +125,13 @@ function nifasDayOf(s: CycleSettings, date: string): number | null {
 function isNormalRun(r: BloodRun, s: CycleSettings): boolean {
   return nifasDayOf(s, r.start) === null && !isPregnant(s, r.start);
 }
+/** Item E-3: day 41+ of a nifas run is haid, but only within ±CONTRACEPTION_WINDOW_DAYS of a cycle-length multiple from the last normal period. */
+function nearExpectedPeriod(lastNormalStart: string | undefined, cycleLength: number | undefined, date: string): boolean {
+  if (!lastNormalStart || !cycleLength) return false;
+  const cyclesElapsed = Math.round(diffDays(lastNormalStart, date) / cycleLength);
+  const expected = addDays(lastNormalStart, cyclesElapsed * cycleLength);
+  return Math.abs(diffDays(expected, date)) <= CONTRACEPTION_WINDOW_DAYS;
+}
 function median(xs: number[]): number | undefined {
   if (!xs.length) return undefined;
   const a = [...xs].sort((p, q) => p - q);
@@ -121,9 +152,22 @@ export function learnCycleLength(days: CycleDay[], settings: CycleSettings, befo
   return median(gaps.slice(-6));
 }
 
-export function classify(days: CycleDay[], settings: CycleSettings, from: string, to: string): ClassifiedDay[] {
+/** The runs classify()/predict() see: the last one extended through unlogged days up to the habit (item E-2). */
+function extendedRuns(days: CycleDay[], settings: CycleSettings, today: string): BloodRun[] {
+  return bloodRuns(days, {
+    today,
+    capOf: (start) => {
+      const nifasDay = nifasDayOf(settings, start);
+      if (nifasDay !== null) { const birth = effectiveBirth(settings); if (birth) return addDays(birth, NIFAS_MAX_DAYS - 1); }
+      const habit = settings.habitLength ?? learnHabit(days, settings, start) ?? DEFAULT_HAID_DAYS;
+      return addDays(start, habit - 1);
+    },
+  });
+}
+
+export function classify(days: CycleDay[], settings: CycleSettings, from: string, to: string, today: string = to): ClassifiedDay[] {
   const byDate = new Map(days.map((d) => [d.date, d] as const));
-  const runs = bloodRuns(days);
+  const runs = extendedRuns(days, settings, today);
   const runStatus = new Map<string, { status: DayStatus; runDay: number; advisories: Advisory[] }>();
 
   for (const run of runs) {
@@ -143,11 +187,12 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
       const runDay = i + 1;
       const advisories: Advisory[] = [];
       let status: DayStatus;
-      if (nifasDayOf(settings, date) !== null) status = "nifas"; // decision 10-أ: labour blood wins over "still pregnant"
+      if (byDate.get(date)?.flow === "spotting") status = "tuhr_pending_ghusl"; // decision 3: spotting is never haid/nifas, even absorbed mid-run (E-1)
+      else if (nifasDayOf(settings, date) !== null) status = "nifas"; // decision 10-أ: labour blood wins over "still pregnant"
       else if (isPregnant(settings, date)) {
         status = "istihada";
         advisories.push("bleeding_in_pregnancy");
-      } else if (startedInNifas) status = "istihada"; // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match)
+      } else if (startedInNifas && !nearExpectedPeriod(prev?.start, cycleLen, date)) status = "istihada"; // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match); haid instead when it matches her expected period (item E-3)
       else if (earlyMiscarriageRun) status = "istihada"; // decision 10: no تخليق → دم فساد, later periods are haid again
       else if (contraceptionIstihada) status = "istihada";
       else if (habit) status = haidCount < habit ? "haid" : "istihada";
@@ -227,7 +272,7 @@ export function rulingsFor(day: Pick<ClassifiedDay, "status" | "ghuslDue">): Rul
 export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string }
 
 export function predict(days: CycleDay[], settings: CycleSettings, today: string): Prediction {
-  const runs = bloodRuns(days);
+  const runs = extendedRuns(days, settings, today);
   const habit = settings.habitLength ?? learnHabit(days, settings);
   const cycleLength = settings.cycleLength ?? learnCycleLength(days, settings) ?? DEFAULT_CYCLE_LENGTH;
   const p: Prediction = { habit, cycleLength };
