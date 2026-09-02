@@ -76,7 +76,6 @@ export interface QasmExpenseRecord {
 export interface QasmUndoSnapshot {
   turnIndex: number;
   initialStayQueue: { wifeId: number; nightsLeft: number }[];
-  undoStack: QasmUndoSnapshot[];
 }
 
 export interface QasmState {
@@ -168,8 +167,11 @@ export function currentTurn(state: QasmState): QasmTurn | null {
  * normal-rotation night in the first place (Sawdah radiya Allahu 'anha).
  *
  * Also snapshots the pre-advance turnIndex/initialStayQueue into
- * `undoStack` (bounded to the last one) so undoLastNight() can reverse
- * exactly this call.
+ * `undoStack` (a flat, single-entry snapshot — it does NOT embed the prior
+ * undoStack, so the persisted state cannot grow without bound) so
+ * undoLastNight() can reverse exactly this call. Any structural change to
+ * the rotation (reorderRotation/addWife/syncWivesFromPartners) clears it,
+ * since the snapshot's positional turnIndex would otherwise be stale.
  */
 export function advance(
   state: QasmState,
@@ -183,7 +185,6 @@ export function advance(
   const snapshot: QasmUndoSnapshot = {
     turnIndex: state.turnIndex,
     initialStayQueue: state.initialStayQueue,
-    undoStack: state.undoStack,
   };
 
   if (state.initialStayQueue.length > 0) {
@@ -214,7 +215,7 @@ export function undoLastNight(state: QasmState): QasmState {
     history: state.history.slice(0, -1),
     turnIndex: snapshot.turnIndex,
     initialStayQueue: snapshot.initialStayQueue,
-    undoStack: snapshot.undoStack,
+    undoStack: [],
   };
 }
 
@@ -262,6 +263,7 @@ export function addWife(state: QasmState, wife: QasmWife, history: MaritalHistor
     wives,
     order: [...state.order, wife.id],
     initialStayQueue: [...state.initialStayQueue, { wifeId: wife.id, nightsLeft: initialStayNights(history) }],
+    undoStack: [],
   };
 }
 
@@ -321,7 +323,7 @@ export function syncWivesFromPartners(
     }
   }
 
-  return { state: { ...state, wives, order, initialStayQueue, turnIndex }, newWives };
+  return { state: { ...state, wives, order, initialStayQueue, turnIndex, undoStack: [] }, newWives };
 }
 
 /**
@@ -345,7 +347,7 @@ export function reorderRotation(state: QasmState, newOrder: number[]): QasmState
 
   const designatedId = state.order[state.turnIndex % state.order.length];
   const turnIndex = Math.max(0, newOrder.indexOf(designatedId));
-  return { ...state, order: newOrder, turnIndex };
+  return { ...state, order: newOrder, turnIndex, undoStack: [] };
 }
 
 /**

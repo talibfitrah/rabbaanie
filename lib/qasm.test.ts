@@ -188,7 +188,34 @@ describe("undoLastNight", () => {
     s = addWife(s, ZAYNAB, "thayyib"); // nightsLeft: 3
     s = advance(s, {}, "d1"); // nightsLeft: 3 -> 2, not popped
     s = advance(s, {}, "d2"); // nightsLeft: 2 -> 1, not popped
-    expect(undoLastNight(advance(s, {}, "d3"))).toEqual(s); // 1 -> 0, pops the queue head
+    // One-level undo: rotation/history return to exactly s; the undoStack is
+    // now empty (you can undo the last night, not the one before it).
+    expect(undoLastNight(advance(s, {}, "d3"))).toEqual({ ...s, undoStack: [] }); // 1 -> 0, pops the queue head
+  });
+
+  it("a structural change (reorder) clears the pending undo — undoLastNight is then a no-op (P1)", () => {
+    let s = createQasmState([HIND, ZAYNAB, RUQAYYA]);
+    s = advance(s, {}, "d1");
+    const reordered = reorderRotation(s, [RUQAYYA.id, HIND.id, ZAYNAB.id]);
+    // undo must NOT restore the stale positional turnIndex against the new order
+    expect(undoLastNight(reordered)).toEqual(reordered);
+    expect(reordered.undoStack).toEqual([]);
+  });
+
+  it("a structural change (addWife) clears the pending undo — undoLastNight is then a no-op (P1)", () => {
+    let s = createQasmState([HIND, ZAYNAB]);
+    s = advance(s, {}, "d1");
+    const withNew = addWife(s, RUQAYYA, "thayyib");
+    expect(undoLastNight(withNew)).toEqual(withNew);
+    expect(withNew.undoStack).toEqual([]);
+  });
+
+  it("the undoStack never nests or grows unbounded across many advances (P2/P3)", () => {
+    let s = createQasmState([HIND, ZAYNAB]);
+    for (let i = 0; i < 20; i++) s = advance(s, {}, `d${i}`);
+    expect(s.undoStack.length).toBe(1);
+    // a flat snapshot: no embedded prior undoStack chain
+    expect((s.undoStack[0] as any).undoStack).toBeUndefined();
   });
 
   it("removes the logged night and restores the exact pre-advance turnIndex/queue (steady rotation)", () => {
