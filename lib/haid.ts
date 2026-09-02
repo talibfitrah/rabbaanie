@@ -193,23 +193,30 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
       contraceptionIstihada = Math.abs(diffDays(expected, run.start)) > CONTRACEPTION_WINDOW_DAYS;
     }
     const hasColours = run.dates.some((d) => byDate.get(d)?.color);
-    let haidCount = 0;
+    // Calendar day within the CURRENT haid-quota stretch (decision 2 is calendar days, not a
+    // blood-day tally): a spotting day still consumes a day of the habit (bug 3), but nifas /
+    // pregnancy / early-miscarriage / contraception days belong to a different rule entirely and
+    // reset the count, so a habit match right after nifas ends (item E-3) starts counting at 1.
+    let habitDay = 0;
     run.dates.forEach((date, i) => {
       const runDay = i + 1;
       const advisories: Advisory[] = [];
       let status: DayStatus;
-      if (byDate.get(date)?.flow === "spotting") status = "tuhr_pending_ghusl"; // decision 3: spotting is never haid/nifas, even absorbed mid-run (E-1)
-      else if (nifasDayOf(settings, date) !== null) status = "nifas"; // decision 10-أ: labour blood wins over "still pregnant"
+      if (byDate.get(date)?.flow === "spotting") { status = "tuhr_pending_ghusl"; habitDay++; } // decision 3: spotting is never haid/nifas, even absorbed mid-run (E-1)
+      else if (nifasDayOf(settings, date) !== null) { status = "nifas"; habitDay = 0; } // decision 10-أ: labour blood wins over "still pregnant"
       else if (isPregnant(settings, date)) {
         status = "istihada";
         advisories.push("bleeding_in_pregnancy");
-      } else if (startedInNifas && !nearExpectedPeriod(prev?.start, cycleLen, date)) status = "istihada"; // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match); haid instead when it matches her expected period (item E-3)
-      else if (earlyMiscarriageRun) status = "istihada"; // decision 10: no تخليق → دم فساد, later periods are haid again
-      else if (contraceptionIstihada) status = "istihada";
-      else if (habit) status = haidCount < habit ? "haid" : "istihada";
-      else if (hasColours) status = byDate.get(date)?.color === "red" ? "istihada" : "haid";
-      else status = haidCount < DEFAULT_HAID_DAYS ? "haid" : "istihada";
-      if (status === "haid") haidCount++;
+        habitDay = 0;
+      } else if (startedInNifas && !nearExpectedPeriod(prev?.start, cycleLen, date)) { status = "istihada"; habitDay = 0; } // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match); haid instead when it matches her expected period (item E-3)
+      else if (earlyMiscarriageRun) { status = "istihada"; habitDay = 0; } // decision 10: no تخليق → دم فساد, later periods are haid again
+      else if (contraceptionIstihada) { status = "istihada"; habitDay = 0; }
+      else {
+        habitDay++;
+        if (habit) status = habitDay <= habit ? "haid" : "istihada";
+        else if (hasColours) status = byDate.get(date)?.color === "red" ? "istihada" : "haid";
+        else status = habitDay <= DEFAULT_HAID_DAYS ? "haid" : "istihada";
+      }
       if (runDay > SEE_DOCTOR_AFTER_DAYS) advisories.push("see_doctor");
       runStatus.set(date, { status, runDay, advisories });
     });

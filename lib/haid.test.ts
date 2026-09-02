@@ -51,6 +51,13 @@ describe("classify — haid by habit (decisions 1, 2)", () => {
     expect(statusOf(out, "2026-09-07").status).toBe("haid");
     expect(statusOf(out, "2026-09-08").status).toBe("istihada");
   });
+  it("bug 3: the habit counts CALENDAR run days, not blood days — a spotting day still consumes a day of the habit", () => {
+    const days: CycleDay[] = [{ date: "2026-09-01", flow: "blood" }, { date: "2026-09-02", flow: "spotting" }, { date: "2026-09-03", flow: "blood" }];
+    const out = classify(days, S({ habitLength: 2 }), "2026-09-01", "2026-09-03");
+    expect(statusOf(out, "2026-09-01").status).toBe("haid"); // runDay 1
+    expect(statusOf(out, "2026-09-02")).toMatchObject({ status: "tuhr_pending_ghusl" }); // decision 3 override untouched
+    expect(statusOf(out, "2026-09-03").status).toBe("istihada"); // runDay 3 > habit 2, even though only 2 blood days were logged
+  });
 });
 
 describe("classify — spotting and purity (decisions 3, 4)", () => {
