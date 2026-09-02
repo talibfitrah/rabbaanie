@@ -51,3 +51,28 @@ describe("prayer popup — haid button (item C: never overwrite, pause only afte
     expect(src).not.toContain("writeExcusedState(u.id, { excused: true, until: isoToday() })");
   });
 });
+
+// C15: isWoman used to hold whatever the LAST successfully-read account was
+// until the new account's async read resolved — or forever, if it failed —
+// briefly (or indefinitely) showing "أنا حائض" to a man right after
+// switching from a woman's account.
+describe("prayer popup — gender read never shows a stale account (C15)", () => {
+  it("starts false and resets to false synchronously before every async re-check", () => {
+    expect(src).toContain("useState(false)");
+    const effectStart = src.indexOf("useEffect(() => {\n    let cancelled = false;");
+    const asyncStart = src.indexOf("(async () => {", effectStart);
+    expect(effectStart).toBeGreaterThan(-1);
+    expect(asyncStart).toBeGreaterThan(effectStart);
+    // The reset must happen BEFORE the async read starts, not only inside
+    // its success branch — otherwise a stale true from the previous
+    // account is still what renders while the new read is in flight.
+    expect(src.slice(effectStart, asyncStart)).toContain("setIsWoman(false)");
+  });
+
+  it("only ever sets true from the read's own result — never optimistically", () => {
+    const asyncStart = src.indexOf("(async () => {");
+    const asyncEnd = src.indexOf("})();", asyncStart);
+    const asyncBody = src.slice(asyncStart, asyncEnd);
+    expect(asyncBody).toContain('appState.parentProfile?.gender === "vrouw"');
+  });
+});

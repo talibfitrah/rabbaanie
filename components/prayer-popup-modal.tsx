@@ -60,6 +60,11 @@ export function PrayerPopupModal({
   const [isWoman, setIsWoman] = useState(false);
   useEffect(() => {
     let cancelled = false;
+    // C15: reset synchronously, before the async read starts — otherwise a
+    // just-switched-to man briefly (or, if the read then fails, forever)
+    // sees the previous woman account's "أنا حائض" button while this
+    // account's own read is still in flight.
+    setIsWoman(false);
     (async () => {
       const u = await NativeAuth.getUserInfo();
       if (!u?.id) return;
