@@ -1,0 +1,52 @@
+components/daily-diagnostic-card.tsx
+  s_05eef947428dfd::t_2c8ebe425322f9 7-9
+  s_05eef947428dfd::t_1c864aa78b285e 107,110-124
+tests/haid-foreground-refresh.test.ts
+  s_05eef947428dfd::t_889b102251d880 1-45
+tests/notifications.test.ts
+  s_05eef947428dfd::t_28a946d8c7f85d 49
+  s_05eef947428dfd::t_634e0424621e42 451-467
+components/prayer-popup-modal.tsx
+  s_05eef947428dfd::t_1bd91e41009b9a 82,84-93,95-101,103
+  s_05eef947428dfd::t_49de5b71baa085 18-20
+tests/prayer-popup-haid.test.ts
+  s_05eef947428dfd::t_68b9a7f275f686 24-32,39-40,42-44,47-48,54
+tests/haid-screen.test.ts
+  s_05eef947428dfd::t_dc2b99accb034b 40-44
+  s_05eef947428dfd::t_5d19d5af8b3c4a 71-86
+app/haid.tsx
+  s_05eef947428dfd::t_e6f0c54c01b29d 53-65
+lib/notifications.ts
+  s_05eef947428dfd::t_133b218405361f 529-539
+lib/haid-state.ts
+  s_05eef947428dfd::t_7b2779386e3368 2
+tests/haid-state.test.ts
+  s_05eef947428dfd::t_b92b452cb08ae1 10
+tests/daily-diagnostic-card.test.ts
+  s_05eef947428dfd::t_67ff78bc89e470 92-99
+  s_05eef947428dfd::t_0100e2be08a0e9 28-42
+  s_05eef947428dfd::t_92ce845e3d588f 64-71
+  s_05eef947428dfd::t_bdc3854c88523f 78
+  s_05eef947428dfd::t_077402dbb2d457 299-302
+  s_05eef947428dfd::t_dcda873b8ba151 322-353
+app/_layout.tsx
+  s_05eef947428dfd::t_e9ddd48caee1fc 485-504
+  s_05eef947428dfd::t_ddccd4b2e0833a 13
+  s_05eef947428dfd::t_c3eba9c11f8a06 354
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "0445b4b1b83171ecd85976cbde0d69aab91af02b",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
