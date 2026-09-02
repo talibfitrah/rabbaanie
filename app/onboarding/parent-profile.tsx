@@ -55,6 +55,7 @@ function getPHASES(lang: Lang, gender?: string): Phase[] {
         key: "gender",
         label: tx(lang, "Wat is uw geslacht?", "What is your gender?", "ما هو جنسك؟"),
         type: "select",
+        conditional: (p) => !p.gender,
         options: [
           { value: "man", label: tx(lang, "Man", "Man", "رجل") },
           { value: "vrouw", label: tx(lang, "Vrouw", "Woman", "امرأة") },
@@ -64,6 +65,7 @@ function getPHASES(lang: Lang, gender?: string): Phase[] {
         key: "maritalStatus",
         label: tx(lang, "Wat is uw burgerlijke staat?", "What is your marital status?", "ما هي حالتك الاجتماعية؟"),
         type: "select",
+        conditional: (p) => !p.maritalStatus,
         options: [
           { value: "getrouwd", label: tx(lang, "Getrouwd", "Married", gAr("متزوج", "متزوجة", "متزوج/ة")) },
           { value: "gescheiden", label: tx(lang, "Gescheiden", "Divorced", gAr("مطلّق", "مطلّقة", "مطلق/ة")) },
