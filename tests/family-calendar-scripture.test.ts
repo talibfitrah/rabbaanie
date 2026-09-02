@@ -39,7 +39,7 @@ vi.mock("@/lib/store", () => ({
 }));
 vi.mock("@/components/date-time-header", () => ({ DateTimeHeader: "DateTimeHeader" }));
 vi.mock("@/lib/i18n", () => ({ useI18n: vi.fn() }));
-vi.mock("@/hooks/use-weekly-data", () => ({ useMultipleYearData: vi.fn() }));
+vi.mock("@/hooks/use-weekly-data", () => ({ useMultipleWeekData: vi.fn() }));
 vi.mock("@/lib/trpc", () => ({ trpc: {} }));
 vi.mock("@/hooks/use-auth", () => ({ useAuth: vi.fn() }));
 vi.mock("@/components/sync-toast", () => ({ SyncToast: "SyncToast" }));

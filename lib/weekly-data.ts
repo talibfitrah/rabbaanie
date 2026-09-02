@@ -42,7 +42,12 @@ async function fetchWeekFromServer(yearNum: number, weekNum: number, lang: strin
     { method: "GET", headers: { "Content-Type": "application/json" } },
   );
 
-  if (!response.ok) return null;
+  // Throw, never return null: fetchWithCache keeps the stale cached week when
+  // its fetcher rejects, but treats a resolved null as a successful empty
+  // result and overwrites the user's offline copy with it.
+  if (!response.ok) {
+    throw new Error(`Server returned ${response.status}`);
+  }
   const json = await response.json();
   return json?.result?.data?.json ?? json?.result?.data ?? json;
 }
@@ -82,6 +87,14 @@ export function getYearDataSync(yearNum: number, lang: string = "ar"): any {
 }
 
 /**
+ * Get week data synchronously from memory cache only.
+ */
+export function getWeekDataSync(yearNum: number, weekNum: number, lang: string = "ar"): any {
+  const validLang = ["nl", "en", "ar"].includes(lang) ? lang : "ar";
+  return memoryCache[`weekly_week_${yearNum}_${weekNum}_${validLang}`] || null;
+}
+
+/**
  * Fetch a specific week (with translation if needed).
  */
 export async function fetchWeekData(yearNum: number, weekNum: number, lang: string = "ar"): Promise<any> {
@@ -92,20 +105,9 @@ export async function fetchWeekData(yearNum: number, weekNum: number, lang: stri
     return memoryCache[cacheKey];
   }
 
-  // For Arabic, we can get from the year data
-  if (validLang === "ar") {
-    const yearData = await fetchYearData(yearNum, validLang);
-    if (yearData?.weeks) {
-      const week = yearData.weeks.find((w: any) => w.week === weekNum);
-      if (week) {
-        memoryCache[cacheKey] = week;
-        return week;
-      }
-    }
-    return null;
-  }
-
-  // For other languages, fetch translated week from server
+  // Every language fetches the single week (~40 KB). Pulling the whole year for
+  // Arabic cost 0.9-2.9 MB and overflowed the Android AsyncStorage row, so the
+  // cache write never survived and the year was refetched on every open.
   const result = await fetchWithCache(
     cacheKey,
     () => fetchWeekFromServer(yearNum, weekNum, validLang),
