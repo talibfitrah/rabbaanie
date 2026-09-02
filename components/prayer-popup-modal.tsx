@@ -73,7 +73,19 @@ export function PrayerPopupModal({
 
   const utils = trpc.useUtils();
   const markHaid = trpc.cycle.upsertDay.useMutation({
-    onSuccess: () => utils.cycle.getMine.invalidate(),
+    onSuccess: () => {
+      utils.cycle.getMine.invalidate();
+      // Silence prayer reminders only once the server has actually accepted
+      // today's entry (a pre-write here used to pause prayers even when the
+      // mutation later failed). The tracker's own sync
+      // (syncHaidNotifications, run on the next data fetch) recomputes and
+      // extends `until` from the saved server rows.
+      NativeAuth.getUserInfo().then((u) => {
+        if (u?.id) writeExcusedState(u.id, { excused: true, until: isoToday() }).catch(() => {});
+      });
+    },
+    // No-op: on failure the flag above is simply never written.
+    onError: () => {},
   });
 
   if (!notification) return null;
@@ -96,13 +108,7 @@ export function PrayerPopupModal({
   };
 
   const handleHaid = () => {
-    // Suppress today's prayer popups immediately; the tracker's own sync
-    // (syncHaidNotifications, run on the next data fetch) recomputes and
-    // extends `until` from the saved server rows.
-    NativeAuth.getUserInfo().then((u) => {
-      if (u?.id) writeExcusedState(u.id, { excused: true, until: isoToday() }).catch(() => {});
-    });
-    markHaid.mutate({ date: isoToday(), flow: "blood" });
+    markHaid.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
     // onDoNow, not onDismiss: this component holds no follow-up-timer ref of
     // its own (it lives in usePopupNotifications, app/_layout.tsx's caller),
     // and onDoNow is already wired to that hook's handleDoNow, which clears
