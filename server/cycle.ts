@@ -58,10 +58,11 @@ export const cycleRouter = router({
   }),
 
   upsertDay: protectedProcedure
-    .input(z.object({ date: isoDate, flow: flowEnum, color: colorEnum.nullable().optional(), ghusl: z.boolean().optional(), note: z.string().max(200).nullable().optional() }))
+    .input(z.object({ date: isoDate, flow: flowEnum, color: colorEnum.nullable().optional(), ghusl: z.boolean().optional(), note: z.string().max(200).nullable().optional(), ifAbsent: z.boolean().optional() }))
     .mutation(async ({ ctx, input }) => {
       await assertWoman(ctx.user.id);
-      await db.upsertCycleDay(ctx.user.id, input);
+      const { ifAbsent, ...day } = input;
+      return db.upsertCycleDay(ctx.user.id, day, ifAbsent);
     }),
 
   deleteDay: protectedProcedure.input(z.object({ date: isoDate })).mutation(async ({ ctx, input }) => {

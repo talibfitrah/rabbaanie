@@ -4,6 +4,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { useAppState } from "@/lib/app-context";
+import { isoToday } from "@/lib/haid";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
 type Lang = "nl" | "en" | "ar";
@@ -97,11 +98,14 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
   // Decision 13-ب (haid tracker spec): choosing the women-only "excused
   // today" prayer option seeds the tracker with today's blood day, so a
   // woman never has to log the same thing twice. `mine`/`logBlood` stay
-  // no-ops (query disabled, mutation never called) for a man.
+  // no-ops (query disabled, mutation never called) for a man. Gated on
+  // mine.data.enabled — she must have consented to the tracker (activation
+  // is its own consent notice, app/haid.tsx) before this card writes to it.
   const { state } = useAppState();
   const isWoman = state.parentProfile.gender === "vrouw";
   const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
   const logBlood = trpc.cycle.upsertDay.useMutation({ onSuccess: () => utils.cycle.getMine.invalidate() });
+  const cycleEnabled = mine.isSuccess && mine.data?.enabled === true;
 
   const [selected, setSelected] = useState<Record<string, { label: string; tone: DiagnosticTone }>>({});
 
@@ -280,13 +284,14 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
               // Excused-answer hook (decision 13-ب): the prayer question's
               // chosen option is tagged `kind: "excused"` only for the
               // women-only "معذورة اليوم" choice — log it as today's blood
-              // day, but only the first time (no existing tracker entry for
-              // today), so re-submitting never overwrites her own edits.
+              // day, at the tracker's own local date (not this card's UTC
+              // `date`/todayKey). ifAbsent:true is the never-overwrite guard
+              // now (the server no-ops on an existing row).
               const prayerQ = questions.find((q) => q.category === "prayer");
               const chosenLabel = prayerQ ? selected[prayerQ.category]?.label : undefined;
               const chosen = prayerQ?.options.find((o) => o.label === chosenLabel);
-              if (isWoman && chosen?.kind === "excused" && !mine.data?.days?.some((d) => d.date === date)) {
-                logBlood.mutate({ date, flow: "blood" });
+              if (isWoman && chosen?.kind === "excused" && cycleEnabled) {
+                logBlood.mutate({ date: isoToday(), flow: "blood", ifAbsent: true });
               }
               submitMutation.mutate({
                 date,

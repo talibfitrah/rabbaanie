@@ -5907,17 +5907,19 @@ export async function listCycleDays(userId: number, sinceDate: string): Promise<
     .orderBy(asc(cycleDays.date));
 }
 
-export async function upsertCycleDay(userId: number, day: CycleDayInput): Promise<void> {
+export async function upsertCycleDay(userId: number, day: CycleDayInput, ifAbsent?: boolean): Promise<{ written: boolean }> {
   const db = await getDb();
-  if (!db) return;
-  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, note: day.note ?? null, updatedAt: new Date() };
+  if (!db) return { written: false };
   const existing = await db.select({ userId: cycleDays.userId }).from(cycleDays)
     .where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date))).limit(1);
+  if (existing.length && ifAbsent) return { written: false };
+  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, note: day.note ?? null, updatedAt: new Date() };
   if (existing.length) {
     await db.update(cycleDays).set(values).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date)));
   } else {
     await db.insert(cycleDays).values({ userId, date: day.date, ...values });
   }
+  return { written: true };
 }
 
 export async function deleteCycleDay(userId: number, date: string): Promise<void> {
