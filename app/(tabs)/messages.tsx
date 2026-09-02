@@ -38,6 +38,7 @@ import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { toggleProfileAccess } from "@/lib/partner-profile-toggle";
+import { WifeCycleStatus } from "@/components/wife-cycle-status";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -936,6 +937,7 @@ function WifePermissionsPanel({
               ? <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted }}>…</Text>
               : <PermBadge allowed={profileGranted} colors={colors} lang={lang} />}
           </TouchableOpacity>
+          <WifeCycleStatus wifeId={wife.id} expanded={expanded} />
         </View>
       )}
     </View>
