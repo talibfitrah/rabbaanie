@@ -93,7 +93,11 @@ export default function HaidScreen() {
 
   const log = (flow: Flow, extra: Partial<CycleDay> = {}) => {
     const existing = days.find((d) => d.date === selected);
-    upsertDay.mutate({ date: selected, flow, color: extra.color ?? existing?.color ?? null, ghusl: extra.ghusl ?? false });
+    // C12: color only applies to flow "blood" (server refine) — never carry
+    // a prior blood day's colour onto a dry/spotting entry, or the server
+    // rejects the write and she stays stuck classified excused.
+    const color = flow === "blood" ? (extra.color ?? existing?.color ?? null) : null;
+    upsertDay.mutate({ date: selected, flow, color, ghusl: extra.ghusl ?? false });
   };
 
   if (!isAuthenticated || !isWoman) return null;

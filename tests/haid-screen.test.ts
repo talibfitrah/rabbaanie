@@ -19,8 +19,12 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
     expect(src).not.toContain('todayCls.status !== "tuhr"');
   });
 
-  it("log() preserves the existing entry's colour unless the caller overrides it", () => {
-    expect(src).toContain("extra.color ?? existing?.color ?? null");
+  // C12: carrying a prior blood day's colour onto a dry/spotting entry made
+  // the server reject the request outright (color only applies to flow:
+  // blood) — she'd stay stuck classified excused, unable to log purity.
+  it("log() preserves the existing entry's colour when logging blood, but clears it for dry/spotting (C12)", () => {
+    expect(src).toContain('const color = flow === "blood" ? (extra.color ?? existing?.color ?? null) : null;');
+    expect(src).toContain("upsertDay.mutate({ date: selected, flow, color, ghusl: extra.ghusl ?? false });");
   });
 
   it("the ghusl button's dead byDate.get(selected) conjunct is gone", () => {
