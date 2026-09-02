@@ -42,7 +42,12 @@ async function fetchWeekFromServer(yearNum: number, weekNum: number, lang: strin
     { method: "GET", headers: { "Content-Type": "application/json" } },
   );
 
-  if (!response.ok) return null;
+  // Throw, never return null: fetchWithCache keeps the stale cached week when
+  // its fetcher rejects, but treats a resolved null as a successful empty
+  // result and overwrites the user's offline copy with it.
+  if (!response.ok) {
+    throw new Error(`Server returned ${response.status}`);
+  }
   const json = await response.json();
   return json?.result?.data?.json ?? json?.result?.data ?? json;
 }

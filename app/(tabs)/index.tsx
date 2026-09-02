@@ -349,7 +349,7 @@ export default function AlgemeenScreen() {
         todayTip,
       };
     });
-  }, [state.children, completedGoals, lang]);
+  }, [state.children, completedGoals, lang, weekDataMap]);
 
   if (loading) {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;

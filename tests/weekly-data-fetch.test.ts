@@ -28,3 +28,16 @@ describe("fetchWeekData", () => {
     expect(publicFetch.mock.calls[0][0]).not.toContain("getYear");
   });
 });
+
+describe("fetchWeekFromServer error handling", () => {
+  it("hands fetchWithCache a fetcher that rejects on a server error, so the stale cached week survives", async () => {
+    publicFetch.mockResolvedValue({ ok: false, status: 500 });
+
+    await expect(fetchWeekData(5, 9, "ar")).rejects.toThrow("Server returned 500");
+
+    // fetchWithCache only keeps the stale row when its fetcher REJECTS; a
+    // resolved null would overwrite the user's offline copy with nothing.
+    const fetcher = fetchWithCache.mock.calls.at(-1)![1];
+    await expect(fetcher()).rejects.toThrow("Server returned 500");
+  });
+});
