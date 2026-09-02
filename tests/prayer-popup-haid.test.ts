@@ -40,4 +40,14 @@ describe("prayer popup — haid button (item C: never overwrite, pause only afte
     const handleHaidBody = src.slice(handleHaidStart, handleHaidEnd);
     expect(handleHaidBody).not.toContain("writeExcusedState");
   });
+
+  // C8: an ifAbsent no-op ({written:false} — today's row already existed)
+  // must not be read as "she is excused". onSuccess now derives the flag
+  // from the write result via lib/haid-state's deriveExcusedAfterWrite
+  // instead of unconditionally forcing {excused:true}.
+  it("derives the excused flag from the write result instead of assuming success means excused", () => {
+    expect(src).toContain("deriveExcusedAfterWrite");
+    expect(src).toContain("result.written");
+    expect(src).not.toContain("writeExcusedState(u.id, { excused: true, until: isoToday() })");
+  });
 });

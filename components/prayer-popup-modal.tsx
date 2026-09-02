@@ -15,7 +15,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
 import { trpc } from "@/lib/trpc";
-import { writeExcusedState } from "@/lib/haid-state";
+import { writeExcusedState, deriveExcusedAfterWrite } from "@/lib/haid-state";
 import { isoToday } from "@/lib/haid";
 import * as NativeAuth from "@/lib/_core/auth";
 import { loadAppState } from "@/lib/store";
@@ -73,16 +73,23 @@ export function PrayerPopupModal({
 
   const utils = trpc.useUtils();
   const markHaid = trpc.cycle.upsertDay.useMutation({
-    onSuccess: () => {
+    onSuccess: async (result) => {
       utils.cycle.getMine.invalidate();
       // Silence prayer reminders only once the server has actually accepted
       // today's entry (a pre-write here used to pause prayers even when the
       // mutation later failed). The tracker's own sync
       // (syncHaidNotifications, run on the next data fetch) recomputes and
       // extends `until` from the saved server rows.
-      NativeAuth.getUserInfo().then((u) => {
-        if (u?.id) writeExcusedState(u.id, { excused: true, until: isoToday() }).catch(() => {});
-      });
+      //
+      // C8: {written:false} means today's row already existed and
+      // ifAbsent:true left it untouched — refetch and derive the real state
+      // instead of assuming she's excused just because the mutation
+      // "succeeded".
+      const fresh = result.written ? null : await utils.cycle.getMine.fetch().catch(() => null);
+      const state = deriveExcusedAfterWrite(result.written, fresh, isoToday());
+      if (!state) return;
+      const u = await NativeAuth.getUserInfo();
+      if (u?.id) writeExcusedState(u.id, state).catch(() => {});
     },
     // No-op: on failure the flag above is simply never written.
     onError: () => {},
