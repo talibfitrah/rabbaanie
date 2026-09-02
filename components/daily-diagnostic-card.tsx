@@ -3,6 +3,7 @@ import { View, Text, Pressable, StyleSheet, ActivityIndicator } from "react-nati
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { useAppState } from "@/lib/app-context";
 import type { DiagnosticTone } from "@/server/daily-diagnostic";
 
 type Lang = "nl" | "en" | "ar";
@@ -92,6 +93,15 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
     // Refetch so the next tap works against whatever is actually current.
     onError: () => utils.dailyDiagnostic.getToday.invalidate({ lang, date: todayKey }),
   });
+
+  // Decision 13-ب (haid tracker spec): choosing the women-only "excused
+  // today" prayer option seeds the tracker with today's blood day, so a
+  // woman never has to log the same thing twice. `mine`/`logBlood` stay
+  // no-ops (query disabled, mutation never called) for a man.
+  const { state } = useAppState();
+  const isWoman = state.parentProfile.gender === "vrouw";
+  const mine = trpc.cycle.getMine.useQuery(undefined, { enabled: isWoman });
+  const logBlood = trpc.cycle.upsertDay.useMutation({ onSuccess: () => utils.cycle.getMine.invalidate() });
 
   const [selected, setSelected] = useState<Record<string, { label: string; tone: DiagnosticTone }>>({});
 
@@ -266,12 +276,23 @@ export function DailyDiagnosticCard({ lang, onSubmitted }: Props) {
         <>
           <Pressable
             disabled={!allAnswered || submitMutation.isPending}
-            onPress={() =>
+            onPress={() => {
+              // Excused-answer hook (decision 13-ب): the prayer question's
+              // chosen option is tagged `kind: "excused"` only for the
+              // women-only "معذورة اليوم" choice — log it as today's blood
+              // day, but only the first time (no existing tracker entry for
+              // today), so re-submitting never overwrites her own edits.
+              const prayerQ = questions.find((q) => q.category === "prayer");
+              const chosenLabel = prayerQ ? selected[prayerQ.category]?.label : undefined;
+              const chosen = prayerQ?.options.find((o) => o.label === chosenLabel);
+              if (isWoman && chosen?.kind === "excused" && !mine.data?.days?.some((d) => d.date === date)) {
+                logBlood.mutate({ date, flow: "blood" });
+              }
               submitMutation.mutate({
                 date,
                 answers: questions.map((q) => ({ category: q.category, ...selected[q.category]! })),
-              })
-            }
+              });
+            }}
             style={({ pressed }) => [
               s.submitBtn,
               (!allAnswered || submitMutation.isPending) && s.submitBtnDisabled,

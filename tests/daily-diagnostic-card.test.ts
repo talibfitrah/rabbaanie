@@ -17,6 +17,14 @@ vi.mock("react-native", () => ({
 }));
 vi.mock("@expo/vector-icons/MaterialIcons", () => ({ default: "MaterialIcons" }));
 vi.mock("@/components/report-ai-content", () => ({ ReportAiContent: () => null }));
+// The card now reads gender (haid tracker's excused-answer hook) via
+// useAppState — real @/lib/app-context pulls in @react-native-async-storage
+// via lib/store.ts, which this file's own bare-bones "react" mock (no
+// createContext/useContext) cannot survive. Same recipe as
+// tests/family-calendar-scripture.test.ts. Fixed at "man" so every
+// pre-existing test below (none of them exercise the excused hook) keeps
+// isWoman false, exactly like before this component knew about gender.
+vi.mock("@/lib/app-context", () => ({ useAppState: () => ({ state: { parentProfile: { gender: "man" } } }) }));
 
 // The card is also exercised as a component below (the freshness suite), so
 // trpc needs more than an empty stub: this fake stands in for the query cache
@@ -46,6 +54,13 @@ vi.mock("@/lib/trpc", () => ({
           return { mutate: () => {}, isPending: false, isError: false };
         },
       },
+    },
+    // Called unconditionally every render by the excused-answer hook
+    // (isWoman is fixed false above, so its mutate is never reached by any
+    // test here) — only present so the hook calls themselves don't throw.
+    cycle: {
+      getMine: { useQuery: () => ({ data: undefined }) },
+      upsertDay: { useMutation: () => ({ mutate: () => {} }) },
     },
   },
 }));
