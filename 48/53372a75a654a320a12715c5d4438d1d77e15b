@@ -1,0 +1,318 @@
+tests/i18n-no-native-rtl.test.ts
+  s_9b86f93c5dbe93::t_5dac74500b00c3 17,22-27,29-39,41-45,47,49-54,59-62
+  s_9b86f93c5dbe93::t_5975a2887cdf89 2-3,19,63,65-66
+  s_9b86f93c5dbe93::t_aa593f7f6009aa 4-6,9-10,13,15-16
+components/daily-diagnostic-card.tsx
+  s_9b86f93c5dbe93::t_46d4453b755941 321
+app/admin/email.tsx
+  s_9b86f93c5dbe93::t_141881b7eecbcb 26
+  s_9b86f93c5dbe93::t_1321e0c7c42e45 8
+app/child-account/parent-monitor.tsx
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 260,287,324,361,394,421,425,429,437,543,906
+app/library/read.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 232
+app/spouse-profile.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 322
+app/specialist-chat.tsx
+  s_9b86f93c5dbe93::t_74779690e46947 88,191
+  s_9b86f93c5dbe93::t_6ce5943509c698 80,99,103,149,179,181,188,192
+app/(tabs)/dhikri.tsx
+  s_9b86f93c5dbe93::t_867f529ec720a9 178
+  s_9b86f93c5dbe93::t_6ce5943509c698 216,234,253,272,290,398,408,430
+app.config.ts
+  s_9b86f93c5dbe93::t_5dac74500b00c3 936-941
+  s_9b86f93c5dbe93::t_4cfd9f799be2b3 935
+app/admin/add-book.tsx
+  s_9b86f93c5dbe93::t_65d7f73d4e2468 8,14
+  s_9b86f93c5dbe93::t_ac931002430bd5 25-26,29,33
+  s_9b86f93c5dbe93::t_dbe3582027f8fd 46,50,52-54,56-57,59
+app/admin/content.tsx
+  s_9b86f93c5dbe93::t_7b20d0afd6b2ec 110
+  s_9b86f93c5dbe93::t_09c6d6770c4bab 8
+  s_9b86f93c5dbe93::t_b7091cb4d0c216 38,41
+  s_9b86f93c5dbe93::t_cc6e22de450003 141
+  s_9b86f93c5dbe93::t_b5a5e81abda611 78,80,85
+  s_9b86f93c5dbe93::t_c62873f2d1b53a 115
+  s_9b86f93c5dbe93::t_97fd70a63bfb53 50
+  s_9b86f93c5dbe93::t_7a7d26f54ce79c 138
+  s_9b86f93c5dbe93::t_a143c63935432c 145
+  s_9b86f93c5dbe93::t_084c66d0d69a25 17,22-29
+  s_9b86f93c5dbe93::t_f3dafbcd8b26d7 58-60
+  s_9b86f93c5dbe93::t_0efd7c42583d46 94,97,101
+  s_9b86f93c5dbe93::t_7af4fcb544250c 120
+  s_9b86f93c5dbe93::t_f487c73e75d6c9 132,134
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 79,116
+app/child/[id].tsx
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 533,877,1191,1235,1264,1287,1421,2143,2259,2288,2608
+app/weather.tsx
+  s_9b86f93c5dbe93::t_867f529ec720a9 111-112,116-117
+app/support.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 98
+app/details/upcoming-days.tsx
+  s_9b86f93c5dbe93::t_6ce5943509c698 112,130,144,147,155,161,180,185,192,194,198
+app/(tabs)/messages.tsx
+  s_9b86f93c5dbe93::t_6026f1adeac66c 423,435
+  s_9b86f93c5dbe93::t_a96ab0d1b1476f 330,364,397,438,468,545,624,979,1122,1188,1204,1387,1408,1423,1430,1437,1490,1502,1545,1621,1628,1658,1755
+  s_9b86f93c5dbe93::t_74779690e46947 331,334,480
+app/(tabs)/settings.tsx
+  s_9b86f93c5dbe93::t_867f529ec720a9 1161
+  s_9b86f93c5dbe93::t_bca7989eb84eea 2120,2149,2473,2681
+app/qibla.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 523
+app/qr-scanner.tsx
+  s_9b86f93c5dbe93::t_135d8cc10b03eb 176
+  s_9b86f93c5dbe93::t_bcd354c3686136 8
+  s_9b86f93c5dbe93::t_e9777e26b60305 145
+  s_9b86f93c5dbe93::t_f175a6c36a6c7e 147
+  s_9b86f93c5dbe93::t_f26f86047a8ded 23
+app/specialist/dashboard.tsx
+  s_9b86f93c5dbe93::t_74779690e46947 287,474
+  s_9b86f93c5dbe93::t_6ce5943509c698 65,76,80,129,303,354,398,454,457-458,478,480,488
+app/admin/users.tsx
+  s_9b86f93c5dbe93::t_2b165f493f6d49 47
+  s_9b86f93c5dbe93::t_0c4298648ef4a4 86
+  s_9b86f93c5dbe93::t_0d56db55fd77e5 93
+  s_9b86f93c5dbe93::t_8b0ff7d2766eee 52
+  s_9b86f93c5dbe93::t_12f6d1c4aa904e 8,14,21-31
+  s_9b86f93c5dbe93::t_d768c183137845 99
+  s_9b86f93c5dbe93::t_a7892d0bd8c379 65
+  s_9b86f93c5dbe93::t_2f9a59ad38e760 58
+  s_9b86f93c5dbe93::t_b69a4c62df1d25 89
+  s_9b86f93c5dbe93::t_0c5f8e9fe8060b 73
+app/(tabs)/_layout.tsx
+  s_9b86f93c5dbe93::t_663603a59bf0d6 30-119
+  s_9b86f93c5dbe93::t_fc4b565c8eec8e 123
+  s_9b86f93c5dbe93::t_5975a2887cdf89 122,124
+  s_9b86f93c5dbe93::t_c60b3c428c233d 147
+  s_9b86f93c5dbe93::t_2cf3cb99966aeb 11-14
+app/onboarding/add-child.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 112
+app/(tabs)/notification-settings.tsx
+  s_9b86f93c5dbe93::t_a96ab0d1b1476f 482,487,494,524,569,611,648,663,747,753
+lib/admin-text.ts
+  s_9b86f93c5dbe93::t_42c50c349759ee 1-12
+app/admin/user.tsx
+  s_9b86f93c5dbe93::t_af2f3f2636adfd 107-115
+  s_9b86f93c5dbe93::t_399022484c5567 67
+  s_9b86f93c5dbe93::t_a1ebe0fc9b6a16 80-82,86
+  s_9b86f93c5dbe93::t_dc6ef32428b9ee 122
+  s_9b86f93c5dbe93::t_a3dce2a792464e 7,14-15,19-38
+  s_9b86f93c5dbe93::t_62bd11e3d2f42a 125
+  s_9b86f93c5dbe93::t_96cf433b910d14 130-131
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 132,146
+  s_9b86f93c5dbe93::t_bca7556b5ca3d2 98,102
+  s_9b86f93c5dbe93::t_517953acc4eec1 139
+  s_9b86f93c5dbe93::t_eee3ddef8fef85 148
+  s_9b86f93c5dbe93::t_1ee76ea2dc637c 119
+tests/persistent-tab-bar-i18n.test.ts
+  s_9b86f93c5dbe93::t_bbd63a6ff8d759 78-85
+app/admin/create-specialist.tsx
+  s_9b86f93c5dbe93::t_67b8880ed27e03 22-23,27
+  s_9b86f93c5dbe93::t_758914f7d1919f 38,42,44-46,48-49,51
+  s_9b86f93c5dbe93::t_4e9508840c6371 8,14
+app/child-account/login.tsx
+  s_9b86f93c5dbe93::t_7d33042f1bce4f 16
+  s_9b86f93c5dbe93::t_19e9cb78b59530 260
+components/sync-toast.tsx
+  s_9b86f93c5dbe93::t_2b1e7d5f71f86d 48,53
+  s_9b86f93c5dbe93::t_e386082c85574b 4
+  s_9b86f93c5dbe93::t_9ad9a1ae25b7bc 17
+app/(tabs)/index.tsx
+  s_9b86f93c5dbe93::t_867f529ec720a9 437,584
+  s_9b86f93c5dbe93::t_74779690e46947 863
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 374-375,402,419,445,460,472,487,490,499,508,525,576,588,596,610,621,630,654,657,662,751,777,783,787,803,813-814,823,830,832,837,842,844,848,855,860
+app/donate.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 70,84,126
+components/daily-duo-row.tsx
+  s_9b86f93c5dbe93::t_4cfd9f799be2b3 35
+app/find-specialist.tsx
+  s_9b86f93c5dbe93::t_6ce5943509c698 66,185,196,232,258,273,295,297,302,307
+  s_9b86f93c5dbe93::t_74779690e46947 91,111,278,281
+app/register.tsx
+  s_9b86f93c5dbe93::t_dbf32638bcfff9 10
+tests/ios-config.test.ts
+  s_9b86f93c5dbe93::t_9694743e7e53e1 493-499,501,506-507
+  s_9b86f93c5dbe93::t_5dac74500b00c3 500,502-505
+app/(tabs)/personal-advice.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 1212
+  s_9b86f93c5dbe93::t_74779690e46947 455
+app/(tabs)/mosques.tsx
+  s_9b86f93c5dbe93::t_74779690e46947 256,259,371
+  s_9b86f93c5dbe93::t_a96ab0d1b1476f 255,283,304,306,313,370,388-389,495,498,510,666
+app/(tabs)/fitrah.tsx
+  s_9b86f93c5dbe93::t_bca7989eb84eea 664,860,986,1456
+app/id-management.tsx
+  s_9b86f93c5dbe93::t_d250f8253e54e3 172
+  s_9b86f93c5dbe93::t_dfe607f3d80a61 27
+  s_9b86f93c5dbe93::t_fbcc7196a92ed7 11
+  s_9b86f93c5dbe93::t_9d9247db8b4385 203
+  s_9b86f93c5dbe93::t_1d90fb7ef73870 315,319,321-322,329
+  s_9b86f93c5dbe93::t_3c3c903438ecb5 346
+components/mosque-map.native.tsx
+  s_9b86f93c5dbe93::t_74779690e46947 73
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 3,36,68
+tests/advice-screen-rtl-parity.test.ts
+  s_9b86f93c5dbe93::t_5938731b4c1863 12-16,25-29,34-38
+  s_9b86f93c5dbe93::t_125c092e2a2f3a 19-20,30-31
+app/admin/content-editor.tsx
+  s_9b86f93c5dbe93::t_9e0ddee1c6c6ac 276
+  s_9b86f93c5dbe93::t_9385fad3f48c4d 244
+  s_9b86f93c5dbe93::t_c09f3d142270e5 16,26
+  s_9b86f93c5dbe93::t_6555c945611325 211
+lib/i18n.tsx
+  s_9b86f93c5dbe93::t_5dac74500b00c3 655-661,667,669-671,675-676,678-682,690,715-716
+  s_9b86f93c5dbe93::t_6b49da39320801 652
+  s_9b86f93c5dbe93::t_5975a2887cdf89 653-654
+app/details/adhkar.tsx
+  s_9b86f93c5dbe93::t_5b834b68918c07 248
+  s_9b86f93c5dbe93::t_72579792bad3ba 1
+  s_9b86f93c5dbe93::t_016a2d07175967 32
+  s_9b86f93c5dbe93::t_7efb625dd9e750 192,196
+  s_9b86f93c5dbe93::t_f175a6c36a6c7e 33,166,173,187,194,303-304
+  s_9b86f93c5dbe93::t_a10325b8182f60 132,140
+  s_9b86f93c5dbe93::t_2cf3cb99966aeb 178
+  s_9b86f93c5dbe93::t_46d4453b755941 271,273,294,302
+  s_9b86f93c5dbe93::t_2c98767e290459 217
+  s_9b86f93c5dbe93::t_3eedd6f9b205a7 30
+  s_9b86f93c5dbe93::t_a664ac91fa8a89 164
+  s_9b86f93c5dbe93::t_70f239b2960f35 176
+app/specialist/register.tsx
+  s_9b86f93c5dbe93::t_37a8ae8b2f8605 8
+  s_9b86f93c5dbe93::t_b04f11e544d9cc 228
+  s_9b86f93c5dbe93::t_f175a6c36a6c7e 131
+  s_9b86f93c5dbe93::t_74779690e46947 181,191,203,227,251,261,271
+  s_9b86f93c5dbe93::t_478bde40142baa 204
+  s_9b86f93c5dbe93::t_18df2419b8fae0 31-32
+  s_9b86f93c5dbe93::t_aa8ebbbb8d70f0 129-130
+app/ai-chat.tsx
+  s_9b86f93c5dbe93::t_a96ab0d1b1476f 250,1245,1255,1261,1314,1393,1398,1412,1426,1469,1510,1532-1533,1611,1639,1667,1838-1839,1933,1954,1963,1972,1987,2006
+  s_9b86f93c5dbe93::t_74779690e46947 112,152-153,163-164,206,1241
+app/admin/subscriptions.tsx
+  s_9b86f93c5dbe93::t_6f260098c682e5 8,20-21,40,45,49,62,74-75,85-86,88-89,95-96,98-99,105,107-108,110-111,116,122,129,134-136,143-144,150,159,161-164,168,175-176,178,187-188,190-192,194,196,198-199,204,207,213,216,225,227,231,234,245,248,254,259,262,268,273,276,281
+app/(tabs)/family-hub.tsx
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 185,202,322,343,346,353,397,407,469,547,554
+app/(tabs)/prayer-times.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 261
+app/age-check.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 81
+app/chat-notes.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 244,274,279
+app/qiyam.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 19,61,98
+app/(tabs)/weekly.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 403
+  s_9b86f93c5dbe93::t_867f529ec720a9 854,1254
+app/add-child.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 113
+components/loading-screen.tsx
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 62,118
+app/subscribe.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 1171
+app/network.tsx
+  s_9b86f93c5dbe93::t_bca7989eb84eea 91,108,129,132,139,191,201
+components/daily-deeds-card.tsx
+  s_9b86f93c5dbe93::t_46d4453b755941 161,185,210,246
+app/details/tips-today.tsx
+  s_9b86f93c5dbe93::t_6ce5943509c698 171,190,202,219,230,241,252,267,279,282
+app/admin/broadcast.tsx
+  s_9b86f93c5dbe93::t_3c3320a0254f6e 8,38,64-109,200-201,238,242,246,254,259,265-267,275,277,310,313,315-316,328,341-343,345-346,353-354,361-362,364,371,379,397-400,412,417,421,428,433-434,455,463,469,473,476,489,498,508,513,520-521,528,530,534
+  s_9b86f93c5dbe93::t_4cfd9f799be2b3 391
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 292
+app/admin/newsletter-editor.tsx
+  s_9b86f93c5dbe93::t_94ae749e2e27c7 16,24
+  s_9b86f93c5dbe93::t_4ddc4a8ee10576 160
+  s_9b86f93c5dbe93::t_804fcac444019a 193
+app/emotion-path.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 139
+app/details/mindset.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 14,37
+components/prayer-popup-modal.tsx
+  s_9b86f93c5dbe93::t_5f0c6eb59d11e0 199
+  s_9b86f93c5dbe93::t_aeec23b0781b7b 123-125
+  s_9b86f93c5dbe93::t_bfe1e1467de087 211,237
+  s_9b86f93c5dbe93::t_0bd4c5fc7189ed 218,226,244,252
+app/onboarding/index.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 350
+components/form-field.tsx
+  s_9b86f93c5dbe93::t_8752a503890c28 83,230,289,477
+  s_9b86f93c5dbe93::t_bca7989eb84eea 105,156,243,314,365,519
+app/(tabs)/mindsets.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 181
+app/sunnah.tsx
+  s_9b86f93c5dbe93::t_bdc12487ac6f22 94,105,116,126,145,181,192,216,218,236,265
+app/admin/site-analytics.tsx
+  s_9b86f93c5dbe93::t_ca7b85e035a607 27,31,33-45
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 100
+  s_9b86f93c5dbe93::t_70674c4685e4f2 8
+app/(tabs)/family.tsx
+  s_9b86f93c5dbe93::t_867f529ec720a9 1138,1429,1437,1585,2729
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 2217,2525
+tests/i18n-leaks.test.ts
+  s_9b86f93c5dbe93::t_ac7f201c38687c 39-57
+  s_9b86f93c5dbe93::t_4cfd9f799be2b3 64-67
+  s_9b86f93c5dbe93::t_19833085b2982a 58-63,68-73
+tests/admin-i18n.test.ts
+  s_9b86f93c5dbe93::t_b88a6073d69363 20
+app/admin/feedback.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 64
+  s_9b86f93c5dbe93::t_9d079ed3840195 16,20
+  s_9b86f93c5dbe93::t_744bc305a1a51f 7
+components/date-picker.tsx
+  s_9b86f93c5dbe93::t_8752a503890c28 4,29-30,171,178
+  s_9b86f93c5dbe93::t_6ce5943509c698 67,100,112,147,212
+app/admin/specialist.tsx
+  s_9b86f93c5dbe93::t_ed5ec954af0dba 75
+  s_9b86f93c5dbe93::t_1a09ef19828513 8,17
+  s_9b86f93c5dbe93::t_e0f47e55972caa 49-50,55-56
+  s_9b86f93c5dbe93::t_2748e1bbfb1d1f 80
+  s_9b86f93c5dbe93::t_c489199a7e8ac8 63
+tests/rtl-rows.test.ts
+  s_9b86f93c5dbe93::t_cdbd56a703174b 38-39
+  s_9b86f93c5dbe93::t_46d4453b755941 1-37,40-50
+app/(tabs)/treatments.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 26,149
+app/admin/panel.tsx
+  s_9b86f93c5dbe93::t_5975a2887cdf89 21-26,42-56,82,97
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 80
+  s_9b86f93c5dbe93::t_f8c55e5e34fccf 7,14,65,72,77,84,88,107
+app/admin/list.tsx
+  s_9b86f93c5dbe93::t_18d791c2592c6e 72
+  s_9b86f93c5dbe93::t_11905044d8ef33 8
+  s_9b86f93c5dbe93::t_d88f85384daeb2 55,58
+  s_9b86f93c5dbe93::t_195b5df436be02 93
+  s_9b86f93c5dbe93::t_462700b1e0c72b 18,22
+  s_9b86f93c5dbe93::t_c737aa61029b88 65
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 57
+app/details/personal-advice.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 1318
+  s_9b86f93c5dbe93::t_74779690e46947 451
+app/child/weekplan.tsx
+  s_9b86f93c5dbe93::t_4fac8c5356cdcf 770,815
+app/login.tsx
+  s_9b86f93c5dbe93::t_9df932a106388f 578,613
+  s_9b86f93c5dbe93::t_e47768896f0710 618,644
+app/haid.tsx
+  s_9b86f93c5dbe93::t_cd752c7eeb7188 169,225,258-259
+components/persistent-tab-bar.tsx
+  s_9b86f93c5dbe93::t_a57a48f8e1a773 75-76
+  s_9b86f93c5dbe93::t_9eee8c2a02839e 50
+app/(tabs)/concepts.tsx
+  s_9b86f93c5dbe93::t_ac4ae32b2bb461 1220,2110
+  s_9b86f93c5dbe93::t_92ed8552ef0406 1608,1642,1719,1723,1741,1799,1848,1952,1981
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "4853372a75a654a320a12715c5d4438d1d77e15b",
+  "prompts": {},
+  "sessions": {
+    "s_9b86f93c5dbe93": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d464d22-f543-4ce9-b8c5-e22cf4696275",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
