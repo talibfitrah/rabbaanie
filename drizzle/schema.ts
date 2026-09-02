@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex, date, primaryKey } from "drizzle-orm/mysql-core";
 
 // ============================================================
 // 1. USERS TABLE (existing, extended with profile fields)
@@ -1454,3 +1454,37 @@ export const parentAiConsultations = mysqlTable("parent_ai_consultations", {
 });
 export type ParentAiConsultation = typeof parentAiConsultations.$inferSelect;
 export type InsertParentAiConsultation = typeof parentAiConsultations.$inferInsert;
+
+// ============================================================
+// WOMEN'S CYCLE TRACKER — حيض/استحاضة/نفاس (client-repo parity copy for
+// trpc.cycle.* typing; see docs/superpowers/plans/2026-09-02-haid-tracker-*)
+// ============================================================
+export const cycleDays = mysqlTable(
+  "cycle_days",
+  {
+    userId: int("user_id").notNull(),
+    date: date("date", { mode: "string" }).notNull(),
+    flow: varchar("flow", { length: 16 }).notNull(),
+    color: varchar("color", { length: 16 }),
+    ghusl: boolean("ghusl").notNull().default(false),
+    note: varchar("note", { length: 200 }),
+    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  },
+  (t) => ({ pk: primaryKey({ columns: [t.userId, t.date] }) }),
+);
+export type CycleDayRow = typeof cycleDays.$inferSelect;
+export const cycleSettings = mysqlTable("cycle_settings", {
+  userId: int("user_id").primaryKey(),
+  enabled: boolean("enabled").notNull().default(false),
+  consentAt: timestamp("consent_at"),
+  habitLength: int("habit_length"),
+  cycleLength: int("cycle_length"),
+  pregnantSince: date("pregnant_since", { mode: "string" }),
+  birthDate: date("birth_date", { mode: "string" }),
+  miscarriageDate: date("miscarriage_date", { mode: "string" }),
+  gestationDays: int("gestation_days"),
+  contraception: boolean("contraception").notNull().default(false),
+  ghuslReminder: boolean("ghusl_reminder").notNull().default(true),
+  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+});
+export type CycleSettingsRow = typeof cycleSettings.$inferSelect;

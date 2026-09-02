@@ -17,6 +17,7 @@
 import {
   eq,
   and,
+  asc,
   desc,
   sql,
   isNull,
@@ -128,6 +129,10 @@ import {
   InsertBroadcastSchedule,
   broadcastSendLog,
   InsertBroadcastSendLog,
+  cycleDays,
+  cycleSettings,
+  CycleDayRow,
+  CycleSettingsRow,
 } from "../drizzle/schema";
 // Family groups use existing `families` table - no separate familyGroups/familyGroupMembers tables
 import { ENV } from "./_core/env";
@@ -5863,3 +5868,66 @@ export async function getParentAiConsultationsForOwner(
     .orderBy(desc(parentAiConsultations.updatedAt));
 }
 
+// ============================================================
+// WOMEN'S CYCLE TRACKER — dialect-agnostic (select-then-insert/update, no
+// onDuplicateKeyUpdate) so the same shape hand-ports to the Postgres
+// production copy. See docs/superpowers/plans/2026-09-02-haid-tracker-*.
+// ============================================================
+export type CycleDayInput = { date: string; flow: "blood" | "spotting" | "dry"; color?: "black" | "red" | null; ghusl?: boolean; note?: string | null };
+export type CycleSettingsPatch = Partial<Pick<CycleSettingsRow, "enabled" | "habitLength" | "cycleLength" | "pregnantSince" | "birthDate" | "miscarriageDate" | "gestationDays" | "contraception" | "ghuslReminder">>;
+
+export async function getCycleSettings(userId: number): Promise<CycleSettingsRow | null> {
+  const db = await getDb();
+  if (!db) return null;
+  const rows = await db.select().from(cycleSettings).where(eq(cycleSettings.userId, userId)).limit(1);
+  return rows[0] ?? null;
+}
+
+export async function saveCycleSettings(userId: number, patch: CycleSettingsPatch): Promise<CycleSettingsRow> {
+  const db = await getDb();
+  const existing = await getCycleSettings(userId);
+  const becomesEnabled = patch.enabled === true && !existing?.enabled;
+  const consentAt = existing?.consentAt ?? (becomesEnabled ? new Date() : null);
+  const values = { ...patch, consentAt, updatedAt: new Date() };
+  if (db) {
+    if (existing) {
+      await db.update(cycleSettings).set(values).where(eq(cycleSettings.userId, userId));
+    } else {
+      await db.insert(cycleSettings).values({ userId, contraception: false, ghuslReminder: true, enabled: false, ...values });
+    }
+  }
+  return (await getCycleSettings(userId))!;
+}
+
+export async function listCycleDays(userId: number, sinceDate: string): Promise<CycleDayRow[]> {
+  const db = await getDb();
+  if (!db) return [];
+  return db.select().from(cycleDays)
+    .where(and(eq(cycleDays.userId, userId), gte(cycleDays.date, sinceDate)))
+    .orderBy(asc(cycleDays.date));
+}
+
+export async function upsertCycleDay(userId: number, day: CycleDayInput): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  const values = { flow: day.flow, color: day.color ?? null, ghusl: day.ghusl ?? false, note: day.note ?? null, updatedAt: new Date() };
+  const existing = await db.select({ userId: cycleDays.userId }).from(cycleDays)
+    .where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date))).limit(1);
+  if (existing.length) {
+    await db.update(cycleDays).set(values).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, day.date)));
+  } else {
+    await db.insert(cycleDays).values({ userId, date: day.date, ...values });
+  }
+}
+
+export async function deleteCycleDay(userId: number, date: string): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(cycleDays).where(and(eq(cycleDays.userId, userId), eq(cycleDays.date, date)));
+}
+
+export async function deleteAllCycleDays(userId: number): Promise<void> {
+  const db = await getDb();
+  if (!db) return;
+  await db.delete(cycleDays).where(eq(cycleDays.userId, userId));
+}
