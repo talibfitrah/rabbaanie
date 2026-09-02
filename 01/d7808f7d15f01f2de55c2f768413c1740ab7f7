@@ -1,0 +1,23 @@
+app/id-management.tsx
+  s_9b86f93c5dbe93::t_f96b0bc78f9018 1
+tests/rtl-rows.test.ts
+  s_9b86f93c5dbe93::t_4988a02d444f62 45-49
+app/(tabs)/fitrah.tsx
+  s_9b86f93c5dbe93::t_f96b0bc78f9018 2
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "01d7808f7d15f01f2de55c2f768413c1740ab7f7",
+  "prompts": {},
+  "sessions": {
+    "s_9b86f93c5dbe93": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d464d22-f543-4ce9-b8c5-e22cf4696275",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
