@@ -139,14 +139,24 @@ function median(xs: number[]): number | undefined {
   return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
 }
 
+/**
+ * A run only counts for learning once we know it actually ended: some later entry is logged —
+ * a subsequent blood run, or an explicit dry/spotting close. The chronologically last run, with
+ * nothing at all logged after it, is still open (she may bleed again tomorrow) and is excluded —
+ * otherwise a single day's log would be learned as the whole habit (bug 1).
+ */
+function isCompleteRun(run: BloodRun, days: CycleDay[]): boolean {
+  return days.some((d) => d.date > run.end);
+}
+
 /** Median length of the last three complete normal runs (uncapped, so a genuinely longer habit is learned). */
 export function learnHabit(days: CycleDay[], settings: CycleSettings, before?: string): number | undefined {
-  const runs = bloodRuns(days).filter((r) => isNormalRun(r, settings) && (!before || r.end < before));
+  const runs = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before));
   return median(runs.slice(-3).map((r) => r.dates.length));
 }
 /** Median of the last ≤6 start-to-start intervals of normal runs. */
 export function learnCycleLength(days: CycleDay[], settings: CycleSettings, before?: string): number | undefined {
-  const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && (!before || r.end < before)).slice(-7).map((r) => r.start);
+  const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before)).slice(-7).map((r) => r.start);
   const gaps: number[] = [];
   for (let i = 1; i < starts.length; i++) gaps.push(diffDays(starts[i - 1], starts[i]));
   return median(gaps); // already ≤6: 7 starts (sliced above) give at most 6 gaps

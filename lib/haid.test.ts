@@ -166,11 +166,22 @@ describe("classify — contraception (decision 12)", () => {
 
 describe("learning", () => {
   it("habit = median of the last three UNCAPPED run lengths; cycle = median of start intervals", () => {
-    const days = [...blood(span("2026-05-01", 6)), ...blood(span("2026-05-29", 8)), ...blood(span("2026-06-26", 7)), ...blood(span("2026-07-24", 9))];
+    // The 4th run is closed by a logged dry day after it, so all four count as complete (bug 1).
+    const days = [...blood(span("2026-05-01", 6)), ...blood(span("2026-05-29", 8)), ...blood(span("2026-06-26", 7)), ...blood(span("2026-07-24", 9)), { date: "2026-08-02", flow: "dry" as const }];
     expect(learnHabit(days, S())).toBe(8);
     expect(learnCycleLength(days, S())).toBe(28);
     expect(learnHabit(days, S(), "2026-05-20")).toBe(6);
     expect(learnHabit([], S())).toBeUndefined();
+  });
+  it("bug 1: the current run (nothing logged after it yet) is excluded from learning; predict agrees with classify", () => {
+    const days = blood(["2026-09-01"]);
+    expect(learnHabit(days, S())).toBeUndefined(); // one day is not a learned habit
+    const p = predict(days, S(), "2026-09-03");
+    expect(p.habit).toBeUndefined();
+    expect(p.expectedPurity).toBeUndefined(); // nothing learned yet to project a purity date from
+    const cls = classify(days, S(), "2026-09-01", "2026-09-03", "2026-09-03");
+    expect(isExcusedToday(cls, "2026-09-03")).toBe(true); // classify still assumes haid (DEFAULT_HAID_DAYS window)
+    expect(excusedState(cls, p, "2026-09-03")).toEqual({ excused: true, until: "2026-09-03" }); // safe "at least today" — agrees with classify, asserts nothing further
   });
 });
 
