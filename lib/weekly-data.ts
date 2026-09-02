@@ -9,6 +9,11 @@ import { fetchWithCache } from "@/lib/offline-cache";
 // In-memory cache for the current session
 const memoryCache: Record<string, any> = {};
 
+// Bump when the server-side tarbiya content changes so installed apps drop
+// their ≤7-day AsyncStorage copy and refetch the corrected text instead of
+// waiting out the TTL. v2: 2026-09-02 content cleanup (God→Allaah, MT artifacts).
+const CACHE_VERSION = "v2";
+
 /**
  * Fetch year data from the server API.
  */
@@ -57,7 +62,7 @@ async function fetchWeekFromServer(yearNum: number, weekNum: number, lang: strin
  */
 export async function fetchYearData(yearNum: number, lang: string = "ar"): Promise<any> {
   const validLang = ["nl", "en", "ar"].includes(lang) ? lang : "ar";
-  const cacheKey = `weekly_tarbiya_${yearNum}_${validLang}`;
+  const cacheKey = `weekly_tarbiya_${CACHE_VERSION}_${yearNum}_${validLang}`;
 
   if (memoryCache[cacheKey]) {
     return memoryCache[cacheKey];
@@ -82,7 +87,7 @@ export async function fetchYearData(yearNum: number, lang: string = "ar"): Promi
  */
 export function getYearDataSync(yearNum: number, lang: string = "ar"): any {
   const validLang = ["nl", "en", "ar"].includes(lang) ? lang : "ar";
-  const cacheKey = `weekly_tarbiya_${yearNum}_${validLang}`;
+  const cacheKey = `weekly_tarbiya_${CACHE_VERSION}_${yearNum}_${validLang}`;
   return memoryCache[cacheKey] || null;
 }
 
@@ -91,7 +96,7 @@ export function getYearDataSync(yearNum: number, lang: string = "ar"): any {
  */
 export function getWeekDataSync(yearNum: number, weekNum: number, lang: string = "ar"): any {
   const validLang = ["nl", "en", "ar"].includes(lang) ? lang : "ar";
-  return memoryCache[`weekly_week_${yearNum}_${weekNum}_${validLang}`] || null;
+  return memoryCache[`weekly_week_${CACHE_VERSION}_${yearNum}_${weekNum}_${validLang}`] || null;
 }
 
 /**
@@ -99,7 +104,7 @@ export function getWeekDataSync(yearNum: number, weekNum: number, lang: string =
  */
 export async function fetchWeekData(yearNum: number, weekNum: number, lang: string = "ar"): Promise<any> {
   const validLang = ["nl", "en", "ar"].includes(lang) ? lang : "ar";
-  const cacheKey = `weekly_week_${yearNum}_${weekNum}_${validLang}`;
+  const cacheKey = `weekly_week_${CACHE_VERSION}_${yearNum}_${weekNum}_${validLang}`;
 
   if (memoryCache[cacheKey]) {
     return memoryCache[cacheKey];
