@@ -591,7 +591,7 @@ function MessagesScreenInner() {
                     // The access gate returns success:false where this used to
                     // succeed (ungated wife, unconfirmed partnership,
                     // unresolvable gender), and there was no branch for it.
-                    showToast(syncRefusedMessage(lang), "info");
+                    showToast(syncRefusedMessage(lang, result.message), "info");
                   }
                 } catch {
                   // The OUTER catch — the one a rejected mutateAsync reaches.

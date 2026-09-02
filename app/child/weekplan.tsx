@@ -581,55 +581,48 @@ export default function WeekplanScreen() {
             })),
         }),
       });
+      // A failed generation answers 500 { plan: "<error sentence>" }, and
+      // 401/403 answer with no plan at all. Both belong on the catch path: the
+      // cached plan, or the loading-error text.
+      if (!response.ok) throw new Error(`weekplan ${response.status}`);
       const result = await response.json();
       if (result.plan) {
         setWeekPlan(result.plan);
-        // Only cache a plan the server actually produced. server/_core/index.ts
-        // answers a failed request with 500 { plan: "<localized error text>" },
-        // which satisfies the check above — so without response.ok that error
-        // string was written to AsyncStorage with a 7-day TTL, and loadPlan()
-        // serves the cache before fetching. The parent then saw "An error
-        // occurred" as their child's week plan on every open for a week, with no
-        // retry. Reachable today: server/advice.ts bounds analyticalQA at
-        // 500/2000/20 and this screen forwards it unclamped from a multiline
-        // TextInput, so one long answer triggers it. Showing the error once and
-        // refetching next time is the recoverable failure.
-        if (response.ok) {
-          await AsyncStorage.setItem(
-            cacheKey,
-            JSON.stringify({ plan: result.plan, timestamp: Date.now() }),
-          );
-          // Pruning belongs inside the same guard. It deletes the superseded
-          // plans for this child, so running it after a failed fetch would
-          // throw away a good cached plan without having stored a replacement —
-          // turning a transient server error into a lost week plan.
+        // Only reached with response.ok — the throw above keeps a 500 error text out of the cache.
+        await AsyncStorage.setItem(
+          cacheKey,
+          JSON.stringify({ plan: result.plan, timestamp: Date.now() }),
+        );
+        // Pruning belongs inside the same guard. It deletes the superseded
+        // plans for this child, so running it after a failed fetch would
+        // throw away a good cached plan without having stored a replacement —
+        // turning a transient server error into a lost week plan.
+        //
+        // The cache key changes whenever this child's issues change, so drop
+        // the superseded plans instead of leaving one behind per consultation.
+        try {
+          const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
+          // Two shapes, matched exactly rather than by a shortened prefix.
           //
-          // The cache key changes whenever this child's issues change, so drop
-          // the superseded plans instead of leaving one behind per consultation.
-          try {
-            const prefix = weekPlanCachePrefix(child.id, lang, weekInYear, yearKey);
-            // Two shapes, matched exactly rather than by a shortened prefix.
-            //
-            // The new keys are `<prefix><issuesSig>`, and the pre-issuesSig ones
-            // were `weekplan_<id>_<lang>_<year>_w<week>` with nothing after —
-            // which does NOT start with the trailing-underscore prefix, so they
-            // were never swept and leaked in AsyncStorage.
-            //
-            // Trimming the underscore to catch them was worse than the leak:
-            // "…_w3" is a prefix of "…_w30".."…_w39", so generating week 3's
-            // plan deleted the cached plans for weeks 30-39 (and w1 wiped 10-19,
-            // w2 20-29, w5 50-52). A parent correcting a birth date moves
-            // weekInYear backwards inside the same year and pays for those plans
-            // again. An exact equality for the legacy key has no such overlap.
-            // weekPlanCachePrefix always ends in "_", so the guard was dead.
-            const legacyKey = prefix.slice(0, -1);
-            const stale = (await AsyncStorage.getAllKeys()).filter(
-              (k) => (k === legacyKey || k.startsWith(prefix)) && k !== cacheKey,
-            );
-            if (stale.length > 0) await AsyncStorage.multiRemove(stale);
-          } catch {
-            // Pruning is housekeeping; a failure must not lose the plan just saved.
-          }
+          // The new keys are `<prefix><issuesSig>`, and the pre-issuesSig ones
+          // were `weekplan_<id>_<lang>_<year>_w<week>` with nothing after —
+          // which does NOT start with the trailing-underscore prefix, so they
+          // were never swept and leaked in AsyncStorage.
+          //
+          // Trimming the underscore to catch them was worse than the leak:
+          // "…_w3" is a prefix of "…_w30".."…_w39", so generating week 3's
+          // plan deleted the cached plans for weeks 30-39 (and w1 wiped 10-19,
+          // w2 20-29, w5 50-52). A parent correcting a birth date moves
+          // weekInYear backwards inside the same year and pays for those plans
+          // again. An exact equality for the legacy key has no such overlap.
+          // weekPlanCachePrefix always ends in "_", so the guard was dead.
+          const legacyKey = prefix.slice(0, -1);
+          const stale = (await AsyncStorage.getAllKeys()).filter(
+            (k) => (k === legacyKey || k.startsWith(prefix)) && k !== cacheKey,
+          );
+          if (stale.length > 0) await AsyncStorage.multiRemove(stale);
+        } catch {
+          // Pruning is housekeeping; a failure must not lose the plan just saved.
         }
         // Auto-expand first card of each group
         setExpandedCards({ "parent-0": true, "child-0": true });

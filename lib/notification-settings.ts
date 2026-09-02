@@ -5,6 +5,7 @@
 
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { HAID_NOTIFICATION_TYPES } from "./haid-state";
+import type { Language } from "./i18n";
 
 // ============ STORAGE KEY ============
 export const UNIFIED_NOTIF_PREFS_KEY = "@unified_notification_prefs";
@@ -274,6 +275,17 @@ export const RULING_COLORS: Record<string, string> = {
   "سنة مؤكدة": "#059669",
   "مستحب": "#0891B2",
 };
+
+// The ruling travels as one of the Arabic literals above; badges label it in
+// the UI language. Unknown values render as-is.
+const RULING_LABELS: Record<string, Record<Language, string>> = {
+  "واجب": { nl: "Verplicht", en: "Obligatory", ar: "واجب" },
+  "سنة مؤكدة": { nl: "Bevestigde sunnah", en: "Confirmed sunnah", ar: "سنة مؤكدة" },
+  "مستحب": { nl: "Aanbevolen", en: "Recommended", ar: "مستحب" },
+};
+export function rulingLabel(ruling: string, language: Language): string {
+  return RULING_LABELS[ruling]?.[language] ?? ruling;
+}
 
 export const RULING_BG_COLORS: Record<string, string> = {
   "واجب": "#FEF2F2",

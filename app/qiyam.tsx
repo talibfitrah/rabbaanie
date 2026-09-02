@@ -2,22 +2,13 @@ import { View, Text, ScrollView, Pressable, StyleSheet } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
-import { useEffect, useState } from "react";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { useI18n } from "@/lib/i18n";
 import { QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
-
-type Lang = "ar" | "nl" | "en";
 
 export default function QiyamScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const [language, setLanguage] = useState<Lang>("ar");
-
-  useEffect(() => {
-    AsyncStorage.getItem("@app_language").then((val) => {
-      if (val === "ar" || val === "nl" || val === "en") setLanguage(val);
-    });
-  }, []);
+  const { language } = useI18n();
 
   const instructions = QIYAM_INSTRUCTIONS[language] || QIYAM_INSTRUCTIONS.ar;
   const isRTL = language === "ar";

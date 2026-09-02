@@ -148,12 +148,9 @@ export default function AlgemeenScreen() {
           setSyncResult(msg);
         }
       } else {
-        // This branch predates the access gate and named the only cause there
-        // used to be. success:false now also means the husband has not granted
-        // access, or the partnership is unconfirmed, so telling a wife with a
-        // linked, confirmed husband "no partner linked" contradicts what the
-        // partner screens tell her and sends her to fix the wrong thing.
-        const msg = syncRefusedMessage(lang);
+        // The wording follows the server's message; it is generic only when the
+        // message is unknown (lib/sync-refusal.ts).
+        const msg = syncRefusedMessage(lang, result.message);
         showToast(msg, "error");
         setSyncResult(msg);
       }

@@ -2342,10 +2342,8 @@ export default function FamilyScreen() {
                       // unconfirmed partnership, unresolvable gender). Without
                       // this branch that lands in the same silence as success
                       // and the button reads as dead — the defect fe9cf3a fixed
-                      // on Subscribe. ponytail: one wording for every refusal;
-                      // res.message is English-only, and the specific
-                      // permission state already has a home on spouse-profile.
-                      showToast(syncRefusedMessage(lang), "info");
+                      // on Subscribe.
+                      showToast(syncRefusedMessage(lang, res.message), "info");
                     }
                   },
                   // A thrown mutation — transport, auth, a server rejection —
@@ -3198,7 +3196,7 @@ export default function FamilyScreen() {
                           }
                         } else {
                           // Second sync button, same refusal path as above.
-                          showToast(syncRefusedMessage(lang), "info");
+                          showToast(syncRefusedMessage(lang, res.message), "info");
                         }
                       },
                       onError: () => showToast(syncRefusedMessage(lang), "info"),

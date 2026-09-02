@@ -27,6 +27,7 @@ import { ScreenContainer } from "@/components/screen-container";
 import { PremiumGate } from "@/components/premium-notice";
 import { useColors } from "@/hooks/use-colors";
 import { useAutoTranslate } from "@/hooks/use-auto-translate";
+import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
@@ -246,7 +247,7 @@ function AIChatScreenInner() {
   const [inputText, setInputText] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [conversationId, setConversationId] = useState<string | null>(null);
-  const [language, setLanguage] = useState<"nl" | "ar" | "en">("ar");
+  const { language } = useI18n();
   const [selectedChild, setSelectedChild] = useState<{ id: string; name: string; age: string } | null>(null);
   const [attachments, setAttachments] = useState<Attachment[]>([]);
   const [showAttachMenu, setShowAttachMenu] = useState(false);
@@ -284,24 +285,7 @@ function AIChatScreenInner() {
     return "5";
   };
 
-  // Load settings and set initial child
-  useEffect(() => {
-    loadSettings();
-  }, []);
-
   // Always start fresh - user chooses topic explicitly each time
-
-  const loadSettings = async () => {
-    try {
-      const lang = await AsyncStorage.getItem("@app_language");
-      if (lang === "ar" || lang === "en" || lang === "nl") setLanguage(lang);
-
-      // Do NOT restore last conversation - always start fresh
-      // User can access previous conversations via history button
-    } catch (e) {
-      console.error("Error loading settings:", e);
-    }
-  };
 
   const saveConversation = async (convId: string, msgs: ChatMessage[]) => {
     try {

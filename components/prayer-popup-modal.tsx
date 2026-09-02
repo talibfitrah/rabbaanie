@@ -14,13 +14,14 @@ import { View, Text, Modal, Pressable, ScrollView, StyleSheet, Platform, Alert }
 import { router } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
-import { RULING_COLORS, RULING_BG_COLORS } from "@/lib/notification-settings";
+import { RULING_COLORS, RULING_BG_COLORS, rulingLabel } from "@/lib/notification-settings";
 import { trpc } from "@/lib/trpc";
 import { isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
 import { readStoredLanguage } from "@/lib/notifications";
 import * as NativeAuth from "@/lib/_core/auth";
 import { loadAppState } from "@/lib/store";
+import type { Language } from "@/lib/i18n";
 
 export interface PopupNotification {
   id: string;
@@ -58,10 +59,15 @@ export function PrayerPopupModal({
   // still work pre-auth/pre-onboarding) — useAppState()/useAuth() are not
   // reachable here and would throw. Read gender the same storage-direct way
   // app/_layout.tsx's own notification listeners already read the user
-  // (NativeAuth.getUserInfo()), re-checked each time the popup opens.
+  // (NativeAuth.getUserInfo()), re-checked each time the popup opens. The
+  // language is read the same way, for the same reason (useI18n would throw).
   const [isWoman, setIsWoman] = useState(false);
+  const [language, setLanguage] = useState<Language | null>(null);
   useEffect(() => {
     let cancelled = false;
+    readStoredLanguage().then((lang) => {
+      if (!cancelled) setLanguage(lang);
+    }).catch(() => {});
     // C15: reset synchronously, before the async read starts — otherwise a
     // just-switched-to man briefly (or, if the read then fails, forever)
     // sees the previous woman account's "أنا حائض" button while this
@@ -175,7 +181,7 @@ export function PrayerPopupModal({
           {/* Ruling Badge */}
           <View style={[st.rulingBadge, { backgroundColor: rulingBgColor }]}>
             <Text style={[st.rulingText, { color: rulingColor }]}>
-              {notification.ruling}
+              {language ? rulingLabel(notification.ruling, language) : ""}
             </Text>
           </View>
 

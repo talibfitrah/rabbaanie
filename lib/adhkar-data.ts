@@ -6,6 +6,8 @@
  * Languages: Arabic, Dutch, English + Transliteration
  */
 
+import type { Language } from "./i18n";
+
 export interface Dhikr {
   id: string;
   text: string;
@@ -31,6 +33,11 @@ export interface AdhkarCategory {
   icon: string;
   color: string;
   adhkar: Dhikr[];
+}
+
+/** Chip/header title for the UI language; an empty localized field falls back to the Arabic title. */
+export function categoryTitle(cat: AdhkarCategory, language: Language): string {
+  return (language === "nl" ? cat.titleNL : language === "en" ? cat.titleEN : "") || cat.title;
 }
 
 export const ADHKAR_CATEGORIES: AdhkarCategory[] = [
