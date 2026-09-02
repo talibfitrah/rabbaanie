@@ -1,0 +1,9 @@
+docs/superpowers/specs/2026-09-02-haid-tracker-design.md
+  ai_agent 28,104
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f10063d9bab1aadb3ffdba8a2fb7b1ad52ca3e58",
+  "prompts": {}
+}

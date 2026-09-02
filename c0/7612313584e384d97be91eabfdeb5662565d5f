@@ -1,0 +1,45 @@
+app/(tabs)/family.tsx
+  s_a1c84ec821cde4::t_b28301838a8c35 4026
+  s_a1c84ec821cde4::t_70955407f3e977 1,20,3846-3850,3854-3876,3892-3908,3999-4025,4319,4321-4322
+drizzle/schema.ts
+  s_a1c84ec821cde4::t_70955407f3e977 99-103
+app/add-child.tsx
+  s_a1c84ec821cde4::t_4b20cb333fd441 249
+  s_a1c84ec821cde4::t_70955407f3e977 1,8,35-59,68-71,86-90,174-248
+  s_a1c84ec821cde4::t_30b88597ef131f 72-74
+app/onboarding/add-child.tsx
+  s_a1c84ec821cde4::t_fb14f0d0c66086 71-73
+  s_a1c84ec821cde4::t_ca6f897680d86c 248
+  s_a1c84ec821cde4::t_70955407f3e977 1,8,34-58,67-70,85-89,173-247
+docs/superpowers/specs/2026-08-31-polygamy-suite-design.md
+  s_a1c84ec821cde4::t_9921085d666263 57-78
+  s_a1c84ec821cde4::t_fa6d41d89a6e7d 1-56,79-111
+drizzle/mysql-external-father-name.sql
+  s_a1c84ec821cde4::t_4d266e93269ce9 1-17
+  s_a1c84ec821cde4::t_1c6d3825ddb907 18
+app/(tabs)/messages.tsx
+  s_a1c84ec821cde4::t_9b8bb3cf2aaedc 1078-1082
+  s_a1c84ec821cde4::t_70955407f3e977 1008,1075-1077,1083
+lib/store.ts
+  s_a1c84ec821cde4::t_5ee42897070dad 634-635
+  s_a1c84ec821cde4::t_70955407f3e977 115-126,550-633
+tests/store.test.ts
+  s_a1c84ec821cde4::t_70955407f3e977 8-10,285-414
+  s_a1c84ec821cde4::t_06a969bcfd65b6 415-416
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c07612313584e384d97be91eabfdeb5662565d5f",
+  "prompts": {},
+  "sessions": {
+    "s_a1c84ec821cde4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831571c6-754c-4427-a9a8-9b3245176e7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

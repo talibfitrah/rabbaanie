@@ -1,0 +1,34 @@
+drizzle/schema.ts
+  s_05eef947428dfd::t_4ff81b8ceea8b7 1
+  s_05eef947428dfd::t_c3521d63ac6a4e 1472-1473,1477,1483,1485-1491,1493-1494
+tests/cycle-router-access.test.ts
+  s_05eef947428dfd::t_a50c41d76e4494 13,27,36-43,49-51,53,72-75,80-92,98,103-127,129
+server/cycle.ts
+  s_05eef947428dfd::t_9846c3b3ea8c7b 72-75,78,85,96
+  s_05eef947428dfd::t_5f664c0600c989 39-44,53-54
+  s_05eef947428dfd::t_7f926b516f6cb4 6-10
+  s_05eef947428dfd::t_f8711a5a8b0576 112-116
+server/db.ts
+  s_05eef947428dfd::t_d9f0bd9e8722db 5876
+  s_05eef947428dfd::t_973b8d03968e3a 5937-5941
+  s_05eef947428dfd::t_bd70e2717cc5cd 5916
+app/haid.tsx
+  s_05eef947428dfd::t_1132c12dc5458f 55
+  s_05eef947428dfd::t_0369856cebc00d 207
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b2edfa521cd1b54ec513cac1a2b2e49636727b72",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

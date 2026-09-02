@@ -1,0 +1,21 @@
+lib/haid.test.ts
+  s_05eef947428dfd::t_13fb5d7539c410 54-60
+lib/haid.ts
+  s_05eef947428dfd::t_e33db947dc2ef6 196-200,205-206,210-219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "6c32b1589c14acc5c9ee3f51c66a2974aaba5c7b",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

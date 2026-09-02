@@ -1,0 +1,26 @@
+tests/haid-notifications.test.ts
+  s_05eef947428dfd::t_97ada95de020c9 94-109
+lib/haid-notifications.ts
+  s_05eef947428dfd::t_17427eac3be0e0 51-55
+  s_05eef947428dfd::t_67dc9c242326f0 74-76
+tests/notifications.test.ts
+  s_05eef947428dfd::t_e7d8596b377edd 153-162
+lib/notifications.ts
+  s_05eef947428dfd::t_df86e1d7c72e23 215-219
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "776ad9e3acdf6fd468c956a1287b5910467c5d21",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

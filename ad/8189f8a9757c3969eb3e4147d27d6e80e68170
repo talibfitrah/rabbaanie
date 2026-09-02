@@ -1,0 +1,34 @@
+lib/daily-home-tip.ts
+  s_478a74ba440251::t_8b9e8f09c1ca74 70
+components/daily-diagnostic-card.tsx
+  s_478a74ba440251::t_5c5eb5b75cded2 321-322
+  s_478a74ba440251::t_703bc135e6bc20 174
+  s_478a74ba440251::t_5b83389f74f6b3 196-201
+  s_478a74ba440251::t_f0b3ce5e9da650 19-20
+  s_478a74ba440251::t_2417aba740a2f5 48
+  s_478a74ba440251::t_5ceeffc884c510 115
+app/(tabs)/index.tsx
+  s_478a74ba440251::t_377c672b92f9fe 85
+  s_478a74ba440251::t_4202d1dfd7f184 94-95
+  s_478a74ba440251::t_480d25b483bd10 518,526
+  s_478a74ba440251::t_3073fa97b39283 541-544
+  s_478a74ba440251::t_ee25ea668e3f27 839
+  s_478a74ba440251::t_f31b8d9c10469b 8
+  s_478a74ba440251::t_92d6a631f34d83 841-842
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ad8189f8a9757c3969eb3e4147d27d6e80e68170",
+  "prompts": {},
+  "sessions": {
+    "s_478a74ba440251": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b7594d31-4406-4fd1-a3c3-d1293bc74bce",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

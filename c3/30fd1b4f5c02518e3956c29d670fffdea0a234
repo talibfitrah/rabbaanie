@@ -1,0 +1,31 @@
+app/(tabs)/messages.tsx
+  s_a1c84ec821cde4::t_9079ef0b59da41 816-818,822-824,827-855,857,859-864,874-875,877-911,914,918,927
+  s_a1c84ec821cde4::t_e9067eebb00465 858
+  s_a1c84ec821cde4::t_331cd0d9c3b4c7 820
+  s_a1c84ec821cde4::t_0627c20ccd4e8b 921-925
+  s_a1c84ec821cde4::t_bb2dd92b75acb5 1213
+  s_a1c84ec821cde4::t_1b5b4e92e1b458 819
+  s_a1c84ec821cde4::t_332811f66f9428 768,770,772-774
+  s_a1c84ec821cde4::t_f91a085e20c3aa 764-767
+  s_a1c84ec821cde4::t_874e636269d7bb 826
+  s_a1c84ec821cde4::t_2222d38311b237 856,865-873,876
+  s_a1c84ec821cde4::t_ef5d546bd493c8 771
+  s_a1c84ec821cde4::t_4a3462d13e3f4e 1206-1211
+  s_a1c84ec821cde4::t_b3a5add9c06db7 756-757
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c330fd1b4f5c02518e3956c29d670fffdea0a234",
+  "prompts": {},
+  "sessions": {
+    "s_a1c84ec821cde4": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "831571c6-754c-4427-a9a8-9b3245176e7c",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": null
+    }
+  }
+}
