@@ -65,6 +65,20 @@ export interface QasmExpenseRecord {
   date: string;
 }
 
+/** Captured by advance() just before it changes turnIndex/initialStayQueue,
+ * so undoLastNight() can restore them exactly afterwards — advance()'s two
+ * branches (steady rotation vs. initial-stay countdown) are otherwise
+ * ambiguous to reverse from the resulting state alone. Also carries what
+ * `undoStack` itself was right before that advance, so undoing recovers a
+ * PRIOR pending snapshot too, not just this one's rotation fields — that is
+ * what makes `undoLastNight(advance(s))` reproduce `s` exactly, field for
+ * field, no matter how many advances came before. */
+export interface QasmUndoSnapshot {
+  turnIndex: number;
+  initialStayQueue: { wifeId: number; nightsLeft: number }[];
+  undoStack: QasmUndoSnapshot[];
+}
+
 export interface QasmState {
   /** Every wife ever known, active or not (see QasmWife.active). */
   wives: QasmWife[];
@@ -81,6 +95,11 @@ export interface QasmState {
   history: QasmNightRecord[];
   drawHistory: QasmDrawRecord[];
   expenses: QasmExpenseRecord[];
+  /** Bounded to the single most recent advance() — enough to undo "the last
+   * night" (what was asked for), not a full history of undos. Cleared
+   * whenever something else invalidates it: resetQasm(), or
+   * deleteNightRecord() removing the very entry this would restore. */
+  undoStack: QasmUndoSnapshot[];
 }
 
 export const isoToday = (): string => new Date().toISOString().slice(0, 10);
@@ -111,6 +130,7 @@ export function createQasmState(wives: readonly QasmWife[]): QasmState {
     history: [],
     drawHistory: [],
     expenses: [],
+    undoStack: [],
   };
 }
 
@@ -146,6 +166,10 @@ export function currentTurn(state: QasmState): QasmTurn | null {
  * (Muslim, from Anas), and a right held for someone can be waived by that
  * same someone — the identical principle that makes هبة الليلة valid for a
  * normal-rotation night in the first place (Sawdah radiya Allahu 'anha).
+ *
+ * Also snapshots the pre-advance turnIndex/initialStayQueue into
+ * `undoStack` (bounded to the last one) so undoLastNight() can reverse
+ * exactly this call.
  */
 export function advance(
   state: QasmState,
@@ -156,16 +180,60 @@ export function advance(
   if (!turn) return state;
 
   const history = [...state.history, { wifeId: turn.wifeId, date: today, gifted: !!opts.gifted }];
+  const snapshot: QasmUndoSnapshot = {
+    turnIndex: state.turnIndex,
+    initialStayQueue: state.initialStayQueue,
+    undoStack: state.undoStack,
+  };
 
   if (state.initialStayQueue.length > 0) {
     const [head, ...rest] = state.initialStayQueue;
     const nightsLeft = head.nightsLeft - 1;
     const initialStayQueue = nightsLeft > 0 ? [{ ...head, nightsLeft }, ...rest] : rest;
-    return { ...state, initialStayQueue, history };
+    return { ...state, initialStayQueue, history, undoStack: [snapshot] };
   }
 
   const turnIndex = (state.turnIndex + 1) % state.order.length;
-  return { ...state, turnIndex, history };
+  return { ...state, turnIndex, history, undoStack: [snapshot] };
+}
+
+/**
+ * Reverses the most recent advance() — removing the history entry it added
+ * AND restoring turnIndex/initialStayQueue to exactly what they were before
+ * it ran, using the snapshot advance() left in `undoStack`. Bounded to one
+ * level (Daa3iyah asked to undo "the last night"): calling this twice in a
+ * row is a no-op the second time, same as calling it with nothing to undo.
+ * Also a no-op once `undoStack` has been cleared by something else since
+ * that advance (resetQasm, or deleteNightRecord removing that same entry).
+ */
+export function undoLastNight(state: QasmState): QasmState {
+  if (state.history.length === 0 || state.undoStack.length === 0) return state;
+  const snapshot = state.undoStack[state.undoStack.length - 1];
+  return {
+    ...state,
+    history: state.history.slice(0, -1),
+    turnIndex: snapshot.turnIndex,
+    initialStayQueue: snapshot.initialStayQueue,
+    undoStack: snapshot.undoStack,
+  };
+}
+
+/**
+ * Removes one entry from the nights log as a factual-record correction
+ * (wrong wife, wrong date, logged twice) — unlike undoLastNight, this never
+ * touches the rotation itself, only the log. Guards an out-of-range index.
+ * Clears the pending undo snapshot when the deleted entry IS the current
+ * last one, since undoLastNight would otherwise restore the rotation for a
+ * night that is no longer the log's last entry — reversing the wrong one.
+ */
+export function deleteNightRecord(state: QasmState, index: number): QasmState {
+  if (index < 0 || index >= state.history.length) return state;
+  const deletingLast = index === state.history.length - 1;
+  return {
+    ...state,
+    history: state.history.filter((_, i) => i !== index),
+    undoStack: deletingLast ? [] : state.undoStack,
+  };
 }
 
 /**
@@ -257,6 +325,43 @@ export function syncWivesFromPartners(
 }
 
 /**
+ * Manually reorders the rotation. `newOrder` must be a permutation of the
+ * current `order` (same ids, none added/dropped/duplicated) — anything else
+ * is a no-op rather than a silent corruption of who's in the rotation.
+ * Preserves WHOSE turn is designated across the reorder, not the numeric
+ * slot: `turnIndex` is recomputed to wherever that same wife id lands in
+ * `newOrder`, the identical identity-over-index technique
+ * syncWivesFromPartners already uses above. This holds even mid
+ * initial-stay, when turnIndex points at whoever resumes once the queue
+ * empties rather than at currentTurn() — reordering must not silently hand
+ * her resumed slot to someone else.
+ */
+export function reorderRotation(state: QasmState, newOrder: number[]): QasmState {
+  const sortedCurrent = [...state.order].sort((a, b) => a - b);
+  const sortedNew = [...newOrder].sort((a, b) => a - b);
+  const isPermutation =
+    sortedCurrent.length === sortedNew.length && sortedCurrent.every((id, i) => id === sortedNew[i]);
+  if (!isPermutation) return state;
+
+  const designatedId = state.order[state.turnIndex % state.order.length];
+  const turnIndex = Math.max(0, newOrder.indexOf(designatedId));
+  return { ...state, order: newOrder, turnIndex };
+}
+
+/**
+ * Returns the household to a fresh rotation cycle: active wives re-enter as
+ * already-established members (like a brand-new createQasmState), with
+ * history, drawHistory, turnIndex, initialStayQueue and any pending undo
+ * snapshot all cleared. Expenses are kept — نفقة is a financial record, not
+ * rotation state — and so is the full wives roster (inactive members
+ * included), since a kept expense row can still reference one.
+ */
+export function resetQasm(state: QasmState): QasmState {
+  const fresh = createQasmState(state.wives.filter((w) => w.active));
+  return { ...fresh, wives: state.wives, expenses: state.expenses };
+}
+
+/**
  * قرعة: a uniform pick among the given wives — Sunnah for deciding who
  * travels with him (Bukhari/Muslim). `rng` defaults to Math.random and is
  * injectable so the pick is deterministically testable; must return a value
@@ -282,6 +387,15 @@ export function recordTravelDraw(
   const wifeId = pickWifeForTravel(state.wives.filter((w) => w.active), rng);
   if (wifeId === null) return state;
   return { ...state, drawHistory: [...state.drawHistory, { wifeId, date: today }] };
+}
+
+/** Removes one entry from the travel-draw log — same factual-record-edit
+ * semantics as deleteNightRecord, guarding an out-of-range index. The draw
+ * log has no rotation/turn implication, so unlike deleteNightRecord there
+ * is no undo snapshot to invalidate. */
+export function deleteDrawRecord(state: QasmState, index: number): QasmState {
+  if (index < 0 || index >= state.drawHistory.length) return state;
+  return { ...state, drawHistory: state.drawHistory.filter((_, i) => i !== index) };
 }
 
 /** نفقة log (optional, P4): a light per-wife spend/gift record — no
@@ -328,6 +442,10 @@ export function isQasmState(value: unknown): value is QasmState {
     Array.isArray(v.initialStayQueue) &&
     Array.isArray(v.history) &&
     Array.isArray(v.drawHistory) &&
-    Array.isArray(v.expenses)
+    Array.isArray(v.expenses) &&
+    // undoStack is a newer field (added alongside undoLastNight) — optional
+    // here so a state saved by an older app version still validates;
+    // app/qasm.tsx defaults it to [] on read (see the load effect there).
+    (v.undoStack === undefined || Array.isArray(v.undoStack))
   );
 }

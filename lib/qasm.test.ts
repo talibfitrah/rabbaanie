@@ -5,12 +5,17 @@ import {
   advance,
   createQasmState,
   currentTurn,
+  deleteDrawRecord,
+  deleteNightRecord,
   expenseTotalsByWife,
   initialStayNights,
   isQasmState,
   pickWifeForTravel,
   recordTravelDraw,
+  reorderRotation,
+  resetQasm,
   syncWivesFromPartners,
+  undoLastNight,
   type QasmState,
   type QasmWife,
 } from "./qasm";
@@ -167,6 +172,102 @@ describe("advance", () => {
   });
 });
 
+describe("undoLastNight", () => {
+  it("is a no-op with no history (nothing to undo)", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    expect(undoLastNight(state)).toEqual(state);
+  });
+
+  it("undoLastNight(advance(s)) deep-equals s — steady-rotation branch", () => {
+    const s = createQasmState([HIND, ZAYNAB]);
+    expect(undoLastNight(advance(s, {}, "2026-01-01"))).toEqual(s);
+  });
+
+  it("undoLastNight(advance(s)) deep-equals s — initial-stay branch, including the night that pops the queue head at nightsLeft->0", () => {
+    let s = createQasmState([HIND]);
+    s = addWife(s, ZAYNAB, "thayyib"); // nightsLeft: 3
+    s = advance(s, {}, "d1"); // nightsLeft: 3 -> 2, not popped
+    s = advance(s, {}, "d2"); // nightsLeft: 2 -> 1, not popped
+    expect(undoLastNight(advance(s, {}, "d3"))).toEqual(s); // 1 -> 0, pops the queue head
+  });
+
+  it("removes the logged night and restores the exact pre-advance turnIndex/queue (steady rotation)", () => {
+    let state = createQasmState([HIND, ZAYNAB, RUQAYYA]);
+    state = advance(state, {}, "2026-01-01"); // turnIndex 0 -> 1
+    const undone = undoLastNight(state);
+    expect(undone.history).toEqual([]);
+    expect(undone.turnIndex).toBe(0);
+    expect(currentTurn(undone)?.wifeId).toBe(1);
+  });
+
+  it("is a no-op the second time in a row — bounded to the single last night", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    const undone = undoLastNight(state);
+    expect(undoLastNight(undone)).toEqual(undone);
+  });
+
+  it("does not mutate the state passed in", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    const before = JSON.parse(JSON.stringify(state));
+    undoLastNight(state);
+    expect(state).toEqual(before);
+  });
+});
+
+describe("deleteNightRecord", () => {
+  it("removes the entry at the given index", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    state = advance(state, {}, "2026-01-02");
+    const next = deleteNightRecord(state, 0);
+    expect(next.history).toEqual([{ wifeId: 2, date: "2026-01-02", gifted: false }]);
+  });
+
+  it("does not touch rotation state — only the log", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    const next = deleteNightRecord(state, 0);
+    expect(next.turnIndex).toBe(state.turnIndex);
+    expect(next.order).toEqual(state.order);
+  });
+
+  it("guards a negative index (no-op)", () => {
+    const state = createQasmState([HIND]);
+    expect(deleteNightRecord(state, -1)).toEqual(state);
+  });
+
+  it("guards an out-of-range index (no-op)", () => {
+    let state = createQasmState([HIND]);
+    state = advance(state, {}, "2026-01-01");
+    expect(deleteNightRecord(state, 5)).toEqual(state);
+  });
+
+  it("clears the pending undo snapshot when deleting the current last entry", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    const next = deleteNightRecord(state, 0); // the only entry — also the last
+    expect(next.undoStack).toEqual([]);
+  });
+
+  it("keeps the pending undo snapshot when the deleted entry is NOT the last one", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "2026-01-01");
+    state = advance(state, {}, "2026-01-02");
+    const next = deleteNightRecord(state, 0); // removes the older entry, not the last
+    expect(next.undoStack).toEqual(state.undoStack);
+  });
+
+  it("does not mutate the state passed in", () => {
+    let state = createQasmState([HIND]);
+    state = advance(state, {}, "2026-01-01");
+    const before = JSON.parse(JSON.stringify(state));
+    deleteNightRecord(state, 0);
+    expect(state).toEqual(before);
+  });
+});
+
 describe("addWife", () => {
   it("adds her to the wives list and the end of the rotation order", () => {
     let state = createQasmState([HIND]);
@@ -304,6 +405,106 @@ describe("syncWivesFromPartners", () => {
   });
 });
 
+describe("reorderRotation", () => {
+  it("reorders the rotation to the given permutation", () => {
+    const state = createQasmState([HIND, ZAYNAB, RUQAYYA]); // order [1,2,3]
+    const next = reorderRotation(state, [3, 1, 2]);
+    expect(next.order).toEqual([3, 1, 2]);
+  });
+
+  it("is a no-op when newOrder is a different length (not a permutation)", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    expect(reorderRotation(state, [1, 2, 3])).toEqual(state);
+  });
+
+  it("is a no-op when newOrder repeats an id instead of a true permutation", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    expect(reorderRotation(state, [1, 1])).toEqual(state);
+  });
+
+  it("is a no-op when newOrder contains an id foreign to the current order", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    expect(reorderRotation(state, [1, 99])).toEqual(state);
+  });
+
+  it("keeps the currently-due wife designated after a reorder shuffles her position", () => {
+    let state = createQasmState([HIND, ZAYNAB, RUQAYYA]); // order [1,2,3], turnIndex 0
+    state = advance(state, {}, "d1"); // turnIndex -> 1 (ZAYNAB due)
+    expect(currentTurn(state)?.wifeId).toBe(2);
+    const next = reorderRotation(state, [1, 3, 2]); // ZAYNAB moves from index 1 to index 2
+    expect(next.order).toEqual([1, 3, 2]);
+    expect(next.turnIndex).toBe(2); // tracks ZAYNAB's new position, not the old raw index
+    expect(currentTurn(next)?.wifeId).toBe(2); // still ZAYNAB
+  });
+
+  it("keeps designating the same wife across a reorder even mid initial-stay (turnIndex tracks the interrupted slot, not currentTurn)", () => {
+    let state = createQasmState([HIND, ZAYNAB]); // order [1,2], turnIndex 0
+    state = advance(state, {}, "d1"); // turnIndex -> 1 (ZAYNAB pending once the queue below ends)
+    state = addWife(state, RUQAYYA, "thayyib"); // order [1,2,3]; currentTurn is RUQAYYA (initial stay)
+    const next = reorderRotation(state, [2, 3, 1]); // ZAYNAB moves to index 0
+    expect(next.order).toEqual([2, 3, 1]);
+    let after = next;
+    for (let i = 0; i < 3; i++) after = advance(after, {}, `d${i + 2}`); // finish RUQAYYA's 3 nights
+    expect(currentTurn(after)?.wifeId).toBe(2); // ZAYNAB, not HIND, resumes
+  });
+
+  it("does not mutate the state passed in", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    const before = JSON.parse(JSON.stringify(state));
+    reorderRotation(state, [2, 1]);
+    expect(state).toEqual(before);
+  });
+});
+
+describe("resetQasm", () => {
+  it("rebuilds a fresh rotation from only the currently-active wives", () => {
+    let state = createQasmState([HIND, ZAYNAB, RUQAYYA]);
+    state = advance(state, {}, "d1");
+    state = advance(state, {}, "d2");
+    ({ state } = syncWivesFromPartners(state, [ZAYNAB, RUQAYYA])); // HIND departs
+    const next = resetQasm(state);
+    expect(next.order).toEqual([2, 3]);
+    expect(next.turnIndex).toBe(0);
+    expect(next.initialStayQueue).toEqual([]);
+  });
+
+  it("clears history and drawHistory", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "d1");
+    state = recordTravelDraw(state, () => 0, "d1");
+    const next = resetQasm(state);
+    expect(next.history).toEqual([]);
+    expect(next.drawHistory).toEqual([]);
+  });
+
+  it("keeps expenses — they are financial records, not rotation state", () => {
+    let state = createQasmState([HIND]);
+    state = addExpense(state, { wifeId: 1, amount: 50 }, "d1");
+    const next = resetQasm(state);
+    expect(next.expenses).toEqual(state.expenses);
+  });
+
+  it("keeps the full wives roster, including inactive ones, so old expense rows still resolve a name", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    ({ state } = syncWivesFromPartners(state, [ZAYNAB])); // HIND departs
+    const next = resetQasm(state);
+    expect(next.wives.find((w) => w.id === 1)).toEqual({ id: 1, name: "هند", active: false });
+  });
+
+  it("clears any pending undo snapshot", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = advance(state, {}, "d1");
+    expect(resetQasm(state).undoStack).toEqual([]);
+  });
+
+  it("does not mutate the state passed in", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    const before = JSON.parse(JSON.stringify(state));
+    resetQasm(state);
+    expect(state).toEqual(before);
+  });
+});
+
 describe("pickWifeForTravel (قرعة)", () => {
   it("returns null when there are no wives to draw from", () => {
     expect(pickWifeForTravel([], () => 0.5)).toBeNull();
@@ -387,6 +588,35 @@ describe("recordTravelDraw", () => {
   });
 });
 
+describe("deleteDrawRecord", () => {
+  it("removes the entry at the given index", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = recordTravelDraw(state, () => 0, "2026-01-01");
+    state = recordTravelDraw(state, () => 0.999999, "2026-01-02");
+    const next = deleteDrawRecord(state, 0);
+    expect(next.drawHistory).toEqual([{ wifeId: 2, date: "2026-01-02" }]);
+  });
+
+  it("guards a negative index (no-op)", () => {
+    const state = createQasmState([HIND, ZAYNAB]);
+    expect(deleteDrawRecord(state, -1)).toEqual(state);
+  });
+
+  it("guards an out-of-range index (no-op)", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = recordTravelDraw(state, () => 0, "2026-01-01");
+    expect(deleteDrawRecord(state, 3)).toEqual(state);
+  });
+
+  it("does not mutate the state passed in", () => {
+    let state = createQasmState([HIND, ZAYNAB]);
+    state = recordTravelDraw(state, () => 0, "2026-01-01");
+    const before = JSON.parse(JSON.stringify(state));
+    deleteDrawRecord(state, 0);
+    expect(state).toEqual(before);
+  });
+});
+
 describe("addExpense / expenseTotalsByWife (نفقة log)", () => {
   it("sums multiple entries per wife", () => {
     let state = createQasmState([HIND, ZAYNAB]);
@@ -429,5 +659,23 @@ describe("isQasmState", () => {
   it("rejects a shape missing one required array field", () => {
     const almost = { ...createQasmState([HIND]), expenses: undefined };
     expect(isQasmState(almost)).toBe(false);
+  });
+
+  it("accepts a stored state missing the newer undoStack field (back-compat with older saved data)", () => {
+    const legacy = {
+      wives: [{ id: 1, name: "هند", active: true }],
+      order: [1],
+      turnIndex: 0,
+      initialStayQueue: [],
+      history: [],
+      drawHistory: [],
+      expenses: [],
+    };
+    expect(isQasmState(legacy)).toBe(true);
+  });
+
+  it("rejects a present but malformed undoStack field", () => {
+    const malformed = { ...createQasmState([HIND]), undoStack: "not-an-array" };
+    expect(isQasmState(malformed)).toBe(false);
   });
 });

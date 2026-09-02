@@ -15,13 +15,18 @@ import {
   advance,
   createQasmState,
   currentTurn,
+  deleteDrawRecord,
+  deleteNightRecord,
   expenseTotalsByWife,
   initialStayNights,
   isoToday,
   isQasmState,
   pickWifeForTravel,
   qasmStorageKey,
+  reorderRotation,
+  resetQasm,
   syncWivesFromPartners,
+  undoLastNight,
   type MaritalHistory,
   type QasmState,
   type QasmWife,
@@ -121,7 +126,10 @@ export default function QasmScreen() {
           // old blob must fall back to "nothing saved yet" rather than
           // crash the screen on the first array method that assumes a
           // field the old blob doesn't have.
-          if (isQasmState(parsed)) setQasmState(parsed);
+          // undoStack (added alongside undoLastNight) is optional in
+          // isQasmState for exactly this reason — default it here so a
+          // blob saved before this feature shipped still loads.
+          if (isQasmState(parsed)) setQasmState({ ...parsed, undoStack: parsed.undoStack ?? [] });
         } catch {
           // malformed JSON — leave qasmState null, treated as fresh setup.
         }
@@ -249,6 +257,48 @@ export default function QasmScreen() {
     persistUpdate((prev) => addExpense(prev, { wifeId: validExpenseWifeId, amount, note: expenseNote.trim() || undefined }));
     setExpenseAmount("");
     setExpenseNote("");
+  };
+
+  const handleUndoLastNight = () => {
+    if (!qasmState) return;
+    persistUpdate(undoLastNight);
+  };
+
+  const handleDeleteNightRecord = (index: number) => {
+    if (!qasmState) return;
+    persistUpdate((prev) => deleteNightRecord(prev, index));
+  };
+
+  const handleDeleteDrawRecord = (index: number) => {
+    if (!qasmState) return;
+    persistUpdate((prev) => deleteDrawRecord(prev, index));
+  };
+
+  // `newOrder` is computed once from the render-time order (the swap the
+  // pressed arrow represents) — same "decide, then apply" separation as
+  // handleDraw above. If the live order changed underneath (a wife added,
+  // synced away) before this commits, reorderRotation's own permutation
+  // guard safely no-ops instead of applying a stale swap.
+  const handleReorderRotation = (newOrder: number[]) => {
+    if (!qasmState) return;
+    persistUpdate((prev) => reorderRotation(prev, newOrder));
+  };
+
+  const handleResetQasm = () => {
+    if (!qasmState) return;
+    Alert.alert(
+      tx(lang, "Het قَسْم volledig resetten?", "Reset the قَسْم completely?", "هل تريد إعادة ضبط القَسْم بالكامل؟"),
+      tx(
+        lang,
+        "De volgorde, nachtgeschiedenis en lotingen worden gewist. De نفقة-gegevens blijven bewaard.",
+        "The rotation order, night history and draws will be cleared. نفقة records are kept.",
+        "سيُحذف ترتيب القَسْم وسجلّ الليالي والقرعات. ستبقى بيانات النفقة كما هي.",
+      ),
+      [
+        { text: tx(lang, "Annuleren", "Cancel", "إلغاء"), style: "cancel" },
+        { text: tx(lang, "Resetten", "Reset", "إعادة الضبط"), style: "destructive", onPress: () => persistUpdate(resetQasm) },
+      ],
+    );
   };
 
   const rowDir = isRTL ? "row-reverse" : "row";
@@ -391,42 +441,106 @@ export default function QasmScreen() {
               <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted, textAlign, marginBottom: 8 }}>
                 {tx(lang, "Volgorde van de verdeling", "Rotation order", "ترتيب القَسْم")}
               </Text>
-              <View style={{ flexDirection: rowDir, flexWrap: "wrap", gap: 8 }}>
-                {qasmState.order.map((id, i) => (
+              {qasmState.order.map((id, i) => {
+                const isCurrent = !!(turn && !turn.isInitialStay && id === turn.wifeId);
+                return (
                   <View
                     key={`${id}-${i}`}
                     style={{
-                      paddingHorizontal: 10,
+                      flexDirection: rowDir,
+                      alignItems: "center",
+                      justifyContent: "space-between",
                       paddingVertical: 6,
-                      borderRadius: 16,
-                      backgroundColor: turn && !turn.isInitialStay && id === turn.wifeId ? colors.primary : colors.background,
-                      borderWidth: 1,
-                      borderColor: colors.border,
+                      borderBottomWidth: i < qasmState.order.length - 1 ? 1 : 0,
+                      borderBottomColor: colors.border,
                     }}
                   >
-                    <Text style={{ fontSize: 12, fontWeight: "600", color: turn && !turn.isInitialStay && id === turn.wifeId ? "#fff" : colors.foreground }}>
-                      {nameFor(id)}
-                    </Text>
+                    <View
+                      style={{
+                        paddingHorizontal: 10,
+                        paddingVertical: 6,
+                        borderRadius: 16,
+                        backgroundColor: isCurrent ? colors.primary : colors.background,
+                        borderWidth: 1,
+                        borderColor: colors.border,
+                      }}
+                    >
+                      <Text style={{ fontSize: 12, fontWeight: "600", color: isCurrent ? "#fff" : colors.foreground }}>
+                        {nameFor(id)}
+                      </Text>
+                    </View>
+                    <View style={{ flexDirection: rowDir, gap: 4 }}>
+                      <Pressable
+                        disabled={i === 0}
+                        onPress={debounced(`order-up-${id}`, () => {
+                          const newOrder = [...qasmState.order];
+                          [newOrder[i - 1], newOrder[i]] = [newOrder[i], newOrder[i - 1]];
+                          handleReorderRotation(newOrder);
+                        })}
+                        style={{ width: 30, height: 30, alignItems: "center", justifyContent: "center", opacity: i === 0 ? 0.3 : 1 }}
+                      >
+                        <MaterialIcons name="arrow-upward" size={18} color={colors.foreground} />
+                      </Pressable>
+                      <Pressable
+                        disabled={i === qasmState.order.length - 1}
+                        onPress={debounced(`order-down-${id}`, () => {
+                          const newOrder = [...qasmState.order];
+                          [newOrder[i], newOrder[i + 1]] = [newOrder[i + 1], newOrder[i]];
+                          handleReorderRotation(newOrder);
+                        })}
+                        style={{
+                          width: 30,
+                          height: 30,
+                          alignItems: "center",
+                          justifyContent: "center",
+                          opacity: i === qasmState.order.length - 1 ? 0.3 : 1,
+                        }}
+                      >
+                        <MaterialIcons name="arrow-downward" size={18} color={colors.foreground} />
+                      </Pressable>
+                    </View>
                   </View>
-                ))}
-              </View>
+                );
+              })}
             </View>
           )}
 
           {qasmState.history.length > 0 && (
             <View style={card}>
-              <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted, textAlign, marginBottom: 8 }}>
-                {tx(lang, "Recente nachten", "Recent nights", "الليالي الأخيرة")}
-              </Text>
-              {[...qasmState.history].reverse().slice(0, 6).map((h, i) => (
-                <View key={i} style={{ flexDirection: rowDir, justifyContent: "space-between", paddingVertical: 4 }}>
-                  <Text style={{ fontSize: 13, color: colors.foreground }}>{nameFor(h.wifeId)}</Text>
-                  <View style={{ flexDirection: rowDir, alignItems: "center", gap: 6 }}>
-                    {h.gifted && <MaterialIcons name="card-giftcard" size={13} color={colors.warning} />}
-                    <Text style={{ fontSize: 12, color: colors.muted }}>{h.date}</Text>
+              <View style={{ flexDirection: rowDir, alignItems: "center", justifyContent: "space-between", marginBottom: 8 }}>
+                <Text style={{ fontSize: 12, fontWeight: "700", color: colors.muted, textAlign }}>
+                  {tx(lang, "Recente nachten", "Recent nights", "الليالي الأخيرة")}
+                </Text>
+                {qasmState.undoStack.length > 0 && (
+                  <Pressable
+                    onPress={debounced("undo-last-night", handleUndoLastNight)}
+                    style={{ flexDirection: rowDir, alignItems: "center", gap: 4 }}
+                  >
+                    <MaterialIcons name="undo" size={16} color={colors.primary} />
+                    <Text style={{ fontSize: 12, fontWeight: "700", color: colors.primary }}>
+                      {tx(lang, "Ongedaan maken", "Undo", "تراجع عن آخر ليلة")}
+                    </Text>
+                  </Pressable>
+                )}
+              </View>
+              {[...qasmState.history].reverse().slice(0, 6).map((h, i) => {
+                const index = qasmState.history.length - 1 - i;
+                return (
+                  <View
+                    key={index}
+                    style={{ flexDirection: rowDir, alignItems: "center", justifyContent: "space-between", paddingVertical: 4 }}
+                  >
+                    <Text style={{ fontSize: 13, color: colors.foreground }}>{nameFor(h.wifeId)}</Text>
+                    <View style={{ flexDirection: rowDir, alignItems: "center", gap: 6 }}>
+                      {h.gifted && <MaterialIcons name="card-giftcard" size={13} color={colors.warning} />}
+                      <Text style={{ fontSize: 12, color: colors.muted }}>{h.date}</Text>
+                      <Pressable onPress={() => handleDeleteNightRecord(index)} hitSlop={8}>
+                        <MaterialIcons name="delete-outline" size={16} color={colors.error} />
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))}
+                );
+              })}
             </View>
           )}
 
@@ -462,12 +576,23 @@ export default function QasmScreen() {
             )}
             {qasmState.drawHistory.length > 0 && (
               <View style={{ marginTop: 10 }}>
-                {[...qasmState.drawHistory].reverse().slice(0, 5).map((d, i) => (
-                  <View key={i} style={{ flexDirection: rowDir, justifyContent: "space-between", paddingVertical: 3 }}>
-                    <Text style={{ fontSize: 12, color: colors.foreground }}>{nameFor(d.wifeId)}</Text>
-                    <Text style={{ fontSize: 11, color: colors.muted }}>{d.date}</Text>
-                  </View>
-                ))}
+                {[...qasmState.drawHistory].reverse().slice(0, 5).map((d, i) => {
+                  const index = qasmState.drawHistory.length - 1 - i;
+                  return (
+                    <View
+                      key={index}
+                      style={{ flexDirection: rowDir, alignItems: "center", justifyContent: "space-between", paddingVertical: 3 }}
+                    >
+                      <Text style={{ fontSize: 12, color: colors.foreground }}>{nameFor(d.wifeId)}</Text>
+                      <View style={{ flexDirection: rowDir, alignItems: "center", gap: 6 }}>
+                        <Text style={{ fontSize: 11, color: colors.muted }}>{d.date}</Text>
+                        <Pressable onPress={() => handleDeleteDrawRecord(index)} hitSlop={8}>
+                          <MaterialIcons name="delete-outline" size={15} color={colors.error} />
+                        </Pressable>
+                      </View>
+                    </View>
+                  );
+                })}
               </View>
             )}
           </View>
@@ -533,6 +658,17 @@ export default function QasmScreen() {
               </View>
             )}
           </View>
+
+          {/* ═══════ إعادة الضبط ═══════ */}
+          <Pressable
+            onPress={debounced("reset-qasm", handleResetQasm)}
+            style={[card, { borderColor: colors.error, alignItems: "center", flexDirection: rowDir, gap: 6, justifyContent: "center" }]}
+          >
+            <MaterialIcons name="restart-alt" size={16} color={colors.error} />
+            <Text style={{ color: colors.error, fontWeight: "700", fontSize: 13 }}>
+              {tx(lang, "القَسْم volledig resetten", "Reset the قَسْم completely", "إعادة ضبط القَسْم بالكامل")}
+            </Text>
+          </Pressable>
         </ScrollView>
       )}
     </View>
