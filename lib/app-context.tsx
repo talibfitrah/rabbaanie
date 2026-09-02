@@ -425,6 +425,57 @@ export function fillParentProfileFromServer(
 }
 
 /**
+ * Guards the autoSync-with-partner FULL REPLACE (hydrate, below). That path
+ * replaces local state with the server copy wholesale so a partner's
+ * server-side child removal propagates — but profile.get for a linked partner
+ * can be onboardingCompleted:true while THIS user's own per-user parentProfile
+ * fields (gender/maritalStatus/address/phone — never shared with a partner) are
+ * blank server-side. A raw setState(fresh) then reads isProfileComplete false
+ * for one render: AuthGate (lib/app-gate.ts) redirects to /onboarding while
+ * onboarding/index's "already complete → skip home" effect sends the user back,
+ * the tab↔onboarding loop reported by spouse accounts. Recover only the
+ * own-profile fields the fresh copy left empty, from local (a non-empty server
+ * value still wins — see fillParentProfileFromServer); children/environments/
+ * etc. still come from fresh, so removal propagation is unchanged.
+ */
+export function applyPartnerReplace(local: AppState, fresh: AppState): AppState {
+  const { profile } = fillParentProfileFromServer(
+    fresh.parentProfile,
+    local.parentProfile,
+  );
+  // hasNoChildren is a boolean, so the string-only fill above never recovers
+  // it: a linked wife who declared "no children" at onboarding would have
+  // this wiped by the next partner sync and be demoted back to the
+  // "children" onboarding step. A non-empty (true) value from either side
+  // wins, same non-clobbering rule fillParentProfileFromServer uses.
+  const hasNoChildren =
+    fresh.parentProfile.hasNoChildren === true ||
+    local.parentProfile.hasNoChildren === true
+      ? true
+      : fresh.parentProfile.hasNoChildren;
+  return { ...fresh, parentProfile: { ...profile, hasNoChildren } };
+}
+
+/**
+ * applyPartnerReplace for rehydrateFromServer's two raw replaces (below),
+ * which run right after login and cannot use stateRef.current as the "local"
+ * recovery source the way hydrate() does. The Log Out button explicitly
+ * calls resetState() before logout() BECAUSE otherwise "the next account to
+ * log in on this device inherits it" (see app/(tabs)/settings.tsx) — a
+ * session that ends without that button (e.g. a token expiring) leaves a
+ * PREVIOUS account's profile sitting in stateRef.current, and merging from it
+ * would leak that account's gender/maritalStatus/hasNoChildren into whoever
+ * logs in next. Loading this account's own saved copy from disk (keyed by
+ * userId) is scoped correctly regardless of what is sitting in memory.
+ */
+export async function applyPartnerReplaceForAccount(
+  userId: number | null,
+  fresh: AppState,
+): Promise<AppState> {
+  return applyPartnerReplace(await loadAppState(userId), fresh);
+}
+
+/**
  * Combines a hydrated local AppState with a freshly-fetched server AppState
  * (see syncFromServer) into what hydrate()'s background sync should persist.
  * Merges children/environments/issues/actionPlans/partner-info — unchanged
@@ -745,9 +796,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 syncFromServer(localState.locationSettings)
                   .then((freshState) => {
                     if (freshState && freshState.onboardingCompleted) {
-                      setState(freshState);
-                      stateRef.current = freshState;
-                      saveAppState(freshState, userIdRef.current);
+                      // Recover this user's own profile fields the server copy
+                      // left blank so a linked-partner sync can't demote a
+                      // complete profile and loop them into onboarding.
+                      const safeState = applyPartnerReplace(
+                        stateRef.current,
+                        freshState,
+                      );
+                      setState(safeState);
+                      stateRef.current = safeState;
+                      saveAppState(safeState, userIdRef.current);
                       console.log(
                         "[AutoSync] State refreshed after partner sync",
                       );
@@ -1162,9 +1220,17 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       );
       if (serverState && serverState.onboardingCompleted) {
         console.log("[AppContext] Server has data, restoring...");
-        setState(serverState);
-        stateRef.current = serverState;
-        await saveAppState(serverState, userIdRef.current);
+        // Guard against demoting a complete profile — see
+        // applyPartnerReplaceForAccount: profile.get can report
+        // onboardingCompleted:true while this user's own gender/
+        // maritalStatus/hasNoChildren are blank server-side.
+        const safeServerState = await applyPartnerReplaceForAccount(
+          userIdRef.current,
+          serverState,
+        );
+        setState(safeServerState);
+        stateRef.current = safeServerState;
+        await saveAppState(safeServerState, userIdRef.current);
         console.log("[AppContext] State restored from server after login");
       } else {
         // Also try local state (maybe user had data locally before logout).
@@ -1192,9 +1258,13 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
           stateRef.current?.locationSettings,
         );
         if (mergedState && mergedState.onboardingCompleted) {
-          setState(mergedState);
-          stateRef.current = mergedState;
-          await saveAppState(mergedState, userIdRef.current);
+          const safeMergedState = await applyPartnerReplaceForAccount(
+            userIdRef.current,
+            mergedState,
+          );
+          setState(safeMergedState);
+          stateRef.current = safeMergedState;
+          await saveAppState(safeMergedState, userIdRef.current);
         }
       }
     } catch (e) {

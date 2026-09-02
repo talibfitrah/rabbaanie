@@ -44,6 +44,7 @@ vi.mock("@/lib/authed-fetch", () => ({
   authedFetch: (...args: unknown[]) => authedFetch(...args),
 }));
 
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { defaultAppState, isProfileComplete } from "@/lib/store";
 import {
   syncToServer,
@@ -51,6 +52,8 @@ import {
   applyReconciledGender,
   mergeServerState,
   fillParentProfileFromServer,
+  applyPartnerReplace,
+  applyPartnerReplaceForAccount,
   locationSettingsForSync,
   locationSettingsFromServer,
 } from "@/lib/app-context";
@@ -598,5 +601,222 @@ describe("every syncFromServer call carries the device's own location", () => {
       "a syncFromServer call passes no local state, so the server's blanks win " +
         "and the device's coordinate and city are wiped on an ordinary app open",
     ).toBe(0);
+  });
+});
+
+/**
+ * The autoSync-with-partner path (lib/app-context.tsx hydrate) does a FULL
+ * REPLACE of local state with the server copy, so a partner's server-side
+ * child removal propagates. But profile.get for a LINKED PARTNER can return
+ * onboardingCompleted:true while THIS user's own per-user parentProfile fields
+ * (gender/maritalStatus/address/phone — never shared with a partner) are blank
+ * server-side. A raw setState(fresh) then reads isProfileComplete=false for one
+ * render: AuthGate (lib/app-gate.ts) redirects to /onboarding, onboarding's
+ * "already complete -> skip to home" effect fires on the fresh mount and sends
+ * the user back — the reported tab<->onboarding loop for spouse accounts.
+ * applyPartnerReplace recovers only the own-profile fields the fresh copy left
+ * empty, from local; children/environments/etc. still come from fresh.
+ */
+describe("applyPartnerReplace (guards the linked-partner full replace)", () => {
+  const completeProfile = {
+    ...defaultAppState.parentProfile,
+    firstName: "Yusuf",
+    lastName: "Ali",
+    birthDate: "1990-01-01",
+    country: "Netherlands",
+    city: "Amsterdam",
+    street: "Hoofdstraat",
+    houseNumber: "1",
+    phoneNumber: "0612345678",
+    gender: "man",
+    maritalStatus: "getrouwd",
+  };
+  const child = { id: "c1", name: "Aisha", birthDate: "2015-01-01" } as any;
+
+  const completeLocal = {
+    ...defaultAppState,
+    onboardingCompleted: true,
+    parentProfile: completeProfile,
+    children: [child],
+  };
+
+  it("does not demote a complete local profile when the partner's server copy has blank own-profile fields", () => {
+    // Server (spouse) copy: onboardingCompleted true (guard passes), full
+    // address/name, but the per-user gender + maritalStatus are blank.
+    const thinFresh = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "", maritalStatus: "" },
+      children: [child],
+    };
+    expect(isProfileComplete(thinFresh)).toBe(false); // precondition: fresh WOULD demote
+
+    const result = applyPartnerReplace(completeLocal, thinFresh);
+
+    expect(isProfileComplete(result)).toBe(true);
+    expect(result.parentProfile.gender).toBe("man");
+    expect(result.parentProfile.maritalStatus).toBe("getrouwd");
+  });
+
+  it("keeps the fresh copy's children so a partner's child removal still propagates", () => {
+    const second = { id: "c2", name: "Bilal", birthDate: "2018-02-02" } as any;
+    const localTwoKids = { ...completeLocal, children: [child, second] };
+    // Partner removed the second child server-side; own profile intact.
+    const freshOneKid = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: completeProfile,
+      children: [child],
+    };
+
+    const result = applyPartnerReplace(localTwoKids, freshOneKid);
+
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].id).toBe("c1");
+  });
+
+  it("lets a non-empty server field win over local (a real server edit is not clobbered)", () => {
+    const freshEditedGender = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "vrouw" },
+      children: [child],
+    };
+
+    const result = applyPartnerReplace(completeLocal, freshEditedGender);
+
+    expect(result.parentProfile.gender).toBe("vrouw");
+  });
+
+  // hasNoChildren is a boolean, so fillParentProfileFromServer's string-only
+  // fill (above) never recovers it: a linked wife who declared "no children"
+  // (app/onboarding/index.tsx) has that flag wiped by the next partner sync
+  // whose fresh copy carries hasNoChildren false/undefined, demoting her back
+  // to onboarding's "children" step forever.
+  it("keeps hasNoChildren:true from local when the fresh copy has it missing or false", () => {
+    const localChildless = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: true },
+      children: [],
+    };
+    const freshMissing = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [],
+    };
+    const freshFalse = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: false },
+      children: [],
+    };
+
+    expect(applyPartnerReplace(localChildless, freshMissing).parentProfile.hasNoChildren).toBe(true);
+    expect(applyPartnerReplace(localChildless, freshFalse).parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("does not invent hasNoChildren when local never declared it", () => {
+    const freshNoDeclaration = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [child],
+    };
+
+    // completeLocal never sets hasNoChildren (see the fixture above).
+    const result = applyPartnerReplace(completeLocal, freshNoDeclaration);
+
+    expect(result.parentProfile.hasNoChildren).not.toBe(true);
+  });
+
+  it("[regression] a fresh copy with blank gender/maritalStatus and 10 children stays profile-complete", () => {
+    const tenChildren = Array.from({ length: 10 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Child ${i}`,
+      birthDate: "2015-01-01",
+    })) as any;
+    const freshBlankGenderManyChildren = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "", maritalStatus: "" },
+      children: tenChildren,
+    };
+
+    const result = applyPartnerReplace(completeLocal, freshBlankGenderManyChildren);
+
+    expect(isProfileComplete(result)).toBe(true);
+  });
+});
+
+/**
+ * rehydrateFromServer's two raw replaces (post-login, and after a partner
+ * sync re-fetch) need the same applyPartnerReplace guard hydrate() got — but
+ * they cannot use stateRef.current as the recovery source the way hydrate()
+ * does. hydrate() only ever guards its OWN account's in-memory state, already
+ * loaded for that account at mount. rehydrateFromServer runs right after
+ * login: the Log Out button explicitly calls resetState() before logout()
+ * BECAUSE otherwise "the next account to log in on this device inherits it"
+ * (see app/(tabs)/settings.tsx) — a session that ends without that button
+ * (e.g. a token expiring) leaves a PREVIOUS account's profile sitting in
+ * stateRef.current, and applyPartnerReplace(stateRef.current, fresh) would
+ * leak that account's gender/maritalStatus/hasNoChildren into whoever logs
+ * in next. applyPartnerReplaceForAccount loads THIS account's own saved copy
+ * from disk (keyed by userId) instead, which is correctly scoped regardless
+ * of what is sitting in memory.
+ */
+describe("applyPartnerReplaceForAccount (rehydrateFromServer's post-login guard)", () => {
+  const ownSavedProfile = {
+    firstName: "Yusuf",
+    lastName: "Ali",
+    birthDate: "1990-01-01",
+    country: "Netherlands",
+    city: "Amsterdam",
+    street: "Hoofdstraat",
+    houseNumber: "1",
+    phoneNumber: "0612345678",
+    gender: "man",
+    maritalStatus: "getrouwd",
+    hasNoChildren: true,
+  };
+
+  beforeEach(() => {
+    vi.mocked(AsyncStorage.getItem).mockClear();
+  });
+
+  it("recovers this account's own saved profile, not whatever is currently in memory", async () => {
+    vi.mocked(AsyncStorage.getItem).mockResolvedValueOnce(
+      JSON.stringify({
+        ...defaultAppState,
+        onboardingCompleted: true,
+        parentProfile: { ...defaultAppState.parentProfile, ...ownSavedProfile },
+        children: [],
+      }),
+    );
+    const freshFromLogin = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      // profile.get right after login: own per-user fields still blank.
+      parentProfile: { ...defaultAppState.parentProfile },
+      children: [],
+    };
+
+    const result = await applyPartnerReplaceForAccount(42, freshFromLogin);
+
+    expect(isProfileComplete(result)).toBe(true);
+    expect(result.parentProfile.gender).toBe("man");
+    expect(result.parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("reads this account's own AsyncStorage key (scoped by userId), not the in-memory state", async () => {
+    await applyPartnerReplaceForAccount(42, {
+      ...defaultAppState,
+      onboardingCompleted: true,
+    });
+
+    expect(AsyncStorage.getItem).toHaveBeenCalledWith(
+      expect.stringContaining("_42"),
+    );
   });
 });
