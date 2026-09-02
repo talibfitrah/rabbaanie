@@ -1,0 +1,23 @@
+tests/prayer-popup-haid.test.ts
+  s_05eef947428dfd::t_efe583e0727ba9 7-10,16-17,21-25,27,30-41
+  s_05eef947428dfd::t_c70c22c0dba7ff 26,28-29
+components/prayer-popup-modal.tsx
+  s_05eef947428dfd::t_1ad4a42bded01c 76-88
+  s_05eef947428dfd::t_673ed6e93eb252 111
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "9ca05703ca10c60f6513f27df048dcde06833c1a",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
