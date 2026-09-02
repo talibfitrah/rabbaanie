@@ -243,6 +243,28 @@ export default function SettingsScreen() {
       ],
     );
   };
+  // Add-wife-by-ID relocated here from the family tab (Daa3iyah): it lives in
+  // شبكتي (messages) and Settings only, no longer in the family list.
+  const [addWifeIdInput, setAddWifeIdInput] = useState("");
+  const [addWifeMsg, setAddWifeMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const addWifeMutation = trpc.links.linkPartnerByPublicId.useMutation({
+    onSuccess: (data) => setAddWifeMsg({ ok: true, text:
+      language === "ar" ? `تم إرسال طلب الربط إلى ${data.partnerName || "الزوجة"}. لن تتم مشاركة البيانات حتى يتم التأكيد.`
+      : isEn ? `Link request sent to ${data.partnerName || "partner"}. No data is shared until they confirm.`
+      : `Koppelverzoek verstuurd naar ${data.partnerName || "partner"}. Er worden pas gegevens gedeeld na bevestiging.` }),
+    onError: (err) => setAddWifeMsg({ ok: false, text: err.message }),
+  });
+  const handleAddWife = () => {
+    const trimmed = addWifeIdInput.trim();
+    if (!trimmed) {
+      Alert.alert(
+        language === "ar" ? "مطلوب" : isEn ? "Required" : "Verplicht",
+        language === "ar" ? "أدخل الرقم المميّز للزوجة" : isEn ? "Enter your partner's ID" : "Voer het ID van uw partner in",
+      );
+      return;
+    }
+    addWifeMutation.mutate({ partnerPublicId: trimmed, relationship: "partner" });
+  };
   const { subscribed, expiresAt } = useSubscription();
   const [adminRole, setAdminRole] = useState<string | null>(null);
   useEffect(() => { getSessionRole().then(setAdminRole); }, []);
@@ -2209,6 +2231,43 @@ export default function SettingsScreen() {
             {language === "ar" ? "حذف الحساب" : isEn ? "Delete account" : "Account verwijderen"}
           </Text>
         </Pressable>
+      )}
+
+      {/* Add-wife-by-ID (moved off the family tab). Man-only, and only while
+          fewer than four confirmed wives — matching the old family-tab gate. */}
+      {isAuthenticated && (state.parentProfile.gender || "man") === "man" &&
+        (listPartnersQuery.data ?? []).filter((p: PartnerListEntry) => p.confirmed).length < 4 && (
+        <View style={{ borderWidth: 1, borderColor: colors.border, borderStyle: "dashed", borderRadius: 12, padding: 14, marginTop: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8, marginBottom: 8 }}>
+            <MaterialIcons name="person-add" size={16} color={colors.primary} />
+            <Text style={{ fontSize: 13, fontWeight: "700", color: colors.foreground }}>
+              {language === "ar" ? "أضف زوجة بالرقم المميّز" : isEn ? "Link another wife" : "Nog een echtgenote koppelen"}
+            </Text>
+          </View>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
+            <TextInput
+              value={addWifeIdInput}
+              onChangeText={setAddWifeIdInput}
+              placeholder={language === "ar" ? "الرقم المميّز" : "Partner ID"}
+              placeholderTextColor={colors.muted}
+              autoCapitalize="characters"
+              returnKeyType="done"
+              onSubmitEditing={handleAddWife}
+              style={{ flex: 1, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 10, fontSize: 13, color: colors.foreground, fontFamily: Platform.OS === "ios" ? "Menlo" : "monospace", textAlign: isRTL ? "right" : "left" }}
+            />
+            <Pressable onPress={handleAddWife} disabled={addWifeMutation.isPending} style={{ backgroundColor: colors.primary, borderRadius: 10, paddingHorizontal: 16, alignItems: "center", justifyContent: "center", opacity: addWifeMutation.isPending ? 0.7 : 1 }}>
+              {addWifeMutation.isPending ? <ActivityIndicator color="#fff" size="small" /> : <Text style={{ color: "#fff", fontWeight: "700", fontSize: 13 }}>{language === "ar" ? "ربط" : isEn ? "Link" : "Koppelen"}</Text>}
+            </Pressable>
+            <Pressable onPress={() => router.push("/qr-scanner")} style={{ backgroundColor: colors.background, borderRadius: 10, paddingHorizontal: 12, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: colors.border }}>
+              <MaterialIcons name="qr-code-scanner" size={16} color={colors.primary} />
+            </Pressable>
+          </View>
+          {addWifeMsg && (
+            <Text style={{ color: addWifeMsg.ok ? colors.success : colors.error, fontSize: 12, fontWeight: "600", textAlign: "center", marginTop: 8 }}>
+              {addWifeMsg.text}
+            </Text>
+          )}
+        </View>
       )}
 
       {/* End partnership (item 5) — the only place this control appears now.
