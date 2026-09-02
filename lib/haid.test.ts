@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, type CycleDay, type CycleSettings } from "./haid";
+import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
@@ -50,6 +50,13 @@ describe("classify — haid by habit (decisions 1, 2)", () => {
     const out = classify(blood(span("2026-09-01", 10)), S(), "2026-09-01", "2026-09-10");
     expect(statusOf(out, "2026-09-07").status).toBe("haid");
     expect(statusOf(out, "2026-09-08").status).toBe("istihada");
+  });
+  it("bug 3: the habit counts CALENDAR run days, not blood days — a spotting day still consumes a day of the habit", () => {
+    const days: CycleDay[] = [{ date: "2026-09-01", flow: "blood" }, { date: "2026-09-02", flow: "spotting" }, { date: "2026-09-03", flow: "blood" }];
+    const out = classify(days, S({ habitLength: 2 }), "2026-09-01", "2026-09-03");
+    expect(statusOf(out, "2026-09-01").status).toBe("haid"); // runDay 1
+    expect(statusOf(out, "2026-09-02")).toMatchObject({ status: "tuhr_pending_ghusl" }); // decision 3 override untouched
+    expect(statusOf(out, "2026-09-03").status).toBe("istihada"); // runDay 3 > habit 2, even though only 2 blood days were logged
   });
 });
 
@@ -152,25 +159,80 @@ describe("classify — pregnancy and nifas (decisions 10, 11)", () => {
     expect(statusOf(yes, "2026-09-02").status).toBe("nifas");
     expect(statusOf(no, "2026-09-02").status).toBe("istihada");
   });
+  it("bug 4: a run that only REACHES a birth partway through is still a nifas run — day 41 after birth is istihada, not haid", () => {
+    // Blood starts 4 days before birth (outside the 3-day labour window), so run.start itself
+    // is never inside the nifas window — only later days in this same run are.
+    const days = blood(span("2026-09-01", 50));
+    const out = classify(days, S({ birthDate: "2026-09-05" }), "2026-09-01", "2026-10-20");
+    expect(statusOf(out, "2026-10-14").status).toBe("nifas"); // day 40 after birth
+    expect(statusOf(out, "2026-10-15").status).toBe("istihada"); // day 41 — no cycle history to match against
+  });
+  it("bug 4: a run that only REACHES a sub-120-day miscarriage partway through is دم فساد there too, and later real periods still recover to haid", () => {
+    // Blood starts 4 days before the miscarriage date (outside the 3-day window startedAfterEarlyMiscarriage
+    // checks), so run.start alone never qualifies as an early-miscarriage run — only the miscarriage date itself does.
+    const days = [...blood(span("2026-08-28", 8)), ...blood(span("2026-10-06", 5))];
+    const out = classify(days, S({ pregnantSince: "2026-06-01", miscarriageDate: "2026-09-01", gestationDays: 90, habitLength: 5 }), "2026-08-28", "2026-10-10");
+    expect(statusOf(out, "2026-09-01").status).toBe("istihada"); // the miscarriage date itself, mid-run
+    expect(statusOf(out, "2026-10-07").status).toBe("haid"); // later real period recovers
+  });
 });
 
 describe("classify — contraception (decision 12)", () => {
   it("with contraception, bleeding far from the expected start is istihada; bleeding at the expected start is haid", () => {
+    // 3 historical runs = only 2 start-to-start intervals — too thin to auto-learn (bug 2), so the
+    // "known cycle length" decision 12 requires is supplied explicitly, as a real settings override would.
     const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
-    const onTime = classify([...history, ...blood(span("2026-08-24", 3))], S({ contraception: true, habitLength: 5 }), "2026-08-24", "2026-08-26");
-    const offTime = classify([...history, ...blood(span("2026-08-12", 3))], S({ contraception: true, habitLength: 5 }), "2026-08-12", "2026-08-14");
+    const onTime = classify([...history, ...blood(span("2026-08-24", 3))], S({ contraception: true, habitLength: 5, cycleLength: 28 }), "2026-08-24", "2026-08-26");
+    const offTime = classify([...history, ...blood(span("2026-08-12", 3))], S({ contraception: true, habitLength: 5, cycleLength: 28 }), "2026-08-12", "2026-08-14");
     expect(statusOf(onTime, "2026-08-25").status).toBe("haid");
     expect(statusOf(offTime, "2026-08-13").status).toBe("istihada");
+  });
+  it("bug 6: the expected-start window rolls by WHOLE cycles across a skipped period, not just one cycle ahead", () => {
+    // Last period 06-01; nothing logged again until 08-24 — exactly 3×28 days later. A single
+    // cycleLen hop from 06-01 lands on 06-29, nowhere near 08-24, so the naive check would wrongly
+    // call this a breakthrough; rolled by whole cycles it lands exactly on 08-24.
+    const days = [...blood(["2026-06-01"]), ...blood(span("2026-08-24", 3))];
+    const out = classify(days, S({ contraception: true, cycleLength: 28, habitLength: 5 }), "2026-08-24", "2026-08-26");
+    expect(statusOf(out, "2026-08-25").status).toBe("haid");
+  });
+  it("bug 6: a breakthrough (off-schedule) run never anchors nextStart for the runs after it", () => {
+    const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
+    const settings = S({ contraception: true, cycleLength: 28 });
+    const withoutBreakthrough = predict(history, settings, "2026-08-10").nextStart;
+    const withBreakthrough = predict([...history, ...blood(["2026-08-05", "2026-08-06"])], settings, "2026-08-10").nextStart; // off-window
+    expect(withBreakthrough).toBe(withoutBreakthrough); // the breakthrough run must not move it
+    expect(withoutBreakthrough).toBe("2026-08-24"); // still 28 days after her last REAL period (07-27)
   });
 });
 
 describe("learning", () => {
   it("habit = median of the last three UNCAPPED run lengths; cycle = median of start intervals", () => {
-    const days = [...blood(span("2026-05-01", 6)), ...blood(span("2026-05-29", 8)), ...blood(span("2026-06-26", 7)), ...blood(span("2026-07-24", 9))];
+    // The 4th run is closed by a logged dry day after it, so all four count as complete (bug 1).
+    const days = [...blood(span("2026-05-01", 6)), ...blood(span("2026-05-29", 8)), ...blood(span("2026-06-26", 7)), ...blood(span("2026-07-24", 9)), { date: "2026-08-02", flow: "dry" as const }];
     expect(learnHabit(days, S())).toBe(8);
     expect(learnCycleLength(days, S())).toBe(28);
     expect(learnHabit(days, S(), "2026-05-20")).toBe(6);
     expect(learnHabit([], S())).toBeUndefined();
+  });
+  it("bug 1: the current run (nothing logged after it yet) is excluded from learning; predict agrees with classify", () => {
+    const days = blood(["2026-09-01"]);
+    expect(learnHabit(days, S())).toBeUndefined(); // one day is not a learned habit
+    const p = predict(days, S(), "2026-09-03");
+    expect(p.habit).toBeUndefined();
+    expect(p.expectedPurity).toBeUndefined(); // nothing learned yet to project a purity date from
+    const cls = classify(days, S(), "2026-09-01", "2026-09-03", "2026-09-03");
+    expect(isExcusedToday(cls, "2026-09-03")).toBe(true); // classify still assumes haid (DEFAULT_HAID_DAYS window)
+    expect(excusedState(cls, p, "2026-09-03")).toEqual({ excused: true, until: "2026-09-03" }); // safe "at least today" — agrees with classify, asserts nothing further
+  });
+  it("bug 2: needs at least 3 start-to-start intervals (4 complete runs) before learning a cycle length", () => {
+    const closedRun = (start: string) => [...blood([start]), { date: addDays(start, 1), flow: "dry" as const }];
+    const twoRuns = [...closedRun("2026-07-21"), ...closedRun("2026-09-01")]; // 1 interval — too thin
+    expect(learnCycleLength(twoRuns, S())).toBeUndefined();
+    expect(predict(twoRuns, S(), "2026-09-05").cycleLength).toBe(DEFAULT_CYCLE_LENGTH); // falls back
+    expect(predict(twoRuns, S({ cycleLength: 21 }), "2026-09-05").cycleLength).toBe(21); // manual override always wins
+
+    const fourRuns = [...closedRun("2026-06-01"), ...closedRun("2026-06-29"), ...closedRun("2026-07-27"), ...closedRun("2026-08-24")]; // 3 intervals of 28 — enough
+    expect(learnCycleLength(fourRuns, S())).toBe(28);
   });
 });
 
@@ -216,6 +278,14 @@ describe("predict", () => {
   it("no predictions while pregnant; defaults to 28 with no history", () => {
     expect(predict(history, S({ pregnantSince: "2026-08-01" }), "2026-08-30").nextStart).toBeUndefined();
     expect(predict([], S(), "2026-08-30")).toMatchObject({ cycleLength: 28 });
+  });
+  it("bug 5: a run already closed by an explicit dry+ghusl entry is no longer 'current' — no stale expectedPurity", () => {
+    const days: CycleDay[] = [{ date: "2026-09-01", flow: "blood" }, { date: "2026-09-02", flow: "blood" }, { date: "2026-09-03", flow: "dry", ghusl: true }];
+    expect(predict(days, S({ habitLength: 7 }), "2026-09-03").expectedPurity).toBeUndefined(); // she is pure as of today, not "still projected to 09-08"
+  });
+  it("bug 5: a future-dated log must not move nextStart — only runs that have started by today count", () => {
+    const p = predict([{ date: "2026-10-01", flow: "blood" }], S(), "2026-09-02");
+    expect(p.nextStart).toBeUndefined(); // nothing has actually happened yet to predict from
   });
 });
 

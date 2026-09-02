@@ -139,17 +139,28 @@ function median(xs: number[]): number | undefined {
   return a.length % 2 ? a[m] : Math.round((a[m - 1] + a[m]) / 2);
 }
 
+/**
+ * A run only counts for learning once we know it actually ended: some later entry is logged —
+ * a subsequent blood run, or an explicit dry/spotting close. The chronologically last run, with
+ * nothing at all logged after it, is still open (she may bleed again tomorrow) and is excluded —
+ * otherwise a single day's log would be learned as the whole habit (bug 1).
+ */
+function isCompleteRun(run: BloodRun, days: CycleDay[]): boolean {
+  return days.some((d) => d.date > run.end);
+}
+
 /** Median length of the last three complete normal runs (uncapped, so a genuinely longer habit is learned). */
 export function learnHabit(days: CycleDay[], settings: CycleSettings, before?: string): number | undefined {
-  const runs = bloodRuns(days).filter((r) => isNormalRun(r, settings) && (!before || r.end < before));
+  const runs = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before));
   return median(runs.slice(-3).map((r) => r.dates.length));
 }
-/** Median of the last ≤6 start-to-start intervals of normal runs. */
+const MIN_CYCLE_INTERVALS = 3; // spec: "median of the last 3-6 start-to-start intervals" — below 3 is too thin to trust
+/** Median of the last ≤6 start-to-start intervals of normal runs; undefined below MIN_CYCLE_INTERVALS. */
 export function learnCycleLength(days: CycleDay[], settings: CycleSettings, before?: string): number | undefined {
-  const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && (!before || r.end < before)).slice(-7).map((r) => r.start);
+  const starts = bloodRuns(days).filter((r) => isNormalRun(r, settings) && isCompleteRun(r, days) && (!before || r.end < before)).slice(-7).map((r) => r.start);
   const gaps: number[] = [];
   for (let i = 1; i < starts.length; i++) gaps.push(diffDays(starts[i - 1], starts[i]));
-  return median(gaps); // already ≤6: 7 starts (sliced above) give at most 6 gaps
+  return gaps.length >= MIN_CYCLE_INTERVALS ? median(gaps) : undefined; // already ≤6: 7 starts (sliced above) give at most 6 gaps
 }
 
 /** The runs classify()/predict() see: the last one extended through unlogged days up to the habit (item E-2). */
@@ -170,38 +181,54 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
   const runs = extendedRuns(days, settings, today);
   const runStatus = new Map<string, { status: DayStatus; runDay: number; advisories: Advisory[] }>();
 
+  // Bug 6: the last run that is a genuine period — not nifas/pregnant, and (with contraception)
+  // not itself an off-schedule breakthrough — tracked incrementally so a breakthrough run can
+  // never become the anchor for the runs after it (it is never assigned here).
+  let prevNormal: BloodRun | undefined;
   for (const run of runs) {
     const habit = settings.habitLength ?? learnHabit(days, settings, run.start);
     const cycleLen = settings.cycleLength ?? learnCycleLength(days, settings, run.start);
-    const prev = runs.filter((r) => r.end < run.start && isNormalRun(r, settings)).pop();
-    const startedInNifas = nifasDayOf(settings, run.start) !== null;
-    const earlyMiscarriageRun = startedAfterEarlyMiscarriage(settings, run.start);
+    // Bug 4: a run that only REACHES the birth/miscarriage partway through (blood logged from
+    // before it) still belongs to that episode — test every day the run covers, not just its
+    // start, or a day-41+ tail wrongly escapes the nifas-continuation rule (item E-3) entirely.
+    const startedInNifas = run.dates.some((d) => nifasDayOf(settings, d) !== null);
+    const earlyMiscarriageRun = run.dates.some((d) => startedAfterEarlyMiscarriage(settings, d));
+    const isBaseNormal = isNormalRun(run, settings);
     let contraceptionIstihada = false;
-    if (settings.contraception && cycleLen && prev) {
-      const expected = addDays(prev.start, cycleLen);
-      contraceptionIstihada = Math.abs(diffDays(expected, run.start)) > CONTRACEPTION_WINDOW_DAYS;
+    if (isBaseNormal && settings.contraception && cycleLen && prevNormal) {
+      // Bug 6: roll the expected start by WHOLE cycle-length multiples from the last real period,
+      // not one cycleLen hop — a skipped cycle (common on contraception) is not istihada.
+      contraceptionIstihada = !nearExpectedPeriod(prevNormal.start, cycleLen, run.start);
     }
     const hasColours = run.dates.some((d) => byDate.get(d)?.color);
-    let haidCount = 0;
+    // Calendar day within the CURRENT haid-quota stretch (decision 2 is calendar days, not a
+    // blood-day tally): a spotting day still consumes a day of the habit (bug 3), but nifas /
+    // pregnancy / early-miscarriage / contraception days belong to a different rule entirely and
+    // reset the count, so a habit match right after nifas ends (item E-3) starts counting at 1.
+    let habitDay = 0;
     run.dates.forEach((date, i) => {
       const runDay = i + 1;
       const advisories: Advisory[] = [];
       let status: DayStatus;
-      if (byDate.get(date)?.flow === "spotting") status = "tuhr_pending_ghusl"; // decision 3: spotting is never haid/nifas, even absorbed mid-run (E-1)
-      else if (nifasDayOf(settings, date) !== null) status = "nifas"; // decision 10-أ: labour blood wins over "still pregnant"
+      if (byDate.get(date)?.flow === "spotting") { status = "tuhr_pending_ghusl"; habitDay++; } // decision 3: spotting is never haid/nifas, even absorbed mid-run (E-1)
+      else if (nifasDayOf(settings, date) !== null) { status = "nifas"; habitDay = 0; } // decision 10-أ: labour blood wins over "still pregnant"
       else if (isPregnant(settings, date)) {
         status = "istihada";
         advisories.push("bleeding_in_pregnancy");
-      } else if (startedInNifas && !nearExpectedPeriod(prev?.start, cycleLen, date)) status = "istihada"; // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match); haid instead when it matches her expected period (item E-3)
-      else if (earlyMiscarriageRun) status = "istihada"; // decision 10: no تخليق → دم فساد, later periods are haid again
-      else if (contraceptionIstihada) status = "istihada";
-      else if (habit) status = haidCount < habit ? "haid" : "istihada";
-      else if (hasColours) status = byDate.get(date)?.color === "red" ? "istihada" : "haid";
-      else status = haidCount < DEFAULT_HAID_DAYS ? "haid" : "istihada";
-      if (status === "haid") haidCount++;
+        habitDay = 0;
+      } else if (startedInNifas && !nearExpectedPeriod(prevNormal?.start, cycleLen, date)) { status = "istihada"; habitDay = 0; } // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match); haid instead when it matches her expected period (item E-3)
+      else if (earlyMiscarriageRun) { status = "istihada"; habitDay = 0; } // decision 10: no تخليق → دم فساد, later periods are haid again
+      else if (contraceptionIstihada) { status = "istihada"; habitDay = 0; }
+      else {
+        habitDay++;
+        if (habit) status = habitDay <= habit ? "haid" : "istihada";
+        else if (hasColours) status = byDate.get(date)?.color === "red" ? "istihada" : "haid";
+        else status = habitDay <= DEFAULT_HAID_DAYS ? "haid" : "istihada";
+      }
       if (runDay > SEE_DOCTOR_AFTER_DAYS) advisories.push("see_doctor");
       runStatus.set(date, { status, runDay, advisories });
     });
+    if (isBaseNormal && !contraceptionIstihada) prevNormal = run; // bug 6: a breakthrough run never anchors later runs
   }
 
   // Walk day by day from well before `from` so ghuslDue is correct at `from`.
@@ -272,17 +299,26 @@ export function rulingsFor(day: Pick<ClassifiedDay, "status" | "ghuslDue">): Rul
 export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string }
 
 export function predict(days: CycleDay[], settings: CycleSettings, today: string): Prediction {
-  const runs = extendedRuns(days, settings, today);
+  const runs = extendedRuns(days, settings, today).filter((r) => r.start <= today); // bug 5: a future-dated log hasn't happened yet — ignore it entirely
   const habit = settings.habitLength ?? learnHabit(days, settings);
   const cycleLength = settings.cycleLength ?? learnCycleLength(days, settings) ?? DEFAULT_CYCLE_LENGTH;
   const p: Prediction = { habit, cycleLength };
-  const current = runs.find((r) => r.start <= today && diffDays(r.end, today) <= 1);
+  const current = runs.find((r) => today <= r.end); // bug 5: an already-ended run (today > end) is no longer "current"
   if (current) {
     if (nifasDayOf(settings, current.start) !== null) p.expectedPurity = addDays(effectiveBirth(settings)!, NIFAS_MAX_DAYS);
     else if (habit) p.expectedPurity = addDays(current.start, habit);
   }
   if (isPregnant(settings, today)) return p;
-  const normal = runs.filter((r) => isNormalRun(r, settings));
+  // Bug 6: a contraception breakthrough (off-schedule) run must not anchor nextStart for the runs
+  // after it — walk forward keeping only runs that are on-schedule relative to the last one kept.
+  let lastNormalStart: string | undefined;
+  const normal: BloodRun[] = [];
+  for (const r of runs) {
+    if (!isNormalRun(r, settings)) continue;
+    if (settings.contraception && lastNormalStart && !nearExpectedPeriod(lastNormalStart, cycleLength, r.start)) continue; // breakthrough — skip, don't anchor
+    normal.push(r);
+    lastNormalStart = r.start;
+  }
   const last = normal[normal.length - 1];
   if (last) {
     let next = addDays(last.start, cycleLength);
