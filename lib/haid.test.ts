@@ -159,6 +159,22 @@ describe("classify — pregnancy and nifas (decisions 10, 11)", () => {
     expect(statusOf(yes, "2026-09-02").status).toBe("nifas");
     expect(statusOf(no, "2026-09-02").status).toBe("istihada");
   });
+  it("bug 4: a run that only REACHES a birth partway through is still a nifas run — day 41 after birth is istihada, not haid", () => {
+    // Blood starts 4 days before birth (outside the 3-day labour window), so run.start itself
+    // is never inside the nifas window — only later days in this same run are.
+    const days = blood(span("2026-09-01", 50));
+    const out = classify(days, S({ birthDate: "2026-09-05" }), "2026-09-01", "2026-10-20");
+    expect(statusOf(out, "2026-10-14").status).toBe("nifas"); // day 40 after birth
+    expect(statusOf(out, "2026-10-15").status).toBe("istihada"); // day 41 — no cycle history to match against
+  });
+  it("bug 4: a run that only REACHES a sub-120-day miscarriage partway through is دم فساد there too, and later real periods still recover to haid", () => {
+    // Blood starts 4 days before the miscarriage date (outside the 3-day window startedAfterEarlyMiscarriage
+    // checks), so run.start alone never qualifies as an early-miscarriage run — only the miscarriage date itself does.
+    const days = [...blood(span("2026-08-28", 8)), ...blood(span("2026-10-06", 5))];
+    const out = classify(days, S({ pregnantSince: "2026-06-01", miscarriageDate: "2026-09-01", gestationDays: 90, habitLength: 5 }), "2026-08-28", "2026-10-10");
+    expect(statusOf(out, "2026-09-01").status).toBe("istihada"); // the miscarriage date itself, mid-run
+    expect(statusOf(out, "2026-10-07").status).toBe("haid"); // later real period recovers
+  });
 });
 
 describe("classify — contraception (decision 12)", () => {

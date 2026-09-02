@@ -185,8 +185,11 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
     const habit = settings.habitLength ?? learnHabit(days, settings, run.start);
     const cycleLen = settings.cycleLength ?? learnCycleLength(days, settings, run.start);
     const prev = runs.filter((r) => r.end < run.start && isNormalRun(r, settings)).pop();
-    const startedInNifas = nifasDayOf(settings, run.start) !== null;
-    const earlyMiscarriageRun = startedAfterEarlyMiscarriage(settings, run.start);
+    // Bug 4: a run that only REACHES the birth/miscarriage partway through (blood logged from
+    // before it) still belongs to that episode — test every day the run covers, not just its
+    // start, or a day-41+ tail wrongly escapes the nifas-continuation rule (item E-3) entirely.
+    const startedInNifas = run.dates.some((d) => nifasDayOf(settings, d) !== null);
+    const earlyMiscarriageRun = run.dates.some((d) => startedAfterEarlyMiscarriage(settings, d));
     let contraceptionIstihada = false;
     if (settings.contraception && cycleLen && prev) {
       const expected = addDays(prev.start, cycleLen);
