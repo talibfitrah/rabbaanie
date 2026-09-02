@@ -1,4 +1,4 @@
-import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex, date, primaryKey } from "drizzle-orm/mysql-core";
+import { int, mysqlEnum, mysqlTable, text, timestamp, varchar, json, boolean, uniqueIndex, primaryKey } from "drizzle-orm/mysql-core";
 
 // ============================================================
 // 1. USERS TABLE (existing, extended with profile fields)
@@ -1469,29 +1469,28 @@ export type InsertParentAiConsultation = typeof parentAiConsultations.$inferInse
 export const cycleDays = mysqlTable(
   "cycle_days",
   {
-    userId: int("user_id").notNull(),
-    date: date("date", { mode: "string" }).notNull(),
+    userId: int("userId").notNull(),
+    date: varchar("date", { length: 10 }).notNull(),
     flow: varchar("flow", { length: 16 }).notNull(),
     color: varchar("color", { length: 16 }),
     ghusl: boolean("ghusl").notNull().default(false),
-    note: varchar("note", { length: 200 }),
-    updatedAt: timestamp("updated_at").defaultNow().notNull(),
+    updatedAt: timestamp("updatedAt").defaultNow().notNull(),
   },
   (t) => ({ pk: primaryKey({ columns: [t.userId, t.date] }) }),
 );
 export type CycleDayRow = typeof cycleDays.$inferSelect;
 export const cycleSettings = mysqlTable("cycle_settings", {
-  userId: int("user_id").primaryKey(),
+  userId: int("userId").primaryKey(),
   enabled: boolean("enabled").notNull().default(false),
-  consentAt: timestamp("consent_at"),
-  habitLength: int("habit_length"),
-  cycleLength: int("cycle_length"),
-  pregnantSince: date("pregnant_since", { mode: "string" }),
-  birthDate: date("birth_date", { mode: "string" }),
-  miscarriageDate: date("miscarriage_date", { mode: "string" }),
-  gestationDays: int("gestation_days"),
+  consentAt: timestamp("consentAt"),
+  habitLength: int("habitLength"),
+  cycleLength: int("cycleLength"),
+  pregnantSince: varchar("pregnantSince", { length: 10 }),
+  birthDate: varchar("birthDate", { length: 10 }),
+  miscarriageDate: varchar("miscarriageDate", { length: 10 }),
+  gestationDays: int("gestationDays"),
   contraception: boolean("contraception").notNull().default(false),
-  ghuslReminder: boolean("ghusl_reminder").notNull().default(true),
-  updatedAt: timestamp("updated_at").defaultNow().notNull(),
+  ghuslReminder: boolean("ghuslReminder").notNull().default(true),
+  updatedAt: timestamp("updatedAt").defaultNow().notNull(),
 });
 export type CycleSettingsRow = typeof cycleSettings.$inferSelect;

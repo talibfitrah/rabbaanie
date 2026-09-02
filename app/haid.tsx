@@ -52,7 +52,7 @@ export default function HaidScreen() {
   const saveSettings = trpc.cycle.saveSettings.useMutation({ onSuccess: invalidate, onError: onMutationError });
   const disable = trpc.cycle.disable.useMutation({ onSuccess: invalidate, onError: onMutationError });
 
-  const days: CycleDay[] = useMemo(() => (q.data?.days ?? []).map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl, note: d.note })), [q.data]);
+  const days: CycleDay[] = useMemo(() => (q.data?.days ?? []).map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl })), [q.data]);
   const settings: CycleSettings = useMemo(() => ({ ...DEFAULT_SETTINGS, ...(q.data?.settings ?? {}), enabled: !!q.data?.enabled }), [q.data]);
 
   const today = isoToday();
@@ -204,7 +204,7 @@ export default function HaidScreen() {
   );
 }
 
-function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisable }: { settings: CycleSettings; lang: Lang; colors: ReturnType<typeof useColors>; align: { textAlign: "left" | "right" }; isSaving: boolean; onSave: (p: Partial<CycleSettings>) => void; onDisable: () => void }) {
+function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisable }: { settings: CycleSettings; lang: Lang; colors: ReturnType<typeof useColors>; align: { textAlign: "left" | "right" }; isSaving: boolean; onSave: (p: Omit<Partial<CycleSettings>, "enabled">) => void; onDisable: () => void }) {
   const [habit, setHabit] = useState(settings.habitLength ? String(settings.habitLength) : "");
   const [cycle, setCycle] = useState(settings.cycleLength ? String(settings.cycleLength) : "");
   const [pregnant, setPregnant] = useState(settings.pregnantSince ?? "");
