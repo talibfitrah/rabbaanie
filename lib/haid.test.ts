@@ -100,6 +100,13 @@ describe("classify — pregnancy and nifas (decisions 10, 11)", () => {
     expect(statusOf(out, "2026-09-11").status).toBe("tuhr");
     expect(statusOf(out, "2026-09-20").status).toBe("nifas");
   });
+  it("after a sub-120-day miscarriage the pregnancy is over: the next period 5 weeks later is haid again (decision 10)", () => {
+    const days = [...blood(span("2026-09-01", 4)), ...blood(span("2026-10-06", 5))];
+    const out = classify(days, S({ pregnantSince: "2026-06-01", miscarriageDate: "2026-09-01", gestationDays: 90, habitLength: 5 }), "2026-09-01", "2026-10-10");
+    expect(statusOf(out, "2026-09-02").status).toBe("istihada");
+    expect(statusOf(out, "2026-09-02").advisories).not.toContain("bleeding_in_pregnancy");
+    expect(statusOf(out, "2026-10-07").status).toBe("haid");
+  });
   it("miscarriage at ≥120 days is nifas; below 120 days it is istihada (decision 10: 120)", () => {
     const yes = classify(blood(span("2026-09-01", 3)), S({ pregnantSince: "2026-04-01", miscarriageDate: "2026-09-01", gestationDays: 120 }), "2026-09-01", "2026-09-03");
     const no = classify(blood(span("2026-09-01", 3)), S({ pregnantSince: "2026-06-01", miscarriageDate: "2026-09-01", gestationDays: 90 }), "2026-09-01", "2026-09-03");

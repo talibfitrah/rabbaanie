@@ -74,9 +74,16 @@ function effectiveBirth(s: CycleSettings): string | null {
   return null;
 }
 function pregnancyEnd(s: CycleSettings): string | null {
-  const qualifyingMiscarriage = (s.gestationDays ?? 0) >= MISCARRIAGE_NIFAS_MIN_GESTATION ? s.miscarriageDate : null;
-  const ends = [s.birthDate, qualifyingMiscarriage].filter((x): x is string => !!x).sort();
+  // Any birth or miscarriage ends the pregnancy; whether the bleeding after it is
+  // nifas (≥120 days, decision 10) or دم فساد (below) is decided per run in classify.
+  const ends = [s.birthDate, s.miscarriageDate].filter((x): x is string => !!x).sort();
   return ends.length ? ends[ends.length - 1] : null;
+}
+/** A run beginning around a sub-120-day miscarriage is دم فساد → istihada (decision 10), not haid. */
+function startedAfterEarlyMiscarriage(s: CycleSettings, runStart: string): boolean {
+  if (!s.miscarriageDate || (s.gestationDays ?? 0) >= MISCARRIAGE_NIFAS_MIN_GESTATION) return false;
+  const n = diffDays(s.miscarriageDate, runStart);
+  return Math.abs(n) <= LABOUR_BLOOD_DAYS_BEFORE_BIRTH; // the run that begins with the miscarriage itself
 }
 function isPregnant(s: CycleSettings, date: string): boolean {
   if (!s.pregnantSince || date < s.pregnantSince) return false;
@@ -124,6 +131,7 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
     const cycleLen = settings.cycleLength ?? learnCycleLength(days, settings, run.start);
     const prev = runs.filter((r) => r.end < run.start && isNormalRun(r, settings)).pop();
     const startedInNifas = nifasDayOf(settings, run.start) !== null;
+    const earlyMiscarriageRun = startedAfterEarlyMiscarriage(settings, run.start);
     let contraceptionIstihada = false;
     if (settings.contraception && cycleLen && prev) {
       const expected = addDays(prev.start, cycleLen);
@@ -140,6 +148,7 @@ export function classify(days: CycleDay[], settings: CycleSettings, from: string
         status = "istihada";
         advisories.push("bleeding_in_pregnancy");
       } else if (startedInNifas) status = "istihada"; // continuation past day 40 (his book: يُنظر فيه → استحاضة absent a habit match)
+      else if (earlyMiscarriageRun) status = "istihada"; // decision 10: no تخليق → دم فساد, later periods are haid again
       else if (contraceptionIstihada) status = "istihada";
       else if (habit) status = haidCount < habit ? "haid" : "istihada";
       else if (hasColours) status = byDate.get(date)?.color === "red" ? "istihada" : "haid";
