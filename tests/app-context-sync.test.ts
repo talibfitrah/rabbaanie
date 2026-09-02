@@ -54,6 +54,7 @@ import {
   fillParentProfileFromServer,
   applyPartnerReplace,
   applyPartnerReplaceForAccount,
+  isStillCurrentAccount,
   locationSettingsForSync,
   locationSettingsFromServer,
 } from "@/lib/app-context";
@@ -818,5 +819,83 @@ describe("applyPartnerReplaceForAccount (rehydrateFromServer's post-login guard)
     expect(AsyncStorage.getItem).toHaveBeenCalledWith(
       expect.stringContaining("_42"),
     );
+  });
+});
+
+/**
+ * C1: applyPartnerReplaceForAccount (above) already scopes the MERGE step to
+ * this account's own disk copy — but rehydrateFromServer/hydrate then also
+ * SAVE under userIdRef.current at the time each await resolves. userIdRef is
+ * a mutable ref shared across the whole provider: if a different account
+ * signs in (or this one logs out) while a fetch is still in flight,
+ * userIdRef has moved on by the time the save runs, and account A's
+ * fetched/merged data would be written under account B's key. Every async
+ * checkpoint below has to re-check against the id IT captured at the start,
+ * not the live ref, and discard (no setState/save) on a mismatch.
+ */
+describe("isStillCurrentAccount (C1 discard-on-account-switch guard)", () => {
+  it("is true only while the ref still matches the id captured when the async op started", () => {
+    const ref = { current: 5 as number | null };
+    expect(isStillCurrentAccount(ref, 5)).toBe(true);
+    ref.current = 6; // a different account signed in mid-flight
+    expect(isStillCurrentAccount(ref, 5)).toBe(false);
+  });
+
+  it("treats two logged-out reads (both null) as still current", () => {
+    expect(isStillCurrentAccount({ current: null }, null)).toBe(true);
+  });
+
+  it("catches a logout (ref goes to null) while an op captured a real account id", () => {
+    expect(isStillCurrentAccount({ current: null }, 5)).toBe(false);
+  });
+});
+
+describe("rehydrateFromServer discards a stale account's result instead of saving it under whoever is current now (C1)", () => {
+  const src = readFileSync(join(__dirname, "..", "lib", "app-context.tsx"), "utf8");
+  const flat = src.replace(/\s+/g, " ");
+
+  function body(): string {
+    const start = flat.indexOf("const rehydrateFromServer = useCallback(async () => {");
+    expect(start, "rehydrateFromServer not found").toBeGreaterThan(-1);
+    const end = flat.indexOf("}, []);", start);
+    expect(end, "rehydrateFromServer's end not found").toBeGreaterThan(start);
+    return flat.slice(start, end);
+  }
+
+  it("captures accountId once and re-checks it after every await before touching state or disk", () => {
+    const b = body();
+    expect(b).toContain("const accountId = user?.id ?? null;");
+    expect(b).toContain("isStillCurrentAccount(userIdRef, accountId)");
+    // Every write below keys off the captured accountId, not the live
+    // (mutable) ref — the exact substitution the bug needed.
+    expect(b).toContain("applyPartnerReplaceForAccount( accountId,");
+    expect(b).toContain("saveAppState(safeServerState, accountId)");
+    expect(b).toContain("loadAppState(accountId)");
+    expect(b).toContain("saveAppState(localState, accountId)");
+    expect(b).toContain("saveAppState(safeMergedState, accountId)");
+    // The only remaining userIdRef.current in this function is the initial
+    // capture — nothing else re-reads the live ref directly.
+    const directReads = (b.match(/userIdRef\.current/g) ?? []).length;
+    expect(directReads).toBe(1);
+  });
+});
+
+describe("hydrate's background syncs discard a stale account's result too (C1)", () => {
+  const src = readFileSync(join(__dirname, "..", "lib", "app-context.tsx"), "utf8");
+  const flat = src.replace(/\s+/g, " ");
+
+  it("pins the post-mount syncFromServer/autoSyncWithPartner chains to the account hydrate() started for", () => {
+    const hydrateStart = flat.indexOf("async function hydrate() {");
+    expect(hydrateStart).toBeGreaterThan(-1);
+    const branchStart = flat.indexOf("if (localState.onboardingCompleted) {", hydrateStart);
+    const branchEnd = flat.indexOf("// 3. If local state is empty", branchStart);
+    expect(branchStart).toBeGreaterThan(hydrateStart);
+    expect(branchEnd).toBeGreaterThan(branchStart);
+    const branch = flat.slice(branchStart, branchEnd);
+
+    expect(branch).toContain("const accountId = userIdRef.current;");
+    expect(branch).toContain("isStillCurrentAccount(userIdRef, accountId)");
+    expect(branch).toContain("saveAppState(updatedState, accountId)");
+    expect(branch).toContain("saveAppState(safeState, accountId)");
   });
 });
