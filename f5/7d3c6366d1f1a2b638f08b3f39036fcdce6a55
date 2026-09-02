@@ -1,0 +1,30 @@
+lib/haid.test.ts
+  s_05eef947428dfd::t_37c929b7108cfb 86-111
+  s_05eef947428dfd::t_66a4c8f9ad8e38 64-69
+  s_05eef947428dfd::t_a2e432fcb4ee34 118,124-129
+lib/haid.ts
+  s_05eef947428dfd::t_046c795a566192 275
+  s_05eef947428dfd::t_e55547ecfa87ec 190-191
+  s_05eef947428dfd::t_e6932f8aa80269 195
+  s_05eef947428dfd::t_dc0eb999580987 55-73,81-86
+  s_05eef947428dfd::t_232390472581bf 128-134
+  s_05eef947428dfd::t_d2119af99cfcbe 155-168,170
+app/haid.tsx
+  s_05eef947428dfd::t_26e110a385a724 60-63
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "f57d3c6366d1f1a2b638f08b3f39036fcdce6a55",
+  "prompts": {},
+  "sessions": {
+    "s_05eef947428dfd": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "b3dc9d4f-506c-4dc5-a768-f963ca8e5bc2",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
