@@ -685,4 +685,65 @@ describe("applyPartnerReplace (guards the linked-partner full replace)", () => {
 
     expect(result.parentProfile.gender).toBe("vrouw");
   });
+
+  // hasNoChildren is a boolean, so fillParentProfileFromServer's string-only
+  // fill (above) never recovers it: a linked wife who declared "no children"
+  // (app/onboarding/index.tsx) has that flag wiped by the next partner sync
+  // whose fresh copy carries hasNoChildren false/undefined, demoting her back
+  // to onboarding's "children" step forever.
+  it("keeps hasNoChildren:true from local when the fresh copy has it missing or false", () => {
+    const localChildless = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: true },
+      children: [],
+    };
+    const freshMissing = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [],
+    };
+    const freshFalse = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, hasNoChildren: false },
+      children: [],
+    };
+
+    expect(applyPartnerReplace(localChildless, freshMissing).parentProfile.hasNoChildren).toBe(true);
+    expect(applyPartnerReplace(localChildless, freshFalse).parentProfile.hasNoChildren).toBe(true);
+  });
+
+  it("does not invent hasNoChildren when local never declared it", () => {
+    const freshNoDeclaration = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile },
+      children: [child],
+    };
+
+    // completeLocal never sets hasNoChildren (see the fixture above).
+    const result = applyPartnerReplace(completeLocal, freshNoDeclaration);
+
+    expect(result.parentProfile.hasNoChildren).not.toBe(true);
+  });
+
+  it("[regression] a fresh copy with blank gender/maritalStatus and 10 children stays profile-complete", () => {
+    const tenChildren = Array.from({ length: 10 }, (_, i) => ({
+      id: `c${i}`,
+      name: `Child ${i}`,
+      birthDate: "2015-01-01",
+    })) as any;
+    const freshBlankGenderManyChildren = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "", maritalStatus: "" },
+      children: tenChildren,
+    };
+
+    const result = applyPartnerReplace(completeLocal, freshBlankGenderManyChildren);
+
+    expect(isProfileComplete(result)).toBe(true);
+  });
 });

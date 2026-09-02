@@ -443,7 +443,17 @@ export function applyPartnerReplace(local: AppState, fresh: AppState): AppState 
     fresh.parentProfile,
     local.parentProfile,
   );
-  return { ...fresh, parentProfile: profile };
+  // hasNoChildren is a boolean, so the string-only fill above never recovers
+  // it: a linked wife who declared "no children" at onboarding would have
+  // this wiped by the next partner sync and be demoted back to the
+  // "children" onboarding step. A non-empty (true) value from either side
+  // wins, same non-clobbering rule fillParentProfileFromServer uses.
+  const hasNoChildren =
+    fresh.parentProfile.hasNoChildren === true ||
+    local.parentProfile.hasNoChildren === true
+      ? true
+      : fresh.parentProfile.hasNoChildren;
+  return { ...fresh, parentProfile: { ...profile, hasNoChildren } };
 }
 
 /**
