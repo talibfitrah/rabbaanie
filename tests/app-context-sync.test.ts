@@ -51,6 +51,7 @@ import {
   applyReconciledGender,
   mergeServerState,
   fillParentProfileFromServer,
+  applyPartnerReplace,
   locationSettingsForSync,
   locationSettingsFromServer,
 } from "@/lib/app-context";
@@ -598,5 +599,90 @@ describe("every syncFromServer call carries the device's own location", () => {
       "a syncFromServer call passes no local state, so the server's blanks win " +
         "and the device's coordinate and city are wiped on an ordinary app open",
     ).toBe(0);
+  });
+});
+
+/**
+ * The autoSync-with-partner path (lib/app-context.tsx hydrate) does a FULL
+ * REPLACE of local state with the server copy, so a partner's server-side
+ * child removal propagates. But profile.get for a LINKED PARTNER can return
+ * onboardingCompleted:true while THIS user's own per-user parentProfile fields
+ * (gender/maritalStatus/address/phone — never shared with a partner) are blank
+ * server-side. A raw setState(fresh) then reads isProfileComplete=false for one
+ * render: AuthGate (lib/app-gate.ts) redirects to /onboarding, onboarding's
+ * "already complete -> skip to home" effect fires on the fresh mount and sends
+ * the user back — the reported tab<->onboarding loop for spouse accounts.
+ * applyPartnerReplace recovers only the own-profile fields the fresh copy left
+ * empty, from local; children/environments/etc. still come from fresh.
+ */
+describe("applyPartnerReplace (guards the linked-partner full replace)", () => {
+  const completeProfile = {
+    ...defaultAppState.parentProfile,
+    firstName: "Yusuf",
+    lastName: "Ali",
+    birthDate: "1990-01-01",
+    country: "Netherlands",
+    city: "Amsterdam",
+    street: "Hoofdstraat",
+    houseNumber: "1",
+    phoneNumber: "0612345678",
+    gender: "man",
+    maritalStatus: "getrouwd",
+  };
+  const child = { id: "c1", name: "Aisha", birthDate: "2015-01-01" } as any;
+
+  const completeLocal = {
+    ...defaultAppState,
+    onboardingCompleted: true,
+    parentProfile: completeProfile,
+    children: [child],
+  };
+
+  it("does not demote a complete local profile when the partner's server copy has blank own-profile fields", () => {
+    // Server (spouse) copy: onboardingCompleted true (guard passes), full
+    // address/name, but the per-user gender + maritalStatus are blank.
+    const thinFresh = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "", maritalStatus: "" },
+      children: [child],
+    };
+    expect(isProfileComplete(thinFresh)).toBe(false); // precondition: fresh WOULD demote
+
+    const result = applyPartnerReplace(completeLocal, thinFresh);
+
+    expect(isProfileComplete(result)).toBe(true);
+    expect(result.parentProfile.gender).toBe("man");
+    expect(result.parentProfile.maritalStatus).toBe("getrouwd");
+  });
+
+  it("keeps the fresh copy's children so a partner's child removal still propagates", () => {
+    const second = { id: "c2", name: "Bilal", birthDate: "2018-02-02" } as any;
+    const localTwoKids = { ...completeLocal, children: [child, second] };
+    // Partner removed the second child server-side; own profile intact.
+    const freshOneKid = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: completeProfile,
+      children: [child],
+    };
+
+    const result = applyPartnerReplace(localTwoKids, freshOneKid);
+
+    expect(result.children).toHaveLength(1);
+    expect(result.children[0].id).toBe("c1");
+  });
+
+  it("lets a non-empty server field win over local (a real server edit is not clobbered)", () => {
+    const freshEditedGender = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeProfile, gender: "vrouw" },
+      children: [child],
+    };
+
+    const result = applyPartnerReplace(completeLocal, freshEditedGender);
+
+    expect(result.parentProfile.gender).toBe("vrouw");
   });
 });

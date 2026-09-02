@@ -425,6 +425,28 @@ export function fillParentProfileFromServer(
 }
 
 /**
+ * Guards the autoSync-with-partner FULL REPLACE (hydrate, below). That path
+ * replaces local state with the server copy wholesale so a partner's
+ * server-side child removal propagates — but profile.get for a linked partner
+ * can be onboardingCompleted:true while THIS user's own per-user parentProfile
+ * fields (gender/maritalStatus/address/phone — never shared with a partner) are
+ * blank server-side. A raw setState(fresh) then reads isProfileComplete false
+ * for one render: AuthGate (lib/app-gate.ts) redirects to /onboarding while
+ * onboarding/index's "already complete → skip home" effect sends the user back,
+ * the tab↔onboarding loop reported by spouse accounts. Recover only the
+ * own-profile fields the fresh copy left empty, from local (a non-empty server
+ * value still wins — see fillParentProfileFromServer); children/environments/
+ * etc. still come from fresh, so removal propagation is unchanged.
+ */
+export function applyPartnerReplace(local: AppState, fresh: AppState): AppState {
+  const { profile } = fillParentProfileFromServer(
+    fresh.parentProfile,
+    local.parentProfile,
+  );
+  return { ...fresh, parentProfile: profile };
+}
+
+/**
  * Combines a hydrated local AppState with a freshly-fetched server AppState
  * (see syncFromServer) into what hydrate()'s background sync should persist.
  * Merges children/environments/issues/actionPlans/partner-info — unchanged
@@ -745,9 +767,16 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
                 syncFromServer(localState.locationSettings)
                   .then((freshState) => {
                     if (freshState && freshState.onboardingCompleted) {
-                      setState(freshState);
-                      stateRef.current = freshState;
-                      saveAppState(freshState, userIdRef.current);
+                      // Recover this user's own profile fields the server copy
+                      // left blank so a linked-partner sync can't demote a
+                      // complete profile and loop them into onboarding.
+                      const safeState = applyPartnerReplace(
+                        stateRef.current,
+                        freshState,
+                      );
+                      setState(safeState);
+                      stateRef.current = safeState;
+                      saveAppState(safeState, userIdRef.current);
                       console.log(
                         "[AutoSync] State refreshed after partner sync",
                       );
