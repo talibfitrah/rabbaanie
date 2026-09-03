@@ -38,24 +38,34 @@ describe("husband's wife-cycle status", () => {
     expect(intercourseIdx).toBeGreaterThan(bloodTypeIdx);
   });
 
-  // C13 (fixed in 24f3948): CoParentPermissions never mounts a
-  // WifePermissionsPanel for a childless husband (no family row), so a
-  // fallback independent of it must still exist for that case. 2026-09-03
-  // UX request ("doesn't know which wife it belongs to"): once a family row
-  // exists, attribute the status to the wife by nesting it inside her own
-  // named WifePermissionsPanel instead of a separate unlabelled block — the
-  // fallback below must then be suppressed there, or she'd see it twice.
-  it("nests inside each wife's own panel, with a coParents-gated fallback for the childless case (C13)", () => {
+  // C13 (fixed in 24f3948) + 2026-09-03 P1 (cubic): the status must follow
+  // the confirmed partnership (husbandWives via listPartners), never the
+  // family-panel gate — trpc.cycle.getPartner itself only checks the
+  // partnership. Coupling the UI to CoParentPermissions/coParents let the
+  // status render NOWHERE whenever that panel returned null for any reason
+  // other than "no children" (e.g. activeFather being a stub account). Fix:
+  // a dedicated, always-rendered, per-wife collapse — named header, its own
+  // default-collapsed state, mounts WifeCycleStatus only once opened.
+  it("renders in an always-present per-wife collapse, attributed by name, never nested in the family-gated panel and never gated on coParents", () => {
     const panel = readFileSync("app/(tabs)/messages.tsx", "utf8");
-    const panelStart = panel.indexOf("function WifePermissionsPanel(");
-    const panelEnd = panel.indexOf("function InvitePartnerForm(");
-    expect(panelStart).toBeGreaterThan(-1);
-    expect(panelEnd).toBeGreaterThan(panelStart);
-    expect(panel.slice(panelStart, panelEnd)).toContain("<WifeCycleStatus wifeId={wife.id} />");
-
     const permissionsStart = panel.indexOf("function CoParentPermissions(");
-    const outside = panel.slice(0, permissionsStart) + panel.slice(panelEnd);
+    const permissionsEnd = panel.indexOf("function InvitePartnerForm(");
+    expect(permissionsStart).toBeGreaterThan(-1);
+    expect(permissionsEnd).toBeGreaterThan(permissionsStart);
+    expect(panel.slice(permissionsStart, permissionsEnd)).not.toContain("<WifeCycleStatus");
+
+    const collapseStart = panel.indexOf("function WifeCycleCollapse(");
+    const collapseEnd = panel.indexOf("function ParentsSection(");
+    expect(collapseStart).toBeGreaterThan(-1);
+    expect(collapseEnd).toBeGreaterThan(collapseStart);
+    const collapseBody = panel.slice(collapseStart, collapseEnd);
+    expect(collapseBody).toContain("useState(false)");
+    expect(collapseBody).toContain("wife.name");
+    expect(collapseBody).toMatch(/open && [\s\S]{0,200}<WifeCycleStatus wifeId=\{wife\.id\} \/>/);
+
+    const outside = panel.slice(0, permissionsStart) + panel.slice(permissionsEnd);
     expect(outside).toContain("trpc.links.listPartners.useQuery");
-    expect(outside).toMatch(/coParents\.length === 0 && husbandWives\.map\(\(wife\) => [\s\S]{0,60}<WifeCycleStatus/);
+    expect(outside).toMatch(/knownToBeMan && husbandWives\.map\(\(wife\) => [\s\S]{0,100}<WifeCycleCollapse/);
+    expect(outside).not.toMatch(/coParents\.length === 0 && husbandWives\.map/);
   });
 });

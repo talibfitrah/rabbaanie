@@ -116,7 +116,9 @@ describe("app/haid.tsx (UX: discoverable settings + the logged ruling visible wh
 
   it("opening settings scrolls the screen to the top so the panel isn't off-screen", () => {
     expect(src).toContain("useRef<ScrollView>(null)");
-    expect(src).toMatch(/if \(showSettings\) scrollRef\.current\?\.scrollTo\(\{\s*y:\s*0/);
+    // Invariant: some effect gated on showSettings scrolls to y: 0 — not the
+    // exact one-line phrasing/whitespace, so a reformat doesn't break this.
+    expect(src).toMatch(/showSettings[\s\S]{0,80}scrollTo\(\{[^}]*\by:\s*0\b[^}]*\}\)/);
   });
 });
 
