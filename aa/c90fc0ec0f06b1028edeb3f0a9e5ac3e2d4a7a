@@ -1,0 +1,23 @@
+lib/weekly-data.ts
+  s_e7972134e57394::t_45fabd758e9696 45-50
+app/(tabs)/index.tsx
+  s_e7972134e57394::t_45fabd758e9696 352
+tests/weekly-data-fetch.test.ts
+  s_e7972134e57394::t_5b11706effbe08 31-43
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "aac90fc0ec0f06b1028edeb3f0a9e5ac3e2d4a7a",
+  "prompts": {},
+  "sessions": {
+    "s_e7972134e57394": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c0181966-7904-4bc0-86c3-7a3ec127ba43",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

@@ -1,0 +1,87 @@
+lib/adhkar-data.ts
+  s_9b86f93c5dbe93::t_f00697af51bed5 9-10,38-40
+app/(tabs)/messages.tsx
+  s_9b86f93c5dbe93::t_f6a9c3818f2aac 594
+tests/i18n-leaks.test.ts
+  s_9b86f93c5dbe93::t_85592865ff44e9 31-37
+  s_9b86f93c5dbe93::t_ffe93f8896f2e1 26-30,38
+  s_9b86f93c5dbe93::t_263ace68119612 1-25
+app/(tabs)/index.tsx
+  s_9b86f93c5dbe93::t_f6a9c3818f2aac 153
+  s_9b86f93c5dbe93::t_7ddecf20deaacb 151-152
+tests/adhkar-progress.test.ts
+  s_9b86f93c5dbe93::t_95d583e69348a0 29-35
+  s_9b86f93c5dbe93::t_d399ab480ac608 42-53,55-57
+  s_9b86f93c5dbe93::t_27142909df2951 1,4-28,36-41,58-70
+  s_9b86f93c5dbe93::t_85592865ff44e9 54
+  s_9b86f93c5dbe93::t_acc02a8b00ffdd 2-3
+app/child/weekplan.tsx
+  s_9b86f93c5dbe93::t_1fd8c3c6e6e9f0 584-586,591-610,612-625
+  s_9b86f93c5dbe93::t_f6a9c3818f2aac 587
+lib/adhkar-progress.ts
+  s_9b86f93c5dbe93::t_bbfabbb96d5375 3,6-7,9,23-24
+  s_9b86f93c5dbe93::t_85592865ff44e9 8
+  s_9b86f93c5dbe93::t_f00697af51bed5 1-2,4-5,10-22,25
+app/details/adhkar.tsx
+  s_9b86f93c5dbe93::t_e213cfdaef7eec 15
+  s_9b86f93c5dbe93::t_a0801d94a5d09c 30,53-56,120,178-180,195,246-248,269-270,284
+  s_9b86f93c5dbe93::t_f00697af51bed5 9,14,64,72,84,89,230,271
+  s_9b86f93c5dbe93::t_bbfabbb96d5375 80-81
+  s_9b86f93c5dbe93::t_85592865ff44e9 16,90-93,96-99,101,103,106,142
+  s_9b86f93c5dbe93::t_724987c8d4a526 1
+  s_9b86f93c5dbe93::t_4cb6451cc60a27 82-83,85-88,102,104
+lib/sync-refusal.ts
+  s_9b86f93c5dbe93::t_293fe7447502c0 19-21
+  s_9b86f93c5dbe93::t_bbfabbb96d5375 24-26
+  s_9b86f93c5dbe93::t_ffe93f8896f2e1 30
+  s_9b86f93c5dbe93::t_f6a9c3818f2aac 2,5-9,16-18,22-23,27-29,31-32,37-41
+  s_9b86f93c5dbe93::t_9bffc8caadd697 33-36
+app/qiyam.tsx
+  s_9b86f93c5dbe93::t_89ca7e4d4cebc0 5,11
+app/ai-chat.tsx
+  s_9b86f93c5dbe93::t_83b1eb8427b52f 30
+  s_9b86f93c5dbe93::t_8ab8de7c6a9b5c 250
+lib/notification-settings.ts
+  s_9b86f93c5dbe93::t_85592865ff44e9 8,279-288
+tests/sync-refusal-visible.test.ts
+  s_9b86f93c5dbe93::t_827fc6745869da 84-105,116-131
+  s_9b86f93c5dbe93::t_9bffc8caadd697 132
+  s_9b86f93c5dbe93::t_c720a93a308e6d 106-115
+  s_9b86f93c5dbe93::t_ffe93f8896f2e1 4,134-141
+components/persistent-tab-bar.tsx
+  s_9b86f93c5dbe93::t_98a830028bef85 110
+  s_9b86f93c5dbe93::t_449116dcc00ba8 32
+  s_9b86f93c5dbe93::t_9a384ca4f5a4e6 33-42,50
+  s_9b86f93c5dbe93::t_bdc015ed21e709 7
+components/prayer-popup-modal.tsx
+  s_9b86f93c5dbe93::t_0aa0bbc79ea7fb 62-63,68-69
+  s_9b86f93c5dbe93::t_85592865ff44e9 17
+  s_9b86f93c5dbe93::t_bbfabbb96d5375 65,184
+  s_9b86f93c5dbe93::t_7c5ba369b1936f 70
+  s_9b86f93c5dbe93::t_e3086927a9d0e0 24
+app/(tabs)/family.tsx
+  s_9b86f93c5dbe93::t_f6a9c3818f2aac 2345-2346,3199
+tests/prayer-ruling-i18n.test.ts
+  s_9b86f93c5dbe93::t_e4173a53eb85a6 1-4,9-10,12,15-16,21,25,27-42,50-51
+  s_9b86f93c5dbe93::t_85592865ff44e9 5-8,11,13-14,17-20,22-24,26,43-45,47-49
+  s_9b86f93c5dbe93::t_95d583e69348a0 46
+tests/persistent-tab-bar-i18n.test.ts
+  s_9b86f93c5dbe93::t_5fcc82a2bc80b6 76
+  s_9b86f93c5dbe93::t_ff01778eb74c73 1-75,77-78
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ab8f8aa42d843653794e2867a8d09425da5519f7",
+  "prompts": {},
+  "sessions": {
+    "s_9b86f93c5dbe93": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "7d464d22-f543-4ce9-b8c5-e22cf4696275",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}

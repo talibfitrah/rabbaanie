@@ -1,0 +1,11 @@
+app/sunnah.tsx
+  ai_agent 95
+app/ai-chat.tsx
+  ai_agent 1240-1241
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "67286e41a3637fa743b9c57a01af9a476e2a484b",
+  "prompts": {}
+}

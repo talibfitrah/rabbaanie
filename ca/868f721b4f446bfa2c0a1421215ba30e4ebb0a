@@ -1,0 +1,30 @@
+app/(tabs)/family.tsx
+  s_e7972134e57394::t_1b0cb93b89b7f3 25,1726-1727,1730-1733,1736,4059
+app/(tabs)/index.tsx
+  s_e7972134e57394::t_1b0cb93b89b7f3 14,289-290,293-296,299-300,314
+hooks/use-weekly-data.ts
+  s_e7972134e57394::t_905825b1069c8b 6,71-73,75,78,82-83,85-86,93,98-99,102-103,105
+lib/weekly-data.ts
+  s_e7972134e57394::t_57af64fa571f97 103-105
+  s_e7972134e57394::t_905825b1069c8b 85-91
+tests/family-calendar-scripture.test.ts
+  ai_agent 42
+tests/weekly-data-fetch.test.ts
+  s_e7972134e57394::t_0468ba752022fd 1-30
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ca868f721b4f446bfa2c0a1421215ba30e4ebb0a",
+  "prompts": {},
+  "sessions": {
+    "s_e7972134e57394": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "c0181966-7904-4bc0-86c3-7a3ec127ba43",
+        "model": "claude-fable-5-1"
+      },
+      "human_author": "farouq abou umar <farouqabouumar@farouqs-iMac.local>"
+    }
+  }
+}
