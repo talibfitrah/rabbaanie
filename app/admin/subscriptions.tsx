@@ -60,7 +60,7 @@ export default function AdminSubscriptionsScreen() {
   const fmt = (d: any) => {
     try {
       if (isPerpetualExpiry(d)) return L3("دائم", "Levenslang", "Lifetime");
-      return new Date(d).toLocaleDateString();
+      return new Date(d).toLocaleDateString(language);
     } catch { return ""; }
   };
   const inp = { backgroundColor: colors.background, borderRadius: 10, paddingHorizontal: 12, paddingVertical: 9, color: colors.foreground, borderWidth: 1, borderColor: colors.border, textAlign: align as "right" | "left" };

@@ -346,6 +346,10 @@ export default function BroadcastScreen() {
 
         {label(L3("الدولة", "Land", "Country"))}
         {hint(L3("اختر دولة أو أكثر — لا شيء يعني كل الدول.", "Kies een of meer landen — niets betekent alle landen.", "Choose one or more countries — nothing means all countries."))}
+        {/* ponytail: lib/prayer-data.ts has no COUNTRY_NAMES_EN/getCountryEN — only
+            the AR translit exists, so an English-mode admin still sees the raw
+            Dutch key. Add an EN name table there (mirroring COUNTRY_NAMES_AR)
+            if that needs fixing; not worth inventing a parallel data source here. */}
         {chipRow(COUNTRY_NAMES.map((c) => ({ key: c, label: language === "ar" ? getCountryAR(c) : c })), selectedCountries, (k) =>
           setSelectedCountries(selectedCountries.includes(k) ? selectedCountries.filter((c) => c !== k) : [...selectedCountries, k]),
         )}
@@ -354,6 +358,7 @@ export default function BroadcastScreen() {
           <>
             {label(L3("المدينة", "Stad", "City"))}
             {hint(L3("اختر مدينة أو أكثر ضمن الدول المحددة — لا شيء يعني كل المدن.", "Kies een of meer steden binnen de gekozen landen — niets betekent alle steden.", "Choose one or more cities within the selected countries — nothing means all cities."))}
+            {/* ponytail: same gap as COUNTRY_NAMES above — no getCityEN source. */}
             {chipRow(availableCities.map((c) => ({ key: c, label: language === "ar" ? getCityAR(c) : c })), selectedCities, (k) =>
               setSelectedCities(selectedCities.includes(k) ? selectedCities.filter((c) => c !== k) : [...selectedCities, k]),
             )}

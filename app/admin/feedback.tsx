@@ -13,7 +13,7 @@ import { trpc } from "@/lib/trpc";
  */
 export default function AdminFeedbackScreen() {
   const colors = useColors();
-  const { isRTL } = useI18n();
+  const { isRTL, language } = useI18n();
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const align = isRTL ? "right" : "left";
@@ -28,7 +28,7 @@ export default function AdminFeedbackScreen() {
 
   const kindLabel = (k: string) => (k === "suggestion" ? L3("اقتراح", "Suggestie", "Suggestion") : L3("تواصل", "Contact", "Contact"));
   const kindColor = (k: string) => (k === "suggestion" ? "#7C3AED" : "#0891B2");
-  const fmt = (d: any) => { try { return new Date(d).toLocaleString(); } catch { return ""; } };
+  const fmt = (d: any) => { try { return new Date(d).toLocaleString(language); } catch { return ""; } };
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
