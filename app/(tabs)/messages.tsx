@@ -938,6 +938,7 @@ function WifePermissionsPanel({
               ? <Text style={{ fontSize: 11, fontWeight: "700", color: colors.muted }}>…</Text>
               : <PermBadge allowed={profileGranted} colors={colors} lang={lang} />}
           </TouchableOpacity>
+          <WifeCycleStatus wifeId={wife.id} />
         </View>
       )}
     </View>
@@ -1031,9 +1032,11 @@ function ParentsSection({
     onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); },
   });
   const coWivesQuery = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
-  // C13: her cycle status must show for a husband even with no family row
-  // (no children) — CoParentPermissions returns null before it ever renders
-  // in that case. Sourced directly from listPartners, independent of it.
+  // C13: her cycle status must still show for a husband with no family row
+  // (no children) — CoParentPermissions never renders in that case. Sourced
+  // directly from listPartners, independent of it; used below only as that
+  // childless-case fallback (coParents.length === 0) — otherwise the status
+  // is nested inside her own WifePermissionsPanel instead.
   const husbandWivesQuery = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
   const husbandWives = (husbandWivesQuery.data ?? []).filter((p) => p.confirmed === true);
   // Sort children by birth date (oldest first)
@@ -1240,9 +1243,14 @@ function ParentsSection({
         <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} setSelected={setSelected} />
       )}
 
-      {/* C13: independent of CoParentPermissions/family membership — a
-          childless husband is still a confirmed spouse and must see this. */}
-      {knownToBeMan && husbandWives.map((wife) => (
+      {/* C13 fallback: a childless husband (coParents empty → no family row)
+          never gets a WifePermissionsPanel — CoParentPermissions never mounts
+          one in that case — so this independent mount still shows her status.
+          Once a family row exists, WifePermissionsPanel nests the status
+          under the wife's own named panel instead (2026-09-03: attribute it
+          to her, not a separate unlabelled block), so this is suppressed
+          there to avoid showing it twice. */}
+      {knownToBeMan && coParents.length === 0 && husbandWives.map((wife) => (
         <WifeCycleStatus key={wife.id} wifeId={wife.id} />
       ))}
 
