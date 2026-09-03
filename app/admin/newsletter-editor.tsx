@@ -13,18 +13,33 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useI18n } from "@/lib/i18n";
 import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
-const AUDIENCES = ["all", "parents", "teachers", "specialists"];
-
 export default function NewsletterEditorScreen() {
   const colors = useColors();
+  const { isRTL } = useI18n();
   const L3 = useL3();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
+
+  // `audience` is a stored DB column (read back via trpc.newsletter.get), so
+  // the key stays "all"/"parents"/"teachers"/"specialists" unchanged — only
+  // the displayed label is trilingual, mirroring content.tsx's TYPES array.
+  const AUDIENCES = [
+    { key: "all", label: L3("الجميع", "Iedereen", "Everyone") },
+    { key: "parents", label: L3("أولياء الأمور", "Ouders", "Parents") },
+    { key: "teachers", label: L3("المعلمون", "Leraren", "Teachers") },
+    { key: "specialists", label: L3("المشرفون التربويّون", "Pedagogisch begeleiders", "Educational specialists") },
+  ];
+  const ELEMENT_TYPE_LABEL: Record<string, string> = {
+    poll: L3("استطلاع", "Peiling", "Poll"),
+    quiz: L3("اختبار", "Quiz", "Quiz"),
+    reflection: L3("تأمل", "Reflectie", "Reflection"),
+  };
 
   const [titleNl, setTitleNl] = useState("");
   const [titleEn, setTitleEn] = useState("");
@@ -79,7 +94,7 @@ export default function NewsletterEditorScreen() {
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (e: any) {
-      Alert.alert("Fout", e.message || "Kon niet opslaan");
+      Alert.alert(L3("خطأ", "Fout", "Error"), e.message || L3("تعذّر الحفظ", "Opslaan is mislukt", "Could not save"));
     } finally {
       setSaving(false);
     }
@@ -109,12 +124,15 @@ export default function NewsletterEditorScreen() {
   return (
     <ScreenContainer>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.right" size={24} color={colors.primary} style={{ transform: [{ scaleX: -1 }] }} />
+          {/* IconSymbol has no "chevron.left" mapping — chevron.right mirrored via
+              scaleX gives a left-pointing arrow for LTR; RTL leaves it unflipped
+              so it points right, matching every other back-arrow in app/admin. */}
+          <IconSymbol name="chevron.right" size={24} color={colors.primary} style={isRTL ? undefined : { transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
         <Text className="text-lg font-bold text-foreground">
-          {isEditing ? "Nieuwsbrief bewerken" : "Nieuwe nieuwsbrief"}
+          {isEditing ? L3("تعديل النشرة", "Nieuwsbrief bewerken", "Edit newsletter") : L3("نشرة جديدة", "Nieuwe nieuwsbrief", "New newsletter")}
         </Text>
         <View style={{ width: 24 }} />
       </View>
@@ -122,16 +140,16 @@ export default function NewsletterEditorScreen() {
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
         {/* Audience */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Doelgroep</Text>
-          <View className="flex-row gap-2 flex-wrap">
-            {AUDIENCES.map((a) => (
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("الفئة المستهدفة", "Doelgroep", "Audience")}</Text>
+          <View className="flex-row gap-2 flex-wrap" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+            {AUDIENCES.map((opt) => (
               <TouchableOpacity
-                key={a}
-                className={`px-3 py-2 rounded-lg ${audience === a ? "bg-primary" : "bg-surface border border-border"}`}
-                onPress={() => setAudience(a)}
+                key={opt.key}
+                className={`px-3 py-2 rounded-lg ${audience === opt.key ? "bg-primary" : "bg-surface border border-border"}`}
+                onPress={() => setAudience(opt.key)}
               >
-                <Text className={`text-xs font-medium ${audience === a ? "text-background" : "text-foreground"}`}>
-                  {a === "all" ? "Iedereen" : a === "parents" ? "Ouders" : a === "teachers" ? "Leraren" : "Pedagogisch begeleiders"}
+                <Text className={`text-xs font-medium ${audience === opt.key ? "text-background" : "text-foreground"}`}>
+                  {opt.label}
                 </Text>
               </TouchableOpacity>
             ))}
@@ -140,17 +158,17 @@ export default function NewsletterEditorScreen() {
 
         {/* Titles */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Titels</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("العناوين", "Titels", "Titles")}</Text>
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Titel (Nederlands)"
+            placeholder={L3("العنوان (الهولندية)", "Titel (Nederlands)", "Title (Dutch)")}
             placeholderTextColor={colors.muted}
             value={titleNl}
             onChangeText={setTitleNl}
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Title (English)"
+            placeholder={L3("العنوان (الإنجليزية)", "Titel (Engels)", "Title (English)")}
             placeholderTextColor={colors.muted}
             value={titleEn}
             onChangeText={setTitleEn}
@@ -167,10 +185,10 @@ export default function NewsletterEditorScreen() {
 
         {/* Content */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Inhoud</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("المحتوى", "Inhoud", "Content")}</Text>
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Inhoud (Nederlands) — Markdown ondersteund"
+            placeholder={L3("المحتوى (الهولندية) — يدعم Markdown", "Inhoud (Nederlands) — Markdown ondersteund", "Content (Dutch) — Markdown supported")}
             placeholderTextColor={colors.muted}
             value={contentNl}
             onChangeText={setContentNl}
@@ -180,7 +198,7 @@ export default function NewsletterEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Content (English) — Markdown supported"
+            placeholder={L3("المحتوى (الإنجليزية) — يدعم Markdown", "Inhoud (Engels) — Markdown ondersteund", "Content (English) — Markdown supported")}
             placeholderTextColor={colors.muted}
             value={contentEn}
             onChangeText={setContentEn}
@@ -203,29 +221,29 @@ export default function NewsletterEditorScreen() {
 
         {/* Interactive Elements */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Interactieve elementen</Text>
-          <View className="flex-row gap-2 mb-3">
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("العناصر التفاعلية", "Interactieve elementen", "Interactive elements")}</Text>
+          <View className="flex-row gap-2 mb-3" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
             <TouchableOpacity className="bg-surface border border-border rounded-lg px-3 py-2" onPress={addPoll}>
-              <Text className="text-xs text-foreground">+ Peiling</Text>
+              <Text className="text-xs text-foreground">{L3("+ استطلاع", "+ Peiling", "+ Poll")}</Text>
             </TouchableOpacity>
             <TouchableOpacity className="bg-surface border border-border rounded-lg px-3 py-2" onPress={addQuiz}>
-              <Text className="text-xs text-foreground">+ Quiz</Text>
+              <Text className="text-xs text-foreground">{L3("+ اختبار", "+ Quiz", "+ Quiz")}</Text>
             </TouchableOpacity>
             <TouchableOpacity className="bg-surface border border-border rounded-lg px-3 py-2" onPress={addReflection}>
-              <Text className="text-xs text-foreground">+ Reflectie</Text>
+              <Text className="text-xs text-foreground">{L3("+ تأمل", "+ Reflectie", "+ Reflection")}</Text>
             </TouchableOpacity>
           </View>
           {interactiveElements.map((el, idx) => (
             <View key={idx} className="bg-surface border border-border rounded-lg p-3 mb-2">
-              <View className="flex-row items-center justify-between mb-2">
-                <Text className="text-xs font-semibold text-primary uppercase">{el.type}</Text>
+              <View className="flex-row items-center justify-between mb-2" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+                <Text className="text-xs font-semibold text-primary uppercase">{ELEMENT_TYPE_LABEL[el.type] || el.type}</Text>
                 <TouchableOpacity onPress={() => setInteractiveElements(interactiveElements.filter((_, i) => i !== idx))}>
                   <IconSymbol name="xmark.circle.fill" size={18} color={colors.error} />
                 </TouchableOpacity>
               </View>
               <TextInput
                 className="bg-background border border-border rounded-lg p-2 text-foreground text-xs"
-                placeholder={el.type === "reflection" ? "Reflectievraag..." : "Vraag..."}
+                placeholder={el.type === "reflection" ? L3("سؤال للتأمل...", "Reflectievraag...", "Reflection question...") : L3("السؤال...", "Vraag...", "Question...")}
                 placeholderTextColor={colors.muted}
                 value={el.question || el.prompt || ""}
                 onChangeText={(text) => {
@@ -241,7 +259,7 @@ export default function NewsletterEditorScreen() {
                     <TextInput
                       key={optIdx}
                       className="bg-background border border-border rounded-lg p-2 text-foreground text-xs"
-                      placeholder={`Optie ${optIdx + 1}`}
+                      placeholder={L3(`الخيار ${optIdx + 1}`, `Optie ${optIdx + 1}`, `Option ${optIdx + 1}`)}
                       placeholderTextColor={colors.muted}
                       value={opt}
                       onChangeText={(text) => {
@@ -267,7 +285,7 @@ export default function NewsletterEditorScreen() {
             <ActivityIndicator color={colors.background} />
           ) : (
             <Text className="text-background font-bold text-base">
-              {isEditing ? "Opslaan" : "Aanmaken"}
+              {isEditing ? L3("حفظ التعديلات", "Wijzigingen opslaan", "Save changes") : L3("إنشاء النشرة", "Nieuwsbrief aanmaken", "Create newsletter")}
             </Text>
           )}
         </TouchableOpacity>
@@ -279,11 +297,11 @@ export default function NewsletterEditorScreen() {
             onPress={async () => {
               await updateMutation.mutateAsync({ id: parseInt(id!), status: "sent" });
               if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
-              Alert.alert("Verzonden", "De nieuwsbrief is gemarkeerd als verzonden.");
+              Alert.alert(L3("تم الإرسال", "Verzonden", "Sent"), L3("تمّ تصنيف النشرة كمُرسَلة.", "De nieuwsbrief is gemarkeerd als verzonden.", "The newsletter has been marked as sent."));
               router.back();
             }}
           >
-            <Text className="text-success font-bold text-base">Verzenden</Text>
+            <Text className="text-success font-bold text-base">{L3("إرسال", "Verzenden", "Send")}</Text>
           </TouchableOpacity>
         )}
       </ScrollView>

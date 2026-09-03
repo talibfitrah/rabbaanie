@@ -13,20 +13,48 @@ import { useRouter, useLocalSearchParams } from "expo-router";
 import { ScreenContainer } from "@/components/screen-container";
 import { IconSymbol } from "@/components/ui/icon-symbol";
 import { useColors } from "@/hooks/use-colors";
+import { useI18n } from "@/lib/i18n";
 import { useL3 } from "@/lib/admin-text";
 import { trpc } from "@/lib/trpc";
 import * as Haptics from "expo-haptics";
 
-const CONTENT_TYPES = ["weekly_goal", "article", "hadith", "dua", "tip", "concept"];
-const CATEGORIES = ["tasfiya", "tazkiya", "tarbiya", "aqeedah", "salah", "quran", "akhlaq", "general"];
-const AGE_RANGES = ["0-2", "3-5", "5-7", "7-10", "10-12", "12-16", "all"];
-
 export default function ContentEditorScreen() {
   const colors = useColors();
+  const { isRTL } = useI18n();
   const L3 = useL3();
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id?: string }>();
   const isEditing = !!id;
+
+  // Stored keys are unchanged (still what trpc.content.* reads/writes); only
+  // the displayed label is now trilingual, mirroring content.tsx's TYPES array.
+  const CONTENT_TYPES = [
+    { key: "weekly_goal", label: L3("هدف أسبوعي", "Weekdoel", "Weekly goal") },
+    { key: "article", label: L3("مقال", "Artikel", "Article") },
+    { key: "hadith", label: L3("حديث", "Hadith", "Hadith") },
+    { key: "dua", label: L3("دعاء", "Dua", "Dua") },
+    { key: "tip", label: L3("نصيحة", "Tip", "Tip") },
+    { key: "concept", label: L3("مفهوم", "Begrip", "Concept") },
+  ];
+  const CATEGORIES = [
+    { key: "tasfiya", label: L3("تصفية", "Tasfiya", "Tasfiya") },
+    { key: "tazkiya", label: L3("تزكية", "Tazkiya", "Tazkiya") },
+    { key: "tarbiya", label: L3("تربية", "Tarbiya", "Tarbiya") },
+    { key: "aqeedah", label: L3("عقيدة", "Aqeedah", "Aqeedah") },
+    { key: "salah", label: L3("الصلاة", "Salah", "Salah") },
+    { key: "quran", label: L3("القرآن", "Qur'aan", "Qur'aan") },
+    { key: "akhlaq", label: L3("الأخلاق", "Akhlaq", "Akhlaq") },
+    { key: "general", label: L3("عام", "Algemeen", "General") },
+  ];
+  const AGE_RANGES = [
+    { key: "0-2", label: L3("0-2 سنة", "0-2 jaar", "0-2 yrs") },
+    { key: "3-5", label: L3("3-5 سنة", "3-5 jaar", "3-5 yrs") },
+    { key: "5-7", label: L3("5-7 سنة", "5-7 jaar", "5-7 yrs") },
+    { key: "7-10", label: L3("7-10 سنة", "7-10 jaar", "7-10 yrs") },
+    { key: "10-12", label: L3("10-12 سنة", "10-12 jaar", "10-12 yrs") },
+    { key: "12-16", label: L3("12-16 سنة", "12-16 jaar", "12-16 yrs") },
+    { key: "all", label: L3("الكل", "Alle", "All") },
+  ];
 
   const [type, setType] = useState("article");
   const [category, setCategory] = useState("general");
@@ -95,17 +123,18 @@ export default function ContentEditorScreen() {
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
       router.back();
     } catch (e: any) {
-      Alert.alert("Fout", e.message || "Kon niet opslaan");
+      Alert.alert(L3("خطأ", "Fout", "Error"), e.message || L3("تعذّر الحفظ", "Opslaan is mislukt", "Could not save"));
     } finally {
       setSaving(false);
     }
   };
 
   const handleDelete = () => {
-    Alert.alert("Verwijderen", "Weet u zeker dat u dit item wilt verwijderen?", [
-      { text: "Annuleren", style: "cancel" },
+    // Title/body/buttons reused verbatim from app/admin/content.tsx's own delete confirm.
+    Alert.alert(L3("حذف المحتوى", "Inhoud verwijderen", "Delete content"), L3("هل أنت متأكد من الحذف؟", "Weet u zeker dat u dit wilt verwijderen?", "Are you sure you want to delete this?"), [
+      { text: L3("إلغاء", "Annuleren", "Cancel"), style: "cancel" },
       {
-        text: "Verwijderen",
+        text: L3("حذف", "Verwijderen", "Delete"),
         style: "destructive",
         onPress: async () => {
           await deleteMutation.mutateAsync({ id: parseInt(id!) });
@@ -118,12 +147,15 @@ export default function ContentEditorScreen() {
   return (
     <ScreenContainer>
       {/* Header */}
-      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border">
+      <View className="flex-row items-center justify-between px-4 py-3 border-b border-border" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
         <TouchableOpacity onPress={() => router.back()}>
-          <IconSymbol name="chevron.right" size={24} color={colors.primary} style={{ transform: [{ scaleX: -1 }] }} />
+          {/* IconSymbol has no "chevron.left" mapping — chevron.right mirrored via
+              scaleX gives a left-pointing arrow for LTR; RTL leaves it unflipped
+              so it points right, matching every other back-arrow in app/admin. */}
+          <IconSymbol name="chevron.right" size={24} color={colors.primary} style={isRTL ? undefined : { transform: [{ scaleX: -1 }] }} />
         </TouchableOpacity>
         <Text className="text-lg font-bold text-foreground">
-          {isEditing ? "Content bewerken" : "Nieuwe content"}
+          {isEditing ? L3("تعديل المحتوى", "Content bewerken", "Edit content") : L3("محتوى جديد", "Nieuwe content", "New content")}
         </Text>
         {isEditing ? (
           <TouchableOpacity onPress={handleDelete}>
@@ -137,16 +169,16 @@ export default function ContentEditorScreen() {
       <ScrollView className="flex-1 px-4" contentContainerStyle={{ paddingVertical: 16, gap: 16 }}>
         {/* Type selector */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Type</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("النوع", "Type", "Type")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {CONTENT_TYPES.map((t) => (
+            <View className="flex-row gap-2" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {CONTENT_TYPES.map((opt) => (
                 <TouchableOpacity
-                  key={t}
-                  className={`px-3 py-2 rounded-lg ${type === t ? "bg-primary" : "bg-surface border border-border"}`}
-                  onPress={() => setType(t)}
+                  key={opt.key}
+                  className={`px-3 py-2 rounded-lg ${type === opt.key ? "bg-primary" : "bg-surface border border-border"}`}
+                  onPress={() => setType(opt.key)}
                 >
-                  <Text className={`text-xs font-medium ${type === t ? "text-background" : "text-foreground"}`}>{t}</Text>
+                  <Text className={`text-xs font-medium ${type === opt.key ? "text-background" : "text-foreground"}`}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -155,16 +187,16 @@ export default function ContentEditorScreen() {
 
         {/* Category selector */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Categorie</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("التصنيف", "Categorie", "Category")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {CATEGORIES.map((c) => (
+            <View className="flex-row gap-2" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {CATEGORIES.map((opt) => (
                 <TouchableOpacity
-                  key={c}
-                  className={`px-3 py-2 rounded-lg ${category === c ? "bg-primary" : "bg-surface border border-border"}`}
-                  onPress={() => setCategory(c)}
+                  key={opt.key}
+                  className={`px-3 py-2 rounded-lg ${category === opt.key ? "bg-primary" : "bg-surface border border-border"}`}
+                  onPress={() => setCategory(opt.key)}
                 >
-                  <Text className={`text-xs font-medium ${category === c ? "text-background" : "text-foreground"}`}>{c}</Text>
+                  <Text className={`text-xs font-medium ${category === opt.key ? "text-background" : "text-foreground"}`}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -173,16 +205,16 @@ export default function ContentEditorScreen() {
 
         {/* Age range */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Leeftijdsgroep</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("الفئة العمرية", "Leeftijdsgroep", "Age group")}</Text>
           <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-            <View className="flex-row gap-2">
-              {AGE_RANGES.map((a) => (
+            <View className="flex-row gap-2" style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+              {AGE_RANGES.map((opt) => (
                 <TouchableOpacity
-                  key={a}
-                  className={`px-3 py-2 rounded-lg ${ageRange === a ? "bg-primary" : "bg-surface border border-border"}`}
-                  onPress={() => setAgeRange(a)}
+                  key={opt.key}
+                  className={`px-3 py-2 rounded-lg ${ageRange === opt.key ? "bg-primary" : "bg-surface border border-border"}`}
+                  onPress={() => setAgeRange(opt.key)}
                 >
-                  <Text className={`text-xs font-medium ${ageRange === a ? "text-background" : "text-foreground"}`}>{a}</Text>
+                  <Text className={`text-xs font-medium ${ageRange === opt.key ? "text-background" : "text-foreground"}`}>{opt.label}</Text>
                 </TouchableOpacity>
               ))}
             </View>
@@ -191,17 +223,17 @@ export default function ContentEditorScreen() {
 
         {/* Titles */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Titels</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("العناوين", "Titels", "Titles")}</Text>
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Titel (Nederlands)"
+            placeholder={L3("العنوان (الهولندية)", "Titel (Nederlands)", "Title (Dutch)")}
             placeholderTextColor={colors.muted}
             value={titleNl}
             onChangeText={setTitleNl}
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Title (English)"
+            placeholder={L3("العنوان (الإنجليزية)", "Titel (Engels)", "Title (English)")}
             placeholderTextColor={colors.muted}
             value={titleEn}
             onChangeText={setTitleEn}
@@ -218,10 +250,10 @@ export default function ContentEditorScreen() {
 
         {/* Content */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Inhoud</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("المحتوى", "Inhoud", "Content")}</Text>
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Inhoud (Nederlands)"
+            placeholder={L3("المحتوى (الهولندية)", "Inhoud (Nederlands)", "Content (Dutch)")}
             placeholderTextColor={colors.muted}
             value={contentNl}
             onChangeText={setContentNl}
@@ -231,7 +263,7 @@ export default function ContentEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Content (English)"
+            placeholder={L3("المحتوى (الإنجليزية)", "Inhoud (Engels)", "Content (English)")}
             placeholderTextColor={colors.muted}
             value={contentEn}
             onChangeText={setContentEn}
@@ -254,10 +286,10 @@ export default function ContentEditorScreen() {
 
         {/* Sources */}
         <View>
-          <Text className="text-sm font-semibold text-foreground mb-2">Bron / Hadieth</Text>
+          <Text className="text-sm font-semibold text-foreground mb-2">{L3("المصدر / الحديث", "Bron / Hadieth", "Source / Hadith")}</Text>
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Bron (Nederlands)"
+            placeholder={L3("المصدر (الهولندية)", "Bron (Nederlands)", "Source (Dutch)")}
             placeholderTextColor={colors.muted}
             value={source}
             onChangeText={setSource}
@@ -265,7 +297,7 @@ export default function ContentEditorScreen() {
           />
           <TextInput
             className="bg-surface border border-border rounded-lg p-3 text-foreground mb-2"
-            placeholder="Source (English)"
+            placeholder={L3("المصدر (الإنجليزية)", "Bron (Engels)", "Source (English)")}
             placeholderTextColor={colors.muted}
             value={sourceEn}
             onChangeText={setSourceEn}
@@ -285,6 +317,7 @@ export default function ContentEditorScreen() {
         {/* Published toggle */}
         <TouchableOpacity
           className="flex-row items-center gap-3 bg-surface rounded-lg p-4 border border-border"
+          style={{ flexDirection: isRTL ? "row-reverse" : "row" }}
           onPress={() => setPublished(!published)}
         >
           <IconSymbol
@@ -293,7 +326,7 @@ export default function ContentEditorScreen() {
             color={published ? colors.success : colors.muted}
           />
           <Text className="text-sm font-medium text-foreground">
-            {published ? "Gepubliceerd" : "Concept (niet zichtbaar)"}
+            {published ? L3("منشور", "Gepubliceerd", "Published") : L3("مسودة (غير ظاهر)", "Concept (niet zichtbaar)", "Draft (not visible)")}
           </Text>
         </TouchableOpacity>
 
@@ -307,7 +340,7 @@ export default function ContentEditorScreen() {
             <ActivityIndicator color={colors.background} />
           ) : (
             <Text className="text-background font-bold text-base">
-              {isEditing ? "Opslaan" : "Aanmaken"}
+              {isEditing ? L3("حفظ التعديلات", "Wijzigingen opslaan", "Save changes") : L3("إضافة المحتوى", "Inhoud toevoegen", "Add content")}
             </Text>
           )}
         </TouchableOpacity>

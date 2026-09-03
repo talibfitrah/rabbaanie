@@ -128,7 +128,7 @@ export default function AdminSiteAnalyticsScreen() {
               )}
             </Section>
 
-            <Section title={L3("حسب تصنيف المقالة — الأكثر طلبًا للكتابة عنه", "Per artikelcategorie", "By article category")} colors={colors} isRTL={isRTL}>
+            <Section title={L3("حسب تصنيف المقالة", "Per artikelcategorie", "By article category")} colors={colors} isRTL={isRTL}>
               <BarList items={articles?.byCategory ?? []} colors={colors} isRTL={isRTL} labelFor={unknownLabel} emptyLabel={L3("لا بيانات بعد", "Nog geen gegevens", "No data yet")} />
             </Section>
 
