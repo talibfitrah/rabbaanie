@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { View, Text, ScrollView, Pressable, ActivityIndicator, TextInput, Switch, Alert } from "react-native";
 import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
@@ -72,6 +72,11 @@ export default function HaidScreen() {
   const [monthStart, setMonthStart] = useState(today.slice(0, 7) + "-01");
   const [showSettings, setShowSettings] = useState(false);
   const [showKaffarahInfo, setShowKaffarahInfo] = useState(false); // decision 6: information on request, never shown by default
+  const scrollRef = useRef<ScrollView>(null);
+  // Settings used to render at the bottom of a long ScrollView — opening it from
+  // the header gear showed nothing until she scrolled all the way down. It now
+  // renders right below the header, so jump the scroll position to match.
+  useEffect(() => { if (showSettings) scrollRef.current?.scrollTo({ y: 0, animated: true }); }, [showSettings]);
 
   // Explicit `today` (item E-2): `to` extends 45 days into the future for the
   // calendar/predictions display, but the unlogged-day extension must stop at
@@ -133,11 +138,21 @@ export default function HaidScreen() {
   }
 
   return (
-    <ScrollView contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }} style={{ backgroundColor: colors.background }}>
+    <ScrollView ref={scrollRef} contentContainerStyle={{ padding: 16, paddingTop: insets.top + 12, paddingBottom: 40 }} style={{ backgroundColor: colors.background }}>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}>
         <Text style={{ color: colors.foreground, fontSize: 20, fontWeight: "700" }}>{tx(lang, "Menstruatie en reinheid", "Menses and purity", "متابعة الحيض والطهر")}</Text>
         <Pressable onPress={() => setShowSettings((v) => !v)} hitSlop={10}><MaterialIcons name="settings" size={22} color={colors.muted} /></Pressable>
       </View>
+
+      {showSettings && (
+        <View style={{ marginBottom: 12 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}>
+            <Text style={{ color: colors.foreground, fontSize: 16, fontWeight: "700" }}>{tx(lang, "Instellingen", "Settings", "الإعدادات")}</Text>
+            <Pressable onPress={() => setShowSettings(false)} hitSlop={10}><MaterialIcons name="close" size={22} color={colors.muted} /></Pressable>
+          </View>
+          <SettingsCard settings={settings} lang={lang} colors={colors} align={align} isSaving={saveSettings.isPending} onSave={(p) => saveSettings.mutate(p)} onDisable={() => Alert.alert(tx(lang, "Uitschakelen?", "Disable?", "إيقاف الميزة؟"), T.consent, [{ text: tx(lang, "Annuleren", "Cancel", "إلغاء") }, { text: tx(lang, "Uitschakelen en wissen", "Disable and delete", "إيقاف وحذف"), style: "destructive", onPress: () => disable.mutate() }])} />
+        </View>
+      )}
 
       {params.purityCheck === "1" && isExcusedToday(classified, today) && (
         <View style={[card, { borderColor: colors.primary }]}>
@@ -148,25 +163,13 @@ export default function HaidScreen() {
         </View>
       )}
 
-      {/* Today / selected day */}
+      {/* Today / selected day: log buttons first, resulting ruling right below — one card, no scrolling to see the effect of a tap */}
       <View style={card}>
         <Text style={[{ color: STATUS_COLOR[selectedCls.status] === "transparent" ? colors.foreground : STATUS_COLOR[selectedCls.status], fontSize: 17, fontWeight: "700", marginBottom: 6 }, align]}>
           {selected === today ? tx(lang, "Vandaag", "Today", "اليوم") : selected} — {T.status[selectedCls.status]}{selectedCls.runDay ? ` (${tx(lang, "dag", "day", "اليوم")} ${selectedCls.runDay})` : ""}
         </Text>
-        {label(T.prayer[rulings.prayer])}{label(T.fasting[rulings.fasting])}{label(T.intercourse[rulings.intercourse])}{label(T.ghusl[rulings.ghusl])}
-        {rulings.permitted.length > 0 && label(tx(lang, "Toegestaan: ", "Permitted: ", "مباح: ") + rulings.permitted.map((k) => T.permitted[k]).join("، "))}
-        {visibleNotes.map((n) => <Text key={n} style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, align]}>• {T.notes[n]}</Text>)}
-        {hasKaffarahInfo && (showKaffarahInfo
-          ? <Text style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, align]}>• {T.notes.kaffarah_info}</Text>
-          : <Pressable onPress={() => setShowKaffarahInfo(true)}><Text style={[{ color: colors.primary, fontSize: 12, marginTop: 4 }, align]}>{tx(lang, "Meer", "More", "المزيد")}</Text></Pressable>
-        )}
-        {selectedCls.advisories.map((a) => <Text key={a} style={[{ color: "#B45309", fontSize: 12, marginTop: 4 }, align]}>⚠ {T.advisory[a]}</Text>)}
-      </View>
-
-      {/* Quick log for the selected day */}
-      <View style={card}>
         {label(tx(lang, "Registreren voor", "Log for", "تسجيل ليوم") + " " + selected)}
-        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8 }}>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 10 }}>
           {(["blood", "spotting", "dry"] as Flow[]).map((f) => (
             <Pressable key={f} onPress={() => log(f)} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}>
               <Text style={{ color: colors.foreground }}>{T.flow[f]}</Text>
@@ -179,6 +182,14 @@ export default function HaidScreen() {
             <Pressable onPress={() => deleteDay.mutate({ date: selected })} style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, paddingVertical: 8, paddingHorizontal: 12 }}><Text style={{ color: colors.muted }}>{tx(lang, "Wissen", "Clear", "مسح")}</Text></Pressable>
           )}
         </View>
+        {label(T.prayer[rulings.prayer])}{label(T.fasting[rulings.fasting])}{label(T.intercourse[rulings.intercourse])}{label(T.ghusl[rulings.ghusl])}
+        {rulings.permitted.length > 0 && label(tx(lang, "Toegestaan: ", "Permitted: ", "مباح: ") + rulings.permitted.map((k) => T.permitted[k]).join("، "))}
+        {visibleNotes.map((n) => <Text key={n} style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, align]}>• {T.notes[n]}</Text>)}
+        {hasKaffarahInfo && (showKaffarahInfo
+          ? <Text style={[{ color: colors.muted, fontSize: 12, marginTop: 4 }, align]}>• {T.notes.kaffarah_info}</Text>
+          : <Pressable onPress={() => setShowKaffarahInfo(true)}><Text style={[{ color: colors.primary, fontSize: 12, marginTop: 4 }, align]}>{tx(lang, "Meer", "More", "المزيد")}</Text></Pressable>
+        )}
+        {selectedCls.advisories.map((a) => <Text key={a} style={[{ color: "#B45309", fontSize: 12, marginTop: 4 }, align]}>⚠ {T.advisory[a]}</Text>)}
       </View>
 
       {/* Month grid */}
@@ -215,8 +226,6 @@ export default function HaidScreen() {
         {ramadan && label(tx(lang, "In te halen Ramadaan-dagen: ", "Ramadaan days to make up: ", "أيام قضاء رمضان: ") + `${ramadan.days} (${ramadan.year})`)}
         <Pressable onPress={() => router.push("/(tabs)/dhikri" as any)}><Text style={[{ color: colors.primary, marginTop: 6 }, align]}>{tx(lang, "Adhkaar voor de menstruerende vrouw →", "Adhkaar for the menstruating woman →", "أذكار الحائض والنفساء ←")}</Text></Pressable>
       </View>
-
-      {showSettings && <SettingsCard settings={settings} lang={lang} colors={colors} align={align} isSaving={saveSettings.isPending} onSave={(p) => saveSettings.mutate(p)} onDisable={() => Alert.alert(tx(lang, "Uitschakelen?", "Disable?", "إيقاف الميزة؟"), T.consent, [{ text: tx(lang, "Annuleren", "Cancel", "إلغاء") }, { text: tx(lang, "Uitschakelen en wissen", "Disable and delete", "إيقاف وحذف"), style: "destructive", onPress: () => disable.mutate() }])} />}
     </ScrollView>
   );
 }
