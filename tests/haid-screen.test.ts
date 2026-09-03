@@ -84,6 +84,44 @@ describe("app/haid.tsx disable() clears the pause immediately (C9)", () => {
   });
 });
 
+// Daa3iyah UX feedback: (1) the header gear opened a settings panel rendered
+// at the very bottom of the ScrollView, invisible from the top; (2) after
+// logging a day, the resulting ruling sat in a card ABOVE the log buttons,
+// so tapping a flow button updated a ruling the user had already scrolled
+// past. Layout-only fix — no fiqh rule changes.
+describe("app/haid.tsx (UX: discoverable settings + the logged ruling visible where you log)", () => {
+  it("settings panel has its own close (X) control, not just the header gear", () => {
+    expect(src).toContain('name="close"');
+    expect(src).toMatch(/onPress=\{\(\) => setShowSettings\(false\)\}/);
+  });
+
+  it("settings panel renders inline right after the header row, not after Predictions at the bottom", () => {
+    const settingsIdx = src.indexOf("<SettingsCard");
+    const headerGearIdx = src.indexOf('name="settings"');
+    const predictionsIdx = src.indexOf('"Verwachtingen"');
+    expect(settingsIdx).toBeGreaterThan(-1);
+    expect(headerGearIdx).toBeGreaterThan(-1);
+    expect(predictionsIdx).toBeGreaterThan(-1);
+    expect(settingsIdx).toBeGreaterThan(headerGearIdx);
+    expect(settingsIdx).toBeLessThan(predictionsIdx);
+  });
+
+  it("quick-log buttons render above the resulting ruling, in the same card, so the ruling is visible right where she logs", () => {
+    const ghuslButtonIdx = src.indexOf('log(days.find((d) => d.date === selected)?.flow || "dry", { ghusl: true })');
+    const rulingIdx = src.indexOf("T.prayer[rulings.prayer]");
+    expect(ghuslButtonIdx).toBeGreaterThan(-1);
+    expect(rulingIdx).toBeGreaterThan(-1);
+    expect(ghuslButtonIdx).toBeLessThan(rulingIdx);
+  });
+
+  it("opening settings scrolls the screen to the top so the panel isn't off-screen", () => {
+    expect(src).toContain("useRef<ScrollView>(null)");
+    // Invariant: some effect gated on showSettings scrolls to y: 0 — not the
+    // exact one-line phrasing/whitespace, so a reformat doesn't break this.
+    expect(src).toMatch(/showSettings[\s\S]{0,80}scrollTo\(\{[^}]*\by:\s*0\b[^}]*\}\)/);
+  });
+});
+
 describe("lib/haid-text.ts (item F: house wudu spelling, server/advice.ts:360-361)", () => {
   const haidTextSrc = readFileSync(join(__dirname, "..", "lib", "haid-text.ts"), "utf8");
   it("uses wudoe'/wudoo', not the old woedoe'/wudu' spelling", () => {

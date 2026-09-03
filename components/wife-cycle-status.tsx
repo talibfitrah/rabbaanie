@@ -23,7 +23,8 @@ export function WifeCycleStatus({ wifeId }: { wifeId: number }) {
     const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
     const cls = classify(days, settings, addDays(today, -60), today);
     const t = cls[cls.length - 1];
-    return { t, r: rulingsFor(t), p: predict(days, settings, today) };
+    const todayDay = q.data.days.find((d) => d.date === today) ?? null;
+    return { t, r: rulingsFor(t), p: predict(days, settings, today), todayDay };
   }, [q.data, today]);
   if (!view) return null;
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
@@ -31,6 +32,13 @@ export function WifeCycleStatus({ wifeId }: { wifeId: number }) {
   return (
     <View style={{ marginTop: 10, padding: 10, borderRadius: 10, borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
       <Text style={[{ color: colors.foreground, fontWeight: "700", fontSize: 13 }, align]}>{tx(lang, "Haar toestand vandaag", "Her state today", "حالها اليوم")}: {T.status[view.t.status]}</Text>
+      {view.todayDay?.flow === "blood" && line(
+        view.todayDay.color === "black"
+          ? tx(lang, "Bloedtype: zwart/dik", "Blood type: black/thick", "نوع الدم: أسود ثخين")
+          : view.todayDay.color === "red"
+          ? tx(lang, "Bloedtype: rood/dun", "Blood type: red/thin", "نوع الدم: أحمر رقيق")
+          : tx(lang, "Bloedtype: bloed", "Blood type: blood", "نوع الدم: دم")
+      )}
       {line(T.intercourse[view.r.intercourse])}
       {view.p.expectedPurity && line(tx(lang, "Verwachte reinheid: ", "Expected purity: ", "الطهر المتوقَّع: ") + view.p.expectedPurity)}
       {view.p.nextStart && line(tx(lang, "Volgende menstruatie: ", "Next period: ", "الحيضة القادمة: ") + view.p.nextStart)}
