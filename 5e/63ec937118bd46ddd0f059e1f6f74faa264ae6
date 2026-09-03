@@ -1,0 +1,25 @@
+app/(tabs)/messages.tsx
+  s_e456a2d7fb85d6::t_0bdd5046e9cff4 1276-1284
+  s_e456a2d7fb85d6::t_fac09f73f4c115 1009-1038
+  s_e456a2d7fb85d6::t_bc81088f73d2f4 1064-1069
+tests/haid-screen.test.ts
+  s_e456a2d7fb85d6::t_95639546cc37ba 119-121
+tests/wife-cycle-status.test.ts
+  s_e456a2d7fb85d6::t_f56075f8f7ed8e 41-49,52-66,68-69
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "5e63ec937118bd46ddd0f059e1f6f74faa264ae6",
+  "prompts": {},
+  "sessions": {
+    "s_e456a2d7fb85d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fc49d51-f973-4d51-b2fe-a5ed12f94d1d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
