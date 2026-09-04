@@ -63,6 +63,11 @@ function getRelationshipLabel(relationship: string, lang: string, userGender: st
     // by the co-parent's gender (opposite the caller for a spouse relationship).
     return lang === "ar" ? (isMale ? "مطلَّقة" : "مطلَّق") : lang === "en" ? (isMale ? "Ex-wife" : "Ex-husband") : (isMale ? "Ex-vrouw" : "Ex-man");
   }
+  if (relationship === "cowife") {
+    // Co-wife DM (2026-09-04): never a spouse label — she is the viewer's
+    // «الأخت الشريكة», not her «الزوج».
+    return lang === "ar" ? "الأخت الشريكة" : lang === "en" ? "Co-wife" : "Mede-echtgenote";
+  }
   if (relationship === "partner" || relationship === "parent") {
     if (isMale) {
       return lang === "ar" ? "الزوجة" : lang === "en" ? "Wife" : "Echtgenote";
@@ -1265,7 +1270,10 @@ function ParentsSection({
               {tx(lang, "Mijn echtgenotes mogen met elkaar praten", "Let my wives talk to each other", "السماح لزوجاتي بالتواصل مع بعضهن")}
             </Text>
             <Switch
-              value={!!coWivesCanChat.data?.canChat}
+              // Show OFF when visibility is off: chat is inert without it
+              // (areCoWivesAllowedToChat requires both), so the greyed switch
+              // must not read ON. The stored value returns when visibility is on.
+              value={!!coWivesCanChat.data?.canChat && !!coWivesVis.data?.visible}
               disabled={!coWivesVis.data?.visible || setCoWivesCanChat.isPending}
               onValueChange={(v) => setCoWivesCanChat.mutate({ canChat: v })}
             />
@@ -1288,7 +1296,7 @@ function ParentsSection({
                 </Text>
                 {w.canChat ? (
                   <TouchableOpacity
-                    onPress={() => setSelected({ type: "coparent", id: w.id, name: w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة") })}
+                    onPress={() => setSelected({ type: "coparent", id: w.id, name: w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة"), relationship: "cowife" })}
                     style={{ backgroundColor: colors.primary, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
                   >
                     <MaterialIcons name="chat" size={16} color="#fff" />

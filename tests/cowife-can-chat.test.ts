@@ -235,22 +235,39 @@ describe("db.areCoWivesAllowedToChat (real server/db.ts)", () => {
     partnershipDb.queue = undefined;
   });
 
-  it("true: both are confirmed wives of the same husband and his canChat is ON", async () => {
+  it("true: both are VISIBLE confirmed wives of the same husband and his canChat is ON", async () => {
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     partnershipDb.queue = [
-      [{ u1: 1, u2: 2 }], // A(2)'s own row -> other party 1
-      [{ u1: 1, u2: 3 }], // B(3)'s own row -> other party 1
+      [{ u1: 1, u2: 2, visible: true }], // A(2)'s own row -> husband 1, visible
+      [{ u1: 1, u2: 3, visible: true }], // B(3)'s own row -> husband 1, visible
       [{ v: true }], // getCoWivesCanChat(1)
     ];
     expect(await real.areCoWivesAllowedToChat(2, 3)).toBe(true);
   });
 
-  it("false: same husband but his canChat switch is OFF", async () => {
+  it("false: same husband, both visible, but his canChat switch is OFF", async () => {
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     partnershipDb.queue = [
-      [{ u1: 1, u2: 2 }],
-      [{ u1: 1, u2: 3 }],
+      [{ u1: 1, u2: 2, visible: true }],
+      [{ u1: 1, u2: 3, visible: true }],
       [{ v: false }],
+    ];
+    expect(await real.areCoWivesAllowedToChat(2, 3)).toBe(false);
+  });
+
+  it("false: canChat ON but the husband turned VISIBILITY off — chat requires still being able to see her (cubic P1 2026-09-04)", async () => {
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    partnershipDb.queue = [
+      [{ u1: 1, u2: 2, visible: false }], // A can no longer see co-wives -> blocked before canChat is read
+    ];
+    expect(await real.areCoWivesAllowedToChat(2, 3)).toBe(false);
+  });
+
+  it("false: A is visible but B is not (one-sided visibility)", async () => {
+    const real = await vi.importActual<typeof import("../server/db")>("../server/db");
+    partnershipDb.queue = [
+      [{ u1: 1, u2: 2, visible: true }],
+      [{ u1: 1, u2: 3, visible: false }],
     ];
     expect(await real.areCoWivesAllowedToChat(2, 3)).toBe(false);
   });
@@ -258,8 +275,8 @@ describe("db.areCoWivesAllowedToChat (real server/db.ts)", () => {
   it("false: different husbands (not co-wives)", async () => {
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     partnershipDb.queue = [
-      [{ u1: 1, u2: 2 }], // A(2)'s husband is 1
-      [{ u1: 5, u2: 6 }], // B(6)'s husband is 5
+      [{ u1: 1, u2: 2, visible: true }], // A(2)'s husband is 1
+      [{ u1: 5, u2: 6, visible: true }], // B(6)'s husband is 5
     ];
     expect(await real.areCoWivesAllowedToChat(2, 6)).toBe(false);
   });
@@ -268,8 +285,8 @@ describe("db.areCoWivesAllowedToChat (real server/db.ts)", () => {
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     // A = husband 1 himself; his own row's "other party" is wife 2, not a husband.
     partnershipDb.queue = [
-      [{ u1: 1, u2: 2 }], // "husband" resolved for A(1) -> 2 (his wife)
-      [{ u1: 1, u2: 3 }], // "husband" resolved for B(3) -> 1 (her real husband)
+      [{ u1: 1, u2: 2, visible: true }], // "husband" resolved for A(1) -> 2 (his wife)
+      [{ u1: 1, u2: 3, visible: true }], // "husband" resolved for B(3) -> 1 (her real husband)
     ];
     expect(await real.areCoWivesAllowedToChat(1, 3)).toBe(false);
   });

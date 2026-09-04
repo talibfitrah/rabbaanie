@@ -6045,17 +6045,24 @@ export async function getCoWivesCanChat(husbandId: number): Promise<boolean> {
 export async function areCoWivesAllowedToChat(userA: number, userB: number): Promise<boolean> {
   const db = await getDb();
   if (!db || userA === userB) return false;
-  const otherPartyOf = async (id: number): Promise<number | null> => {
+  // Chat mirrors the co-wife LIST exactly: A may message B only if B is a
+  // co-wife A can currently SEE — both their rows have coWivesVisible on and
+  // resolve to the same husband — AND that husband's chat switch is on. So
+  // turning visibility OFF stops chat immediately (cubic P1 2026-09-04): you
+  // cannot message someone you can no longer see. coWivesVisible is read
+  // per-row (same as listCoWives), coWivesCanChat husband-wide (same value the
+  // wife's `coWives.canChat` reports, so the gate matches the button she sees).
+  const seenRowOf = async (id: number): Promise<{ husband: number; visible: boolean } | null> => {
     const [row] = await db
-      .select({ u1: partnerships.userId1, u2: partnerships.userId2 })
+      .select({ u1: partnerships.userId1, u2: partnerships.userId2, visible: partnerships.coWivesVisible })
       .from(partnerships)
       .where(hisActiveConfirmedRows(id))
       .limit(1);
-    return row ? (row.u1 === id ? row.u2 : row.u1) : null;
+    return row ? { husband: row.u1 === id ? row.u2 : row.u1, visible: row.visible } : null;
   };
-  const husbandA = await otherPartyOf(userA);
-  if (husbandA === null) return false;
-  const husbandB = await otherPartyOf(userB);
-  if (husbandB === null || husbandA !== husbandB) return false;
-  return getCoWivesCanChat(husbandA);
+  const a = await seenRowOf(userA);
+  if (!a || !a.visible) return false;
+  const b = await seenRowOf(userB);
+  if (!b || !b.visible || a.husband !== b.husband) return false;
+  return getCoWivesCanChat(a.husband);
 }
