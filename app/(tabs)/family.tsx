@@ -2959,37 +2959,32 @@ export default function FamilyScreen() {
         )}
 
         {/* ═══════ PARTNER CARD ═══════ */}
+        {/* Wife section — collapsible like the children section (Daa3iyah
+            2026-09-04), collapsed by default. */}
         {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
-          <View style={{ marginBottom: 14 }}>
-            <Text
-              style={{
-                color: colors.foreground,
-                fontSize: 14,
-                fontWeight: "700",
-                marginBottom: 8,
-                textAlign: isRTL ? "right" : "left",
-              }}
-            >
-              {(() => {
-                // Section title by count + viewer gender: a husband sees
-                // الزوجة / الزوجتان / الزوجات (1 / 2 / 3+), a wife sees الزوج.
-                // Count CURRENT confirmed spouses, not coParents — the latter
-                // also includes a divorced ex who still shares a child.
-                const n = partners.filter((p) => p.confirmed).length;
-                if (n > 0 && pp.gender === "man")
-                  return tx(
-                    lang,
-                    n > 1 ? "Echtgenotes" : "Echtgenote",
-                    n > 1 ? "Wives" : "Wife",
-                    n === 1 ? "الزوجة" : n === 2 ? "الزوجتان" : "الزوجات",
-                  );
-                if (n > 0 && pp.gender === "vrouw")
-                  return tx(lang, "Echtgenoot", "Husband", "الزوج");
-                // 0 current confirmed spouses (e.g. only a divorced co-parent
-                // sharing a child): neutral label, never a wife/husband word.
-                return tx(lang, "Partner", "Partner", "الشريك/ة");
-              })()}
-            </Text>
+          <ExpandableSection
+            colors={colors}
+            isRTL={isRTL}
+            defaultExpanded={false}
+            title={(() => {
+              // Husband sees الزوجة / الزوجتان / الزوجات (1 / 2 / 3+), a wife
+              // sees الزوج. Count CURRENT confirmed spouses, not coParents —
+              // the latter also includes a divorced ex who still shares a child.
+              const n = partners.filter((p) => p.confirmed).length;
+              if (n > 0 && pp.gender === "man")
+                return tx(
+                  lang,
+                  n > 1 ? "Echtgenotes" : "Echtgenote",
+                  n > 1 ? "Wives" : "Wife",
+                  n === 1 ? "الزوجة" : n === 2 ? "الزوجتان" : "الزوجات",
+                );
+              if (n > 0 && pp.gender === "vrouw")
+                return tx(lang, "Echtgenoot", "Husband", "الزوج");
+              // 0 current confirmed spouses (e.g. only a divorced co-parent
+              // sharing a child): neutral label, never a wife/husband word.
+              return tx(lang, "Partner", "Partner", "الشريك/ة");
+            })()}
+          >
             {(coParentsQuery.data ?? []).map((cp: any) => (
               <Pressable
                 key={cp.id}
@@ -3273,8 +3268,7 @@ export default function FamilyScreen() {
                 )}
               </Pressable>
             ))}
-
-          </View>
+          </ExpandableSection>
         )}
 
         {/* R4/P2/P3: القَسْم والقرعة — husband-only fairness module (night
