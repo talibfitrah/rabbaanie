@@ -1,0 +1,29 @@
+app/(tabs)/family.tsx
+  s_132c73e77515ad::t_6d4891d21b0486 38
+  s_132c73e77515ad::t_2f20f83af70c9c 3227-3229
+components/wife-card-actions.tsx
+  s_132c73e77515ad::t_628ba88aa11c66 1-118
+tests/wife-cycle-status.test.ts
+  s_132c73e77515ad::t_925ab37ecff5c1 41-48,53-62
+app/(tabs)/index.tsx
+  s_132c73e77515ad::t_4df0db3ad8f39a 92
+  s_132c73e77515ad::t_f5ad5f55f14221 20
+  s_132c73e77515ad::t_c95203907635cb 96-97
+  s_132c73e77515ad::t_10ebb21b7956bb 529-538,571-573
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d7f2e45972d54aa7bd43192dd86a0a5b6041daa4",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
