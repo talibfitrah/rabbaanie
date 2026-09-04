@@ -35,6 +35,7 @@ import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { isFullPartnerProfile } from "@/lib/partner-types";
 import type { PartnerListEntry } from "@/lib/partner-types";
+import { WifeCycleStatus } from "@/components/wife-cycle-status";
 
 if (
   Platform.OS === "android" &&
@@ -1633,6 +1634,8 @@ export default function FamilyScreen() {
   const partnerChoiceReady = !listPartnersQuery.isLoading;
   const hasMultiplePartners = partners.length > 1;
   const [manualPartnerId, setManualPartnerId] = useState<number | null>(null);
+  // Per-wife cycle-status modal (moved from شبكتي — Daa3iyah 2026-09-04).
+  const [cycleWife, setCycleWife] = useState<{ id: number; name: string } | null>(null);
   // Stays null (today's "let the server pick" default) until there's
   // actually more than one partner to choose between — a single-partner
   // user's getPartnerProfile call below is byte-for-byte what it was
@@ -2967,7 +2970,25 @@ export default function FamilyScreen() {
                 textAlign: isRTL ? "right" : "left",
               }}
             >
-              {tx(lang, "Partner", "Spouse", "الزوجة")}
+              {(() => {
+                // Section title by count + viewer gender: a husband sees
+                // الزوجة / الزوجتان / الزوجات (1 / 2 / 3+), a wife sees الزوج.
+                // Count CURRENT confirmed spouses, not coParents — the latter
+                // also includes a divorced ex who still shares a child.
+                const n = partners.filter((p) => p.confirmed).length;
+                if (n > 0 && pp.gender === "man")
+                  return tx(
+                    lang,
+                    n > 1 ? "Echtgenotes" : "Echtgenote",
+                    n > 1 ? "Wives" : "Wife",
+                    n === 1 ? "الزوجة" : n === 2 ? "الزوجتان" : "الزوجات",
+                  );
+                if (n > 0 && pp.gender === "vrouw")
+                  return tx(lang, "Echtgenoot", "Husband", "الزوج");
+                // 0 current confirmed spouses (e.g. only a divorced co-parent
+                // sharing a child): neutral label, never a wife/husband word.
+                return tx(lang, "Partner", "Partner", "الشريك/ة");
+              })()}
             </Text>
             {(coParentsQuery.data ?? []).map((cp: any) => (
               <Pressable
@@ -3210,6 +3231,46 @@ export default function FamilyScreen() {
                         )}
                   </Text>
                 </Pressable>
+                {/* Per-wife buttons — shown ONLY for a CURRENT confirmed spouse
+                    (never a divorced ex co-parent that getCoParents also
+                    surfaces): «الحيض وأثره» (husband-only) + her/his profile.
+                    cp.id is the partner user id from getCoParents — the same id
+                    cycle.getPartner and /spouse-profile expect. */}
+                {partners.some((p) => p.id === cp.id && p.confirmed) && (
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 10 }}>
+                    {pp.gender === "man" && (
+                      <Pressable
+                        onPress={() => setCycleWife({ id: cp.id, name: cp.name || tx(lang, "Partner", "Spouse", "الزوجة") })}
+                        style={({ pressed }) => [{
+                          flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6,
+                          backgroundColor: "#E11D48" + "12", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10,
+                          borderWidth: 1, borderColor: "#E11D48" + "30", opacity: pressed ? 0.7 : 1,
+                        }]}
+                      >
+                        <MaterialIcons name="favorite" size={15} color="#E11D48" />
+                        <Text style={{ color: "#E11D48", fontSize: 11, fontWeight: "700" }}>
+                          {tx(lang, "Menstruatie", "Menses", "الحيض وأثره")}
+                        </Text>
+                      </Pressable>
+                    )}
+                    <Pressable
+                      onPress={() => router.push({ pathname: "/spouse-profile", params: { partnerId: String(cp.id) } } as any)}
+                      style={({ pressed }) => [{
+                        flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 6,
+                        backgroundColor: colors.primary + "12", borderRadius: 8, paddingVertical: 8, paddingHorizontal: 10,
+                        borderWidth: 1, borderColor: colors.primary + "30", opacity: pressed ? 0.7 : 1,
+                      }]}
+                    >
+                      <MaterialIcons name="person" size={15} color={colors.primary} />
+                      <Text style={{ color: colors.primary, fontSize: 11, fontWeight: "700" }}>
+                        {/* Pronoun by VIEWER gender (spouse relationship): a wife
+                            sees «ملفه», a husband «ملفها» — robust even when the
+                            partner's own gender field is unset. */}
+                        {pp.gender === "vrouw" ? tx(lang, "Profiel", "Profile", "ملفه") : tx(lang, "Profiel", "Profile", "ملفها")}
+                      </Text>
+                    </Pressable>
+                  </View>
+                )}
               </Pressable>
             ))}
 
@@ -3344,83 +3405,8 @@ export default function FamilyScreen() {
           </View>
         )}
 
-        {/* ═══════ WIFE PROFILE BUTTON ═══════ */}
-        {isAuthenticated && partnerProfileQuery.data && (
-          <Pressable
-            onPress={() =>
-              router.push(
-                (selectedPartnerId != null
-                  ? { pathname: "/spouse-profile", params: { partnerId: String(selectedPartnerId) } }
-                  : "/spouse-profile") as any,
-              )
-            }
-            style={({ pressed }) => [
-              {
-                backgroundColor: "#FFF0F5",
-                borderRadius: 14,
-                padding: 14,
-                marginBottom: 12,
-                borderWidth: 1.5,
-                borderColor: "#F9A8D4",
-                flexDirection: isRTL ? "row-reverse" : "row",
-                alignItems: "center",
-                gap: 12,
-                opacity: pressed ? 0.85 : 1,
-              },
-            ]}
-          >
-            <View
-              style={{
-                width: 44,
-                height: 44,
-                borderRadius: 22,
-                backgroundColor: "#F9A8D4",
-                alignItems: "center",
-                justifyContent: "center",
-              }}
-            >
-              <MaterialIcons name="person" size={24} color="#9D174D" />
-            </View>
-            <View style={{ flex: 1 }}>
-              <Text
-                style={{
-                  fontSize: 14,
-                  fontWeight: "700",
-                  color: "#9D174D",
-                  textAlign: isRTL ? "right" : "left",
-                }}
-              >
-                {/* Label follows the PARTNER's gender — a wife opening this sees
-                    "my husband's profile", not "my wife's". */}
-                {partnerProfileQuery.data.gender === "man"
-                  ? tx(lang, "Profiel van mijn man", "My husband's profile", "ملف زوجي")
-                  : partnerProfileQuery.data.gender === "vrouw"
-                    ? tx(lang, "Profiel van mijn vrouw", "My wife's profile", "ملف زوجتي")
-                    : tx(lang, "Profiel van mijn partner", "My partner's profile", "ملف شريكي")}
-              </Text>
-              <Text
-                style={{
-                  fontSize: 11,
-                  color: "#BE185D",
-                  marginTop: 2,
-                  textAlign: isRTL ? "right" : "left",
-                }}
-              >
-                {tx(
-                  lang,
-                  "Bekijk en bewerk het profiel",
-                  "View and edit profile",
-                  "عرض وتعديل الملف",
-                )}
-              </Text>
-            </View>
-            <MaterialIcons
-              name={isRTL ? "chevron-left" : "chevron-right"}
-              size={22}
-              color="#9D174D"
-            />
-          </Pressable>
-        )}
+        {/* WIFE PROFILE BUTTON removed 2026-09-04 (Daa3iyah): each wife now
+            opens her own profile from the «ملفها» button on her card above. */}
 
         {/* ═══════ PARTNER ANSWERS & INTERACTION ═══════ */}
         {/* Restricted payloads omit dailyCheckins/dailyTipCompletions/parentProfile
@@ -4479,6 +4465,44 @@ export default function FamilyScreen() {
               <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>
                 {tx(lang, "Sluiten", "Close", "إغلاق")}
               </Text>
+            </TouchableOpacity>
+          </View>
+        </ScrollView>
+      </Modal>
+      {/* Per-wife cycle-status modal — opened from the «الحيض وأثره» button on
+          the wife cards above (Daa3iyah 2026-09-04). The button is husband-only
+          (gated on pp.gender === "man"). */}
+      <Modal
+        visible={cycleWife != null}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCycleWife(null)}
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
+      >
+        <ScrollView
+          style={{ flex: 1, backgroundColor: "rgba(0,0,0,0.6)" }}
+          contentContainerStyle={{ flexGrow: 1, justifyContent: "center", alignItems: "center" }}
+        >
+          <View style={{ backgroundColor: colors.background, borderRadius: 20, padding: 24, width: 320, maxWidth: "90%", gap: 12 }}>
+            <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
+              {tx(lang, "Menstruatie en gevolg", "Menses & ruling", "الحيض وأثره")}
+              {cycleWife?.name ? ` — ${cycleWife.name}` : ""}
+            </Text>
+            {cycleWife && (
+              <WifeCycleStatus
+                wifeId={cycleWife.id}
+                emptyFallback={
+                  <Text style={{ fontSize: 13, color: colors.muted, textAlign: isRTL ? "right" : "left" }}>
+                    {tx(lang, "Nog geen cyclusinfo gedeeld.", "No cycle info shared yet.", "لم تُشارَك معلومات الدورة بعد.")}
+                  </Text>
+                }
+              />
+            )}
+            <TouchableOpacity
+              onPress={() => setCycleWife(null)}
+              style={{ backgroundColor: colors.primary, paddingVertical: 12, borderRadius: 10, alignItems: "center", marginTop: 4 }}
+            >
+              <Text style={{ color: "#fff", fontWeight: "600", fontSize: 14 }}>{tx(lang, "Sluiten", "Close", "إغلاق")}</Text>
             </TouchableOpacity>
           </View>
         </ScrollView>

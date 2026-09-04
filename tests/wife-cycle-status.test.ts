@@ -38,34 +38,25 @@ describe("husband's wife-cycle status", () => {
     expect(intercourseIdx).toBeGreaterThan(bloodTypeIdx);
   });
 
-  // C13 (fixed in 24f3948) + 2026-09-03 P1 (cubic): the status must follow
-  // the confirmed partnership (husbandWives via listPartners), never the
-  // family-panel gate — trpc.cycle.getPartner itself only checks the
-  // partnership. Coupling the UI to CoParentPermissions/coParents let the
-  // status render NOWHERE whenever that panel returned null for any reason
-  // other than "no children" (e.g. activeFather being a stub account). Fix:
-  // a dedicated, always-rendered, per-wife collapse — named header, its own
-  // default-collapsed state, mounts WifeCycleStatus only once opened.
-  it("renders in an always-present per-wife collapse, attributed by name, never nested in the family-gated panel and never gated on coParents", () => {
-    const panel = readFileSync("app/(tabs)/messages.tsx", "utf8");
-    const permissionsStart = panel.indexOf("function CoParentPermissions(");
-    const permissionsEnd = panel.indexOf("function InvitePartnerForm(");
-    expect(permissionsStart).toBeGreaterThan(-1);
-    expect(permissionsEnd).toBeGreaterThan(permissionsStart);
-    expect(panel.slice(permissionsStart, permissionsEnd)).not.toContain("<WifeCycleStatus");
+  // 2026-09-04 (Daa3iyah): the wife cycle status MOVED from the «شبكتي» tab
+  // (messages.tsx) to a per-wife «الحيض وأثره» button on the «العائلة» tab
+  // (family.tsx), opening a modal. The C13 invariant is preserved a different
+  // way: the button is gated on the CONFIRMED PARTNERSHIP (partners.some(p.id
+  // === cp.id && p.confirmed)) — the same partnership trpc.cycle.getPartner
+  // itself checks — never the family-panel/coParents gate.
+  it("is gone from the network tab and now opens per confirmed spouse on the family tab (still partnership-gated, attributed by wife)", () => {
+    const network = readFileSync("app/(tabs)/messages.tsx", "utf8");
+    expect(network).not.toContain("<WifeCycleStatus");
+    expect(network).not.toContain("WifeCycleCollapse");
 
-    const collapseStart = panel.indexOf("function WifeCycleCollapse(");
-    const collapseEnd = panel.indexOf("function ParentsSection(");
-    expect(collapseStart).toBeGreaterThan(-1);
-    expect(collapseEnd).toBeGreaterThan(collapseStart);
-    const collapseBody = panel.slice(collapseStart, collapseEnd);
-    expect(collapseBody).toContain("useState(false)");
-    expect(collapseBody).toContain("wife.name");
-    expect(collapseBody).toMatch(/open && [\s\S]{0,200}<WifeCycleStatus wifeId=\{wife\.id\} \/>/);
-
-    const outside = panel.slice(0, permissionsStart) + panel.slice(permissionsEnd);
-    expect(outside).toContain("trpc.links.listPartners.useQuery");
-    expect(outside).toMatch(/knownToBeMan && husbandWives\.map\(\(wife\) => [\s\S]{0,100}<WifeCycleCollapse/);
-    expect(outside).not.toMatch(/coParents\.length === 0 && husbandWives\.map/);
+    const family = readFileSync("app/(tabs)/family.tsx", "utf8");
+    expect(family).toContain("<WifeCycleStatus");
+    // Opened only for a CURRENT confirmed spouse — never a divorced ex
+    // co-parent that getCoParents also surfaces. Whitespace-tolerant so a
+    // reformat can't silently drop the guard (assert the invariant, not
+    // the exact formatting).
+    expect(family).toMatch(/partners\s*\.\s*some\([\s\S]{0,80}p\.confirmed/);
+    // The cycle button opens the modal for this specific wife (cp.id).
+    expect(family).toMatch(/setCycleWife\(\s*\{[\s\S]{0,60}cp\.id/);
   });
 });

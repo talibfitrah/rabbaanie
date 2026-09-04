@@ -39,7 +39,6 @@ import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { toggleProfileAccess } from "@/lib/partner-profile-toggle";
-import { WifeCycleStatus } from "@/components/wife-cycle-status";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -1006,36 +1005,6 @@ function InvitePartnerForm({ colors, lang, isRTL, userGender }: { colors: any; l
   );
 }
 
-// A confirmed wife's cycle status follows the PARTNERSHIP (like
-// trpc.cycle.getPartner's own gate), never the family/children panel — see
-// the C13 fallback below for why this must not live inside
-// CoParentPermissions/WifePermissionsPanel. Own collapsed-by-default state
-// per wife (Daa3iyah: foldable «داخل إمكانية الطي»), named header so it's
-// never ambiguous which wife it belongs to, and mounts WifeCycleStatus only
-// once opened — no eager fetch for a wife whose panel is still collapsed.
-function WifeCycleCollapse({
-  wife, colors, lang, isRTL,
-}: { wife: { id: number; name?: string | null }; colors: any; lang: string; isRTL: boolean }) {
-  const [open, setOpen] = useState(false);
-  const name = wife.name || tx(lang, "Partner", "Partner", "الزوجة");
-  return (
-    <View style={{ backgroundColor: colors.surface, borderRadius: 14, borderWidth: 1, borderColor: colors.border, overflow: "hidden" }}>
-      <TouchableOpacity
-        onPress={() => setOpen((o) => !o)}
-        style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", paddingHorizontal: 14, paddingVertical: 10 }}
-      >
-        <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>{name}</Text>
-        <MaterialIcons name={open ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
-      </TouchableOpacity>
-      {open && (
-        <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-          <WifeCycleStatus wifeId={wife.id} />
-        </View>
-      )}
-    </View>
-  );
-}
-
 // ============ FAMILY SECTION (أسرتي) ============
 function ParentsSection({
   colors, lang, isRTL, isAuthenticated, coParents, coParentsQuery, userGender, knownToBeMan,
@@ -1061,14 +1030,6 @@ function ParentsSection({
     onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); },
   });
   const coWivesQuery = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
-  // C13: her cycle status must show for a husband regardless of family/child
-  // membership — CoParentPermissions can return null for reasons that have
-  // nothing to do with the partnership itself (no family row, activeFather a
-  // stub, ...), same as trpc.cycle.getPartner's own gate (partnership only).
-  // Sourced directly from listPartners so WifeCycleCollapse below never
-  // depends on the family panel at all.
-  const husbandWivesQuery = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
-  const husbandWives = (husbandWivesQuery.data ?? []).filter((p) => p.confirmed === true);
   // Sort children by birth date (oldest first)
   const sortedChildren = [...(localChildren || [])].sort((a: any, b: any) => {
     if (!a.birthDate) return 1;
@@ -1273,16 +1234,8 @@ function ParentsSection({
         <CoParentPermissions colors={colors} lang={lang} isRTL={isRTL} setSelected={setSelected} />
       )}
 
-      {/* C13: the status follows the confirmed partnership, not the family
-          panel above — CoParentPermissions can return null for reasons that
-          have nothing to do with the partnership (no family row, activeFather
-          a stub, ...), and trpc.cycle.getPartner itself only gates on the
-          partnership. Always rendered per confirmed wife, own collapse, named
-          header (2026-09-03: attribute it to her, never ambiguous which
-          wife) — single source, so it can't render twice or nowhere. */}
-      {knownToBeMan && husbandWives.map((wife) => (
-        <WifeCycleCollapse key={wife.id} wife={wife} colors={colors} lang={lang} isRTL={isRTL} />
-      ))}
+      {/* Wife cycle status moved to «العائلة» per-wife cards (family.tsx
+          «الحيض وأثره» button) — Daa3iyah 2026-09-04. */}
 
       {/* === CO-WIFE VISIBILITY (spec 2026-09-02-cowife-visibility-design.md) ===
           Husband-only switch; the wife-facing list it unlocks is names + a

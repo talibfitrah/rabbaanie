@@ -1,5 +1,5 @@
-import { useMemo } from "react";
-import { View, Text } from "react-native";
+import { useMemo, type ReactNode } from "react";
+import { View, Text, ActivityIndicator } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { trpc } from "@/lib/trpc";
@@ -10,7 +10,7 @@ type Lang = "nl" | "en" | "ar";
 const tx = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
 
 /** Husband-side, per wife. Server gate: active confirmed partnership only (INV-1/INV-4). */
-export function WifeCycleStatus({ wifeId }: { wifeId: number }) {
+export function WifeCycleStatus({ wifeId, emptyFallback }: { wifeId: number; emptyFallback?: ReactNode }) {
   const colors = useColors();
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
@@ -26,7 +26,19 @@ export function WifeCycleStatus({ wifeId }: { wifeId: number }) {
     const todayDay = q.data.days.find((d) => d.date === today) ?? null;
     return { t, r: rulingsFor(t), p: predict(days, settings, today), todayDay };
   }, [q.data, today]);
-  if (!view) return null;
+  // Loading is NOT "not shared": while the query is in flight, view is also
+  // null. Show a spinner so a caller's emptyFallback ("not shared yet") can't
+  // flash for a wife who actually tracks her cycle.
+  if (q.isLoading) return <ActivityIndicator size="small" color={colors.primary} />;
+  // A fetch error is not "not shared" either — say so distinctly rather than
+  // claim she tracks nothing.
+  if (q.isError)
+    return (
+      <Text style={{ color: colors.muted, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+        {tx(lang, "Kon niet laden", "Couldn't load", "تعذّر تحميل المعلومات")}
+      </Text>
+    );
+  if (!view) return <>{emptyFallback ?? null}</>;
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
   const line = (s: string) => <Text style={[{ color: colors.foreground, fontSize: 12, marginTop: 2 }, align]}>{s}</Text>;
   return (
