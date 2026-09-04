@@ -17,6 +17,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islamic-reminders";
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDuoRow } from "@/components/daily-duo-row";
+import { WifeCardActions } from "@/components/wife-card-actions";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -88,9 +89,12 @@ export default function AlgemeenScreen() {
   const [prayerMethod, setPrayerMethod] = useState<CalcMethod>(CALC_METHODS[0]);
   const [completedGoals, setCompletedGoals] = useState<string[]>([]);
   const [childrenExpanded, setChildrenExpanded] = useState(false);
+  const [wifeExpanded, setWifeExpanded] = useState(false);
   const [quickActionsExpanded, setQuickActionsExpanded] = useState(true);
   const { isAuthenticated } = useAuth();
   const coParentsQuery = trpc.links.coParents.useQuery(undefined, { enabled: isAuthenticated, refetchOnMount: "always", staleTime: 0 });
+  // For the per-wife action buttons' confirmed-spouse gate (WifeCardActions).
+  const homePartners = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated }).data ?? [];
   const [syncing, setSyncing] = useState(false);
   const [syncResult, setSyncResult] = useState<string | null>(null);
   const syncMutation = trpc.links.syncWithPartner.useMutation();
@@ -522,11 +526,16 @@ export default function AlgemeenScreen() {
       {/* ═══════════ PARTNER SECTION ═══════════ */}
       {isAuthenticated && (coParentsQuery.data ?? []).length > 0 && (
         <>
-          <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <View style={s.sectionLine} />
-            <Text style={s.sectionTitle}>{tx(lang, "Partner", "Spouse", "الزوجة")}</Text>
-          </View>
-          {(coParentsQuery.data ?? []).map((cp: any) => (
+          {/* Collapsible like the children section below (Daa3iyah 2026-09-04),
+              collapsed by default. */}
+          <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setWifeExpanded(!wifeExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
+            <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <View style={s.sectionLine} />
+              <Text style={s.sectionTitle}>{tx(lang, "Partner", "Spouse", "الزوجة")}</Text>
+              <MaterialIcons name={wifeExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
+            </View>
+          </Pressable>
+          {wifeExpanded && (coParentsQuery.data ?? []).map((cp: any) => (
             <Pressable
               key={cp.id}
               onPress={() => router.push("/(tabs)/messages" as any)}
@@ -553,18 +562,15 @@ export default function AlgemeenScreen() {
                   </View>
                 </View>
                 <Pressable
-                  onPress={() => router.push("/spouse-profile" as any)}
-                  style={({ pressed }) => [{ padding: 4, opacity: pressed ? 0.6 : 1 }]}
-                >
-                  <MaterialIcons name="person" size={18} color="#1B4332" />
-                </Pressable>
-                <Pressable
                   onPress={() => router.push("/(tabs)/messages" as any)}
                   style={({ pressed }) => [{ padding: 4, opacity: pressed ? 0.6 : 1 }]}
                 >
                   <MaterialIcons name="chat-bubble-outline" size={18} color="#1B4332" />
                 </Pressable>
               </View>
+              {/* الحيض وأثره + ملفها — shared with the family tab; «ملفها»
+                  replaces the old person icon (Daa3iyah 2026-09-04). */}
+              <WifeCardActions cp={cp} partners={homePartners} viewerGender={state.parentProfile.gender} />
             </Pressable>
           ))}
         </>

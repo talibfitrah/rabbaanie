@@ -38,25 +38,27 @@ describe("husband's wife-cycle status", () => {
     expect(intercourseIdx).toBeGreaterThan(bloodTypeIdx);
   });
 
-  // 2026-09-04 (Daa3iyah): the wife cycle status MOVED from the «شبكتي» tab
-  // (messages.tsx) to a per-wife «الحيض وأثره» button on the «العائلة» tab
-  // (family.tsx), opening a modal. The C13 invariant is preserved a different
-  // way: the button is gated on the CONFIRMED PARTNERSHIP (partners.some(p.id
-  // === cp.id && p.confirmed)) — the same partnership trpc.cycle.getPartner
-  // itself checks — never the family-panel/coParents gate.
-  it("is gone from the network tab and now opens per confirmed spouse on the family tab (still partnership-gated, attributed by wife)", () => {
+  // 2026-09-04 (Daa3iyah): the wife cycle status MOVED off the «شبكتي» tab
+  // (messages.tsx) into a shared per-wife action component (WifeCardActions)
+  // used by BOTH the «العائلة» tab (family.tsx) and the home screen (index.tsx).
+  // The C13 invariant is preserved a different way: the «الحيض وأثره» button is
+  // gated on the CONFIRMED PARTNERSHIP (partners.some(p.id === cp.id &&
+  // p.confirmed)) — the same partnership trpc.cycle.getPartner itself checks —
+  // never the family-panel/coParents gate.
+  it("is gone from the network tab and now opens per confirmed spouse from the shared WifeCardActions (used on family + home)", () => {
     const network = readFileSync("app/(tabs)/messages.tsx", "utf8");
     expect(network).not.toContain("<WifeCycleStatus");
     expect(network).not.toContain("WifeCycleCollapse");
 
-    const family = readFileSync("app/(tabs)/family.tsx", "utf8");
-    expect(family).toContain("<WifeCycleStatus");
-    // Opened only for a CURRENT confirmed spouse — never a divorced ex
-    // co-parent that getCoParents also surfaces. Whitespace-tolerant so a
-    // reformat can't silently drop the guard (assert the invariant, not
-    // the exact formatting).
-    expect(family).toMatch(/partners\s*\.\s*some\([\s\S]{0,80}p\.confirmed/);
-    // The cycle button opens the modal for this specific wife (cp.id).
-    expect(family).toMatch(/setCycleWife\(\s*\{[\s\S]{0,60}cp\.id/);
+    // The cycle status + confirmed-spouse gate live in ONE shared component.
+    const actions = readFileSync("components/wife-card-actions.tsx", "utf8");
+    expect(actions).toContain("<WifeCycleStatus");
+    // Whitespace-tolerant so a reformat can't silently drop the guard (assert
+    // the invariant, not the exact formatting).
+    expect(actions).toMatch(/partners\s*\.\s*some\([\s\S]{0,80}p\.confirmed/);
+
+    // Both screens render the shared component per wife card.
+    expect(readFileSync("app/(tabs)/family.tsx", "utf8")).toContain("<WifeCardActions");
+    expect(readFileSync("app/(tabs)/index.tsx", "utf8")).toContain("<WifeCardActions");
   });
 });
