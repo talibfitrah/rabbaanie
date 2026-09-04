@@ -531,8 +531,8 @@ export default function AlgemeenScreen() {
               collapsed by default. */}
           <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setWifeExpanded(!wifeExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
             <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <View style={s.sectionLine} />
               <Text style={s.sectionTitle}>{spouseSectionTitle(lang, state.parentProfile.gender, homePartners.filter((p) => p.confirmed).length)}</Text>
+              <View style={s.sectionLine} />
               <MaterialIcons name={wifeExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
             </View>
           </Pressable>
@@ -581,13 +581,13 @@ export default function AlgemeenScreen() {
       <>
         <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setChildrenExpanded(!childrenExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
           <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <View style={s.sectionLine} />
             <Text style={s.sectionTitle}>{tx(lang, "Uw kinderen", "Your Children", "أبناؤك")}</Text>
             {state.children.length > 0 && (
               <View style={[s.sectionBadge, { backgroundColor: "#FFF3E0" }]}>
                 <Text style={[s.sectionBadgeText, { color: "#E65100" }]}>{state.children.length}</Text>
               </View>
             )}
+            <View style={s.sectionLine} />
             <MaterialIcons name={childrenExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
           </View>
         </Pressable>
@@ -659,8 +659,8 @@ export default function AlgemeenScreen() {
       {/* ═══════════ QUICK ACTIONS GRID ═══════════ */}
       <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setQuickActionsExpanded(!quickActionsExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
         <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-          <View style={[s.sectionLine, { backgroundColor: "#1565C030" }]} />
           <Text style={[s.sectionTitle, { color: "#1565C0" }]}>{tx(lang, "Snelle acties", "Quick Actions", "إجراءات سريعة")}</Text>
+          <View style={[s.sectionLine, { backgroundColor: "#1565C030" }]} />
           <MaterialIcons name={quickActionsExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#1565C0" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
         </View>
       </Pressable>
