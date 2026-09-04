@@ -3153,21 +3153,24 @@ export const linksRouter = router({
     // response are covered.
     const notSyncedFromElsewhere = (rows: any) =>
       Array.isArray(rows) ? rows.filter((r: any) => !r?.syncedFromPartner) : [];
-    // Polygyny (2026-09-04): a husband's children belong to SPECIFIC wives
-    // (nasab, assigned per-child via profile.save motherId), never to every
-    // wife. Auto-merging his household into a CO-WIFE crosslinks one wife's
-    // children onto another — reported live: a childless co-wife showed the
-    // husband's 9 children as "shared". getPartnersOfUser(partner) > 1 means
-    // `partner` is a husband with multiple wives, so the caller is a co-wife:
-    // merge NONE of his children. A husband syncing with ONE chosen wife is
+    // Polygyny (2026-09-04): a husband's household — children (nasab, assigned
+    // per-child via profile.save motherId) AND the environments/issues/plans
+    // tied to them — belongs to SPECIFIC wives, never to every wife. Merging it
+    // into a CO-WIFE crosslinks one wife's household onto another (reported
+    // live: a childless co-wife showed the husband's 9 children as "shared").
+    // getPartnersOfUser(partner) > 1 means `partner` is a husband with multiple
+    // wives, so the caller is a co-wife: merge NONE of his household (all four
+    // arrays, not just children — issues/plans don't ride on children and would
+    // otherwise still leak). A husband syncing with ONE chosen wife is
     // unaffected (that wife has exactly one partner — him).
     const partnerIsPolygynousHusband = (await db.getPartnersOfUser(partner.id)).length > 1;
+    const mergeable = (rows: any) => (partnerIsPolygynousHusband ? [] : notSyncedFromElsewhere(rows));
     partnerData = {
       ...partnerData,
-      children: partnerIsPolygynousHusband ? [] : notSyncedFromElsewhere(partnerData.children),
-      environments: notSyncedFromElsewhere(partnerData.environments),
-      issues: notSyncedFromElsewhere(partnerData.issues),
-      actionPlans: notSyncedFromElsewhere(partnerData.actionPlans),
+      children: mergeable(partnerData.children),
+      environments: mergeable(partnerData.environments),
+      issues: mergeable(partnerData.issues),
+      actionPlans: mergeable(partnerData.actionPlans),
     };
 
     // Merge children: add partner's children that I don't have
