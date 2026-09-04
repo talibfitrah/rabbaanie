@@ -152,7 +152,7 @@ describe("db.setCoWivesVisible / getCoWivesVisibility / listCoWives (real server
     expect(await real.getCoWivesVisibility(1)).toBe(false);
   });
 
-  it("listCoWives: enabled → wife A sees B by id+name only, and the payload has exactly those two keys", async () => {
+  it("listCoWives: enabled → wife A sees B by id+name+canChat, and the payload has exactly those three keys", async () => {
     const real = await vi.importActual<typeof import("../server/db")>("../server/db");
     partnershipDb.queue = [
       [{ id: 10, userId1: 1, userId2: 2, status: "active", confirmed: true, coWivesVisible: true }], // A's own row (full row — no projection)
@@ -163,10 +163,11 @@ describe("db.setCoWivesVisible / getCoWivesVisibility / listCoWives (real server
         { u1: 1, u2: 3, v: true },
       ], // H's other active+confirmed rows
       [{ id: 3, name: "B" }], // users names
+      [{ v: true }], // getCoWivesCanChat(husbandId) — added alongside coWivesCanChat
     ];
     const forA = await real.listCoWives(2);
-    expect(forA).toEqual([{ id: 3, name: "B" }]);
-    expect(Object.keys(forA[0]).sort()).toEqual(["id", "name"]);
+    expect(forA).toEqual([{ id: 3, name: "B", canChat: true }]);
+    expect(Object.keys(forA[0]).sort()).toEqual(["canChat", "id", "name"]);
   });
 
   it("listCoWives: disabled on her own row → []", async () => {

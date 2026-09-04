@@ -964,6 +964,13 @@ export const partnerships = mysqlTable("partnerships", {
    * a partnership created later starts false too — no inheritance (YAGNI).
    */
   coWivesVisible: boolean("coWivesVisible").notNull().default(false),
+  /**
+   * Husband-only switch (server-only feature, 2026-09-04): while true on ALL
+   * of his active confirmed rows, those wives may direct-message EACH OTHER
+   * (messages gated via areCoWivesAllowedToChat in server/db.ts). Same
+   * default/no-inheritance rule as coWivesVisible beside it.
+   */
+  coWivesCanChat: boolean("coWivesCanChat").notNull().default(false),
 });
 
 export type Partnership = typeof partnerships.$inferSelect;

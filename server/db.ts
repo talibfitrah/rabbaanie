@@ -5978,12 +5978,14 @@ export async function getCoWivesVisibility(husbandId: number): Promise<boolean> 
 }
 
 /**
- * A wife's co-wives, by id and name only. [] unless HER OWN row has the flag
- * on (INV-1 stays the default) — and, per wife, only for co-wives whose OWN
- * row is also flagged (a wife added after the husband's last toggle starts
- * unflagged on both sides until he re-toggles).
+ * A wife's co-wives, by id and name (plus the husband's coWivesCanChat
+ * switch, same value on every row since they share one husband). [] unless
+ * HER OWN row has the visibility flag on (INV-1 stays the default) — and,
+ * per wife, only for co-wives whose OWN row is also flagged (a wife added
+ * after the husband's last toggle starts unflagged on both sides until he
+ * re-toggles).
  */
-export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null }>> {
+export async function listCoWives(wifeId: number): Promise<Array<{ id: number; name: string | null; canChat: boolean }>> {
   const db = await getDb();
   if (!db) return [];
   const mine = await db
@@ -6001,5 +6003,59 @@ export async function listCoWives(wifeId: number): Promise<Array<{ id: number; n
   const ids = others.filter((o) => o.v).map((o) => (o.u1 === husbandId ? o.u2 : o.u1)).filter((id) => id !== wifeId);
   if (!ids.length) return [];
   const names = await db.select({ id: users.id, name: users.name }).from(users).where(inArray(users.id, ids));
-  return names.map((n) => ({ id: n.id, name: n.name ?? null }));
+  const canChat = await getCoWivesCanChat(husbandId);
+  return names.map((n) => ({ id: n.id, name: n.name ?? null, canChat }));
+}
+
+// ---- co-wife direct messaging (husband-gated, mirrors coWivesVisible above) ----
+
+/**
+ * Husband-only switch: byte-for-byte mirror of setCoWivesVisible on the new
+ * coWivesCanChat column. See that function's own comment for why this counts
+ * via a SELECT of the same WHERE rather than affectedRows() on the UPDATE.
+ */
+export async function setCoWivesCanChat(husbandId: number, canChat: boolean): Promise<number> {
+  const db = await getDb();
+  if (!db) throw new Error("Database not available");
+  const where = hisActiveConfirmedRows(husbandId);
+  const matched = await db.select({ id: partnerships.id }).from(partnerships).where(where);
+  await db.update(partnerships).set({ coWivesCanChat: canChat }).where(where);
+  return matched.length;
+}
+
+/** True only when the husband has ≥1 active confirmed partnership and every one of them is flagged. */
+export async function getCoWivesCanChat(husbandId: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db) return false;
+  const rows = await db.select({ v: partnerships.coWivesCanChat }).from(partnerships).where(hisActiveConfirmedRows(husbandId));
+  return rows.length > 0 && rows.every((r) => r.v);
+}
+
+/**
+ * True iff userA and userB are two DIFFERENT active+confirmed wives of the
+ * SAME husband, and that husband has coWivesCanChat on. "Husband of X" is
+ * resolved the same way listCoWives resolves husbandId — the other party of
+ * X's own active+confirmed row — computed independently for each side and
+ * then compared. A husband paired with his own wife (or with himself) never
+ * resolves to an EQUAL "other party" on both sides (his own row's other
+ * party is a WIFE, not a husband), so this rejects every non-co-wife pairing
+ * without a separate users.gender lookup — same reliance listCoWives itself
+ * has on "at most one active+confirmed row for a wife".
+ */
+export async function areCoWivesAllowedToChat(userA: number, userB: number): Promise<boolean> {
+  const db = await getDb();
+  if (!db || userA === userB) return false;
+  const otherPartyOf = async (id: number): Promise<number | null> => {
+    const [row] = await db
+      .select({ u1: partnerships.userId1, u2: partnerships.userId2 })
+      .from(partnerships)
+      .where(hisActiveConfirmedRows(id))
+      .limit(1);
+    return row ? (row.u1 === id ? row.u2 : row.u1) : null;
+  };
+  const husbandA = await otherPartyOf(userA);
+  if (husbandA === null) return false;
+  const husbandB = await otherPartyOf(userB);
+  if (husbandB === null || husbandA !== husbandB) return false;
+  return getCoWivesCanChat(husbandA);
 }

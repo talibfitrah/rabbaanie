@@ -118,6 +118,26 @@ export async function assertConfirmedCoParent(
   }
 }
 
+/**
+ * Combined direct-message gate: allowed if the pair are confirmed co-parents
+ * (existing rule, unchanged) OR both are confirmed wives of the same husband
+ * with his coWivesCanChat switch on. Returns which gate passed so the caller
+ * can still apply co-parent-only rules (e.g. childId) without conflating the
+ * two paths — co-wives share no child.
+ */
+export async function assertCanDirectMessage(
+  user: AccessUser,
+  otherUserId: number,
+): Promise<{ viaCoParent: boolean }> {
+  if (await db.areConfirmedCoParents(user.id, otherUserId)) {
+    return { viaCoParent: true };
+  }
+  if (await db.areCoWivesAllowedToChat(user.id, otherUserId)) {
+    return { viaCoParent: false };
+  }
+  forbidden("Alleen bevestigde co-ouders kunnen berichten uitwisselen");
+}
+
 export async function assertAvailableSpecialist(userId: number) {
   if (!(await db.isAvailableSpecialist(userId))) {
     forbidden("Specialist is niet beschikbaar");

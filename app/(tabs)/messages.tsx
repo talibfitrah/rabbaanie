@@ -1030,6 +1030,11 @@ function ParentsSection({
     onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); },
   });
   const coWivesQuery = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
+  // Second husband switch (2026-09-04): lets his wives message each other.
+  const coWivesCanChat = trpc.links.coWivesCanChat.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
+  const setCoWivesCanChat = trpc.links.setCoWivesCanChat.useMutation({
+    onSuccess: () => { utils.links.coWivesCanChat.invalidate(); utils.links.coWives.invalidate(); },
+  });
   // Sort children by birth date (oldest first)
   const sortedChildren = [...(localChildren || [])].sort((a: any, b: any) => {
     if (!a.birthDate) return 1;
@@ -1241,15 +1246,30 @@ function ParentsSection({
           Husband-only switch; the wife-facing list it unlocks is names + a
           badge only — no chat button, no navigation, no children. */}
       {knownToBeMan && (
-        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>
-          <Text style={{ color: colors.foreground, flex: 1, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
-            {tx(lang, "Mijn echtgenotes mogen elkaars naam zien", "Let my wives see each other's names", "السماح لزوجاتي بمعرفة بعضهن (بالاسم فقط)")}
-          </Text>
-          <Switch
-            value={!!coWivesVis.data?.visible}
-            disabled={setCoWivesVis.isPending}
-            onValueChange={(v) => setCoWivesVis.mutate({ visible: v })}
-          />
+        <View style={{ gap: 10 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border }}>
+            <Text style={{ color: colors.foreground, flex: 1, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+              {tx(lang, "Mijn echtgenotes mogen elkaars naam zien", "Let my wives see each other's names", "السماح لزوجاتي بمعرفة بعضهن (بالاسم فقط)")}
+            </Text>
+            <Switch
+              value={!!coWivesVis.data?.visible}
+              disabled={setCoWivesVis.isPending}
+              onValueChange={(v) => setCoWivesVis.mutate({ visible: v })}
+            />
+          </View>
+          {/* Second switch: lets those wives message EACH OTHER. Useless until
+              they can see each other, so it's disabled until the names switch
+              above is on. */}
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, borderWidth: 1, borderColor: colors.border, opacity: coWivesVis.data?.visible ? 1 : 0.5 }}>
+            <Text style={{ color: colors.foreground, flex: 1, fontSize: 13, textAlign: isRTL ? "right" : "left" }}>
+              {tx(lang, "Mijn echtgenotes mogen met elkaar praten", "Let my wives talk to each other", "السماح لزوجاتي بالتواصل مع بعضهن")}
+            </Text>
+            <Switch
+              value={!!coWivesCanChat.data?.canChat}
+              disabled={!coWivesVis.data?.visible || setCoWivesCanChat.isPending}
+              onValueChange={(v) => setCoWivesCanChat.mutate({ canChat: v })}
+            />
+          </View>
         </View>
       )}
       {userGender === "vrouw" && (coWivesQuery.data?.length ?? 0) > 0 && (
@@ -1266,11 +1286,21 @@ function ParentsSection({
                 <Text style={{ fontSize: 14, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
                   {w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}
                 </Text>
-                <View style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 2, paddingHorizontal: 8 }}>
-                  <Text style={{ fontSize: 11, color: "#fff", fontWeight: "700" }}>
-                    {tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}
-                  </Text>
-                </View>
+                {w.canChat ? (
+                  <TouchableOpacity
+                    onPress={() => setSelected({ type: "coparent", id: w.id, name: w.name || tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة") })}
+                    style={{ backgroundColor: colors.primary, borderRadius: 20, paddingVertical: 6, paddingHorizontal: 12, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}
+                  >
+                    <MaterialIcons name="chat" size={16} color="#fff" />
+                    <Text style={{ fontSize: 12, color: "#fff", fontWeight: "700" }}>{tx(lang, "Chat", "Chat", "محادثة")}</Text>
+                  </TouchableOpacity>
+                ) : (
+                  <View style={{ backgroundColor: colors.primary, borderRadius: 8, paddingVertical: 2, paddingHorizontal: 8 }}>
+                    <Text style={{ fontSize: 11, color: "#fff", fontWeight: "700" }}>
+                      {tx(lang, "Mede-echtgenote", "Co-wife", "الأخت الشريكة")}
+                    </Text>
+                  </View>
+                )}
               </View>
             ))}
           </View>

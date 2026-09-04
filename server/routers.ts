@@ -59,7 +59,7 @@ import {
   assertFamilyOwner,
   assertFamilyPermission,
   assertFamilyRecipient,
-  assertConfirmedCoParent,
+  assertCanDirectMessage,
   assertMayConfirmLink,
   assertMayRemoveLink,
   assertMessageReadAccess,
@@ -2495,15 +2495,24 @@ export const linksRouter = router({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await assertConfirmedCoParent(ctx.user, input.recipientId);
-      if (input.childId) {
-        await assertChildAccess(ctx.user, input.childId);
-        if (!(await db.getConfirmedParentChildLink(input.recipientId, input.childId))) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "Dit kind wordt niet met de ontvanger gedeeld",
-          });
+      const { viaCoParent } = await assertCanDirectMessage(ctx.user, input.recipientId);
+      if (viaCoParent) {
+        if (input.childId) {
+          await assertChildAccess(ctx.user, input.childId);
+          if (!(await db.getConfirmedParentChildLink(input.recipientId, input.childId))) {
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Dit kind wordt niet met de ontvanger gedeeld",
+            });
+          }
         }
+      } else if (input.childId) {
+        // Co-wife-only path (not co-parents): co-wives share no child, so a
+        // childId here is illegitimate.
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Kinderen worden niet gedeeld tussen mede-echtgenotes",
+        });
       }
       // Find a shared family or use familyId=0 for direct messages
       const id = await db.sendMessage({
@@ -2542,7 +2551,7 @@ export const linksRouter = router({
   directMessages: protectedProcedure
     .input(z.object({ otherParentId: z.number() }))
     .query(async ({ ctx, input }) => {
-      await assertConfirmedCoParent(ctx.user, input.otherParentId);
+      await assertCanDirectMessage(ctx.user, input.otherParentId);
       return db.getDirectMessages(ctx.user.id, input.otherParentId);
     }),
 
@@ -2669,6 +2678,36 @@ export const linksRouter = router({
     );
     if (myGender !== "man") return { visible: false };
     return { visible: await db.getCoWivesVisibility(ctx.user.id) };
+  }),
+
+  /**
+   * Husband-only switch, mirrors setCoWivesVisible: while on, his
+   * active+confirmed wives may direct-message EACH OTHER (sendDirectMessage
+   * / directMessages above, gated via assertCanDirectMessage ->
+   * db.areCoWivesAllowedToChat).
+   */
+  setCoWivesCanChat: protectedProcedure
+    .input(z.object({ canChat: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const myGender = resolveGender(
+        (ctx.user as any).gender,
+        (ctx.user.profileData as any)?.parentProfile?.gender,
+      );
+      if (myGender !== "man") {
+        throw new TRPCError({ code: "FORBIDDEN", message: "not allowed" });
+      }
+      await db.setCoWivesCanChat(ctx.user.id, input.canChat);
+      return { canChat: input.canChat };
+    }),
+
+  /** Husband reads his own switch state; anyone else gets `false`. */
+  coWivesCanChat: protectedProcedure.query(async ({ ctx }) => {
+    const myGender = resolveGender(
+      (ctx.user as any).gender,
+      (ctx.user.profileData as any)?.parentProfile?.gender,
+    );
+    if (myGender !== "man") return { canChat: false };
+    return { canChat: await db.getCoWivesCanChat(ctx.user.id) };
   }),
 
   /** Wife-only: her co-wives' names, only while her husband's switch is on. */
