@@ -39,6 +39,7 @@ import { SyncToast } from "@/components/sync-toast";
 import { PremiumGate } from "@/components/premium-notice";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { toggleProfileAccess } from "@/lib/partner-profile-toggle";
+import { spouseSectionTitle } from "@/lib/spouse-label";
 
 type Tab = "id" | "parents" | "reports" | "teachers" | "scholars" | "doctors";
 
@@ -1035,6 +1036,8 @@ function ParentsSection({
     onSuccess: () => { utils.links.coWivesVisibility.invalidate(); utils.links.coWives.invalidate(); },
   });
   const coWivesQuery = trpc.links.coWives.useQuery(undefined, { enabled: isAuthenticated && userGender === "vrouw" });
+  // Count of CURRENT confirmed spouses, for the count-aware section title.
+  const spouseCount = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated }).data?.filter((p) => p.confirmed).length ?? 0;
   // Second husband switch (2026-09-04): lets his wives message each other.
   const coWivesCanChat = trpc.links.coWivesCanChat.useQuery(undefined, { enabled: isAuthenticated && knownToBeMan });
   const setCoWivesCanChat = trpc.links.setCoWivesCanChat.useMutation({
@@ -1075,7 +1078,7 @@ function ParentsSection({
       {/* === SPOUSE SECTION === */}
       <View style={{ gap: 4 }}>
         <Text style={{ fontSize: 13, fontWeight: "700", color: colors.muted, textAlign: isRTL ? "right" : "left", textTransform: "uppercase", letterSpacing: 1, marginBottom: 8 }}>
-          {tx(lang, "Partner", "Spouse", "الزوجة")}
+          {spouseSectionTitle(lang, userGender, spouseCount)}
         </Text>
 
         {coParents.length > 0 && (

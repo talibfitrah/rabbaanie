@@ -18,6 +18,7 @@ import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islam
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDuoRow } from "@/components/daily-duo-row";
 import { WifeCardActions } from "@/components/wife-card-actions";
+import { spouseSectionTitle } from "@/lib/spouse-label";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -531,7 +532,7 @@ export default function AlgemeenScreen() {
           <Pressable onPress={() => { LayoutAnimation.configureNext(LayoutAnimation.Presets.easeInEaseOut); setWifeExpanded(!wifeExpanded); }} style={({ pressed }) => [pressed && { opacity: 0.8 }]}>
             <View style={[s.sectionHeader, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <View style={s.sectionLine} />
-              <Text style={s.sectionTitle}>{tx(lang, "Partner", "Spouse", "الزوجة")}</Text>
+              <Text style={s.sectionTitle}>{spouseSectionTitle(lang, state.parentProfile.gender, homePartners.filter((p) => p.confirmed).length)}</Text>
               <MaterialIcons name={wifeExpanded ? "keyboard-arrow-up" : "keyboard-arrow-down"} size={22} color="#666" style={isRTL ? { marginRight: 8 } : { marginLeft: 8 }} />
             </View>
           </Pressable>

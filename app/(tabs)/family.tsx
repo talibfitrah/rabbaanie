@@ -36,6 +36,7 @@ import { syncRefusedMessage } from "@/lib/sync-refusal";
 import { isFullPartnerProfile } from "@/lib/partner-types";
 import type { PartnerListEntry } from "@/lib/partner-types";
 import { WifeCardActions } from "@/components/wife-card-actions";
+import { spouseSectionTitle } from "@/lib/spouse-label";
 
 if (
   Platform.OS === "android" &&
@@ -2964,24 +2965,7 @@ export default function FamilyScreen() {
             colors={colors}
             isRTL={isRTL}
             defaultExpanded={false}
-            title={(() => {
-              // Husband sees الزوجة / الزوجتان / الزوجات (1 / 2 / 3+), a wife
-              // sees الزوج. Count CURRENT confirmed spouses, not coParents —
-              // the latter also includes a divorced ex who still shares a child.
-              const n = partners.filter((p) => p.confirmed).length;
-              if (n > 0 && pp.gender === "man")
-                return tx(
-                  lang,
-                  n > 1 ? "Echtgenotes" : "Echtgenote",
-                  n > 1 ? "Wives" : "Wife",
-                  n === 1 ? "الزوجة" : n === 2 ? "الزوجتان" : "الزوجات",
-                );
-              if (n > 0 && pp.gender === "vrouw")
-                return tx(lang, "Echtgenoot", "Husband", "الزوج");
-              // 0 current confirmed spouses (e.g. only a divorced co-parent
-              // sharing a child): neutral label, never a wife/husband word.
-              return tx(lang, "Partner", "Partner", "الشريك/ة");
-            })()}
+            title={spouseSectionTitle(lang, pp.gender, partners.filter((p) => p.confirmed).length)}
           >
             {(coParentsQuery.data ?? []).map((cp: any) => (
               <Pressable
