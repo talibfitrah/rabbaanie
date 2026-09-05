@@ -1021,6 +1021,10 @@ export default function SubscribeScreen() {
               ))}
             </View>
 
+            {/* Per-tier euro prices + selection are Stripe (github) only: on
+                Play/Apple the store sets the price (per country, tax-inclusive)
+                and sells one product, so hardcoded €25/30/40 would misstate it. */}
+            {DISTRIBUTION_CHANNEL === "github" && (
             <View
               style={{
                 flexDirection: isRTL ? "row-reverse" : "row",
@@ -1123,6 +1127,7 @@ export default function SubscribeScreen() {
                 </TouchableOpacity>
               ))}
             </View>
+            )}
 
             <View
               style={{
