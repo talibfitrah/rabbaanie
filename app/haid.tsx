@@ -270,12 +270,12 @@ export default function HaidScreen() {
                 onPress={() => setOpenRulings((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
                 style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}
               >
-                <Text style={[{ color: colors.foreground, fontSize: 14, fontWeight: "600", flex: 1 }, align]}>{s.title}</Text>
+                <Text style={[{ color: colors.foreground, fontSize: 14, fontWeight: "600", flex: 1 }, align]}>{s.title[lang]}</Text>
                 <MaterialIcons name={open ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
               </Pressable>
               {open && (
                 <Text style={[{ color: colors.muted, fontSize: 13, lineHeight: 24, marginTop: 6 }, align]}>
-                  {s.body.replace(/\*\*/g, "").replace(/#{1,6}[ \t]*/g, "").replace(/\n?---\s*$/, "").trim()}
+                  {s.body[lang].replace(/\*\*/g, "").replace(/#{1,6}[ \t]*/g, "").replace(/\n?---\s*$/, "").trim()}
                 </Text>
               )}
             </View>
