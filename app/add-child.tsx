@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from "react";
 import { View, Text, Pressable, TextInput, ScrollView, Alert, Platform, KeyboardAvoidingView } from "react-native";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
+import { useAuthContext } from "@/lib/auth-context";
 import { useI18n, Language } from "@/lib/i18n";
-import { ChildProfile, otherParentTier } from "@/lib/store";
+import { ChildProfile, otherParentTier, childParentFields } from "@/lib/store";
 import { DatePicker } from "@/components/date-picker";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { trpc } from "@/lib/trpc";
@@ -21,11 +22,19 @@ function AddChildScreenInner() {
   const router = useRouter();
   const { language } = useI18n();
   const lang = language as Language;
-  const { addChild, state } = useAppState();
+  const { addChild, updateChild, state } = useAppState();
+  const { user } = useAuthContext();
 
-  const [name, setName] = useState("");
-  const [gender, setGender] = useState<"jongen" | "meisje" | "">("");
-  const [birthDate, setBirthDate] = useState("");
+  // Edit mode: /add-child?childId=<id> reuses this create screen instead of
+  // building a second one, so the mother/father pickers below (and their fix
+  // for the motherId-attribution bug — see childParentFields in lib/store.ts)
+  // apply to an existing child too, not just a new one.
+  const { childId } = useLocalSearchParams<{ childId?: string }>();
+  const editingChild = childId ? state?.children?.find((c) => c.id === childId) : undefined;
+
+  const [name, setName] = useState(editingChild?.name || "");
+  const [gender, setGender] = useState<"jongen" | "meisje" | "">(editingChild?.gender || "");
+  const [birthDate, setBirthDate] = useState(editingChild?.birthDate || "");
   const [bsn, setBsn] = useState("");
   const [saving, setSaving] = useState(false);
 
@@ -41,9 +50,11 @@ function AddChildScreenInner() {
   const coParents: { id: number; name: string | null }[] = coParentsQuery.data ?? [];
   const viewerGender = state?.parentProfile?.gender || "man";
   const otherTier = otherParentTier(viewerGender, coParents.length);
-  const [fatherChoice, setFatherChoice] = useState<number | "external" | null>(null);
-  const [externalFatherNameInput, setExternalFatherNameInput] = useState("");
-  const [motherChoice, setMotherChoice] = useState<number | null>(null);
+  const [fatherChoice, setFatherChoice] = useState<number | "external" | null>(
+    editingChild?.fatherId ?? (editingChild?.externalFatherName ? "external" : null),
+  );
+  const [externalFatherNameInput, setExternalFatherNameInput] = useState(editingChild?.externalFatherName || "");
+  const [motherChoice, setMotherChoice] = useState<number | null>(editingChild?.motherId ?? null);
   const [showOtherFather, setShowOtherFather] = useState(false);
 
   // Pre-fills the single-co-parent default once it loads. A plain effect,
@@ -73,8 +84,12 @@ function AddChildScreenInner() {
       return;
     }
     setSaving(true);
-    // Generate deterministic ID from name + birthdate for consistent parent-child linking
-    const childIdBase = `${name.trim().toLowerCase().replace(/\s+/g, "_")}_${(birthDate || "unknown").replace(/-/g, "")}`;
+    // Generate deterministic ID from name + birthdate for consistent parent-child linking.
+    // Editing keeps the existing id — the point is to correct this child's
+    // record in place, never to fork a second one.
+    const childIdBase = editingChild
+      ? editingChild.id
+      : `${name.trim().toLowerCase().replace(/\s+/g, "_")}_${(birthDate || "unknown").replace(/-/g, "")}`;
     const child: ChildProfile = {
       id: childIdBase,
       name: name.trim(),
@@ -82,26 +97,35 @@ function AddChildScreenInner() {
       gender: gender || "",
       profileCompleted: !!(name && birthDate && gender),
       laterInvullen: false,
-      parentId: state?.parentProfile?.firstName || "parent",
-      ...(viewerGender === "man" && motherChoice != null ? { motherId: motherChoice } : {}),
-      ...(viewerGender !== "man" && typeof fatherChoice === "number" ? { fatherId: fatherChoice } : {}),
-      ...(viewerGender !== "man" && fatherChoice === "external" && externalFatherNameInput.trim()
-        ? { externalFatherName: externalFatherNameInput.trim() }
-        : {}),
+      parentId: editingChild?.parentId || state?.parentProfile?.firstName || "parent",
+      ...childParentFields({
+        viewerGender,
+        viewerOwnId: user?.id ?? null,
+        motherChoice,
+        fatherChoice,
+        externalFatherName: externalFatherNameInput,
+      }),
     };
-    await addChild(child);
-    // If BSN/ID is provided, auto-link to network
-    if (bsn.trim()) {
-      try {
-        await linkChildMutation.mutateAsync({ childPublicId: bsn.trim(), relationship: "parent" });
-      } catch (e) {
-        // Non-blocking - child is still added locally, suppress error message
+    if (editingChild) {
+      await updateChild(editingChild.id, child);
+    } else {
+      await addChild(child);
+      // If BSN/ID is provided, auto-link to network (create only — an
+      // already-added child isn't re-run through this on an edit save)
+      if (bsn.trim()) {
+        try {
+          await linkChildMutation.mutateAsync({ childPublicId: bsn.trim(), relationship: "parent" });
+        } catch (e) {
+          // Non-blocking - child is still added locally, suppress error message
+        }
       }
     }
     setSaving(false);
     Alert.alert(
       tx(lang, "Opgeslagen", "Saved", "تم الحفظ"),
-      tx(lang, "Kind is toegevoegd, met Gods hulp.", "Child has been added, by God's grace.", "تم الحفظ بعون الله."),
+      editingChild
+        ? tx(lang, "De gegevens van het kind zijn bijgewerkt.", "The child's details have been updated.", "تم تحديث بيانات الطفل.")
+        : tx(lang, "Kind is toegevoegd, met Gods hulp.", "Child has been added, by God's grace.", "تم الحفظ بعون الله."),
       [{ text: tx(lang, "OK", "OK", "حسنًا"), onPress: () => router.back() }]
     );
   };
@@ -115,7 +139,9 @@ function AddChildScreenInner() {
           <MaterialIcons name={isRTL ? "arrow-forward" : "arrow-back"} size={24} color={colors.foreground} />
         </Pressable>
         <Text style={{ flex: 1, textAlign: "center", fontSize: 18, fontWeight: "700", color: colors.foreground }}>
-          {tx(lang, "Kind toevoegen", "Add Child", "إضافة طفل")}
+          {editingChild
+            ? tx(lang, "Kind bewerken", "Edit Child", "تعديل الطفل")
+            : tx(lang, "Kind toevoegen", "Add Child", "إضافة طفل")}
         </Text>
         <View style={{ width: 40 }} />
       </View>
@@ -247,22 +273,27 @@ function AddChildScreenInner() {
           </>
         )}
 
-        {/* BSN / Identity Number */}
-        <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-          {tx(lang, "BSN / ID-nummer", "BSN / ID number", "رقم الهوية / BSN")}
-        </Text>
-        <TextInput
-          value={bsn}
-          onChangeText={setBsn}
-          placeholder={tx(lang, "Optioneel", "Optional", "اختياري")}
-          placeholderTextColor={colors.muted}
-          keyboardType="number-pad"
-          style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 14, fontSize: 16, color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}
-          returnKeyType="done"
-        />
-        <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 20 }}>
-          {tx(lang, "Bij het invullen van het BSN wordt het kind automatisch gekoppeld aan uw netwerk", "When BSN is entered, the child will be automatically linked to your network", "عند إدخال رقم الهوية سيتم ربط الطفل تلقائياً بشبكتك")}
-        </Text>
+        {/* BSN / Identity Number — create only; an already-added child's
+            network link isn't re-run from an edit save. */}
+        {!editingChild && (
+          <>
+            <Text style={{ fontSize: 14, fontWeight: "600", color: colors.foreground, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
+              {tx(lang, "BSN / ID-nummer", "BSN / ID number", "رقم الهوية / BSN")}
+            </Text>
+            <TextInput
+              value={bsn}
+              onChangeText={setBsn}
+              placeholder={tx(lang, "Optioneel", "Optional", "اختياري")}
+              placeholderTextColor={colors.muted}
+              keyboardType="number-pad"
+              style={{ backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, borderRadius: 10, padding: 14, fontSize: 16, color: colors.foreground, textAlign: isRTL ? "right" : "left", marginBottom: 8 }}
+              returnKeyType="done"
+            />
+            <Text style={{ fontSize: 11, color: colors.muted, textAlign: isRTL ? "right" : "left", marginBottom: 20 }}>
+              {tx(lang, "Bij het invullen van het BSN wordt het kind automatisch gekoppeld aan uw netwerk", "When BSN is entered, the child will be automatically linked to your network", "عند إدخال رقم الهوية سيتم ربط الطفل تلقائياً بشبكتك")}
+            </Text>
+          </>
+        )}
 
         {/* Save Button */}
         <Pressable
@@ -271,7 +302,11 @@ function AddChildScreenInner() {
           style={({ pressed }) => [{ backgroundColor: "#1B4332", paddingVertical: 16, borderRadius: 12, alignItems: "center", opacity: pressed || saving ? 0.7 : 1, marginTop: 10 }]}
         >
           <Text style={{ color: "#fff", fontSize: 16, fontWeight: "700" }}>
-            {saving ? tx(lang, "Opslaan...", "Saving...", "جاري الحفظ...") : tx(lang, "Kind toevoegen", "Add Child", "إضافة طفل")}
+            {saving
+              ? tx(lang, "Opslaan...", "Saving...", "جاري الحفظ...")
+              : editingChild
+                ? tx(lang, "Wijzigingen opslaan", "Save changes", "حفظ التغييرات")
+                : tx(lang, "Kind toevoegen", "Add Child", "إضافة طفل")}
           </Text>
         </Pressable>
       </ScrollView>

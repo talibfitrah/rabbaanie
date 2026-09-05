@@ -6,6 +6,7 @@ import {
   pruneEmptyPlaceholderChildren,
   childIdFrom,
   otherParentTier,
+  childParentFields,
   groupChildrenByMother,
   childrenSharedWithCoParent,
   getChildNasabLabel,
@@ -310,6 +311,99 @@ describe("otherParentTier", () => {
 
   it("treats a negative count defensively as skip (never throws on bad input)", () => {
     expect(otherParentTier("man", -1)).toBe("skip");
+  });
+});
+
+// ============ childParentFields ============
+// Regression guard for the 2026-09 mother-attribution bug: a husband's
+// children all ended up with motherId pointing at his OTHER (childless)
+// wife, with no fatherId ever recorded to cross-check it. A man's save must
+// now always record fatherId=himself, in every tier, and can never record a
+// co-wife as the father.
+
+describe("childParentFields", () => {
+  it("a man's save always records himself as father, alongside the chosen mother", () => {
+    expect(
+      childParentFields({
+        viewerGender: "man",
+        viewerOwnId: 1,
+        motherChoice: 3870001,
+        fatherChoice: null,
+        externalFatherName: "",
+      }),
+    ).toEqual({ motherId: 3870001, fatherId: 1 });
+  });
+
+  it("never writes the chosen mother (a co-wife) as fatherId", () => {
+    const result = childParentFields({
+      viewerGender: "man",
+      viewerOwnId: 1,
+      motherChoice: 6390002,
+      fatherChoice: null,
+      externalFatherName: "",
+    });
+    expect(result.fatherId).toBe(1);
+    expect(result.fatherId).not.toBe(6390002);
+  });
+
+  it("a man still records himself as father with no mother chosen yet (skip/unresolved tier)", () => {
+    expect(
+      childParentFields({
+        viewerGender: "man",
+        viewerOwnId: 1,
+        motherChoice: null,
+        fatherChoice: null,
+        externalFatherName: "",
+      }),
+    ).toEqual({ fatherId: 1 });
+  });
+
+  it("a man's own id being unknown omits fatherId rather than writing a bad value", () => {
+    expect(
+      childParentFields({
+        viewerGender: "man",
+        viewerOwnId: null,
+        motherChoice: 3870001,
+        fatherChoice: null,
+        externalFatherName: "",
+      }),
+    ).toEqual({ motherId: 3870001 });
+  });
+
+  it("a woman's save records a chosen father by id, not herself", () => {
+    expect(
+      childParentFields({
+        viewerGender: "vrouw",
+        viewerOwnId: 30,
+        motherChoice: null,
+        fatherChoice: 1,
+        externalFatherName: "",
+      }),
+    ).toEqual({ fatherId: 1 });
+  });
+
+  it("a woman's 'someone else' escape hatch records a plain external father name", () => {
+    expect(
+      childParentFields({
+        viewerGender: "vrouw",
+        viewerOwnId: 30,
+        motherChoice: null,
+        fatherChoice: "external",
+        externalFatherName: "  Previous Husband  ",
+      }),
+    ).toEqual({ externalFatherName: "Previous Husband" });
+  });
+
+  it("a woman with nothing chosen yet saves with no parent fields at all", () => {
+    expect(
+      childParentFields({
+        viewerGender: "vrouw",
+        viewerOwnId: 30,
+        motherChoice: null,
+        fatherChoice: null,
+        externalFatherName: "",
+      }),
+    ).toEqual({});
   });
 });
 

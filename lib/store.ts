@@ -589,6 +589,39 @@ export function otherParentTier(viewerGender: string, confirmedPartnerCount: num
   return viewerGender === "man" ? "choose-required" : "choose-optional";
 }
 
+/**
+ * The motherId/fatherId/externalFatherName fields a child save should carry,
+ * given the viewer's own gender/id and their pick from the tiers above.
+ * Shared by add-child.tsx's create AND edit paths so the two can't drift.
+ *
+ * A man is always recorded as the child's father (viewerOwnId) in every
+ * tier, not only when a mother is also chosen — before this, a man's save
+ * only ever wrote motherId, so a wrong or stale mother pick had no father
+ * value to cross-check it against. fatherId here is always viewerOwnId,
+ * NEVER motherChoice — a co-wife can never end up written as a father.
+ */
+export function childParentFields(params: {
+  viewerGender: string;
+  viewerOwnId: number | null;
+  motherChoice: number | null;
+  fatherChoice: number | "external" | null;
+  externalFatherName: string;
+}): Pick<ChildProfile, "motherId" | "fatherId" | "externalFatherName"> {
+  const { viewerGender, viewerOwnId, motherChoice, fatherChoice, externalFatherName } = params;
+  if (viewerGender === "man") {
+    return {
+      ...(motherChoice != null ? { motherId: motherChoice } : {}),
+      ...(viewerOwnId != null ? { fatherId: viewerOwnId } : {}),
+    };
+  }
+  return {
+    ...(typeof fatherChoice === "number" ? { fatherId: fatherChoice } : {}),
+    ...(fatherChoice === "external" && externalFatherName.trim()
+      ? { externalFatherName: externalFatherName.trim() }
+      : {}),
+  };
+}
+
 export interface MotherGroup {
   motherId: number | null;
   children: ChildProfile[];

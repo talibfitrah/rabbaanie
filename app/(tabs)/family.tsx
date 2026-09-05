@@ -4081,6 +4081,25 @@ export default function FamilyScreen() {
                         {tx(lang, "Bewerken", "Edit", "تعديل")}
                       </Text>
                     </Pressable>
+                    <Pressable
+                      onPress={() =>
+                        router.push(`/add-child?childId=${child.id}` as any)
+                      }
+                      style={({ pressed }) => [
+                        {
+                          opacity: pressed ? 0.7 : 1,
+                          backgroundColor: colors.warning + "15",
+                          borderRadius: 6,
+                          padding: 4,
+                        },
+                      ]}
+                    >
+                      <MaterialIcons
+                        name="family-restroom"
+                        size={16}
+                        color={colors.warning}
+                      />
+                    </Pressable>
                     {child.birthDate && (
                       <Pressable
                         onPress={() =>
