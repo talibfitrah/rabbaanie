@@ -15,6 +15,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useState, useEffect, useMemo, useCallback } from "react";
 import Constants from "expo-constants";
 import { authedFetch } from "@/lib/authed-fetch";
+import { isAdvisorLimit, promptAdvisorUpgrade } from "@/lib/advisor-limit";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -795,6 +796,7 @@ function PersonalAdviceScreenInner() {
         }),
       });
       const data = await response.json();
+      if (isAdvisorLimit(response.status, data)) { promptAdvisorUpgrade(lang); return; }
       setLlmAdvice(data.advice || null);
       const cacheKey = `personal_advice_cache_${language}`;
       const generatedAt = Date.now();

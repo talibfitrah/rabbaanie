@@ -30,6 +30,7 @@ import { SyncToast } from "@/components/sync-toast";
 import { ReportAiContent } from "@/components/report-ai-content";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import { isAdvisorLimit, promptAdvisorUpgrade } from "@/lib/advisor-limit";
 import { translateProfileValue } from "@/lib/profile-labels";
 import { parsePlanText, groupIntoSections } from "@/lib/plan-blocks";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
@@ -1871,6 +1872,7 @@ export default function FamilyScreen() {
       });
       clearTimeout(timeoutId);
       const data = await response.json();
+      if (isAdvisorLimit(response.status, data)) { promptAdvisorUpgrade(lang); return; }
       const adviceText = data.advice || null;
       const sections = data.sections || [];
       setLlmAdvice(adviceText);
@@ -1932,6 +1934,7 @@ export default function FamilyScreen() {
       });
       clearTimeout(timeoutId);
       const data = await response.json();
+      if (isAdvisorLimit(response.status, data)) { promptAdvisorUpgrade(lang); return; }
       if (data?.result?.data) {
         const result = data.result.data;
         // A refusal carries no advice — getSpouseAdvice now returns

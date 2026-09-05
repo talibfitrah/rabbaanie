@@ -38,6 +38,7 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { useSubscription } from "@/hooks/use-subscription";
 
 import { authedFetch } from "@/lib/authed-fetch";
+import { isAdvisorLimit, promptAdvisorUpgrade } from "@/lib/advisor-limit";
 type Lang = "nl" | "en" | "ar";
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
@@ -928,6 +929,7 @@ export default function PersonalAdviceScreen() {
         }),
       });
       const data = await response.json();
+      if (isAdvisorLimit(response.status, data)) { promptAdvisorUpgrade(lang); return; }
       setLlmAdvice(data.advice || null);
       const cacheKey = `personal_advice_cache_${language}`;
       const generatedAt = Date.now();
