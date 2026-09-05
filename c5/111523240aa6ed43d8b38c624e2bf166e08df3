@@ -1,0 +1,26 @@
+app/add-child.tsx
+  s_132c73e77515ad::t_6ffeccf9b8d507 3,7,9,25-26,28-37,53-57,87-92,100-107,109-120,126-128,142-144,276-296,305-309
+lib/store.ts
+  s_132c73e77515ad::t_6ffeccf9b8d507 592-624
+app/(tabs)/family.tsx
+  s_132c73e77515ad::t_6ffeccf9b8d507 4084-4102
+tests/store.test.ts
+  s_132c73e77515ad::t_6ffeccf9b8d507 9,317-406
+  s_132c73e77515ad::t_987f4b08b8cdd8 407-409
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "c5111523240aa6ed43d8b38c624e2bf166e08df3",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
