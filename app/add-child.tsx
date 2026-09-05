@@ -99,10 +99,12 @@ function AddChildScreenInner() {
       laterInvullen: false,
       parentId: editingChild?.parentId || state?.parentProfile?.firstName || "parent",
       // Explicit clears first: on an EDIT, updateChild shallow-merges, so a
-      // parent field the new pick no longer emits (switching father
-      // external<->co-parent, or clearing the mother) would otherwise survive
-      // stale. childParentFields re-adds only the chosen ones right after.
-      motherId: undefined,
+      // parent field the current viewer's new pick no longer emits would
+      // survive stale (father external<->co-parent, or a man switching/
+      // clearing the mother). Clear ONLY what THIS viewer governs — a man
+      // governs mother + father; a woman governs only the father, so her
+      // husband-synced motherId must be preserved, not wiped (cubic P2).
+      ...(viewerGender === "man" ? { motherId: undefined } : {}),
       fatherId: undefined,
       externalFatherName: undefined,
       ...childParentFields({

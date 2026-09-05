@@ -4083,7 +4083,7 @@ export default function FamilyScreen() {
                     </Pressable>
                     <Pressable
                       onPress={() =>
-                        router.push(`/add-child?childId=${child.id}` as any)
+                        router.push(`/add-child?childId=${encodeURIComponent(child.id)}` as any)
                       }
                       style={({ pressed }) => [
                         {
