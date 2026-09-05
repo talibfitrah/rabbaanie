@@ -47,7 +47,33 @@ export default function HaidScreen() {
   const q = trpc.cycle.getMine.useQuery(undefined, { enabled: isAuthenticated && isWoman });
   const invalidate = () => utils.cycle.getMine.invalidate();
   const onMutationError = (e: { message: string }) => Alert.alert(tx(lang, "Er ging iets mis", "Something went wrong", "حدث خطأ ما"), e.message);
-  const upsertDay = trpc.cycle.upsertDay.useMutation({ onSuccess: invalidate, onError: onMutationError });
+  const upsertDay = trpc.cycle.upsertDay.useMutation({
+    // Optimistic: reflect the tap immediately so the ruling below updates
+    // without waiting for the server, AND so the "Ghusl done" button — which
+    // reads the selected day's flow — sees the flow she JUST set rather than the
+    // stale server copy. Tapping "spotting" then "ghusl" used to race: ghusl
+    // read the old (empty) flow and fell back to "dry", silently clearing the
+    // كدرة/صفرة entry and giving no ruling. onSettled reconciles with the server.
+    onMutate: async (vars) => {
+      await utils.cycle.getMine.cancel();
+      const prev = utils.cycle.getMine.getData(undefined);
+      utils.cycle.getMine.setData(undefined, (old: any) => {
+        if (!old) return old;
+        const daysArr = [...(old.days ?? [])];
+        const i = daysArr.findIndex((d: any) => d.date === vars.date);
+        const next = { date: vars.date, flow: vars.flow, color: vars.color ?? null, ghusl: vars.ghusl ?? false };
+        if (i >= 0) daysArr[i] = { ...daysArr[i], ...next };
+        else daysArr.push(next);
+        return { ...old, days: daysArr };
+      });
+      return { prev };
+    },
+    onError: (e, _vars, ctx: any) => {
+      if (ctx?.prev !== undefined) utils.cycle.getMine.setData(undefined, ctx.prev);
+      onMutationError(e);
+    },
+    onSettled: invalidate,
+  });
   const deleteDay = trpc.cycle.deleteDay.useMutation({ onSuccess: invalidate, onError: onMutationError });
   const saveSettings = trpc.cycle.saveSettings.useMutation({ onSuccess: invalidate, onError: onMutationError });
   const disable = trpc.cycle.disable.useMutation({
