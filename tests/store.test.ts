@@ -440,6 +440,11 @@ describe("childrenSharedWithCoParent", () => {
     expect(() => childrenSharedWithCoParent(null as any, 1)).not.toThrow();
     expect(childrenSharedWithCoParent(null as any, 1)).toEqual([]);
   });
+
+  it("returns [] for an unattributed child (no motherId/fatherId) — BY DESIGN, not a regression: family.tsx gates this helper to the polygynous-husband case (where each child's motherId is always set), and every other card keeps the server count, so a reciprocal or legacy card never collapses to 0", () => {
+    const legacy = [nasabChild("legacy-1"), nasabChild("legacy-2")];
+    expect(childrenSharedWithCoParent(legacy, 1)).toEqual([]);
+  });
 });
 
 // ============ getChildNasabLabel ============

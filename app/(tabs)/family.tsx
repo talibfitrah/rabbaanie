@@ -3042,12 +3042,17 @@ export default function FamilyScreen() {
                         •
                       </Text>
                       <Text style={{ color: colors.muted, fontSize: 10 }}>
-                        {/* NOT cp.sharedChildren (server, links.coParents) —
-                            see childrenSharedWithCoParent's doc comment for
-                            why that field re-merges a co-wife's children
-                            regardless of server-side cleanup or re-sync
-                            count. */}
-                        {childrenSharedWithCoParent(state.children, cp.id).length}{" "}
+                        {/* Over-report guard, polygynous husband only: the server's
+                            cp.sharedChildren counts a child under EVERY co-wife holding a
+                            confirmed link to it (incl. stale crosslinks, see
+                            cowife-crosslink-fixed-2026-09-04), so all wives show all children.
+                            On his device each child's motherId is reliably set, so partition by
+                            it. Everyone else keeps the server count: a woman viewing the husband,
+                            or a child the other spouse entered, has no matching motherId/fatherId
+                            and must NOT collapse to 0. */}
+                        {pp.gender === "man" && (coParentsQuery.data ?? []).length > 1
+                          ? childrenSharedWithCoParent(state.children, cp.id).length
+                          : (cp.sharedChildren?.length || 0)}{" "}
                         {tx(
                           lang,
                           "gedeelde kinderen",

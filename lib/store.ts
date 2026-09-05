@@ -633,6 +633,14 @@ export function groupChildrenByMother(children: ChildProfile[]): MotherGroup[] {
  * independent list: a given child matches at most one coParentId, so two
  * wife cards can never show the same child, regardless of what the server
  * sends or how many times the client re-syncs.
+ *
+ * CAVEAT - callers must gate this. motherId/fatherId are written only at add
+ * time, for the OTHER co-parent (add-child.tsx), so an unattributed/legacy
+ * child, or the reciprocal card (a woman viewing the husband who entered the
+ * children), matches neither field and returns []. family.tsx therefore uses
+ * this ONLY for a polygynous husband (pp.gender === "man" && coParents > 1),
+ * where every child's motherId is set; every other card keeps the server
+ * count so it never wrongly collapses to 0.
  */
 export function childrenSharedWithCoParent(
   children: ChildProfile[],
