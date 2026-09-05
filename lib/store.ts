@@ -619,6 +619,31 @@ export function groupChildrenByMother(children: ChildProfile[]): MotherGroup[] {
 }
 
 /**
+ * Children shared between the viewer and one specific co-parent (for a wife
+ * card's "N shared children" count) — derived from the viewer's own per-child
+ * motherId/fatherId, the same field groupChildrenByMother partitions on.
+ * Deliberately NOT links.coParents[].sharedChildren: that field is a
+ * confirmed-parentChildLinks intersection, so once a co-wife has ANY
+ * confirmed link to a child (even a stale/corrupted one — see the
+ * cowife-crosslink-fixed-2026-09-04 incident, where a co-wife's sync wrote
+ * her a spurious biological_mother link to her husband's whole household),
+ * that child counts as "shared" with her too — reproducing "all N children"
+ * under every wife no matter how many times the bad link is cleaned up
+ * server-side. A motherId/fatherId match is a partition instead of an
+ * independent list: a given child matches at most one coParentId, so two
+ * wife cards can never show the same child, regardless of what the server
+ * sends or how many times the client re-syncs.
+ */
+export function childrenSharedWithCoParent(
+  children: ChildProfile[],
+  coParentId: number,
+): ChildProfile[] {
+  return (children ?? []).filter(
+    (c) => c.motherId === coParentId || c.fatherId === coParentId,
+  );
+}
+
+/**
  * Child-nasab relationship label — distinct from messages.tsx's
  * getRelationshipLabel, which collapses biological_father/stepfather (and
  * biological_mother/stepmother) into one generic "Father"/"Mother" label for

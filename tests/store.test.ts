@@ -7,6 +7,7 @@ import {
   childIdFrom,
   otherParentTier,
   groupChildrenByMother,
+  childrenSharedWithCoParent,
   getChildNasabLabel,
   defaultAppState,
   type AppState,
@@ -377,6 +378,67 @@ describe("groupChildrenByMother", () => {
     expect(groupChildrenByMother([])).toEqual([]);
     expect(() => groupChildrenByMother(null as any)).not.toThrow();
     expect(groupChildrenByMother(null as any)).toEqual([]);
+  });
+});
+
+// ============ childrenSharedWithCoParent ============
+// Regression guard for the 2026-09-04/09-05 cowife-crosslink bug: a
+// polygynous household's children re-appeared, in full, under EVERY wife's
+// "shared children" count (links.coParents[].sharedChildren is a confirmed-
+// link intersection that a stale/corrupted link reproduces regardless of
+// server-side cleanup). This asserts the client-side replacement instead
+// partitions children by motherId/fatherId, so a co-wife can never be
+// credited with another wife's children.
+
+function nasabChild(id: string, motherId?: number, fatherId?: number): ChildProfile {
+  return {
+    id,
+    name: id,
+    birthDate: "",
+    gender: "",
+    profileCompleted: false,
+    laterInvullen: false,
+    motherId,
+    fatherId,
+  };
+}
+
+describe("childrenSharedWithCoParent", () => {
+  it("a wife's children never include another wife's — no double count under two wife cards", () => {
+    const household = [
+      nasabChild("s-dahri-1", 20, 1),
+      nasabChild("s-dahri-2", 20, 1),
+      nasabChild("s-dahri-3", 20, 1),
+    ];
+    // Yamina (id 30) has zero real children, but the corrupted server field
+    // would still claim all 3 as "shared" with her — the client fix must not.
+    expect(childrenSharedWithCoParent(household, 30)).toEqual([]);
+    expect(childrenSharedWithCoParent(household, 20)).toHaveLength(3);
+  });
+
+  it("matches by fatherId for a wife's own co-parent card (viewing her husband)", () => {
+    const own = [nasabChild("c1", 5, 1), nasabChild("c2", 5, 1)];
+    expect(childrenSharedWithCoParent(own, 1)).toHaveLength(2);
+  });
+
+  it("the household total across every wife's card never exceeds the real total", () => {
+    const household = [
+      nasabChild("a", 20, 1),
+      nasabChild("b", 20, 1),
+      nasabChild("c", 21, 1),
+    ];
+    const wives = [20, 21, 30]; // 30 = a childless co-wife
+    const total = wives.reduce(
+      (sum, id) => sum + childrenSharedWithCoParent(household, id).length,
+      0,
+    );
+    expect(total).toBe(household.length);
+  });
+
+  it("returns an empty array for no children, without throwing", () => {
+    expect(childrenSharedWithCoParent([], 1)).toEqual([]);
+    expect(() => childrenSharedWithCoParent(null as any, 1)).not.toThrow();
+    expect(childrenSharedWithCoParent(null as any, 1)).toEqual([]);
   });
 });
 

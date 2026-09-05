@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel } from "@/lib/store";
+import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -3042,7 +3042,12 @@ export default function FamilyScreen() {
                         •
                       </Text>
                       <Text style={{ color: colors.muted, fontSize: 10 }}>
-                        {cp.sharedChildren?.length || 0}{" "}
+                        {/* NOT cp.sharedChildren (server, links.coParents) —
+                            see childrenSharedWithCoParent's doc comment for
+                            why that field re-merges a co-wife's children
+                            regardless of server-side cleanup or re-sync
+                            count. */}
+                        {childrenSharedWithCoParent(state.children, cp.id).length}{" "}
                         {tx(
                           lang,
                           "gedeelde kinderen",

@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
+import { childrenSharedWithCoParent } from "@/lib/store";
 import {
   Text,
   View,
@@ -343,9 +344,12 @@ function MessagesScreenInner() {
               <Text style={{ fontSize: 16, fontWeight: "bold", color: colors.foreground }}>{selected.name}</Text>
               <Text style={{ fontSize: 11, color: colors.primary, fontWeight: "600" }}>
                 {getRelationshipLabel(selected.relationship || "partner", lang, userGender, (selected as any).wasDivorced)}
-                {selected.sharedChildren && selected.sharedChildren.length > 0 && (
-                  ` \u2022 ${selected.sharedChildren.map(c => c.name).join(", ")}`
-                )}
+                {/* names via childrenSharedWithCoParent (own children by motherId/fatherId),
+                    not the over-reporting server field; see lib/store.ts */}
+                {(() => {
+                  const shared = childrenSharedWithCoParent(state.children, selected.id);
+                  return shared.length > 0 ? ` \u2022 ${shared.map(c => c.name).join(", ")}` : null;
+                })()}
               </Text>
             </View>
           </View>
