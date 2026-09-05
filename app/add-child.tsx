@@ -98,6 +98,13 @@ function AddChildScreenInner() {
       profileCompleted: !!(name && birthDate && gender),
       laterInvullen: false,
       parentId: editingChild?.parentId || state?.parentProfile?.firstName || "parent",
+      // Explicit clears first: on an EDIT, updateChild shallow-merges, so a
+      // parent field the new pick no longer emits (switching father
+      // external<->co-parent, or clearing the mother) would otherwise survive
+      // stale. childParentFields re-adds only the chosen ones right after.
+      motherId: undefined,
+      fatherId: undefined,
+      externalFatherName: undefined,
       ...childParentFields({
         viewerGender,
         viewerOwnId: user?.id ?? null,
