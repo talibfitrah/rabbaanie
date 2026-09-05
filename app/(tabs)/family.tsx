@@ -3371,30 +3371,17 @@ export default function FamilyScreen() {
             <View style={{ gap: 10 }}>
               {/* Partner's daily check-in status */}
               {(() => {
-                // Array.isArray, not `|| []`: this blob is partner-written
-                // through z.any(), and a non-array is truthy, so `|| []` would
-                // pass it to .find below and crash this screen. Same guard as
-                // server/advice.ts and lib/advice-period.ts.
-                const pCheckins = Array.isArray(fullPartnerProfile?.dailyCheckins)
-                  ? fullPartnerProfile.dailyCheckins
-                  : [];
-                // Nothing writes this array any more (its only writer went
-                // with commit ad8189f), so on an updated partner it is empty
-                // and the panel below would state "not completed today" and
-                // "0/7 this week" about someone using the app daily. An empty
-                // array is now absence of data, not absence of activity — say
-                // nothing. Partners still on an older build DO write it, so
-                // the block itself has to keep working for them.
-                if (pCheckins.length === 0) return null;
+                // Completion status is derived from the LIVE daily-diagnostic
+                // rows (the same source as the answers below), NOT the dead
+                // dailyCheckins array — its only writer went with commit ad8189f,
+                // so it read "not completed today / 0/7" for a partner who fills
+                // the diagnostic every day (Daa3iyah, 2026-09-05).
+                if (partnerDiagnosticRows.length === 0) return null;
                 const today = new Date().toISOString().slice(0, 10);
-                const todayCheckin = pCheckins.find(
-                  (c: any) => c && c.date === today,
-                );
-                const recentCheckins = pCheckins.filter((c: any) => {
-                  if (!c) return false; // entries are partner-written too
-                  const d = new Date(c.date);
-                  const now = new Date();
-                  return now.getTime() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
+                const todayCheckin = partnerDiagnosticRows.some((r: any) => r.date === today);
+                const recentCheckins = partnerDiagnosticRows.filter((r: any) => {
+                  const d = new Date(r.date);
+                  return Date.now() - d.getTime() < 7 * 24 * 60 * 60 * 1000;
                 });
                 return (
                   <View
