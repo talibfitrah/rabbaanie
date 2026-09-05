@@ -239,7 +239,12 @@ export default function OnboardingScreen() {
     }
     // Generate the user's distinctive publicId from their birth date (msg 471/476)
     try { await generateMyIdMutation.mutateAsync({ birthDate }); } catch (e) { console.log('generateMyId failed (non-blocking):', e); }
-    router.replace("/(tabs)");
+    // Continue into the analytical profile (the tarbiya questionnaire), not home:
+    // basic onboarding only sets onboardingCompleted; the *full* profile the app
+    // advises on is parentProfileCompleted, which only parent-profile.tsx sets.
+    // Dropping to home here dead-ended users after gender/marital/children, so
+    // "the rest of the questions" never appeared (Daa3iyah, 2026-09-05).
+    router.replace("/onboarding/parent-profile");
   };
 
   // "Do you have children?" gate, asked before the names screen. Yes → collect
