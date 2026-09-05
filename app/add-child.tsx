@@ -68,6 +68,22 @@ function AddChildScreenInner() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [otherTier, coParents[0]?.id, viewerGender]);
 
+  // The useState initializers above run once at mount. If state.children
+  // hydrates AFTER mount (a cold-start / restored-navigation deep-link to
+  // /add-child?childId=…), editingChild was undefined then, so the form stayed
+  // blank under an "Edit" header. Seed it once the child resolves — guarded on
+  // the form still being pristine, so it never clobbers a user's own typing.
+  useEffect(() => {
+    if (!editingChild || name !== "" || birthDate !== "" || gender !== "") return;
+    setName(editingChild.name || "");
+    setGender(editingChild.gender || "");
+    setBirthDate(editingChild.birthDate || "");
+    setMotherChoice(editingChild.motherId ?? null);
+    setFatherChoice(editingChild.fatherId ?? (editingChild.externalFatherName ? "external" : null));
+    setExternalFatherNameInput(editingChild.externalFatherName || "");
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [editingChild?.id]);
+
   const handleSave = async () => {
     if (!name.trim()) {
       Alert.alert(
