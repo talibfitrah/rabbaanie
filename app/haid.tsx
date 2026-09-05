@@ -11,6 +11,7 @@ import { trpc } from "@/lib/trpc";
 import { getIslamicDate } from "@/lib/prayer-data";
 import { addDays, classify, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type DayStatus, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
+import { HAID_RULINGS } from "@/lib/haid-rulings";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
 
 type Lang = "nl" | "en" | "ar";
@@ -98,6 +99,7 @@ export default function HaidScreen() {
   const [monthStart, setMonthStart] = useState(today.slice(0, 7) + "-01");
   const [showSettings, setShowSettings] = useState(false);
   const [showKaffarahInfo, setShowKaffarahInfo] = useState(false); // decision 6: information on request, never shown by default
+  const [openRulings, setOpenRulings] = useState<Set<number>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
   // Settings used to render at the bottom of a long ScrollView — opening it from
   // the header gear showed nothing until she scrolled all the way down. It now
@@ -251,6 +253,34 @@ export default function HaidScreen() {
         <Text style={[{ color: colors.muted, fontSize: 12 }, align]}>⚠ {T.fertileWarning}</Text>
         {ramadan && label(tx(lang, "In te halen Ramadaan-dagen: ", "Ramadaan days to make up: ", "أيام قضاء رمضان: ") + `${ramadan.days} (${ramadan.year})`)}
         <Pressable onPress={() => router.push("/(tabs)/dhikri" as any)}><Text style={[{ color: colors.primary, marginTop: 6 }, align]}>{tx(lang, "Adhkaar voor de menstruerende vrouw →", "Adhkaar for the menstruating woman →", "أذكار الحائض والنفساء ←")}</Text></Pressable>
+      </View>
+
+      {/* Haid rulings reference (Daa3iyah 2026-09-05): the full fiqh, one
+          collapsible per topic so it opens on tap. Content in lib/haid-rulings.ts,
+          generated verbatim from the rulings doc. */}
+      <View style={card}>
+        <Text style={[{ color: colors.foreground, fontSize: 16, fontWeight: "700", marginBottom: 8 }, align]}>
+          {tx(lang, "Regels van menstruatie en reinheid", "Rulings of menses and purity", "أحكام الحيض والطهر")}
+        </Text>
+        {HAID_RULINGS.map((s, i) => {
+          const open = openRulings.has(i);
+          return (
+            <View key={i} style={{ borderTopWidth: i === 0 ? 0 : 1, borderTopColor: colors.border, paddingVertical: 8 }}>
+              <Pressable
+                onPress={() => setOpenRulings((prev) => { const n = new Set(prev); if (n.has(i)) n.delete(i); else n.add(i); return n; })}
+                style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}
+              >
+                <Text style={[{ color: colors.foreground, fontSize: 14, fontWeight: "600", flex: 1 }, align]}>{s.title}</Text>
+                <MaterialIcons name={open ? "expand-less" : "expand-more"} size={22} color={colors.muted} />
+              </Pressable>
+              {open && (
+                <Text style={[{ color: colors.muted, fontSize: 13, lineHeight: 24, marginTop: 6 }, align]}>
+                  {s.body.replace(/\*\*/g, "").replace(/^#{1,6}\s*/gm, "").replace(/\n?---\s*$/, "").trim()}
+                </Text>
+              )}
+            </View>
+          );
+        })}
       </View>
     </ScrollView>
   );
