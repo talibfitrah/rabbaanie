@@ -98,15 +98,19 @@ function AddChildScreenInner() {
       profileCompleted: !!(name && birthDate && gender),
       laterInvullen: false,
       parentId: editingChild?.parentId || state?.parentProfile?.firstName || "parent",
-      // Explicit clears first: on an EDIT, updateChild shallow-merges, so a
-      // parent field the current viewer's new pick no longer emits would
-      // survive stale (father external<->co-parent, or a man switching/
-      // clearing the mother). Clear ONLY what THIS viewer governs — a man
-      // governs mother + father; a woman governs only the father, so her
-      // husband-synced motherId must be preserved, not wiped (cubic P2).
-      ...(viewerGender === "man" ? { motherId: undefined } : {}),
-      fatherId: undefined,
-      externalFatherName: undefined,
+      // A woman can switch the father between a co-parent and an external
+      // name; childParentFields emits only the field she picked, so on an
+      // edit clear BOTH father fields first (updateChild shallow-merges, so a
+      // stale one would otherwise survive) and let childParentFields re-add
+      // her choice. Only when the father picker is actually loaded/usable
+      // (otherTier !== "skip"), so a save before co-parents resolve can't wipe
+      // a synced value. A man needs NO clear: he only switches the mother to
+      // another wife (childParentFields re-emits motherId, overwriting in
+      // place) and his father is always himself — clearing would risk wiping a
+      // still-correct motherId when the picker hasn't loaded (cubic P2).
+      ...(viewerGender !== "man" && otherTier !== "skip"
+        ? { fatherId: undefined, externalFatherName: undefined }
+        : {}),
       ...childParentFields({
         viewerGender,
         viewerOwnId: user?.id ?? null,
