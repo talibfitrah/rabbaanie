@@ -639,8 +639,13 @@ export function groupChildrenByMother(children: ChildProfile[]): MotherGroup[] {
  * child, or the reciprocal card (a woman viewing the husband who entered the
  * children), matches neither field and returns []. family.tsx therefore uses
  * this ONLY for a polygynous husband (pp.gender === "man" && coParents > 1),
- * where every child's motherId is set; every other card keeps the server
- * count so it never wrongly collapses to 0.
+ * where he has set each child's motherId; every other card keeps the server
+ * count so it never wrongly collapses to 0. KNOWN GAP (pre-existing, deferred):
+ * a child a WIFE self-added carries fatherId=husband and no motherId, so it is
+ * not attributed to her card here and under-counts - the same limitation the
+ * shipped groupChildrenByMother already has (its null-motherId group); a full
+ * fix needs the add-child data model to record the mother for wife-added
+ * children.
  */
 export function childrenSharedWithCoParent(
   children: ChildProfile[],

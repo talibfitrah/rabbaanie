@@ -1,5 +1,9 @@
-// AUTO-GENERATED from local-docs/haid/HAID-RULINGS-DRAFT-ar.v1.md — do not hand-edit.
-// Daa3iyah's haid/istihada/nifas fiqh rulings, shown as a collapsible reference.
+// Seeded from local-docs/haid/HAID-RULINGS-DRAFT-ar.v1.md (Daa3iyah's
+// haid/istihada/nifas fiqh rulings, a collapsible reference), then
+// hand-maintained HERE: the nl/en meaning translations and the
+// source-verified quote completions (Kitaab at-Ta'sees, Tirmidhi) live only
+// in this file, not in that markdown. Edit here; if you ever re-seed from the
+// markdown, re-apply those two layers or they are lost.
 // Trilingual (ar/nl/en): Qur'aan verses (﴾...﴿), hadith text («...»)
 // and source references ([...]) are preserved verbatim in Arabic in all three
 // languages; only the surrounding prose is translated.
