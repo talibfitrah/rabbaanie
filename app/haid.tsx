@@ -275,7 +275,7 @@ export default function HaidScreen() {
               </Pressable>
               {open && (
                 <Text style={[{ color: colors.muted, fontSize: 13, lineHeight: 24, marginTop: 6 }, align]}>
-                  {s.body.replace(/\*\*/g, "").replace(/^#{1,6}\s*/gm, "").replace(/\n?---\s*$/, "").trim()}
+                  {s.body.replace(/\*\*/g, "").replace(/#{1,6}[ \t]*/g, "").replace(/\n?---\s*$/, "").trim()}
                 </Text>
               )}
             </View>
