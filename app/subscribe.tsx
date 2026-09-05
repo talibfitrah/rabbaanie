@@ -82,6 +82,10 @@ export default function SubscribeScreen() {
   // visible across a retry, which scrolling to that footer would not: React
   // bails on setting the identical string, so a second press would move nothing.
   const [purchaseRefusal, setPurchaseRefusal] = useState("");
+  // Which paid tier the sideload buyer has picked (msg checkout `tier`).
+  const [selectedTier, setSelectedTier] = useState<
+    "ghars" | "namaa" | "ithmaar"
+  >("namaa");
   // Required subscriber info (msg 636)
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
@@ -237,6 +241,41 @@ export default function SubscribeScreen() {
       en: "Network",
     },
   ];
+  const TIERS = [
+    {
+      key: "ghars",
+      name: L3("غَرْس", "Ghars", "Ghars"),
+      price: "€25",
+      advisor: L3(
+        "استشارة واحدة في الأسبوع",
+        "adviseur 1× per week",
+        "advisor 1×/week",
+      ),
+      tips: L3("نصيحة أسبوعية", "1 tip per week", "1 tip/week"),
+    },
+    {
+      key: "namaa",
+      name: L3("نَماء", "Namaa", "Namaa"),
+      price: "€30",
+      advisor: L3(
+        "٣ استشارات في الأسبوع",
+        "adviseur 3× per week",
+        "advisor 3×/week",
+      ),
+      tips: L3("نصيحتان في الأسبوع", "2 tips per week", "2 tips/week"),
+    },
+    {
+      key: "ithmaar",
+      name: L3("إثمار", "Ithmaar", "Ithmaar"),
+      price: "€40",
+      advisor: L3(
+        "استشارات بلا حدّ",
+        "adviseur onbeperkt",
+        "unlimited advisor",
+      ),
+      tips: L3("نصائح عند الطلب", "tips op aanvraag", "tips on demand"),
+    },
+  ] as const;
 
   // Tracks which account the newest request was for. Without it, switching
   // accounts can let the previous user's slower response land last and leave
@@ -516,6 +555,7 @@ export default function SubscribeScreen() {
         body: JSON.stringify({
           userId: uid,
           lang: language,
+          tier: selectedTier,
           info: buildSubscriberInfo(fields, ex ?? {}),
         }),
       });
@@ -906,220 +946,236 @@ export default function SubscribeScreen() {
               </View>
             )}
 
-            {/* Tier explainer (msg 720): General (free) vs Special (paid), with icons */}
+            {/* Tier explainer (msg 720): General (free) vs 3 paid tiers, with icons */}
             <View
               style={{
-                flexDirection: isRTL ? "row-reverse" : "row",
-                gap: 10,
-                marginBottom: 14,
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 14,
+                padding: 12,
+                marginBottom: 10,
               }}
             >
               <View
                 style={{
-                  flex: 1,
-                  backgroundColor: colors.surface,
-                  borderWidth: 1,
-                  borderColor: colors.border,
-                  borderRadius: 14,
-                  padding: 12,
+                  flexDirection: isRTL ? "row-reverse" : "row",
+                  alignItems: "center",
+                  gap: 6,
+                  marginBottom: 6,
                 }}
               >
+                <MaterialIcons name="eco" size={20} color={colors.primary} />
+                <Text
+                  style={{
+                    fontWeight: "800",
+                    fontSize: 13,
+                    color: colors.foreground,
+                    flex: 1,
+                    textAlign: align,
+                  }}
+                >
+                  {L3("العامّ", "Algemeen", "General")}
+                </Text>
+              </View>
+              <Text
+                style={{
+                  fontSize: 11,
+                  color: colors.muted,
+                  marginBottom: 10,
+                  textAlign: align,
+                }}
+              >
+                {L3(
+                  "مجّانيّ — بإدخال بياناتك",
+                  "Gratis — met uw gegevens",
+                  "Free — with your details",
+                )}
+              </Text>
+              {GENERAL.map((s) => (
                 <View
+                  key={s.k}
                   style={{
                     flexDirection: isRTL ? "row-reverse" : "row",
                     alignItems: "center",
                     gap: 6,
-                    marginBottom: 6,
+                    marginBottom: 7,
                   }}
                 >
-                  <MaterialIcons name="eco" size={20} color={colors.primary} />
+                  <MaterialIcons
+                    name={s.icon as any}
+                    size={15}
+                    color={colors.muted}
+                  />
                   <Text
                     style={{
-                      fontWeight: "800",
-                      fontSize: 13,
+                      fontSize: 11.5,
                       color: colors.foreground,
                       flex: 1,
                       textAlign: align,
                     }}
                   >
-                    {L3("العامّ", "Algemeen", "General")}
+                    {L3(s.ar, s.nl, s.en)}
                   </Text>
                 </View>
-                <Text
+              ))}
+            </View>
+
+            <View
+              style={{
+                flexDirection: isRTL ? "row-reverse" : "row",
+                gap: 10,
+                marginBottom: 10,
+              }}
+            >
+              {TIERS.map((t) => (
+                <TouchableOpacity
+                  key={t.key}
+                  onPress={() => setSelectedTier(t.key)}
                   style={{
-                    fontSize: 11,
-                    color: colors.muted,
-                    marginBottom: 10,
-                    textAlign: align,
+                    flex: 1,
+                    backgroundColor: colors.surface,
+                    borderWidth: selectedTier === t.key ? 2 : 1,
+                    borderColor:
+                      selectedTier === t.key ? colors.primary : colors.border,
+                    borderRadius: 14,
+                    padding: 12,
                   }}
                 >
-                  {L3(
-                    "مجّانيّ — بإدخال بياناتك",
-                    "Gratis — met uw gegevens",
-                    "Free — with your details",
-                  )}
-                </Text>
-                {GENERAL.map((s) => (
+                  <Text
+                    style={{
+                      fontWeight: "800",
+                      fontSize: 13,
+                      color: colors.foreground,
+                      textAlign: align,
+                      marginBottom: 4,
+                    }}
+                  >
+                    {t.name}
+                  </Text>
+                  <Text
+                    style={{
+                      fontSize: 12,
+                      color: colors.primary,
+                      fontWeight: "800",
+                      marginBottom: 8,
+                      textAlign: align,
+                    }}
+                  >
+                    {t.price}{" "}
+                    <Text
+                      style={{
+                        fontSize: 10,
+                        color: colors.muted,
+                        fontWeight: "600",
+                      }}
+                    >
+                      {L3("/ سنة", "/ jaar", "/ year")}
+                    </Text>
+                  </Text>
                   <View
-                    key={s.k}
                     style={{
                       flexDirection: isRTL ? "row-reverse" : "row",
                       alignItems: "center",
-                      gap: 6,
-                      marginBottom: 7,
+                      gap: 4,
+                      marginBottom: 4,
                     }}
                   >
                     <MaterialIcons
-                      name={s.icon as any}
-                      size={15}
+                      name="forum"
+                      size={14}
                       color={colors.muted}
                     />
                     <Text
                       style={{
-                        fontSize: 11.5,
-                        color: colors.foreground,
+                        fontSize: 11,
+                        color: colors.muted,
                         flex: 1,
                         textAlign: align,
                       }}
                     >
-                      {L3(s.ar, s.nl, s.en)}
+                      {t.advisor}
                     </Text>
                   </View>
-                ))}
-              </View>
-              <View
+                  <View
+                    style={{
+                      flexDirection: isRTL ? "row-reverse" : "row",
+                      alignItems: "center",
+                      gap: 4,
+                    }}
+                  >
+                    <MaterialIcons
+                      name="lightbulb"
+                      size={14}
+                      color={colors.muted}
+                    />
+                    <Text
+                      style={{
+                        fontSize: 11,
+                        color: colors.muted,
+                        flex: 1,
+                        textAlign: align,
+                      }}
+                    >
+                      {t.tips}
+                    </Text>
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
+
+            <View
+              style={{
+                backgroundColor: colors.surface,
+                borderWidth: 1,
+                borderColor: colors.border,
+                borderRadius: 14,
+                padding: 12,
+                marginBottom: 14,
+              }}
+            >
+              <Text
                 style={{
-                  flex: 1,
-                  backgroundColor: colors.surface,
-                  borderWidth: 2,
-                  borderColor: colors.primary,
-                  borderRadius: 14,
-                  padding: 12,
+                  fontSize: 11,
+                  color: colors.muted,
+                  marginBottom: 10,
+                  fontWeight: "700",
+                  textAlign: align,
                 }}
               >
+                {L3(
+                  "كلُّ الباقات المدفوعة تشمل:",
+                  "Alle betaalde plannen bevatten:",
+                  "All paid plans include:",
+                )}
+              </Text>
+              {SPECIAL.map((s) => (
                 <View
+                  key={s.k}
                   style={{
                     flexDirection: isRTL ? "row-reverse" : "row",
                     alignItems: "center",
                     gap: 6,
-                    marginBottom: 6,
+                    marginBottom: 7,
                   }}
                 >
                   <MaterialIcons
-                    name="workspace-premium"
-                    size={20}
+                    name={s.icon as any}
+                    size={15}
                     color={colors.primary}
                   />
                   <Text
                     style={{
-                      fontWeight: "800",
-                      fontSize: 13,
+                      fontSize: 11.5,
                       color: colors.foreground,
                       flex: 1,
                       textAlign: align,
                     }}
                   >
-                    {L3("الخاصّ", "Speciaal", "Special")}
+                    {L3(s.ar, s.nl, s.en)}
                   </Text>
                 </View>
-                {/* Same rule as the purchase card below: on Play the price
-                    comes from Play, because it is set per country and includes
-                    local tax. A dash until it arrives, never a euro figure —
-                    falling back to "€12" printed the Stripe price to a Play
-                    user whenever the offer had not loaded, and permanently
-                    whenever it could not, which is the exact discrepancy this
-                    change exists to remove. */}
-                {/* iOS now falls into the store arm below, same as Play: with
-                    StoreKit armed, play.offer carries the App Store's own
-                    localized, tax-inclusive price, so an iOS user sees a real
-                    figure (or a dash until it loads) rather than the euro
-                    literal the github arm shows. */}
-                {DISTRIBUTION_CHANNEL === "github" ? (
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: colors.primary,
-                      fontWeight: "800",
-                      marginBottom: 4,
-                      textAlign: align,
-                    }}
-                  >
-                    €12{" "}
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        color: colors.muted,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {L3("/ سنة", "/ jaar", "/ year")}
-                    </Text>
-                  </Text>
-                ) : (
-                  <Text
-                    style={{
-                      fontSize: 12,
-                      color: colors.primary,
-                      fontWeight: "800",
-                      marginBottom: 4,
-                      textAlign: align,
-                    }}
-                  >
-                    {play.offer ? play.offer.displayPrice : "—"}
-                    <Text
-                      style={{
-                        fontSize: 10,
-                        color: colors.muted,
-                        fontWeight: "600",
-                      }}
-                    >
-                      {" "}
-                      {L3("/ سنة", "/ jaar", "/ year")}
-                    </Text>
-                  </Text>
-                )}
-                <Text
-                  style={{
-                    fontSize: 11,
-                    color: colors.muted,
-                    marginBottom: 10,
-                    textAlign: align,
-                  }}
-                >
-                  {L3(
-                    "كلُّ ما في العامّ، وزيادةً:",
-                    "Alles van Algemeen, plus:",
-                    "Everything in General, plus:",
-                  )}
-                </Text>
-                {SPECIAL.map((s) => (
-                  <View
-                    key={s.k}
-                    style={{
-                      flexDirection: isRTL ? "row-reverse" : "row",
-                      alignItems: "center",
-                      gap: 6,
-                      marginBottom: 7,
-                    }}
-                  >
-                    <MaterialIcons
-                      name={s.icon as any}
-                      size={15}
-                      color={colors.primary}
-                    />
-                    <Text
-                      style={{
-                        fontSize: 11.5,
-                        color: colors.foreground,
-                        flex: 1,
-                        textAlign: align,
-                      }}
-                    >
-                      {L3(s.ar, s.nl, s.en)}
-                    </Text>
-                  </View>
-                ))}
-              </View>
+              ))}
             </View>
 
             {/* Subscriber info — always shown, editable, savable (msg 701) */}
@@ -1387,7 +1443,8 @@ export default function SubscribeScreen() {
                         textAlign: align,
                       }}
                     >
-                      €12
+                      {TIERS.find((t) => t.key === selectedTier)?.price ??
+                        "€25"}
                       <Text
                         style={{
                           fontSize: 14,
