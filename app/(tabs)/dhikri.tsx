@@ -382,7 +382,7 @@ export default function DhikriScreen() {
       sin_majlis: { nl: "Zonde in bijeenkomst", en: "Sin in Gathering", ar: "كفارة المجلس" },
       menses: { nl: "Menstruatie", en: "Menses", ar: "الحيض" },
       loan_repay: { nl: "Lening terugbetalen", en: "Loan Repayment", ar: "سداد الدين" },
-      love_in_allah: { nl: "Liefde in Allah", en: "Love in Allaah", ar: "الحب في الله" },
+      love_in_allah: { nl: "Liefde in Allaah", en: "Love in Allaah", ar: "الحب في الله" },
       first_fruits: { nl: "Eerste vruchten", en: "First Fruits", ar: "باكورة الثمار" },
       slaughter: { nl: "Slachten", en: "Slaughter", ar: "الذبح" },
       new_moon: { nl: "Nieuwe maan", en: "New Moon", ar: "رؤية الهلال" },

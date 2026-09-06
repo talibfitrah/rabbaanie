@@ -109,7 +109,7 @@ async function scheduleImanNotificationsInner(
     try {
       await Notifications.scheduleNotificationAsync({
         content: {
-          title: language === "ar" ? "المراقبة - الله يراك" : language === "en" ? "Self-Monitoring - Allah Sees You" : "Zelfreflectie - Allah Ziet Je",
+          title: language === "ar" ? "المراقبة - الله يراك" : language === "en" ? "Self-Monitoring - Allaah Sees You" : "Zelfreflectie - Allaah Ziet Je",
           body: dhikrBody(dhikr, language),
           subtitle: dhikrReward(dhikr, language),
           data: { type: MURAQABA_TYPE, url: "/details/adhkar?type=muraqaba", ruling: "واجب", showPopup: true },
@@ -236,8 +236,8 @@ async function scheduleImanNotificationsInner(
           body: language === "ar"
             ? "خصص 15 دقيقة الآن لأولادك: اجلس معهم، استمع إليهم، وذكّرهم بالله."
             : language === "en"
-            ? "Dedicate 15 minutes now for your children: sit with them, listen to them, and remind them of Allah."
-            : "Neem nu 15 minuten voor je kinderen: zit bij hen, luister naar hen, en herinner hen aan Allah.",
+            ? "Dedicate 15 minutes now for your children: sit with them, listen to them, and remind them of Allaah."
+            : "Neem nu 15 minuten voor je kinderen: zit bij hen, luister naar hen, en herinner hen aan Allaah.",
           data: { type: TARBIYA_MOMENT_TYPE, url: "/(tabs)/weekly", ruling: "مستحب", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
           ...(Platform.OS === "ios" ? { sound: "default" } : {}),
@@ -290,8 +290,8 @@ async function scheduleImanNotificationsInner(
           body: language === "ar"
             ? "إن في الجمعة لساعة لا يوافقها عبد مسلم يسأل الله فيها خيراً إلا أعطاه إياه. ادعُ الله لأولادك!"
             : language === "en"
-            ? "There is an hour on Friday when no Muslim asks Allah for good except that He gives it. Make du'a for your children!"
-            : "Er is een uur op vrijdag waarin geen moslim Allah om iets goeds vraagt of Hij geeft het. Maak du'a voor je kinderen!",
+            ? "There is an hour on Friday when no Muslim asks Allaah for good except that He gives it. Make du'a for your children!"
+            : "Er is een uur op vrijdag waarin geen moslim Allaah om iets goeds vraagt of Hij geeft het. Maak du'a voor je kinderen!",
           data: { type: FRIDAY_ACCEPTANCE_TYPE, url: "/details/adhkar?type=dua-children", ruling: "سنة مؤكدة", showPopup: true },
           ...(Platform.OS === "android" ? { channelId: IMAN_CHANNEL_ID, priority: Notifications.AndroidNotificationPriority.HIGH } : {}),
           ...(Platform.OS === "ios" ? { sound: "default" } : {}),

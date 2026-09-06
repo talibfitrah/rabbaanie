@@ -93,7 +93,7 @@ export default function FitrahScreen() {
   const [misconceptionsLoading, setMisconceptionsLoading] = useState(false);
   const [expandedMisconception, setExpandedMisconception] = useState<number | null>(null);
 
-  // === Translation state for Names of Allah ===
+  // === Translation state for Names of Allaah ===
   // Cache: key = "nameKey:lang", value = { meaning, explanation, reason, tasfiya[], tazkiya[], tarbiya[], tarbiya_jawarih[], examples[], evidence, targhib_tarhib, howToPresent }
   const [nameTranslations, setNameTranslations] = useState<Record<string, Record<string, string>>>({}); 
   const [translatingName, setTranslatingName] = useState<string | null>(null);
@@ -172,7 +172,7 @@ export default function FitrahScreen() {
           const res = await translateMutation.mutateAsync({
             texts: batch,
             targetLang: lang as "nl" | "en",
-            context: "Islamic parenting education - Names of Allah",
+            context: "Islamic parenting education - Names of Allaah",
             category: "names_of_allah",
           });
           res.translations.forEach((t: string, idx: number) => {

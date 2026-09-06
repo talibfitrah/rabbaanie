@@ -1,7 +1,7 @@
 /**
  * Weather for the user's prayer location via Open-Meteo (free, no API key),
  * with a religiously-framed reflection: weather forecasting is of the matters
- * whose certainty is with Allah alone (akin to al-ghayb), and authentic duas
+ * whose certainty is with Allaah alone (akin to al-ghayb), and authentic duas
  * established in the Sunnah for rain/wind/heat/cold/thunder.
  */
 
@@ -72,11 +72,11 @@ export function weatherReflection(code: number, temp: number, lang: "ar" | "en" 
   const storm = code >= 95;
   const hot = temp >= 33, cold = temp <= 3;
   if (storm) return {
-    note: tx(lang, "Bij onweer: gedenk Allaah.", "At thunder, remember Allah.", "عند الرعد اذكر الله."),
+    note: tx(lang, "Bij onweer: gedenk Allaah.", "At thunder, remember Allaah.", "عند الرعد اذكر الله."),
     dua: "سُبْحَانَ الَّذِي يُسَبِّحُ الرَّعْدُ بِحَمْدِهِ وَالْمَلَائِكَةُ مِنْ خِيفَتِهِ",
     source: "أثرٌ عن ابن الزبير رضي الله عنه",
-    targheeb: tx(lang, "Onweer verheerlijkt Allaah — sluit je erbij aan.", "The thunder glorifies Allah — join it.", "الرعدُ يُسبّح بحمد الله، فسبّح معه واذكره."),
-    tarheeb: tx(lang, "Allaah vernietigde volken met de wind — vrees Hem.", "Allah destroyed nations by the wind — fear Him.", "أهلك الله أقوامًا بالريح، فاخشَ عقابه واستغفره."),
+    targheeb: tx(lang, "Onweer verheerlijkt Allaah — sluit je erbij aan.", "The thunder glorifies Allaah — join it.", "الرعدُ يُسبّح بحمد الله، فسبّح معه واذكره."),
+    tarheeb: tx(lang, "Allaah vernietigde volken met de wind — vrees Hem.", "Allaah destroyed nations by the wind — fear Him.", "أهلك الله أقوامًا بالريح، فاخشَ عقابه واستغفره."),
   };
   if (rain) return {
     note: tx(lang, "Regen is een genade; vraag om baat.", "Rain is a mercy; ask for its good.", "المطر رحمة، فادعُ بخيره."),
@@ -96,7 +96,7 @@ export function weatherReflection(code: number, temp: number, lang: "ar" | "en" 
     note: tx(lang, "Bij hitte: gedenk het Vuur.", "In the heat, remember the Fire.", "في الحرّ تذكّر النار."),
     dua: "أَشَدُّ مَا تَجِدُونَ مِنَ الْحَرِّ مِنْ فَيْحِ جَهَنَّمَ",
     source: "متفق عليه",
-    targheeb: tx(lang, "Geduld met de hitte om Allaah wordt beloond.", "Patience with heat for Allah is rewarded.", "الصبرُ على الحرّ لله من أسباب الأجر، واذكر ظلّ عرشه يوم القيامة."),
+    targheeb: tx(lang, "Geduld met de hitte om Allaah wordt beloond.", "Patience with heat for Allaah is rewarded.", "الصبرُ على الحرّ لله من أسباب الأجر، واذكر ظلّ عرشه يوم القيامة."),
     tarheeb: tx(lang, "De hitte herinnert aan de gloed van de Hel.", "The heat recalls the blaze of the Fire.", "شدّةُ الحرّ من فيح جهنم، فاتقِ النار ولو بشقّ تمرة."),
   };
   return {
@@ -108,15 +108,15 @@ export function weatherReflection(code: number, temp: number, lang: "ar" | "en" 
       ""),
     source: "سورة آل عمران: ١٩٠",
     targheeb: tx(lang, "Een heldere dag is een gunst — wees dankbaar.", "A clear day is a favor — be grateful.", "صفاءُ الجوّ نعمةٌ تستوجب الشكر، فاشكر الله على عافيتك."),
-    tarheeb: tx(lang, "Wees niet achteloos over de tekenen van Allaah.", "Do not be heedless of Allah's signs.", "لا تغفل عن آيات الله في خلقه، فالغفلةُ سببُ القسوة."),
+    tarheeb: tx(lang, "Wees niet achteloos over de tekenen van Allaah.", "Do not be heedless of Allaah's signs.", "لا تغفل عن آيات الله في خلقه، فالغفلةُ سببُ القسوة."),
   };
 }
 
-/** The forecast is dhann (probable), not certain — certainty is with Allah. */
+/** The forecast is dhann (probable), not certain — certainty is with Allaah. */
 export function ghaybNote(lang: "ar" | "en" | "nl"): string {
   return tx(lang,
     "Weersverwachting is een inschatting; de zekere kennis is bij Allaah alleen.",
-    "The forecast is an estimate; certain knowledge is with Allah alone.",
+    "The forecast is an estimate; certain knowledge is with Allaah alone.",
     "التوقّع ظنٌّ لا يقين، وعلمُ الغيب لله وحده.");
 }
 

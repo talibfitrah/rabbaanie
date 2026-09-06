@@ -22,7 +22,7 @@ const CATEGORY_TRANSLATIONS: Record<string, { nl: string; en: string; ar: string
   "الهدايات": { ar: "الهدايات", nl: "Leidraden (Hidayat)", en: "Guidances (Hidayat)" },
   "قيادة النفس": { ar: "قيادة النفس", nl: "Zelfleiderschap", en: "Self-Leadership" },
   "الفطرة": { ar: "الفطرة", nl: "Fitrah (Aangeboren aard)", en: "Fitrah (Innate Nature)" },
-  "التوحيد": { ar: "التوحيد", nl: "Tawhied (Eenheid van Allah)", en: "Tawheed (Oneness of Allah)" },
+  "التوحيد": { ar: "التوحيد", nl: "Tawhied (Eenheid van Allaah)", en: "Tawheed (Oneness of Allaah)" },
   "النصيحة": { ar: "النصيحة", nl: "Nasiha (Advies)", en: "Nasiha (Advice)" },
   "الطرق التربوية": { ar: "الطرق التربوية", nl: "Opvoedkundige methoden", en: "Educational Methods" },
   "الزواج": { ar: "الزواج", nl: "Huwelijk", en: "Marriage" },
