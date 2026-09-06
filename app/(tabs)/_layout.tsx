@@ -28,8 +28,9 @@ export default function TabLayout() {
   // root app/_layout.tsx launch sequence, which lib/notification-horizons.ts
   // already budgets tightly against iOS's 64-pending cap for every user. This
   // mounts once for the whole tab-based session and only schedules for the
-  // trial minority; TrialBanner's own useSubscription() call shares the same
-  // module cache so this costs no extra network fetch.
+  // trial minority. TrialBanner's own useSubscription() calls share the same
+  // module cache (so the banner text is seeded without a flash), though each
+  // mount still fires its own idempotent status GET.
   const { trial, daysLeft } = useSubscription();
   useEffect(() => {
     if (Platform.OS === "web") return;

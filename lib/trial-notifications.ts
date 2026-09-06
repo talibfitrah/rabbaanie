@@ -119,7 +119,15 @@ async function scheduleTrialRemindersInner(language: Lang, daysLeft: number): Pr
     });
   }
 
-  const slots = trialReminderSchedule(daysLeft);
+  // iOS keeps at most 64 pending notifications, and the launch horizon already
+  // targets 59 (lib/notification-horizons.ts: IOS_PENDING_BUDGET/TARGET),
+  // leaving ~5 free slots. So on iOS schedule only the SOONEST few, so a trial
+  // reminder can never evict a sooner-firing prayer/adhkaar item; the day-6/7
+  // triple tail is the furthest-future anyway and iOS would truncate it. Android
+  // has no such cap and schedules the full escalating sequence.
+  const IOS_TRIAL_MAX = 5; // 64 cap − 59 horizon target
+  const all = trialReminderSchedule(daysLeft);
+  const slots = Platform.OS === "ios" ? all.slice(0, IOS_TRIAL_MAX) : all;
   let count = 0;
   for (let i = 0; i < slots.length; i++) {
     const { date, remainingDays } = slots[i];
