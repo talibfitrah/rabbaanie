@@ -537,6 +537,11 @@ export default function RootLayout() {
 
         // Trigger widget refresh on prayer/adhan notifications
         const type = data.type || "";
+        // A trial reminder is a subscribe nudge, not a religious "مستحب"
+        // notification: the in-app trial banner already covers the foreground
+        // case, and tapping the tray item routes to /subscribe. Never let it
+        // fall through to the مستحب popup below.
+        if (type === TRIAL_REMINDER_TYPE) return;
         if (type.includes("prayer") || type.includes("adhan")) {
           try {
             const {
