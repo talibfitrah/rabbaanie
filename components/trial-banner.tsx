@@ -3,7 +3,7 @@ import { Text, TouchableOpacity, View } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
-import { formatSubscriptionRemaining, useSubscription } from "@/hooks/use-subscription";
+import { formatDaysLeftLabel, useSubscription } from "@/hooks/use-subscription";
 
 /**
  * Countdown banner for a free-trial user: names the days left and routes
@@ -15,13 +15,13 @@ import { formatSubscriptionRemaining, useSubscription } from "@/hooks/use-subscr
 export function TrialBanner() {
   const router = useRouter();
   const { language, isRTL } = useI18n();
-  const { trial, expiresAt, loading } = useSubscription();
+  const { trial, daysLeft, loading } = useSubscription();
   // Session-local only (cheap): reappears next app open, which is fine for a
   // daily reminder — no AsyncStorage plumbing for a "for today" version.
   const [dismissed, setDismissed] = useState(false);
   const tx = (ar: string, nl: string, en: string) => (language === "ar" ? ar : language === "en" ? en : nl);
-  if (loading || !trial || !expiresAt || dismissed) return null;
-  const remaining = formatSubscriptionRemaining(expiresAt, language);
+  if (loading || !trial || daysLeft == null || dismissed) return null;
+  const remaining = formatDaysLeftLabel(daysLeft, language);
   return (
     <TouchableOpacity
       onPress={() => router.push("/subscribe" as any)}

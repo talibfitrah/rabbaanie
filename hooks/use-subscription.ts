@@ -135,11 +135,18 @@ function arabicDayCount(days: number): string {
 }
 
 /** "N days left" / "Lifetime" in the app's three languages, from an expiry date. */
+/** Trilingual "N days left" label from a plain day count (AR plural-aware).
+ *  Shared so the trial banner shows the SAME count the reminders use (the
+ *  server's daysLeft) instead of a locally re-ceil'd expiresAt that can drift
+ *  by one across a fractional-day boundary. */
+export function formatDaysLeftLabel(days: number, language: Language): string {
+  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} day${days === 1 ? "" : "s"} left` : `${days} dag${days === 1 ? "" : "en"} resterend`;
+}
+
 export function formatSubscriptionRemaining(expiresAt: string | Date, language: Language): string {
   if (isPerpetualExpiry(expiresAt)) {
     return language === "ar" ? "مدى الحياة" : language === "en" ? "Lifetime" : "Levenslang toegang";
   }
-  const ms = new Date(expiresAt).getTime() - Date.now();
-  const days = Math.max(0, Math.ceil(ms / 86400000));
-  return language === "ar" ? `${arabicDayCount(days)} متبقيًا` : language === "en" ? `${days} day${days === 1 ? "" : "s"} left` : `${days} dag${days === 1 ? "" : "en"} resterend`;
+  const days = Math.max(0, Math.ceil((new Date(expiresAt).getTime() - Date.now()) / 86400000));
+  return formatDaysLeftLabel(days, language);
 }
