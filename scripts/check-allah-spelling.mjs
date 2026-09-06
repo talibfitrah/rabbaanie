@@ -5,7 +5,7 @@
 // Exit 1 on any hit, printing file:line. Run from repo root.
 import fs from "node:fs";
 import path from "node:path";
-const DIRS = ["assets/data", "data", "lib", "app"];
+const DIRS = ["assets/data", "data", "lib", "app", "components"];
 const EXTS = [".json", ".ts", ".tsx"];
 const RE = /\bAllah\b/;
 
@@ -26,7 +26,10 @@ for (const dir of DIRS) {
     scanned++;
     const isJson = file.endsWith(".json");
     fs.readFileSync(file, "utf8").split("\n").forEach((line, i) => {
-      if (!isJson && line.trim().startsWith("//")) return; // whole-line comment, not user-visible
+      // Skip code comments in .ts/.tsx (not user-visible): whole-line //,
+      // JSDoc/block-comment lines (* … or /* …), so they never false-positive.
+      const trimmed = line.trim();
+      if (!isJson && (trimmed.startsWith("//") || trimmed.startsWith("*") || trimmed.startsWith("/*"))) return;
       if (RE.test(line)) {
         hits++;
         console.error(`${file}:${i + 1}: ${line.trim().slice(0, 120)}`);
