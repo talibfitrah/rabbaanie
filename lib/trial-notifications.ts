@@ -1,6 +1,7 @@
 import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { enqueue } from "./notification-queue";
+import { arabicDayCount } from "@/hooks/use-subscription";
 
 type Lang = "nl" | "en" | "ar";
 const tx = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
@@ -70,7 +71,7 @@ function reminderContent(index: number, remainingDays: number, language: Lang): 
     language,
     `Nog ${remainingDays} dag${remainingDays === 1 ? "" : "en"} om ${nl} te behouden. Abonneer nu.`,
     `${remainingDays} day${remainingDays === 1 ? "" : "s"} left to keep ${en}. Subscribe now.`,
-    `تبقّى ${remainingDays === 1 ? "يوم واحد" : `${remainingDays} أيام`} لتحتفظ بـ${ar}. اشترك الآن.`,
+    `تبقّى ${arabicDayCount(remainingDays)} لتحتفظ بـ${ar}. اشترك الآن.`,
   );
   return { title, body };
 }
