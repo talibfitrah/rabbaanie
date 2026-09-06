@@ -126,6 +126,7 @@ describe("a childless user skips every child-specific question", () => {
     "speakingWhenCorrecting", // "...uw kinderen corrigeert"
     "doingWithChildren",
     "doingDailyRoutine", // "...routine met de kinderen"
+    "partnerCommunication", // band phase "...over de kinderen" (cubic r2 miss)
   ];
   for (const key of CHILD_QUESTION_KEYS) {
     it(`gates the '${key}' question on hasNoChildren`, () => {

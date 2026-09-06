@@ -767,6 +767,10 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "partnerCommunication",
+        // About the children specifically ("over de kinderen") — hide from a
+        // childless user; its two siblings here are about the couple generally
+        // and stay. The phase itself is already getrouwd-gated.
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe communiceren jullie over de kinderen?", "How do you communicate about the children?", "كيف تتشاوران بشأن الأطفال؟"),
         type: "hybrid",
         options: [
