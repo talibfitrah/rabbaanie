@@ -34,7 +34,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
-function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; maritalStatus: boolean }): Phase[] {
+function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; maritalStatus: boolean; birthDate: boolean }): Phase[] {
   const hint = tx(lang, "Kies een optie of schrijf uw eigen antwoord", "Choose an option or write your own answer", "اختر خيارًا أو اكتب إجابتك الخاصة");
   const isMale = gender === "man";
   const isFemale = gender === "vrouw";
@@ -44,12 +44,26 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
     if (isFemale) return female;
     return neutral;
   };
+  // The short onboarding (app/onboarding/index.tsx) already collects gender,
+  // marital status and birth date before handing off to this wizard. Once all
+  // three are known, this phase's own gender/maritalStatus/birthDate questions
+  // are all skipped below (`known`-gated) and the ONLY thing left in it is
+  // previousMethodology — so re-showing the "Step 1: Basic information"
+  // heading (identical wording to the short onboarding's own first screen) is
+  // what read as the whole flow restarting, even though no question was
+  // actually repeated. Relabel to what's really left once that handoff is
+  // confirmed; reached any other way, this phase still needs its full framing.
+  const isContinuing = !!(known?.gender && known?.maritalStatus && known?.birthDate);
   return [
   // ===== FASE 1: BASISGEGEVENS =====
   {
     id: "basis",
-    title: tx(lang, "Stap 1: Basisgegevens", "Step 1: Basic information", "الخطوة 1: المعلومات الأساسية"),
-    subtitle: tx(lang, "Laten we beginnen met wie u bent.", "Let's start with who you are.", "لنبدأ بمن أنت."),
+    title: isContinuing
+      ? tx(lang, "Uw opvoedmethode", "Your parenting method", "منهجك في التربية")
+      : tx(lang, "Stap 1: Basisgegevens", "Step 1: Basic information", "الخطوة 1: المعلومات الأساسية"),
+    subtitle: isContinuing
+      ? tx(lang, "Nog één vraag, dan gaan we verder.", "One more question, then we continue.", "سؤال أخير، ثم نتابع.")
+      : tx(lang, "Laten we beginnen met wie u bent.", "Let's start with who you are.", "لنبدأ بمن أنت."),
     questions: [
       {
         key: "gender",
@@ -90,6 +104,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
         key: "birthDate",
         label: tx(lang, "Wat is uw geboortedatum?", "What is your date of birth?", "ما هو تاريخ ميلادك؟"),
         type: "date",
+        conditional: () => !known?.birthDate,
       },
     ],
   },
@@ -279,6 +294,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "psychologistChildren",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Worden uw kinderen momenteel behandeld door een psycholoog of andere instantie?", "Are your children currently being treated by a psychologist or other agency?", "هل أطفالك حاليًا تحت متابعة أخصائي نفسي أو جهة أخرى؟"),
         type: "select",
         options: [
@@ -291,7 +307,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
         key: "psychologistChildrenDetails",
         label: tx(lang, "Door welke instantie en waarvoor worden/werden uw kinderen behandeld?", "By which agency and for what are/were your children treated?", "عند أي جهة ولأي سبب يتابَع/تابع أطفالك؟"),
         type: "text",
-        conditional: (p) => p.psychologistChildren === "ja_momenteel" || p.psychologistChildren === "ja_verleden",
+        conditional: (p) => !p.hasNoChildren && (p.psychologistChildren === "ja_momenteel" || p.psychologistChildren === "ja_verleden"),
       },
     ],
   },
@@ -301,6 +317,10 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
     id: "onderwijs",
     title: tx(lang, "Stap 7: Onderwijs kinderen", "Step 7: Children's education", "الخطوة 7: تعليم الأطفال"),
     subtitle: tx(lang, "Over de onderwijssituatie van uw kinderen.", "About the educational situation of your children.", "عن الوضع التعليمي لأطفالك."),
+    // Entirely about the children's schooling — a user who declared "no
+    // children" at the onboarding gate (hasNoChildren) has nothing to answer
+    // here (e.g. "what education do your children follow?").
+    conditional: (p) => !p.hasNoChildren,
     questions: [
       {
         key: "schoolType",
@@ -379,6 +399,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "thinkingAboutChildren",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe denkt u over uw band met uw kinderen?", "How do you think about your bond with your children?", "كيف تفكر في علاقتك بأطفالك؟"),
         type: "hybrid",
         options: [
@@ -454,6 +475,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "feelingAboutChildren",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Wat voelt u bij uw kinderen?", "What do you feel towards your children?", "ماذا تشعر تجاه أطفالك؟"),
         type: "hybrid",
         options: [
@@ -517,7 +539,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
         key: "speakingToPartner",
         label: tx(lang, "Hoe spreekt u met uw partner over de kinderen?", "How do you speak with your partner about the children?", gAr("كيف تتحدث مع زوجتك عن الأطفال؟", "كيف تتحدثين مع زوجك عن الأطفال؟", "كيف تتحدث مع زوجك/زوجتك عن الأطفال؟")),
         type: "hybrid",
-        conditional: (p) => p.maritalStatus === "getrouwd",
+        conditional: (p) => !p.hasNoChildren && p.maritalStatus === "getrouwd",
         options: [
           { value: "goed_overleg", label: tx(lang, "Goed overleg, respectvol", "Good consultation, respectful", "تشاور جيد، باحترام") },
           { value: "kort_zakelijk", label: tx(lang, "Kort en zakelijk", "Short and businesslike", "قصير وعملي") },
@@ -529,6 +551,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "speakingToChildren",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe spreekt u met uw kinderen?", "How do you speak with your children?", "كيف تتحدث مع أطفالك؟"),
         type: "hybrid",
         options: [
@@ -542,6 +565,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "speakingWhenAngry",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe spreekt u wanneer u boos bent op uw kinderen?", "How do you speak when you are angry at your children?", "كيف تتكلم حين تغضب على أطفالك؟"),
         type: "hybrid",
         options: [
@@ -555,6 +579,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "speakingWhenCorrecting",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe spreekt u wanneer u uw kinderen corrigeert?", "How do you speak when correcting your children?", "كيف تتكلم حين تصحّح لأطفالك؟"),
         type: "hybrid",
         options: [
@@ -604,6 +629,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "doingWithChildren",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe handelt u met uw kinderen in het dagelijks leven?", "How do you act with your children in daily life?", "كيف تتعامل مع أطفالك في الحياة اليومية؟"),
         type: "hybrid",
         options: [
@@ -630,6 +656,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
       },
       {
         key: "doingDailyRoutine",
+        conditional: (p) => !p.hasNoChildren,
         label: tx(lang, "Hoe ziet uw dagelijkse routine eruit met de kinderen?", "What does your daily routine with the children look like?", "كيف يبدو روتينك اليومي مع الأطفال؟"),
         type: "hybrid",
         options: [
@@ -776,6 +803,7 @@ export default function ParentProfileScreen() {
   const knownAtMount = useRef({
     gender: !!state.parentProfile.gender,
     maritalStatus: !!state.parentProfile.maritalStatus,
+    birthDate: !!state.parentProfile.birthDate,
   });
 
   const PHASES = useMemo(() => getPHASES(lang, profile.gender, knownAtMount.current), [lang, profile.gender]);
