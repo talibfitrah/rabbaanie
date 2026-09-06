@@ -1,0 +1,40 @@
+app/(tabs)/index.tsx
+  s_132c73e77515ad::t_edd6a28d225b98 21,413
+hooks/use-subscription.ts
+  s_132c73e77515ad::t_edd6a28d225b98 28-37,56-57,70-71,82-83,91-94,101-106,112
+components/trial-banner.tsx
+  s_132c73e77515ad::t_b85aafd00041c7 1-51
+lib/trial-notifications.ts
+  s_132c73e77515ad::t_4f438c0ffd37b0 1-141
+app/(tabs)/weekly.tsx
+  s_132c73e77515ad::t_edd6a28d225b98 15,395
+app/(tabs)/treatments.tsx
+  s_132c73e77515ad::t_edd6a28d225b98 20,118
+app/(tabs)/_layout.tsx
+  s_132c73e77515ad::t_edd6a28d225b98 2,10-11,20,26-38
+tests/trial-notifications.test.ts
+  s_132c73e77515ad::t_f5f07d6b2e2d27 1-16
+  s_132c73e77515ad::t_0e485f476d4190 17-60
+app/subscribe.tsx
+  s_132c73e77515ad::t_f9a191bb8453dd 300-307
+  s_132c73e77515ad::t_edd6a28d225b98 26,298-299
+app/_layout.tsx
+  s_132c73e77515ad::t_edd6a28d225b98 90,610-614
+  s_132c73e77515ad::t_557389ce6e0ec8 615-617
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "7e753b69a4d506b40aee41c535e37656fec4a621",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
