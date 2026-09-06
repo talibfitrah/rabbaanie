@@ -1,4 +1,5 @@
 import { Tabs } from "expo-router";
+import { useEffect } from "react";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { HapticTab } from "@/components/haptic-tab";
 import { IconSymbol } from "@/components/ui/icon-symbol";
@@ -6,6 +7,8 @@ import { Platform, View, Text } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { useAuth } from "@/hooks/use-auth";
+import { useSubscription } from "@/hooks/use-subscription";
+import { cancelTrialReminders, scheduleTrialReminders } from "@/lib/trial-notifications";
 import { trpc } from "@/lib/trpc";
 
 // The visible tabs are reversed for Arabic below; without this the first
@@ -14,11 +17,25 @@ export const unstable_settings = { initialRouteName: "index" };
 
 export default function TabLayout() {
   const colors = useColors();
-  const { t, isRTL } = useI18n();
+  const { t, language, isRTL } = useI18n();
   const { isAuthenticated } = useAuth();
   const insets = useSafeAreaInsets();
   const bottomPadding = Platform.OS === "web" ? 12 : Math.max(insets.bottom, 8);
   const tabBarHeight = 62 + bottomPadding;
+
+  // Free-trial daily reminders (product spec: escalate to 3x/day on the final
+  // 2 days, always leading to /subscribe): driven from here rather than the
+  // root app/_layout.tsx launch sequence, which lib/notification-horizons.ts
+  // already budgets tightly against iOS's 64-pending cap for every user. This
+  // mounts once for the whole tab-based session and only schedules for the
+  // trial minority; TrialBanner's own useSubscription() call shares the same
+  // module cache so this costs no extra network fetch.
+  const { trial, daysLeft } = useSubscription();
+  useEffect(() => {
+    if (Platform.OS === "web") return;
+    if (trial && daysLeft != null) scheduleTrialReminders(language, daysLeft).catch(() => {});
+    else cancelTrialReminders().catch(() => {});
+  }, [trial, daysLeft, language]);
 
   // Fetch total unread count for badge
   const unreadQuery = trpc.messages.totalUnread.useQuery(undefined, {

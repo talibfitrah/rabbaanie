@@ -18,6 +18,7 @@ import { checkNightAppOpen, QIYAM_HADITH, QIYAM_INSTRUCTIONS } from "@/lib/islam
 import { SyncToast } from "@/components/sync-toast";
 import { DailyDuoRow } from "@/components/daily-duo-row";
 import { WifeCardActions } from "@/components/wife-card-actions";
+import { TrialBanner } from "@/components/trial-banner";
 import { spouseSectionTitle } from "@/lib/spouse-label";
 import { syncRefusedMessage } from "@/lib/sync-refusal";
 
@@ -409,6 +410,7 @@ export default function AlgemeenScreen() {
           <Text style={s.headerTitle}>{tx(lang, "Rabbaanie", "Rabbaanie", "ربّانيّ")}</Text>
         </View>
       </View>
+      <TrialBanner />
       {syncResult && (
         <View style={{ backgroundColor: "#E8F5E9", paddingHorizontal: 16, paddingVertical: 8, marginHorizontal: 16, borderRadius: 8, marginBottom: 8 }}>
           <Text style={{ color: "#1B4332", fontSize: 13, textAlign: "center", fontWeight: "500" }}>{syncResult}</Text>

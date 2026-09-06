@@ -23,6 +23,7 @@ import {
   subscriptionFetch,
 } from "@/hooks/use-subscription";
 import { DISTRIBUTION_CHANNEL, couponPolicyChannel } from "@/lib/distribution";
+import { cancelTrialReminders } from "@/lib/trial-notifications";
 import { usePlayBilling } from "@/lib/play-billing";
 import {
   MARITAL_OPTIONS,
@@ -294,6 +295,16 @@ export default function SubscribeScreen() {
       const r = await subscriptionFetch(`status?userId=${uid}`);
       const data = await r.json();
       if (statusRequestFor.current !== uid) return;
+      // Every subscribe path (coupon, Play, Stripe-return-on-focus) refreshes
+      // status through this one function, so stopping the trial's daily
+      // reminders here — the instant an actual PAID subscription is confirmed —
+      // covers all of them without waiting for the tab layout's own
+      // useSubscription() to happen to refetch (see app/(tabs)/_layout.tsx,
+      // which still covers the trial simply expiring unsubscribed).
+      // MUST exclude the trial itself: a trial user is subscribed:true+trial,
+      // and they reach this screen BY TAPPING a reminder — cancelling on
+      // subscribed alone would kill the reminder sequence on first open.
+      if (data?.subscribed && !data?.trial) cancelTrialReminders().catch(() => {});
       // On iOS the server issues the tag as appleAccountToken. Fold it into
       // playAccountTag so usePlayBilling — whose two-argument signature and
       // `usePlayBilling(status?.playAccountTag, uid)` call site are both pinned

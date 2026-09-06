@@ -87,6 +87,7 @@ import {
   resolveShouldShowPopup,
 } from "@/lib/notification-settings";
 import { readExcusedState, HAID_NOTIFICATION_TYPES } from "@/lib/haid-state";
+import { TRIAL_REMINDER_TYPE } from "@/lib/trial-notifications";
 import { AuthProvider, useAuthContext } from "@/lib/auth-context";
 import { isEmailNotVerifiedError } from "@/lib/verification";
 import { PersistentTabBar } from "@/components/persistent-tab-bar";
@@ -603,6 +604,14 @@ export default function RootLayout() {
             data.type === HAID_NOTIFICATION_TYPES.ghuslReminder
           ) {
             setTimeout(() => router.push("/haid?purityCheck=1" as any), 800);
+            return;
+          }
+
+          // Trial reminders (lib/trial-notifications.ts) are actionable — go
+          // pay — not a religious reminder, so route straight to the payment
+          // screen instead of dressing them as the "مستحب" popup.
+          if (data.type === TRIAL_REMINDER_TYPE) {
+            setTimeout(() => router.push("/subscribe" as any), 800);
             return;
           }
 

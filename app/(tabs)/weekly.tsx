@@ -12,6 +12,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useWeeklyData } from "@/hooks/use-weekly-data";
 import { recordGoalCompleted, scheduleGoalsIncompleteReminder } from "@/lib/notifications";
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
+import { TrialBanner } from "@/components/trial-banner";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { cleanTreatmentText } from "@/lib/plan-text";
 import { cachePlanProgress, withPlanStore } from "@/lib/plan-progress";
@@ -391,6 +392,7 @@ export default function WeeklyScreen() {
         <DateTimeHeader />
       </View>
       <PremiumNotice />
+      <TrialBanner />
 
       <ScrollView contentContainerStyle={{ paddingBottom: insets.bottom + 100, paddingHorizontal: 16 }}>
         {/* Title */}

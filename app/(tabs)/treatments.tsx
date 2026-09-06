@@ -17,6 +17,7 @@ import { ReportAiContent } from "@/components/report-ai-content";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { cleanTreatmentText } from "@/lib/plan-text";
 import { PremiumNotice, PremiumGate, usePremiumGate } from "@/components/premium-notice";
+import { TrialBanner } from "@/components/trial-banner";
 
 export default function TreatmentsScreen() {
   const colors = useColors();
@@ -114,6 +115,7 @@ export default function TreatmentsScreen() {
         <DateTimeHeader />
       </View>
       <PremiumNotice />
+      <TrialBanner />
       <ScrollView
         className="flex-1"
         contentContainerStyle={{

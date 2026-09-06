@@ -25,7 +25,16 @@ export async function subscriptionFetch(path: string, init?: RequestInit) {
 // user's subscribed flag until its own status fetch resolves (a premium leak
 // across accounts). Storing the uid makes that leak structurally impossible,
 // regardless of how many sign-out entry points exist now or later.
-let _subCache: { uid: number; subscribed: boolean; expiresAt: string | null } | null = null;
+let _subCache: {
+  uid: number;
+  subscribed: boolean;
+  expiresAt: string | null;
+  // Free-trial fields (msg free-trial-reminders): `trial` mirrors the server's
+  // own flag rather than being derived from expiresAt, since a paid annual
+  // subscriber also carries a future expiresAt and must NOT read as trial.
+  trial: boolean;
+  daysLeft: number | null;
+} | null = null;
 
 /**
  * Drop the cached status so the next useSubscription() refetches. Call after an
@@ -44,6 +53,8 @@ export function useSubscription() {
   const cacheHit = _subCache && _subCache.uid === uid ? _subCache : null;
   const [subscribed, setSubscribed] = useState<boolean>(cacheHit?.subscribed ?? false);
   const [expiresAt, setExpiresAt] = useState<string | null>(cacheHit?.expiresAt ?? null);
+  const [trial, setTrial] = useState<boolean>(cacheHit?.trial ?? false);
+  const [daysLeft, setDaysLeft] = useState<number | null>(cacheHit?.daysLeft ?? null);
   const [loading, setLoading] = useState<boolean>(cacheHit === null);
 
   useEffect(() => {
@@ -56,6 +67,8 @@ export function useSubscription() {
       // No user (logged out / hydrating): never report a stale subscribed=true.
       setSubscribed(false);
       setExpiresAt(null);
+      setTrial(false);
+      setDaysLeft(null);
       if (!authLoading) setLoading(false);
       return;
     }
@@ -66,6 +79,8 @@ export function useSubscription() {
     const hit = _subCache && _subCache.uid === uid ? _subCache : null;
     setSubscribed(hit?.subscribed ?? false);
     setExpiresAt(hit?.expiresAt ?? null);
+    setTrial(hit?.trial ?? false);
+    setDaysLeft(hit?.daysLeft ?? null);
     setLoading(hit === null);
     let alive = true;
     subscriptionFetch(`status?userId=${uid}`)
@@ -73,21 +88,28 @@ export function useSubscription() {
       .then((d) => {
         const sub = !!(d && d.subscribed);
         const exp = (d && d.expiresAt) || null;
-        _subCache = { uid, subscribed: sub, expiresAt: exp };
-        if (alive) { setSubscribed(sub); setExpiresAt(exp); setLoading(false); }
+        const isTrial = !!(d && d.trial);
+        const days = isTrial && typeof d.daysLeft === "number" ? d.daysLeft : null;
+        _subCache = { uid, subscribed: sub, expiresAt: exp, trial: isTrial, daysLeft: days };
+        if (alive) { setSubscribed(sub); setExpiresAt(exp); setTrial(isTrial); setDaysLeft(days); setLoading(false); }
       })
       .catch(() => {
         // Network failure must NOT downgrade a paying subscriber to the paywall.
         // Keep the last known-good value for this user if we have one; only fall
         // through to not-subscribed when we've never had a successful check.
         if (!alive) return;
-        if (_subCache && _subCache.uid === uid) { setSubscribed(_subCache.subscribed); setExpiresAt(_subCache.expiresAt); }
+        if (_subCache && _subCache.uid === uid) {
+          setSubscribed(_subCache.subscribed);
+          setExpiresAt(_subCache.expiresAt);
+          setTrial(_subCache.trial);
+          setDaysLeft(_subCache.daysLeft);
+        }
         setLoading(false);
       });
     return () => { alive = false; };
   }, [uid, authLoading]);
 
-  return { subscribed, expiresAt, loading };
+  return { subscribed, expiresAt, trial, daysLeft, loading };
 }
 
 // A perpetual grant is stored as a date ~100 years out so every server-side
