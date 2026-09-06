@@ -920,12 +920,22 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
     await persist(newState);
   }, [persist]);
 
+  // Adding a real child must clear a stale `hasNoChildren` from onboarding: the
+  // flag is otherwise write-once-true (nothing else clears it), and it now
+  // suppresses every child-specific diagnostic question/phase in
+  // parent-profile.tsx — so a user who tapped "no children" then adds one from
+  // the Family tab would silently lose all child questions. Clear it here, at
+  // the source, whenever real children are added.
+  const clearNoChildrenFlag = (p: AppState["parentProfile"]) =>
+    p.hasNoChildren ? { ...p, hasNoChildren: false } : p;
+
   const addChild = useCallback(
     async (child: ChildProfile) => {
       const current = stateRef.current;
       const newState = {
         ...current,
         children: [...current.children, child],
+        parentProfile: clearNoChildrenFlag(current.parentProfile),
       };
       await persist(newState);
     },
@@ -938,6 +948,8 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
       const newState = {
         ...current,
         children: [...current.children, ...newChildren],
+        parentProfile:
+          newChildren.length > 0 ? clearNoChildrenFlag(current.parentProfile) : current.parentProfile,
       };
       await persist(newState);
     },

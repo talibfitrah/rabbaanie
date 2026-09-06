@@ -48,7 +48,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // marital status and birth date before handing off to this wizard. Once all
   // three are known, this phase's own gender/maritalStatus/birthDate questions
   // are all skipped below (`known`-gated) and the ONLY thing left in it is
-  // previousMethodology — so re-showing the "Step 1: Basic information"
+  // previousMethodology — so re-showing the "Basic information"
   // heading (identical wording to the short onboarding's own first screen) is
   // what read as the whole flow restarting, even though no question was
   // actually repeated. Relabel to what's really left once that handoff is
@@ -60,7 +60,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
     id: "basis",
     title: isContinuing
       ? tx(lang, "Uw opvoedmethode", "Your parenting method", "منهجك في التربية")
-      : tx(lang, "Stap 1: Basisgegevens", "Step 1: Basic information", "الخطوة 1: المعلومات الأساسية"),
+      : tx(lang, "Basisgegevens", "Basic information", "المعلومات الأساسية"),
     subtitle: isContinuing
       ? tx(lang, "Nog één vraag, dan gaan we verder.", "One more question, then we continue.", "سؤال أخير، ثم نتابع.")
       : tx(lang, "Laten we beginnen met wie u bent.", "Let's start with who you are.", "لنبدأ بمن أنت."),
@@ -112,7 +112,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 2: GEBED =====
   {
     id: "gebed",
-    title: tx(lang, "Stap 2: Uw gebed", "Step 2: Your prayer", "الخطوة 2: الصلاة"),
+    title: tx(lang, "Uw gebed", "Your prayer", "الصلاة"),
     subtitle: tx(lang, "Het gebed is de pilaar van de dien.", "Prayer is the pillar of the deen.", "الصلاة عماد الدين."),
     questions: [
       {
@@ -151,7 +151,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 3: HIJAAB =====
   {
     id: "hijab",
-    title: tx(lang, "Stap 3: Hijaab", "Step 3: Hijab", "الخطوة 3: الحجاب"),
+    title: tx(lang, "Hijaab", "Hijab", "الحجاب"),
     subtitle: tx(lang, "Over de hijaab in uw gezin.", "About the hijab in your family.", "عن الحجاب في عائلتك."),
     questions: [
       {
@@ -182,7 +182,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 4: KENNIS =====
   {
     id: "kennis",
-    title: tx(lang, "Stap 4: Kennisvergaring", "Step 4: Knowledge acquisition", "الخطوة 4: طلب العلم"),
+    title: tx(lang, "Kennisvergaring", "Knowledge acquisition", "طلب العلم"),
     subtitle: tx(lang, "Over hoe u islamitische kennis vergaart.", "About how you acquire Islamic knowledge.", "كيف تطلب العلم الشرعي."),
     questions: [
       {
@@ -240,7 +240,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 5: GEZINSKUNDE =====
   {
     id: "gezinskunde",
-    title: tx(lang, "Stap 5: Gezinskunde", "Step 5: Family science", "الخطوة 5: علم الأسرة (الجزينسكوندا)"),
+    title: tx(lang, "Gezinskunde", "Family science", "علم الأسرة (الجزينسكوندا)"),
     subtitle: tx(lang, "Over uw studie van islamitische gezinskunde.", "About your study of Islamic family science.", "عن دراستك لعلم الأسرة الإسلامي."),
     questions: [
       {
@@ -273,7 +273,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 6: PSYCHOLOOG / INSTANTIES =====
   {
     id: "instanties",
-    title: tx(lang, "Stap 6: Psycholoog / Instanties", "Step 6: Psychologist / Agencies", "الخطوة 6: الأخصائي النفسي / المؤسسات"),
+    title: tx(lang, "Psycholoog / Instanties", "Psychologist / Agencies", "الأخصائي النفسي / المؤسسات"),
     subtitle: tx(lang, "Over eventuele behandelingen.", "About any treatments.", "عن أي متابعة نفسية حالية أو سابقة."),
     questions: [
       {
@@ -315,7 +315,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 7: ONDERWIJS =====
   {
     id: "onderwijs",
-    title: tx(lang, "Stap 7: Onderwijs kinderen", "Step 7: Children's education", "الخطوة 7: تعليم الأطفال"),
+    title: tx(lang, "Onderwijs kinderen", "Children's education", "تعليم الأطفال"),
     subtitle: tx(lang, "Over de onderwijssituatie van uw kinderen.", "About the educational situation of your children.", "عن الوضع التعليمي لأطفالك."),
     // Entirely about the children's schooling — a user who declared "no
     // children" at the onboarding gate (hasNoChildren) has nothing to answer
@@ -367,7 +367,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 8: DENKWIJZE =====
   {
     id: "denken",
-    title: tx(lang, "Stap 8: Uw denkwijze", "Step 8: Your way of thinking", "الخطوة 8: طريقة تفكيرك"),
+    title: tx(lang, "Uw denkwijze", "Your way of thinking", "طريقة تفكيرك"),
     subtitle: tx(lang, "Beschrijf in feiten hoe u denkt. Geen oordelen, alleen feiten.", "Describe in facts how you think. No judgments, only facts.", "صف بالوقائع كيف تفكر. دون أحكام، فقط وقائع."),
     questions: [
       {
@@ -443,7 +443,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 9: VOELWIJZE =====
   {
     id: "voelen",
-    title: tx(lang, "Stap 9: Uw voelwijze", "Step 9: Your way of feeling", "الخطوة 9: طريقة شعورك"),
+    title: tx(lang, "Uw voelwijze", "Your way of feeling", "طريقة شعورك"),
     subtitle: tx(lang, "Beschrijf in feiten wat u voelt. Geen oordelen, alleen feiten.", "Describe in facts what you feel. No judgments, only facts.", "صف بالوقائع ما تشعر به. دون أحكام، فقط وقائع."),
     questions: [
       {
@@ -519,7 +519,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 10: SPREEKWIJZE =====
   {
     id: "spreken",
-    title: tx(lang, "Stap 10: Uw spreekwijze", "Step 10: Your way of speaking", "الخطوة 10: طريقة كلامك"),
+    title: tx(lang, "Uw spreekwijze", "Your way of speaking", "طريقة كلامك"),
     subtitle: tx(lang, "Beschrijf in feiten hoe u spreekt. Geen oordelen, alleen feiten.", "Describe in facts how you speak. No judgments, only facts.", "صف بالوقائع كيف تتكلم. دون أحكام، فقط وقائع."),
     questions: [
       {
@@ -597,7 +597,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 11: DOEWIJZE =====
   {
     id: "doen",
-    title: tx(lang, "Stap 11: Uw werkwijze / doewijze", "Step 11: Your way of acting", "الخطوة 11: طريقة عملك"),
+    title: tx(lang, "Uw werkwijze / doewijze", "Your way of acting", "طريقة عملك"),
     subtitle: tx(lang, "Beschrijf in feiten wat u doet. Geen oordelen, alleen feiten.", "Describe in facts what you do. No judgments, only facts.", "صف بالوقائع ماذا تفعل. دون أحكام، فقط وقائع."),
     questions: [
       {
@@ -674,7 +674,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 12: AFFINITEITEN =====
   {
     id: "affiniteiten",
-    title: tx(lang, "Stap 12: Uw affiniteiten en eigenschappen", "Step 12: Your affinities and qualities", "الخطوة 12: ميولك وصفاتك"),
+    title: tx(lang, "Uw affiniteiten en eigenschappen", "Your affinities and qualities", "ميولك وصفاتك"),
     subtitle: tx(lang, "Dit helpt ons om uw opvoedadviezen persoonlijk te maken.", "This helps us personalize your parenting advice.", "هذا يساعدنا على تخصيص النصائح التربوية لك."),
     questions: [
       {
@@ -735,7 +735,7 @@ function getPHASES(lang: Lang, gender?: string, known?: { gender: boolean; marit
   // ===== FASE 13: BAND MET PARTNER =====
   {
     id: "band",
-    title: tx(lang, "Stap 13: Band met uw partner", "Step 13: Bond with your partner", gAr("الخطوة 13: العلاقة مع زوجتك", "الخطوة 13: العلاقة مع زوجك", "الخطوة 13: العلاقة مع الزوج/الزوجة")),
+    title: tx(lang, "Band met uw partner", "Bond with your partner", gAr("العلاقة مع زوجتك", "العلاقة مع زوجك", "العلاقة مع الزوج/الزوجة")),
     subtitle: tx(lang, "Over de samenwerking in de opvoeding.", "About cooperation in parenting.", "عن التعاون بينكما في التربية."),
     conditional: (p) => p.maritalStatus === "getrouwd",
     questions: [

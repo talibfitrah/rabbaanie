@@ -37,6 +37,16 @@ const src = readFileSync(
   "utf8",
 ).replace(/\s+/g, " ");
 
+// The child-question gating trusts `hasNoChildren` to mean "actually has no
+// children". That flag is write-once-true in onboarding — cubic P2 (2026-09-06):
+// a user who declared "no children" then added one from the Family tab kept the
+// stale flag, silently suppressing every child question. lib/app-context.tsx's
+// addChild/addChildren must clear it at the source when real children are added.
+const appCtx = readFileSync(
+  join(__dirname, "..", "lib/app-context.tsx"),
+  "utf8",
+).replace(/\s+/g, " ");
+
 describe("the profile wizard does not re-ask gender, marital status or birth date already given", () => {
   // Gate on a MOUNT snapshot (`known`), not live `p`: referencing live state
   // hid a question the instant it was answered inside the wizard. `known` is
@@ -84,8 +94,12 @@ describe("the wizard does not restart at 'Step 1: Basic information' after the s
     expect(basis).toMatch(/subtitle:\s*isContinuing\s*\?/);
   });
 
-  it("keeps the original 'Step 1: Basic information' wording as the non-continuing fallback", () => {
-    expect(src).toMatch(/Step 1: Basic information/);
+  it("keeps the basics-phase title (not the 'parenting method' relabel) as the non-continuing fallback", () => {
+    expect(src).toMatch(/"Basisgegevens", "Basic information"/);
+  });
+
+  it("no phase title carries a hardcoded 'Step N:' number — the dynamic 'Step X of Y' counter owns numbering, so gating a phase out never desyncs title vs counter", () => {
+    expect(src).not.toMatch(/"(Stap|Step) \d+: /);
   });
 });
 
@@ -133,5 +147,19 @@ describe("a childless user skips every child-specific question", () => {
   it("does NOT gate parent-only questions (prayer, own psychologist) on hasNoChildren", () => {
     const psychologistSelf = src.slice(src.indexOf('key: "psychologist"'), src.indexOf('key: "psychologistDetails"'));
     expect(psychologistSelf).not.toMatch(/!p\.hasNoChildren/);
+  });
+});
+
+describe("adding a real child clears a stale hasNoChildren (cubic P2) so child questions are never wrongly suppressed", () => {
+  it("clearNoChildrenFlag flips hasNoChildren to false", () => {
+    expect(appCtx).toMatch(/clearNoChildrenFlag = .*hasNoChildren: false/);
+  });
+  it("addChild clears the flag on parentProfile", () => {
+    const fn = appCtx.slice(appCtx.indexOf("const addChild ="), appCtx.indexOf("const addChildren ="));
+    expect(fn).toMatch(/parentProfile: clearNoChildrenFlag\(current\.parentProfile\)/);
+  });
+  it("addChildren clears the flag when children are actually added", () => {
+    const fn = appCtx.slice(appCtx.indexOf("const addChildren ="), appCtx.indexOf("const updateChild ="));
+    expect(fn).toMatch(/newChildren\.length > 0 \? clearNoChildrenFlag\(current\.parentProfile\)/);
   });
 });
