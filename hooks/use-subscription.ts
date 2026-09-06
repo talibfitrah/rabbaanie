@@ -126,7 +126,7 @@ export function isPerpetualExpiry(expiresAt: string | Date): boolean {
 
 /** Arabic numeral-noun agreement: 1/2 have dedicated forms, 3-10 take the
  *  plural noun, 11+ takes the singular accusative (tamyiz) form. */
-export function arabicDayCount(days: number): string {
+function arabicDayCount(days: number): string {
   if (days === 0) return "0 أيام";
   if (days === 1) return "يوم واحد";
   if (days === 2) return "يومان";
