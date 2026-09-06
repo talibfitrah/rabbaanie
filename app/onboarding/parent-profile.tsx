@@ -800,7 +800,18 @@ export default function ParentProfileScreen() {
   const scrollRef = useRef<ScrollView>(null);
   const fieldPositions = useRef<Record<string, number>>({});
 
-  const [profile, setProfile] = useState<ParentProfile>(state.parentProfile);
+  // `hasNoChildren` is write-once-true in onboarding and can go stale if real
+  // children arrive by any path — the Family-tab add-child, or a partner/server
+  // sync merging a linked co-parent's children. Correct it here from the LIVE
+  // children so the child-question gating below never suppresses questions for
+  // someone who actually has children (whatever left the flag stale); saving the
+  // wizard then persists the correction. This is the single robust point of use,
+  // rather than chasing every path that can add a child.
+  const [profile, setProfile] = useState<ParentProfile>(() =>
+    state.parentProfile.hasNoChildren && state.children.length > 0
+      ? { ...state.parentProfile, hasNoChildren: false }
+      : state.parentProfile,
+  );
   // Snapshot at mount: skip gender/marital ONLY if they were already answered
   // before the wizard (prefilled from the short flow). Referencing live state
   // in their `conditional` made an in-wizard answer hide its own question.

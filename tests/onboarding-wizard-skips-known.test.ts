@@ -149,6 +149,13 @@ describe("a childless user skips every child-specific question", () => {
     const psychologistSelf = src.slice(src.indexOf('key: "psychologist"'), src.indexOf('key: "psychologistDetails"'));
     expect(psychologistSelf).not.toMatch(/!p\.hasNoChildren/);
   });
+
+  it("corrects a stale hasNoChildren from the live children (cubic r3) so a co-parent's synced children re-enable the child questions", () => {
+    // The wizard's profile init flips hasNoChildren=false when real children
+    // exist, so no path that can leave the write-once flag stale (add-child,
+    // partner/server sync) can wrongly suppress child questions here.
+    expect(src).toMatch(/state\.parentProfile\.hasNoChildren && state\.children\.length > 0/);
+  });
 });
 
 describe("adding a real child clears a stale hasNoChildren (cubic P2) so child questions are never wrongly suppressed", () => {
