@@ -83,7 +83,7 @@ export default function AlgemeenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, loading, rehydrateFromServer } = useAppState();
-  const { t, language, isRTL, languageSelected } = useI18n();
+  const { t, language, isRTL, languageSelected, numeralSystem, dig } = useI18n();
   const lang = language as Lang;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
@@ -280,12 +280,12 @@ export default function AlgemeenScreen() {
   const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const daysNl = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
   const dayName = lang === "ar" ? daysAr[currentTime.getDay()] : lang === "en" ? daysEn[currentTime.getDay()] : daysNl[currentTime.getDay()];
-  const hijriDateStr = `${dayName} ${formatHijriDate(hijri, lang)}`;
+  const hijriDateStr = `${dayName} ${formatHijriDate(hijri, lang, numeralSystem)}`;
   const monthsAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   const monthsEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];
   const gregMonth = lang === "ar" ? monthsAr[currentTime.getMonth()] : lang === "en" ? monthsEn[currentTime.getMonth()] : monthsNl[currentTime.getMonth()];
-  const gregorianDateStr = `${currentTime.getDate()} ${gregMonth} ${currentTime.getFullYear()}`;
+  const gregorianDateStr = `${dig(currentTime.getDate())} ${gregMonth} ${dig(currentTime.getFullYear())}`;
   const cityName = prayerLocation?.city || state.locationSettings?.city || "";
   const displayCity = lang === "ar" ? getCityAR(cityName) : cityName;
 
@@ -468,9 +468,9 @@ export default function AlgemeenScreen() {
       {weather ? (
         <TouchableOpacity onPress={() => router.push("/weather" as any)} activeOpacity={0.8} style={[s.weatherPill, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <MaterialIcons name={weatherLabel(weather.code, lang).icon as any} size={16} color="#1B4332" />
-          <Text style={s.weatherTemp}>{weather.temp}°</Text>
+          <Text style={s.weatherTemp}>{dig(weather.temp)}°</Text>
           <Text style={s.weatherLabel}>{weatherLabel(weather.code, lang).label}</Text>
-          <Text style={s.weatherRange}>{weather.todayMax}° / {weather.todayMin}°</Text>
+          <Text style={s.weatherRange}>{dig(weather.todayMax)}° / {dig(weather.todayMin)}°</Text>
           <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#1B4332" />
         </TouchableOpacity>
       ) : null}
@@ -485,11 +485,11 @@ export default function AlgemeenScreen() {
             </View>
             <View style={s.prayerCenter}>
               <Text style={s.prayerName}>{PRAYER_NAMES[nextPrayer]?.[lang] || nextPrayer}</Text>
-              <Text style={s.prayerTime}>{prayerTimes[nextPrayer as keyof PrayerTimesResult]}</Text>
+              <Text style={s.prayerTime}>{dig(prayerTimes[nextPrayer as keyof PrayerTimesResult])}</Text>
             </View>
             <View style={s.prayerRight}>
               <Text style={s.countdownLabel}>{tx(lang, "Resterend", "Remaining", "متبقي")}</Text>
-              <Text style={s.countdownText}>{prayerCountdown}</Text>
+              <Text style={s.countdownText}>{dig(prayerCountdown)}</Text>
             </View>
           </View>
           {/* Adhkar quick buttons */}

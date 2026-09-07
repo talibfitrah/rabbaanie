@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
-import { toArabicDigits } from "@/lib/prayer-data";
+import { formatDigits, type NumeralSystem } from "@/lib/prayer-data";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -917,7 +917,8 @@ export function getParentDayInfo(
   return days.map((d) => ({ ...d, lang }));
 }
 
-function getUpcomingEvents(now: Date, lang: Lang): UpcomingEvent[] {
+function getUpcomingEvents(now: Date, lang: Lang, numeralSystem?: NumeralSystem): UpcomingEvent[] {
+  const ns = numeralSystem ?? (lang === "ar" ? "arabic" : "western");
   const events: UpcomingEvent[] = [];
   const daysArr =
     lang === "ar"
@@ -930,7 +931,7 @@ function getUpcomingEvents(now: Date, lang: Lang): UpcomingEvent[] {
     const futureDate = new Date(now.getTime() + i * 86400000);
     const futureDow = futureDate.getDay();
     const fH = gregorianToHijri(futureDate);
-    const dayLabel = lang === "ar" ? `${daysArr[futureDow]} ${toArabicDigits(fH.day)} ${fH.monthNameAR}` : `${daysArr[futureDow]} ${fH.day} ${fH.monthName}`;
+    const dayLabel = `${daysArr[futureDow]} ${formatDigits(fH.day, ns)} ${lang === "ar" ? fH.monthNameAR : fH.monthName}`;
     const noFasting = isFastingProhibited(fH.month, fH.day);
 
     if ((futureDow === 1 || futureDow === 4) && !noFasting)
@@ -1597,7 +1598,7 @@ function StatusBadge({
 }
 
 export default function FamilyScreen() {
-  const { t, language, isRTL } = useI18n();
+  const { t, language, isRTL, numeralSystem } = useI18n();
   const lang = language as Lang;
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -1743,8 +1744,8 @@ export default function FamilyScreen() {
     setDayInfoList(
       getParentDayInfo(hijri.month, hijri.day, now.getDay(), lang),
     );
-    setUpcomingEvents(getUpcomingEvents(now, lang));
-  }, [language]);
+    setUpcomingEvents(getUpcomingEvents(now, lang, numeralSystem));
+  }, [language, numeralSystem]);
 
   useEffect(() => {
     if (state.parentProfileCompleted) {
@@ -1831,6 +1832,8 @@ export default function FamilyScreen() {
           childrenAges: state.children.map((c) => {
             if (!c.birthDate)
               return tx(lang, "onbekend", "unknown", "غير معروف");
+            // Raw digits: this is the /api/advice/general request payload, not a
+            // display string — the numeral preference must not leak into data.
             return `${c.name}: ${now.getFullYear() - new Date(c.birthDate).getFullYear()} ${tx(lang, "jaar", "years", "سنة")}`;
           }),
           childrenDetails: state.children.map((c) => {
@@ -3972,7 +3975,7 @@ export default function FamilyScreen() {
                             )}{" "}
                       —{" "}
                       {age
-                        ? `${age.years}${tx(lang, "j", "y", "س")} ${age.months}${tx(lang, "m", "m", "ش")}`
+                        ? `${formatDigits(age.years, numeralSystem)}${tx(lang, "j", "y", "س")} ${formatDigits(age.months, numeralSystem)}${tx(lang, "m", "m", "ش")}`
                         : tx(
                             lang,
                             "geen geboortedatum",
@@ -4272,8 +4275,8 @@ export default function FamilyScreen() {
                         {tx(
                           lang,
                           `Week ${weekNum} • ${yearKey}`,
-                          `Week ${weekNum} • Year ${age.years}`,
-                          `الأسبوع ${weekNum} • السنة ${age.years}`,
+                          `Week ${formatDigits(weekNum, numeralSystem)} • Year ${formatDigits(age.years, numeralSystem)}`,
+                          `الأسبوع ${formatDigits(weekNum, numeralSystem)} • السنة ${formatDigits(age.years, numeralSystem)}`,
                         )}
                       </Text>
                       {isAuthenticated &&

@@ -705,17 +705,48 @@ export function toArabicDigits(value: number | string): string {
   return String(value).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
 }
 
+export type NumeralSystem = "arabic" | "western";
+
+/** Digits for the user's numeral-system preference. Backs formatHijriDate's digit
+ * choice below and the `dig` context helper (lib/i18n.tsx) — one ternary, not duplicated. */
+export function formatDigits(value: number | string | null | undefined, numeralSystem: NumeralSystem): string {
+  // A nullish value must render as nothing (React's default for {undefined}),
+  // NOT the literal "undefined"/"null" String() would produce — dig() is used at
+  // sites whose value type is asserted via a cast that can lie at runtime.
+  if (value == null) return "";
+  return numeralSystem === "arabic" ? toArabicDigits(value) : String(value);
+}
+
 /**
- * Format a Hijri date for the chosen language. getIslamicDate returns both the
- * Latin (monthName) and Arabic (monthNameAR) month; an Arabic locale must use the
+ * Resolve the persisted `@numeral_system` preference: an explicit valid value
+ * wins; otherwise fall back to the language's implicit default (arabic for ar,
+ * western otherwise), so a user who never touched the setting sees no change.
+ * Centralizes the fallback that used to be copy-pasted at every site reading
+ * this preference before it reaches I18nProvider's own state (lib/i18n.tsx,
+ * app/_layout.tsx, lib/widget-background-task.ts, widgets/widgetTaskHandler.tsx).
+ */
+export function resolveNumeralSystem(
+  raw: string | null | undefined,
+  lang: string | null | undefined,
+): NumeralSystem {
+  return raw === "arabic" || raw === "western" ? raw : lang === "ar" ? "arabic" : "western";
+}
+
+/**
+ * Format a Hijri date for the chosen language, with digits controlled by the
+ * separate numeralSystem preference. getIslamicDate returns both the Latin
+ * (monthName) and Arabic (monthNameAR) month; an Arabic locale must use the
  * Arabic month AND Arabic-Indic digits — Daa3iyah reported the widget showing
- * "24 Rabi' al-Awwal 1448" in Latin while the app language was Arabic.
+ * "24 Rabi' al-Awwal 1448" in Latin while the app language was Arabic. Digits
+ * now follow numeralSystem when given; omitting it reproduces that original
+ * language-only behavior (arabic for ar, western otherwise) unchanged.
  */
 export function formatHijriDate(
   hijri: { day: number; monthName: string; monthNameAR: string; year: number },
   lang: string | null | undefined,
+  numeralSystem?: NumeralSystem,
 ): string {
-  return lang === "ar"
-    ? `${toArabicDigits(hijri.day)} ${hijri.monthNameAR} ${toArabicDigits(hijri.year)}`
-    : `${hijri.day} ${hijri.monthName} ${hijri.year}`;
+  const ns = numeralSystem ?? (lang === "ar" ? "arabic" : "western");
+  const month = lang === "ar" ? hijri.monthNameAR : hijri.monthName;
+  return `${formatDigits(hijri.day, ns)} ${month} ${formatDigits(hijri.year, ns)}`;
 }

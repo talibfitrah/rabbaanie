@@ -53,7 +53,7 @@ export function DateTimeHeader() {
   const colors = useColors();
   const router = useRouter();
   const { state } = useAppState();
-  const { language, t } = useI18n();
+  const { language, t, numeralSystem, dig } = useI18n();
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
@@ -74,9 +74,9 @@ export function DateTimeHeader() {
   const hijri = gregorianToHijri(now);
   const hijriMonthDisplay = language === "ar" ? hijri.monthNameAR : hijri.monthName;
   const hijriStr = language === "ar"
-    ? `${daysAr[now.getDay()]} ${formatHijriDate(hijri, language)} هـ`
-    : `${formatHijriDate(hijri, language)} H`;
-  const gregStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
+    ? `${daysAr[now.getDay()]} ${formatHijriDate(hijri, language, numeralSystem)} هـ`
+    : `${formatHijriDate(hijri, language, numeralSystem)} H`;
+  const gregStr = `${days[now.getDay()]} ${dig(now.getDate())} ${months[now.getMonth()]} ${dig(now.getFullYear())}`;
   const locale = language === "ar" ? "ar-SA" : language === "en" ? "en-GB" : "nl-NL";
   const timeStr = now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 

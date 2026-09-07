@@ -17,7 +17,6 @@ import {
   getCurrentMinutesInTimezone,
   getIslamicDate,
   formatHijriDate,
-  toArabicDigits,
   type SavedPrayerLocation,
   type CalcMethod,
 } from "@/lib/prayer-data";
@@ -139,9 +138,8 @@ export default function RoznamaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const params = useLocalSearchParams<{ date?: string; view?: string }>();
-  const { language, isRTL, t } = useI18n();
+  const { language, isRTL, t, numeralSystem, dig } = useI18n();
   const lang = language as Lang;
-  const dig = (n: number | string) => (lang === "ar" ? toArabicDigits(n) : String(n));
 
   const hasDateParam = typeof params.date === "string" && parseISODate(params.date) !== null;
   const [selectedDate, setSelectedDate] = useState<Date>(() => {
@@ -518,7 +516,7 @@ export default function RoznamaScreen() {
         <View style={st.dayHeaderBox}>
           <Text style={st.dayHeaderWeekday}>{weekdayName}</Text>
           <Text style={st.dayHeaderGregorian}>{gregorianLabel}</Text>
-          <Text style={st.dayHeaderHijri}>{formatHijriDate(hijriForDay, lang)}</Text>
+          <Text style={st.dayHeaderHijri}>{formatHijriDate(hijriForDay, lang, numeralSystem)}</Text>
         </View>
 
         <View style={st.card}>

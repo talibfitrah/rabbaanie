@@ -16,7 +16,7 @@ TaskManager.defineTask(WIDGET_UPDATE_TASK, async () => {
     if (locRaw) {
       const loc = JSON.parse(locRaw);
       const methodRaw = await AsyncStorage.getItem("@prayer_method");
-      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, CALC_METHODS } = require("@/lib/prayer-data");
+      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, resolveNumeralSystem, CALC_METHODS } = require("@/lib/prayer-data");
       const method = CALC_METHODS.find((m: any) => m.id === methodRaw) || CALC_METHODS[0];
       const now = new Date();
       const times = calculatePrayerTimes(now, loc.lat, loc.lng, method, loc.tz);
@@ -34,9 +34,11 @@ TaskManager.defineTask(WIDGET_UPDATE_TASK, async () => {
         );
         const hijri = getIslamicDate(now, times.maghrib, loc.tz);
         const lang = await AsyncStorage.getItem("@app_language");
+        const numeralRaw = await AsyncStorage.getItem("@numeral_system");
+        const numeralSystem = resolveNumeralSystem(numeralRaw, lang);
         await AsyncStorage.setItem(
           "@hijri_date_cache",
-          formatHijriDate(hijri, lang)
+          formatHijriDate(hijri, lang, numeralSystem)
         );
       }
     }
@@ -141,7 +143,7 @@ export async function refreshWidgetsOnAdhan(): Promise<void> {
     if (locRaw) {
       const loc = JSON.parse(locRaw);
       const methodRaw = await AsyncStorage.getItem("@prayer_method");
-      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, CALC_METHODS } = require("@/lib/prayer-data");
+      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, resolveNumeralSystem, CALC_METHODS } = require("@/lib/prayer-data");
       const method = CALC_METHODS.find((m: any) => m.id === methodRaw) || CALC_METHODS[0];
       const now = new Date();
       const times = calculatePrayerTimes(now, loc.lat, loc.lng, method, loc.tz);
@@ -155,7 +157,9 @@ export async function refreshWidgetsOnAdhan(): Promise<void> {
         );
         const hijri = getIslamicDate(now, times.maghrib, loc.tz);
         const lang = await AsyncStorage.getItem("@app_language");
-        await AsyncStorage.setItem("@hijri_date_cache", formatHijriDate(hijri, lang));
+        const numeralRaw = await AsyncStorage.getItem("@numeral_system");
+        const numeralSystem = resolveNumeralSystem(numeralRaw, lang);
+        await AsyncStorage.setItem("@hijri_date_cache", formatHijriDate(hijri, lang, numeralSystem));
       }
     }
 

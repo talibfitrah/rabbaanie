@@ -7,13 +7,13 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { fetchWeather, weatherLabel, weatherReflection, ghaybNote, type WeatherNow } from "@/lib/weather";
-import { getIslamicDate, toArabicDigits } from "@/lib/prayer-data";
+import { getIslamicDate } from "@/lib/prayer-data";
 
 export default function WeatherScreen() {
   const colors = useColors();
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { language, isRTL } = useI18n();
+  const { language, isRTL, dig } = useI18n();
   const lang = (language === "ar" || language === "en" ? language : "nl") as "ar" | "en" | "nl";
   const tt = (nl: string, en: string, ar: string) => (lang === "ar" ? ar : lang === "en" ? en : nl);
 
@@ -37,7 +37,7 @@ export default function WeatherScreen() {
   }, []);
 
   const weekdayOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short" });
-  const hijriOf = (d: string) => { const h = getIslamicDate(new Date(d), null); return lang === "ar" ? `${toArabicDigits(h.day)} ${h.monthNameAR}` : `${h.day} ${h.monthName}`; };
+  const hijriOf = (d: string) => { const h = getIslamicDate(new Date(d), null); return `${dig(h.day)} ${lang === "ar" ? h.monthNameAR : h.monthName}`; };
   const gregOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { day: "numeric", month: "short" });
   const hlbl = (nl: string, en: string, ar: string) => tt(nl, en, ar);
 
@@ -76,8 +76,8 @@ export default function WeatherScreen() {
         {/* Current */}
         <View style={{ alignItems: "center", marginBottom: 8 }}>
           <MaterialIcons name={weatherLabel(w.code, lang).icon as any} size={48} color={colors.primary} />
-          <Text style={{ fontSize: 44, fontWeight: "800", color: colors.foreground }}>{w.temp}°</Text>
-          <Text style={{ fontSize: 15, color: colors.muted }}>{weatherLabel(w.code, lang).label} · {w.todayMax}° / {w.todayMin}°</Text>
+          <Text style={{ fontSize: 44, fontWeight: "800", color: colors.foreground }}>{dig(w.temp)}°</Text>
+          <Text style={{ fontSize: 15, color: colors.muted }}>{weatherLabel(w.code, lang).label} · {dig(w.todayMax)}° / {dig(w.todayMin)}°</Text>
         </View>
 
         {/* Day browser */}
@@ -91,7 +91,7 @@ export default function WeatherScreen() {
                 <Text style={{ fontSize: 10, color: colors.foreground }}>{hijriOf(d.date)} {tt("h", "H", "هـ")}</Text>
                 <Text style={{ fontSize: 9, color: colors.muted }}>{gregOf(d.date)}{lang === "ar" ? " م" : ""}</Text>
                 <MaterialIcons name={weatherLabel(d.code, lang).icon as any} size={18} color={on ? colors.primary : colors.muted} />
-                <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "600" }}>{d.max}° / {d.min}°</Text>
+                <Text style={{ fontSize: 12, color: colors.foreground, fontWeight: "600" }}>{dig(d.max)}° / {dig(d.min)}°</Text>
               </TouchableOpacity>
             );
           })}

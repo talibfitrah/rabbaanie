@@ -197,7 +197,7 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { t, language, setLanguage, isRTL } = useI18n();
+  const { t, language, setLanguage, isRTL, numeralSystem, setNumeralSystem } = useI18n();
   const isEn = language === "en";
   const remoteCfg = useRemoteConfig();
   const { colorScheme, setColorScheme } = useThemeContext();
@@ -1432,6 +1432,48 @@ export default function SettingsScreen() {
           >
             <Text style={{ fontSize: 13, fontWeight: language === "ar" ? "700" : "500", color: language === "ar" ? colors.primary : colors.foreground }}>
               🇸🇦 العربية
+            </Text>
+          </Pressable>
+        </View>
+
+        <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "700", marginBottom: 10, marginTop: 16 }}>
+          {t("settings.numerals")}
+        </Text>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, flexWrap: "wrap" }}>
+          <Pressable
+            onPress={() => setNumeralSystem("arabic")}
+            style={({ pressed }) => [{
+              flex: 1,
+              minWidth: 90,
+              backgroundColor: numeralSystem === "arabic" ? colors.primary + "15" : colors.background,
+              borderRadius: 10,
+              paddingVertical: 12,
+              alignItems: "center" as const,
+              borderWidth: numeralSystem === "arabic" ? 1.5 : 1,
+              borderColor: numeralSystem === "arabic" ? colors.primary + "60" : colors.border,
+              opacity: pressed ? 0.8 : 1,
+            }]}
+          >
+            <Text style={{ fontSize: 13, fontWeight: numeralSystem === "arabic" ? "700" : "500", color: numeralSystem === "arabic" ? colors.primary : colors.foreground }}>
+              {t("settings.numerals_arabic")}
+            </Text>
+          </Pressable>
+          <Pressable
+            onPress={() => setNumeralSystem("western")}
+            style={({ pressed }) => [{
+              flex: 1,
+              minWidth: 90,
+              backgroundColor: numeralSystem === "western" ? colors.primary + "15" : colors.background,
+              borderRadius: 10,
+              paddingVertical: 12,
+              alignItems: "center" as const,
+              borderWidth: numeralSystem === "western" ? 1.5 : 1,
+              borderColor: numeralSystem === "western" ? colors.primary + "60" : colors.border,
+              opacity: pressed ? 0.8 : 1,
+            }]}
+          >
+            <Text style={{ fontSize: 13, fontWeight: numeralSystem === "western" ? "700" : "500", color: numeralSystem === "western" ? colors.primary : colors.foreground }}>
+              {t("settings.numerals_western")}
             </Text>
           </Pressable>
         </View>

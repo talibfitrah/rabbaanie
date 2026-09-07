@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getIslamicDate, formatHijriDate, type SavedPrayerLocation, type CalcMethod } from "@/lib/prayer-data";
+import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getIslamicDate, formatHijriDate, type SavedPrayerLocation, type CalcMethod, type NumeralSystem } from "@/lib/prayer-data";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -41,7 +41,7 @@ interface DayDetail {
 }
 
 // Exported so tests can assert real evidence-text output instead of grepping source.
-export function getDetailedDays(now: Date, lang: Lang): DayDetail[] {
+export function getDetailedDays(now: Date, lang: Lang, numeralSystem?: NumeralSystem): DayDetail[] {
   const days: DayDetail[] = [];
   const daysArr = lang === "ar" ? ["الأحد","الاثنين","الثلاثاء","الأربعاء","الخميس","الجمعة","السبت"] :
     lang === "en" ? ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"] :
@@ -90,7 +90,7 @@ export function getDetailedDays(now: Date, lang: Lang): DayDetail[] {
 
     days.push({
       dayName: daysArr[dow],
-      hijriDate: formatHijriDate(fH, lang),
+      hijriDate: formatHijriDate(fH, lang, numeralSystem),
       relLabel: relLabels[i-1],
       events,
     });
@@ -101,11 +101,11 @@ export function getDetailedDays(now: Date, lang: Lang): DayDetail[] {
 export default function UpcomingDaysScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
-  const { language, isRTL } = useI18n();
+  const { language, isRTL, numeralSystem } = useI18n();
   const lang = language as Lang;
   const [expandedIdx, setExpandedIdx] = useState<number | null>(0);
 
-  const detailedDays = useMemo(() => getDetailedDays(new Date(), lang), [lang]);
+  const detailedDays = useMemo(() => getDetailedDays(new Date(), lang, numeralSystem), [lang, numeralSystem]);
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>

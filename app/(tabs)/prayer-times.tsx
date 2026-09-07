@@ -43,7 +43,7 @@ const PRAYER_ICONS: Record<string, string> = {
 
 export default function PrayerTimesScreen() {
   const colors = useColors();
-  const { t, language, isRTL } = useI18n();
+  const { t, language, isRTL, numeralSystem, dig } = useI18n();
   const router = useRouter();
   const [currentTime, setCurrentTime] = useState(new Date());
   const [savedLocation, setSavedLocation] = useState<SavedPrayerLocation | null>(null);
@@ -184,8 +184,8 @@ export default function PrayerTimesScreen() {
 
   useEffect(() => {
     if (!islamicDate || Platform.OS !== "android") return;
-    cacheHijriForWidget(formatHijriDate(islamicDate, language));
-  }, [islamicDate, language]);
+    cacheHijriForWidget(formatHijriDate(islamicDate, language, numeralSystem));
+  }, [islamicDate, language, numeralSystem]);
 
   if (!loaded) return null;
 
@@ -230,7 +230,7 @@ export default function PrayerTimesScreen() {
             <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground }}>{t("prayer.title")}</Text>
             <Pressable onPress={() => router.push("/roznama" as any)}>
               <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
-                {formatHijriDate(islamicDate, language)}
+                {formatHijriDate(islamicDate, language, numeralSystem)}
               </Text>
             </Pressable>
           </View>
@@ -361,7 +361,7 @@ export default function PrayerTimesScreen() {
                     </View>
                   </View>
                   <Text style={{ fontSize: 18, fontWeight: isNext ? "800" : "600", color: isNext ? colors.primary : colors.foreground, fontVariant: ["tabular-nums"] }}>
-                    {prayerTimes[key]}
+                    {dig(prayerTimes[key])}
                   </Text>
                 </View>
               );
@@ -392,7 +392,7 @@ export default function PrayerTimesScreen() {
                   </View>
                 </View>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: "#F59E0B", fontVariant: ["tabular-nums"] }}>
-                  {additionalTimes.morningStart} - {additionalTimes.morningEnd}
+                  {dig(additionalTimes.morningStart)} - {dig(additionalTimes.morningEnd)}
                 </Text>
               </View>
 
@@ -412,7 +412,7 @@ export default function PrayerTimesScreen() {
                   </View>
                 </View>
                 <Text style={{ fontSize: 14, fontWeight: "700", color: "#8B5CF6", fontVariant: ["tabular-nums"] }}>
-                  {additionalTimes.eveningStart} - {additionalTimes.eveningEnd}
+                  {dig(additionalTimes.eveningStart)} - {dig(additionalTimes.eveningEnd)}
                 </Text>
               </View>
 
@@ -432,7 +432,7 @@ export default function PrayerTimesScreen() {
                   </View>
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: "800", color: "#1E293B", fontVariant: ["tabular-nums"] }}>
-                  {additionalTimes.halfNight}
+                  {dig(additionalTimes.halfNight)}
                 </Text>
               </View>
 
@@ -452,7 +452,7 @@ export default function PrayerTimesScreen() {
                   </View>
                 </View>
                 <Text style={{ fontSize: 18, fontWeight: "800", color: "#4F46E5", fontVariant: ["tabular-nums"] }}>
-                  {additionalTimes.lastThird}
+                  {dig(additionalTimes.lastThird)}
                 </Text>
               </View>
             </View>

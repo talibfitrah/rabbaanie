@@ -796,7 +796,7 @@ export default function RootLayout() {
         try {
           const loc = JSON.parse(locRaw);
           const methodRaw = await AsyncStorage.getItem("@prayer_method");
-          const { calculatePrayerTimes, getIslamicDate, formatHijriDate } =
+          const { calculatePrayerTimes, getIslamicDate, formatHijriDate, resolveNumeralSystem } =
             await import("@/lib/prayer-data");
           const { CALC_METHODS } = await import("@/lib/prayer-data");
           const method =
@@ -822,7 +822,9 @@ export default function RootLayout() {
               isha: times.isha,
             });
             const hijri = getIslamicDate(now, times.maghrib, loc.tz);
-            await cacheHijriForWidget(formatHijriDate(hijri, lang));
+            const numeralRaw = await AsyncStorage.getItem("@numeral_system");
+            const numeralSystem = resolveNumeralSystem(numeralRaw, lang);
+            await cacheHijriForWidget(formatHijriDate(hijri, lang, numeralSystem));
           }
         } catch (e) {
           console.warn("Widget cache init error:", e);

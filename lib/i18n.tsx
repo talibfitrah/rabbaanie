@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState } from "rea
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { Alert, I18nManager, Platform } from "react-native";
 import { syncLanguageToServer } from "@/lib/language-sync";
+import { formatDigits, resolveNumeralSystem, type NumeralSystem } from "@/lib/prayer-data";
 
 // ============ TRANSLATIONS ============
 
@@ -61,6 +62,9 @@ const translations: Record<string, { nl: string; en: string; ar: string }> = {
   "settings.language_nl": { nl: "Nederlands", en: "Dutch", ar: "الهولندية" },
   "settings.language_en": { nl: "Engels", en: "English", ar: "الإنجليزية" },
   "settings.language_ar": { nl: "Arabisch", en: "Arabic", ar: "العربية" },
+  "settings.numerals": { nl: "Cijfers", en: "Numerals", ar: "نوع الأرقام" },
+  "settings.numerals_arabic": { nl: "Arabisch (٠١٢٣)", en: "Arabic (٠١٢٣)", ar: "عربيّة (٠١٢٣)" },
+  "settings.numerals_western": { nl: "Westers (0123)", en: "Western (0123)", ar: "لاتينيّة (0123)" },
   "settings.reminders": { nl: "Herinneringen", en: "Reminders", ar: "التذكيرات" },
   "settings.reminder_freq": { nl: "Herinneringsfrequentie", en: "Reminder frequency", ar: "تكرار التذكير" },
   "settings.daily": { nl: "Dagelijks", en: "Daily", ar: "يومياً" },
@@ -641,12 +645,16 @@ interface I18nContextType {
   t: (key: string) => string;
   isRTL: boolean;
   languageSelected: boolean;
+  numeralSystem: NumeralSystem;
+  setNumeralSystem: (system: NumeralSystem) => void;
+  dig: (v: string | number | null | undefined) => string;
 }
 
 const I18nContext = createContext<I18nContextType | null>(null);
 
 const LANGUAGE_STORAGE_KEY = "@app_language";
 const LANGUAGE_SELECTED_KEY = "@app_language_selected";
+const NUMERAL_STORAGE_KEY = "@numeral_system";
 
 /**
  * Layout direction lives in JavaScript only: `isRTL` below gates every
@@ -685,13 +693,20 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
   const [language, setLanguageState] = useState<Language>("ar");
   const [loaded, setLoaded] = useState(false);
   const [languageSelected, setLanguageSelected] = useState(false);
+  // The explicit stored choice (numeralChoice) only applies once the user has
+  // actually picked one (numeralSelected); otherwise the effective numeralSystem
+  // below tracks the current language, so a later language switch to Arabic still
+  // yields Arabic digits instead of freezing the mount-time default.
+  const [numeralChoice, setNumeralChoice] = useState<NumeralSystem>("arabic");
+  const [numeralSelected, setNumeralSelected] = useState(false);
 
   useEffect(() => {
     const sessionIsRTL = Platform.OS !== "web" && disableNativeRTL(I18nManager);
     Promise.all([
       AsyncStorage.getItem(LANGUAGE_STORAGE_KEY),
       AsyncStorage.getItem(LANGUAGE_SELECTED_KEY),
-    ]).then(([val, selected]) => {
+      AsyncStorage.getItem(NUMERAL_STORAGE_KEY),
+    ]).then(([val, selected, numeralVal]) => {
       let detectedLang: Language = "ar"; // default fallback
       if (val === "en" || val === "nl" || val === "ar") {
         detectedLang = val;
@@ -721,6 +736,12 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.setItem(LANGUAGE_STORAGE_KEY, detectedLang).catch(() => {});
       }
       setLanguageSelected(selected === "true");
+      // Digits are a separate preference from the UI language (see lib/prayer-data.ts
+      // formatHijriDate): unset/invalid falls back to the language's prior implicit
+      // behavior (Arabic digits for ar, Western otherwise) so existing users see no change.
+      const hasNumeral = numeralVal === "arabic" || numeralVal === "western";
+      setNumeralSelected(hasNumeral);
+      if (hasNumeral) setNumeralChoice(numeralVal as NumeralSystem);
       setLoaded(true);
     });
   }, []);
@@ -741,6 +762,21 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     void syncLanguageToServer(lang);
   }, []);
 
+  const setNumeralSystem = useCallback(async (system: NumeralSystem) => {
+    setNumeralChoice(system);
+    setNumeralSelected(true);
+    await AsyncStorage.setItem(NUMERAL_STORAGE_KEY, system);
+    // Recompute the widget caches with the new preference and refresh — not
+    // just a re-render from the stale cache — so the widget's Hijri date
+    // (@hijri_date_cache is numeral-formatted at write time) updates promptly.
+    try {
+      if (Platform.OS === "android") {
+        const { refreshWidgetsOnAdhan } = require("@/lib/widget-background-task");
+        await refreshWidgetsOnAdhan();
+      }
+    } catch {}
+  }, []);
+
   const isRTL = language === "ar";
 
   const t = useCallback((key: string): string => {
@@ -749,10 +785,14 @@ export function I18nProvider({ children }: { children: React.ReactNode }) {
     return entry[language] || entry.nl || key;
   }, [language]);
 
+  // Explicit choice wins; otherwise track the current language (reactive).
+  const numeralSystem: NumeralSystem = resolveNumeralSystem(numeralSelected ? numeralChoice : null, language);
+  const dig = useCallback((v: string | number | null | undefined) => formatDigits(v, numeralSystem), [numeralSystem]);
+
   if (!loaded) return null;
 
   return (
-    <I18nContext.Provider value={{ language, setLanguage, t, isRTL, languageSelected }}>
+    <I18nContext.Provider value={{ language, setLanguage, t, isRTL, languageSelected, numeralSystem, setNumeralSystem, dig }}>
       {children}
     </I18nContext.Provider>
   );

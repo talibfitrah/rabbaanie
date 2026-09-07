@@ -70,7 +70,7 @@ registerWidgetTaskHandler(async ({ widgetInfo, widgetAction, clickAction, render
       if (locRaw) {
         const loc = JSON.parse(locRaw);
         const methodRaw = await AsyncStorage.getItem("@prayer_method");
-        const { calculatePrayerTimes, getIslamicDate, formatHijriDate, CALC_METHODS } = await import("@/lib/prayer-data");
+        const { calculatePrayerTimes, getIslamicDate, formatHijriDate, resolveNumeralSystem, CALC_METHODS } = await import("@/lib/prayer-data");
         const method = CALC_METHODS.find((m: any) => m.id === methodRaw) || CALC_METHODS[0];
         const now = new Date();
         const times = calculatePrayerTimes(now, loc.lat, loc.lng, method, loc.tz);
@@ -81,7 +81,9 @@ registerWidgetTaskHandler(async ({ widgetInfo, widgetAction, clickAction, render
           }));
           const hijri = getIslamicDate(now, times.maghrib, loc.tz);
           const lang = await getWidgetLang();
-          await AsyncStorage.setItem("@hijri_date_cache", formatHijriDate(hijri, lang));
+          const numeralRaw = await AsyncStorage.getItem("@numeral_system");
+          const numeralSystem = resolveNumeralSystem(numeralRaw, lang);
+          await AsyncStorage.setItem("@hijri_date_cache", formatHijriDate(hijri, lang, numeralSystem));
         }
       }
     } catch (e) {
