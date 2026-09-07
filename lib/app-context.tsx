@@ -457,6 +457,28 @@ export function applyPartnerReplace(local: AppState, fresh: AppState): AppState 
 }
 
 /**
+ * hydrate()'s reinstall/restore branch (local onboarding not yet complete,
+ * server has completed data): decide what to load. Restores the server copy —
+ * but recovers this user's own-profile fields (gender/maritalStatus/address/
+ * phone) and hasNoChildren via applyPartnerReplace, so a server copy that
+ * reports onboardingCompleted:true with blank own-fields (a linked partner's
+ * profile.get) can't demote isProfileComplete and loop the user back into
+ * onboarding — and re-clobber those fields on every subsequent hydrate, so
+ * onboarding could never stick. Branch 2 and rehydrateFromServer already apply
+ * this guard; this restore branch was the one that missed it. Extracted for
+ * unit-testability, like mergeServerState/applyPartnerReplace.
+ */
+export function restoreFromServerOrLocal(
+  localState: AppState,
+  serverState: AppState | null,
+): AppState {
+  if (serverState && serverState.onboardingCompleted) {
+    return applyPartnerReplace(localState, serverState);
+  }
+  return localState;
+}
+
+/**
  * applyPartnerReplace for rehydrateFromServer's two raw replaces (below),
  * which run right after login and cannot use stateRef.current as the "local"
  * recovery source the way hydrate() does. The Log Out button explicitly
@@ -855,15 +877,18 @@ export function AppProvider({ children }: { children: React.ReactNode }) {
         // rule uniform: EVERY syncFromServer call is told what the device
         // already knows, with no exception a reader has to be talked through.
         const serverState = await syncFromServer(localState.locationSettings);
+        // Restore from server, but recover own-profile fields via
+        // restoreFromServerOrLocal so a server copy that reports
+        // onboardingCompleted:true with blank own-fields (a linked partner's
+        // profile.get) can't demote isProfileComplete and loop the user back
+        // into onboarding — the guard branch 2 and rehydrateFromServer already
+        // apply, which this restore branch was missing. (syncFromServer already
+        // pruned any "Kind N" placeholder children the server copy carried.)
+        const restored = restoreFromServerOrLocal(localState, serverState);
+        setState(restored);
         if (serverState && serverState.onboardingCompleted) {
-          // Server has data! Restore it locally. (syncFromServer already
-          // pruned any "Kind N" placeholder children the server copy carried.)
-          setState(serverState);
-          await saveAppState(serverState, userIdRef.current);
+          await saveAppState(restored, userIdRef.current);
           console.log("[CloudSync] Restored state from server");
-        } else {
-          // No data anywhere, use default
-          setState(localState);
         }
       } catch (e) {
         console.error("Hydration failed:", e);

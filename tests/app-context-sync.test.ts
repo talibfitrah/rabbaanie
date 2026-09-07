@@ -53,6 +53,7 @@ import {
   mergeServerState,
   fillParentProfileFromServer,
   applyPartnerReplace,
+  restoreFromServerOrLocal,
   applyPartnerReplaceForAccount,
   isStillCurrentAccount,
   locationSettingsForSync,
@@ -897,5 +898,43 @@ describe("hydrate's background syncs discard a stale account's result too (C1)",
     expect(branch).toContain("isStillCurrentAccount(userIdRef, accountId)");
     expect(branch).toContain("saveAppState(updatedState, accountId)");
     expect(branch).toContain("saveAppState(safeState, accountId)");
+  });
+});
+
+describe("restoreFromServerOrLocal (hydrate branch 3 — the reinstall/partner onboarding-loop guard)", () => {
+  const own = {
+    ...defaultAppState.parentProfile,
+    firstName: "Yusuf", lastName: "Ali", birthDate: "1990-01-01",
+    country: "Netherlands", city: "Amsterdam", street: "Hoofdstraat", houseNumber: "1",
+    phoneNumber: "0612345678", gender: "man", maritalStatus: "getrouwd",
+  };
+
+  const child = { id: "c1", name: "Aisha", birthDate: "2015-01-01" } as any;
+
+  it("recovers own-profile fields when the server copy is onboardingCompleted but blank — no demotion, no loop", () => {
+    const local = { ...defaultAppState, onboardingCompleted: true, parentProfile: own, children: [child] };
+    const serverBlank = {
+      ...defaultAppState, onboardingCompleted: true,
+      parentProfile: { ...own, gender: "", maritalStatus: "" }, children: [child],
+    };
+    expect(isProfileComplete(serverBlank)).toBe(false); // a raw restore WOULD demote → loop
+    const restored = restoreFromServerOrLocal(local, serverBlank);
+    expect(isProfileComplete(restored)).toBe(true);
+    expect(restored.parentProfile.gender).toBe("man");
+    expect(restored.parentProfile.maritalStatus).toBe("getrouwd");
+  });
+
+  it("keeps a childless declaration (hasNoChildren) across the restore", () => {
+    const local = { ...defaultAppState, parentProfile: { ...own, hasNoChildren: true }, children: [] };
+    const serverBlank = { ...defaultAppState, onboardingCompleted: true, parentProfile: { ...own }, children: [] };
+    const restored = restoreFromServerOrLocal(local, serverBlank);
+    expect(restored.parentProfile.hasNoChildren).toBe(true);
+    expect(isProfileComplete(restored)).toBe(true);
+  });
+
+  it("returns local unchanged when the server has no completed data (a genuine new user still onboards)", () => {
+    const local = { ...defaultAppState, parentProfile: { ...defaultAppState.parentProfile, gender: "man" } };
+    expect(restoreFromServerOrLocal(local, null)).toBe(local);
+    expect(restoreFromServerOrLocal(local, { ...defaultAppState, onboardingCompleted: false })).toBe(local);
   });
 });
