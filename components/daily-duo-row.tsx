@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { View, Text, Pressable, StyleSheet } from "react-native";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { DailyDiagnosticCard } from "@/components/daily-diagnostic-card";
 import { DailyDeedsCard } from "@/components/daily-deeds-card";
+import { trpc } from "@/lib/trpc";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -28,7 +29,25 @@ interface Props {
  * the review is submitted or its own half is tapped.
  */
 export function DailyDuoRow({ lang, isRTL }: Props) {
-  const [open, setOpen] = useState<"review" | "deeds" | null>("review");
+  // Auto-open the review on entry ONLY when today isn't answered yet. Once the
+  // user has answered all of today's questions, it stays collapsed on every
+  // later app entry (Daa3iyah 2026-09-07) — a finished review must not reopen
+  // itself each launch. Shares getToday's cache with DailyDiagnosticCard, so
+  // this adds no extra network round-trip.
+  const todayKey = new Date().toISOString().slice(0, 10);
+  const todayQuery = trpc.dailyDiagnostic.getToday.useQuery({ lang, date: todayKey }, { staleTime: 0 });
+  const answeredToday = todayQuery.data?.date === todayKey && todayQuery.data?.answers != null;
+
+  const [open, setOpen] = useState<"review" | "deeds" | null>(null);
+  const [autoApplied, setAutoApplied] = useState(false);
+  useEffect(() => {
+    // Decide once, after the first resolution: open the review only if today is
+    // not yet answered. An error/unknown status counts as not-answered, so the
+    // prompt still appears (the old always-open behaviour for that case).
+    if (autoApplied || todayQuery.isLoading) return;
+    if (!answeredToday) setOpen("review");
+    setAutoApplied(true);
+  }, [answeredToday, todayQuery.isLoading, autoApplied]);
 
   return (
     <>
