@@ -699,3 +699,23 @@ export function getIslamicDate(now: Date, maghribTime: string | null, timezone?:
 
   return { day: hDay, month: hMonth, monthName: HIJRI_MONTHS[hMonth - 1] || "", monthNameAR: HIJRI_MONTHS_AR[hMonth - 1] || "", year: hYear };
 }
+
+/** 0-9 → ٠-٩ (Arabic-Indic), so widget/UI numbers match an Arabic language choice. */
+export function toArabicDigits(value: number | string): string {
+  return String(value).replace(/[0-9]/g, (d) => "٠١٢٣٤٥٦٧٨٩"[Number(d)]);
+}
+
+/**
+ * Format a Hijri date for the chosen language. getIslamicDate returns both the
+ * Latin (monthName) and Arabic (monthNameAR) month; an Arabic locale must use the
+ * Arabic month AND Arabic-Indic digits — Daa3iyah reported the widget showing
+ * "24 Rabi' al-Awwal 1448" in Latin while the app language was Arabic.
+ */
+export function formatHijriDate(
+  hijri: { day: number; monthName: string; monthNameAR: string; year: number },
+  lang: string | null | undefined,
+): string {
+  return lang === "ar"
+    ? `${toArabicDigits(hijri.day)} ${hijri.monthNameAR} ${toArabicDigits(hijri.year)}`
+    : `${hijri.day} ${hijri.monthName} ${hijri.year}`;
+}

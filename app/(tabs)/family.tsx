@@ -19,6 +19,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
+import { toArabicDigits } from "@/lib/prayer-data";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -929,7 +930,7 @@ function getUpcomingEvents(now: Date, lang: Lang): UpcomingEvent[] {
     const futureDate = new Date(now.getTime() + i * 86400000);
     const futureDow = futureDate.getDay();
     const fH = gregorianToHijri(futureDate);
-    const dayLabel = `${daysArr[futureDow]} ${fH.day} ${lang === "ar" ? fH.monthNameAR : fH.monthName}`;
+    const dayLabel = lang === "ar" ? `${daysArr[futureDow]} ${toArabicDigits(fH.day)} ${fH.monthNameAR}` : `${daysArr[futureDow]} ${fH.day} ${fH.monthName}`;
     const noFasting = isFastingProhibited(fH.month, fH.day);
 
     if ((futureDow === 1 || futureDow === 4) && !noFasting)

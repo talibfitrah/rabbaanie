@@ -55,6 +55,7 @@ vi.mock("@/lib/prayer-data", () => ({
   CALC_METHODS: {},
   calculatePrayerTimes: vi.fn(),
   getIslamicDate: vi.fn(),
+  formatHijriDate: vi.fn(),
 }));
 
 import { getParentDayInfo } from "@/app/(tabs)/family";

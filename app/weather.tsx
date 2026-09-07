@@ -7,7 +7,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { fetchWeather, weatherLabel, weatherReflection, ghaybNote, type WeatherNow } from "@/lib/weather";
-import { getIslamicDate } from "@/lib/prayer-data";
+import { getIslamicDate, toArabicDigits } from "@/lib/prayer-data";
 
 export default function WeatherScreen() {
   const colors = useColors();
@@ -37,7 +37,7 @@ export default function WeatherScreen() {
   }, []);
 
   const weekdayOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { weekday: "short" });
-  const hijriOf = (d: string) => { const h = getIslamicDate(new Date(d), null); return `${h.day} ${lang === "ar" ? h.monthNameAR : h.monthName}`; };
+  const hijriOf = (d: string) => { const h = getIslamicDate(new Date(d), null); return lang === "ar" ? `${toArabicDigits(h.day)} ${h.monthNameAR}` : `${h.day} ${h.monthName}`; };
   const gregOf = (d: string) => new Date(d).toLocaleDateString(lang === "ar" ? "ar" : lang, { day: "numeric", month: "short" });
   const hlbl = (nl: string, en: string, ar: string) => tt(nl, en, ar);
 

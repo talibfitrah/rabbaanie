@@ -6,7 +6,7 @@ import { useAppState } from "@/lib/app-context";
 import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
+import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, formatHijriDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
 import { weatherLabel } from "@/lib/weather";
 import { loadNotificationPrefs, type NotificationPrefs } from "@/lib/notifications";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -280,7 +280,7 @@ export default function AlgemeenScreen() {
   const daysEn = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
   const daysNl = ["Zondag", "Maandag", "Dinsdag", "Woensdag", "Donderdag", "Vrijdag", "Zaterdag"];
   const dayName = lang === "ar" ? daysAr[currentTime.getDay()] : lang === "en" ? daysEn[currentTime.getDay()] : daysNl[currentTime.getDay()];
-  const hijriDateStr = `${dayName} ${hijri.day} ${lang === "ar" ? hijri.monthNameAR : hijri.monthName} ${hijri.year}`;
+  const hijriDateStr = `${dayName} ${formatHijriDate(hijri, lang)}`;
   const monthsAr = ["يناير", "فبراير", "مارس", "أبريل", "مايو", "يونيو", "يوليو", "أغسطس", "سبتمبر", "أكتوبر", "نوفمبر", "ديسمبر"];
   const monthsEn = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
   const monthsNl = ["januari", "februari", "maart", "april", "mei", "juni", "juli", "augustus", "september", "oktober", "november", "december"];

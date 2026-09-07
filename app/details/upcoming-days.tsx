@@ -4,7 +4,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getIslamicDate, type SavedPrayerLocation, type CalcMethod } from "@/lib/prayer-data";
+import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getIslamicDate, formatHijriDate, type SavedPrayerLocation, type CalcMethod } from "@/lib/prayer-data";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 if (Platform.OS === "android" && UIManager.setLayoutAnimationEnabledExperimental) {
@@ -90,7 +90,7 @@ export function getDetailedDays(now: Date, lang: Lang): DayDetail[] {
 
     days.push({
       dayName: daysArr[dow],
-      hijriDate: `${fH.day} ${lang==="ar" ? fH.monthNameAR : fH.monthName} ${fH.year}`,
+      hijriDate: formatHijriDate(fH, lang),
       relLabel: relLabels[i-1],
       events,
     });

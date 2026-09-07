@@ -5,7 +5,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, getIslamicDate, getCityAR, calculatePrayerTimes, type SavedPrayerLocation, type CalcMethod } from "@/lib/prayer-data";
+import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, getIslamicDate, getCityAR, calculatePrayerTimes, toArabicDigits, type SavedPrayerLocation, type CalcMethod } from "@/lib/prayer-data";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as Haptics from "expo-haptics";
 
@@ -218,7 +218,7 @@ export default function TipsTodayScreen() {
           <View style={st.sectionBox}>
             <View style={[st.sectionHeader, { backgroundColor: "#E8F5E9", flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="date-range" size={20} color="#1B4332" />
-              <Text style={[st.sectionHeaderText, { color: "#1B4332" }]}>{tx(lang, "Islamitische dag", "Islamic Day", "اليوم الإسلامي")} — {hijri.day} {lang === "ar" ? hijri.monthNameAR : hijri.monthName}</Text>
+              <Text style={[st.sectionHeaderText, { color: "#1B4332" }]}>{tx(lang, "Islamitische dag", "Islamic Day", "اليوم الإسلامي")} — {lang === "ar" ? toArabicDigits(hijri.day) : hijri.day} {lang === "ar" ? hijri.monthNameAR : hijri.monthName}</Text>
             </View>
             {islamicTips.map((tip) => renderTipRow(tip, "#1B4332"))}
           </View>

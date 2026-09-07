@@ -3,7 +3,7 @@ import { View, Text } from "react-native";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
-import { getCityAR, getCountryAR } from "@/lib/prayer-data";
+import { getCityAR, getCountryAR, formatHijriDate } from "@/lib/prayer-data";
 
 // Hijri calendar conversion (approximate algorithm based on Kuwaiti algorithm)
 function gregorianToHijri(gDate: Date): { year: number; month: number; day: number; monthName: string; monthNameAR: string } {
@@ -72,8 +72,8 @@ export function DateTimeHeader() {
   const hijri = gregorianToHijri(now);
   const hijriMonthDisplay = language === "ar" ? hijri.monthNameAR : hijri.monthName;
   const hijriStr = language === "ar"
-    ? `${daysAr[now.getDay()]} ${hijri.day} ${hijri.monthNameAR} ${hijri.year} هـ`
-    : `${hijri.day} ${hijri.monthName} ${hijri.year} H`;
+    ? `${daysAr[now.getDay()]} ${formatHijriDate(hijri, language)} هـ`
+    : `${formatHijriDate(hijri, language)} H`;
   const gregStr = `${days[now.getDay()]} ${now.getDate()} ${months[now.getMonth()]} ${now.getFullYear()}`;
   const locale = language === "ar" ? "ar-SA" : language === "en" ? "en-GB" : "nl-NL";
   const timeStr = now.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });

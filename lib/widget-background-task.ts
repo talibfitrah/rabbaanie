@@ -16,7 +16,7 @@ TaskManager.defineTask(WIDGET_UPDATE_TASK, async () => {
     if (locRaw) {
       const loc = JSON.parse(locRaw);
       const methodRaw = await AsyncStorage.getItem("@prayer_method");
-      const { calculatePrayerTimes, getIslamicDate, CALC_METHODS } = require("@/lib/prayer-data");
+      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, CALC_METHODS } = require("@/lib/prayer-data");
       const method = CALC_METHODS.find((m: any) => m.id === methodRaw) || CALC_METHODS[0];
       const now = new Date();
       const times = calculatePrayerTimes(now, loc.lat, loc.lng, method, loc.tz);
@@ -33,9 +33,10 @@ TaskManager.defineTask(WIDGET_UPDATE_TASK, async () => {
           })
         );
         const hijri = getIslamicDate(now, times.maghrib, loc.tz);
+        const lang = await AsyncStorage.getItem("@app_language");
         await AsyncStorage.setItem(
           "@hijri_date_cache",
-          `${hijri.day} ${hijri.monthName} ${hijri.year}`
+          formatHijriDate(hijri, lang)
         );
       }
     }
@@ -140,7 +141,7 @@ export async function refreshWidgetsOnAdhan(): Promise<void> {
     if (locRaw) {
       const loc = JSON.parse(locRaw);
       const methodRaw = await AsyncStorage.getItem("@prayer_method");
-      const { calculatePrayerTimes, getIslamicDate, CALC_METHODS } = require("@/lib/prayer-data");
+      const { calculatePrayerTimes, getIslamicDate, formatHijriDate, CALC_METHODS } = require("@/lib/prayer-data");
       const method = CALC_METHODS.find((m: any) => m.id === methodRaw) || CALC_METHODS[0];
       const now = new Date();
       const times = calculatePrayerTimes(now, loc.lat, loc.lng, method, loc.tz);
@@ -153,7 +154,8 @@ export async function refreshWidgetsOnAdhan(): Promise<void> {
           })
         );
         const hijri = getIslamicDate(now, times.maghrib, loc.tz);
-        await AsyncStorage.setItem("@hijri_date_cache", `${hijri.day} ${hijri.monthName} ${hijri.year}`);
+        const lang = await AsyncStorage.getItem("@app_language");
+        await AsyncStorage.setItem("@hijri_date_cache", formatHijriDate(hijri, lang));
       }
     }
 

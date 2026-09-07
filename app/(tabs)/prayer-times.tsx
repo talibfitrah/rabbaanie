@@ -14,6 +14,7 @@ import {
   getCurrentMinutesInTimezone,
   getNextPrayer,
   getIslamicDate,
+  formatHijriDate,
   COUNTRIES,
   getCityAR,
   getCountryAR,
@@ -183,9 +184,8 @@ export default function PrayerTimesScreen() {
 
   useEffect(() => {
     if (!islamicDate || Platform.OS !== "android") return;
-    const hijriStr = `${islamicDate.day} ${islamicDate.monthName} ${islamicDate.year}`;
-    cacheHijriForWidget(hijriStr);
-  }, [islamicDate]);
+    cacheHijriForWidget(formatHijriDate(islamicDate, language));
+  }, [islamicDate, language]);
 
   if (!loaded) return null;
 
@@ -229,7 +229,7 @@ export default function PrayerTimesScreen() {
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground }}>{t("prayer.title")}</Text>
             <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
-              {islamicDate.day} {language === "ar" ? islamicDate.monthNameAR : islamicDate.monthName} {islamicDate.year}
+              {formatHijriDate(islamicDate, language)}
             </Text>
           </View>
           <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
