@@ -644,7 +644,7 @@ export default function RoznamaScreen() {
       >
         <View style={st.modalOverlay}>
           <View style={st.modalContent}>
-            <ScrollView showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
               <View style={[st.modalHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <Text style={st.modalTitle}>
                   {editingId ? tx(lang, "Afspraak bewerken", "Edit appointment", "تعديل الموعد") : tx(lang, "Nieuwe afspraak", "New appointment", "موعد جديد")}
@@ -760,6 +760,12 @@ export default function RoznamaScreen() {
                 ))}
               </View>
 
+            </ScrollView>
+            {/* Pinned footer: the save/delete buttons stay visible in any
+                condition (tall form, short screen, system nav bar) instead of
+                scrolling off the bottom of the sheet. insets.bottom clears the
+                Android gesture/nav bar. */}
+            <View style={[st.modalFooter, { paddingBottom: insets.bottom + 16 }]}>
               <Pressable
                 onPress={handleSave}
                 disabled={!formTitle.trim() || saving}
@@ -782,7 +788,7 @@ export default function RoznamaScreen() {
                   <Text style={st.deleteBtnText}>{tx(lang, "Verwijderen", "Delete", "حذف")}</Text>
                 </Pressable>
               )}
-            </ScrollView>
+            </View>
           </View>
         </View>
       </Modal>
@@ -919,7 +925,8 @@ const st = StyleSheet.create({
   miniDot: { width: 3, height: 3, borderRadius: 1.5 },
 
   modalOverlay: { flex: 1, backgroundColor: "rgba(0,0,0,0.5)", justifyContent: "flex-end" },
-  modalContent: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20, maxHeight: "85%" },
+  modalContent: { backgroundColor: "#FFFFFF", borderTopLeftRadius: 20, borderTopRightRadius: 20, paddingHorizontal: 20, paddingTop: 20, maxHeight: "90%" },
+  modalFooter: { paddingTop: 12, marginTop: 4, borderTopWidth: 1, borderTopColor: "#F0F0F0" },
   modalHeaderRow: { alignItems: "center", justifyContent: "space-between", marginBottom: 16 },
   modalTitle: { fontSize: 17, fontWeight: "800", color: "#1B4332" },
   fieldLabel: { fontSize: 12, fontWeight: "700", color: "#6B7B72", marginBottom: 6, marginTop: 10 },
@@ -932,7 +939,7 @@ const st = StyleSheet.create({
   reminderChipActive: { backgroundColor: "#1B4332" },
   reminderChipText: { fontSize: 12, fontWeight: "600", color: "#374151" },
   reminderChipTextActive: { color: "#FFFFFF" },
-  saveBtn: { backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 20 },
+  saveBtn: { backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
   saveBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   deleteBtn: { borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: "#C62828" },
   deleteBtnText: { color: "#C62828", fontSize: 14, fontWeight: "700" },
