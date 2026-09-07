@@ -449,18 +449,20 @@ export default function AlgemeenScreen() {
       )}
 
       {/* ═══════════ DATE PILL ═══════════ */}
-      <View style={[s.datePill, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <MaterialIcons name="event" size={14} color="#1B4332" />
-        <Text style={s.dateText}>{hijriDateStr}</Text>
-        {displayCity ? (
-          <>
-            <Text style={s.dateSep}>•</Text>
-            <Text style={s.dateText}>{displayCity}</Text>
-            <MaterialIcons name="place" size={14} color="#1B4332" />
-          </>
-        ) : null}
-      </View>
-      <Text style={s.gregorianDate}>{gregorianDateStr}</Text>
+      <Pressable onPress={() => router.push("/roznama" as any)}>
+        <View style={[s.datePill, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <MaterialIcons name="event" size={14} color="#1B4332" />
+          <Text style={s.dateText}>{hijriDateStr}</Text>
+          {displayCity ? (
+            <>
+              <Text style={s.dateSep}>•</Text>
+              <Text style={s.dateText}>{displayCity}</Text>
+              <MaterialIcons name="place" size={14} color="#1B4332" />
+            </>
+          ) : null}
+        </View>
+        <Text style={s.gregorianDate}>{gregorianDateStr}</Text>
+      </Pressable>
 
       {/* ═══════════ WEATHER (below the Gregorian date → dedicated page) ═══════════ */}
       {weather ? (
@@ -674,6 +676,13 @@ export default function AlgemeenScreen() {
             <MaterialIcons name="auto-stories" size={24} color="#1B4332" />
           </View>
           <Text style={s.actionLabel}>{tx(lang, "Soennah", "Sunnah", "رفيق السنّة")}</Text>
+        </Pressable>
+
+        <Pressable onPress={() => router.push("/roznama?view=day" as any)} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
+          <View style={[s.actionIcon, { backgroundColor: "#EDE7F6" }]}>
+            <MaterialIcons name="event" size={24} color="#5E35B1" />
+          </View>
+          <Text style={s.actionLabel}>{tx(lang, "Afspraken", "Appointments", "المواعيد")}</Text>
         </Pressable>
 
         <Pressable onPress={() => router.push("/(tabs)/weekly")} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>

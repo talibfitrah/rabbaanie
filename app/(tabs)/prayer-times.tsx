@@ -228,9 +228,11 @@ export default function PrayerTimesScreen() {
         <View style={{ marginBottom: 16 }}>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
             <Text style={{ fontSize: 22, fontWeight: "800", color: colors.foreground }}>{t("prayer.title")}</Text>
-            <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
-              {formatHijriDate(islamicDate, language)}
-            </Text>
+            <Pressable onPress={() => router.push("/roznama" as any)}>
+              <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "600" }}>
+                {formatHijriDate(islamicDate, language)}
+              </Text>
+            </Pressable>
           </View>
           <Text style={{ fontSize: 12, color: colors.muted, marginTop: 2 }}>
             {selectedMethod.nameAr} ({selectedMethod.fajrAngle}°)

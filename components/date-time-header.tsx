@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { View, Text } from "react-native";
+import { View, Text, Pressable } from "react-native";
+import { useRouter } from "expo-router";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
@@ -50,6 +51,7 @@ function gregorianToHijri(gDate: Date): { year: number; month: number; day: numb
 
 export function DateTimeHeader() {
   const colors = useColors();
+  const router = useRouter();
   const { state } = useAppState();
   const { language, t } = useI18n();
   const [now, setNow] = useState(new Date());
@@ -100,14 +102,14 @@ export function DateTimeHeader() {
       ) : null}
       {/* Date/time row */}
       <View style={{ flexDirection: language === "ar" ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }}>
-        <View style={{ flex: 1, alignItems: language === "ar" ? "flex-end" : "flex-start" }}>
+        <Pressable onPress={() => router.push("/roznama" as any)} style={{ flex: 1, alignItems: language === "ar" ? "flex-end" : "flex-start" }}>
           <Text style={{ color: colors.foreground, fontSize: 12, fontWeight: "600", textAlign: language === "ar" ? "right" : "left" }}>
             {hijriStr}
           </Text>
           <Text style={{ color: colors.muted, fontSize: 10, marginTop: 1, textAlign: language === "ar" ? "right" : "left" }}>
             {gregStr}
           </Text>
-        </View>
+        </Pressable>
         <Text style={{ color: colors.primary, fontSize: 16, fontWeight: "700" }}>
           {timeStr}
         </Text>

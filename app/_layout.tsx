@@ -72,6 +72,10 @@ import {
   scheduleImanNotifications,
 } from "@/lib/iman-notifications";
 import {
+  rescheduleEventReminders,
+  CALENDAR_EVENT_TYPE,
+} from "@/lib/event-reminders";
+import {
   PrayerPopupModal,
   usePopupNotifications,
   type PopupNotification,
@@ -620,6 +624,15 @@ export default function RootLayout() {
             return;
           }
 
+          // Calendar-event reminders (lib/event-reminders.ts) are actionable —
+          // open the appointment on the calendar — not a religious reminder,
+          // so route straight there instead of dressing them as the "مستحب"
+          // popup.
+          if (data.type === CALENDAR_EVENT_TYPE) {
+            setTimeout(() => router.push(data.url as any), 800);
+            return;
+          }
+
           // Always show popup when user taps a notification
           const popupNotif: PopupNotification = {
             id: response.notification.request.identifier,
@@ -771,6 +784,12 @@ export default function RootLayout() {
       await scheduleImanNotifications(lang);
       // Schedule iqamah auto-silence
       await scheduleIqamahSilence(lang);
+      // Calendar-event reminders run LAST so they only take whatever iOS
+      // pending-budget headroom the schedulers above left (see the dynamic
+      // cap in lib/event-reminders.ts). This is also what refills them once
+      // the nearest ones fire — rescheduleEventReminders is otherwise only
+      // called after a manual add/edit/delete in app/roznama.tsx.
+      await rescheduleEventReminders(lang);
       // === Pre-populate widget cache from stored data ===
       const locRaw = await AsyncStorage.getItem("@prayer_location");
       if (locRaw) {

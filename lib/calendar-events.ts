@@ -1,0 +1,117 @@
+import AsyncStorage from "@react-native-async-storage/async-storage";
+
+// ============ TYPES ============
+
+export interface CalendarEvent {
+  id: string;
+  title: string;
+  dateISO: string; // "YYYY-MM-DD" (local calendar day)
+  hour: number; // 0-23
+  minute: number; // 0-59
+  note?: string;
+  reminderMinutesBefore: number | null; // null = no reminder
+}
+
+// ============ STORAGE ============
+
+const CALENDAR_EVENTS_KEY = "@calendar_events";
+
+/**
+ * Serializes every mutator's read-modify-write so two overlapping calls (e.g.
+ * a rapid add + delete from the calendar screen) run atomically instead of
+ * both reading the same stale list and one save clobbering the other.
+ * ponytail: one module-wide lock, not per-event — there is only one stored
+ * list here, so a finer-grained lock would add complexity nothing needs.
+ */
+let chain: Promise<unknown> = Promise.resolve();
+function serialize<T>(fn: () => Promise<T>): Promise<T> {
+  const run = chain.then(fn, fn);
+  chain = run.then(() => {}, () => {});
+  return run;
+}
+
+function isValidEvent(e: any): e is CalendarEvent {
+  return (
+    e &&
+    typeof e.id === "string" &&
+    typeof e.title === "string" &&
+    typeof e.dateISO === "string" &&
+    typeof e.hour === "number" &&
+    typeof e.minute === "number"
+  );
+}
+
+/**
+ * Read used by mutators. A genuine AsyncStorage I/O error PROPAGATES here, so
+ * a failed read aborts the mutation instead of falling back to [] and saving
+ * over every existing event. Missing data, invalid JSON, and valid-JSON-wrong
+ * shape (`"null"`, `"{}"`, a non-array) are still tolerated as [].
+ */
+async function readStrict(): Promise<CalendarEvent[]> {
+  const raw = await AsyncStorage.getItem(CALENDAR_EVENTS_KEY);
+  if (!raw) return [];
+  try {
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return parsed.filter(isValidEvent);
+  } catch {
+    return [];
+  }
+}
+
+/** Display-path read: also tolerant of a transient AsyncStorage I/O error. */
+export async function loadEvents(): Promise<CalendarEvent[]> {
+  try {
+    return await readStrict();
+  } catch {
+    return [];
+  }
+}
+
+export async function saveEvents(list: CalendarEvent[]): Promise<void> {
+  await AsyncStorage.setItem(CALENDAR_EVENTS_KEY, JSON.stringify(list));
+}
+
+function generateEventId(): string {
+  return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
+}
+
+export async function addEvent(data: Omit<CalendarEvent, "id">): Promise<CalendarEvent> {
+  return serialize(async () => {
+    const list = await readStrict();
+    const event: CalendarEvent = { ...data, id: generateEventId() };
+    await saveEvents([...list, event]);
+    return event;
+  });
+}
+
+export async function updateEvent(
+  id: string,
+  patch: Partial<Omit<CalendarEvent, "id">>
+): Promise<CalendarEvent | null> {
+  return serialize(async () => {
+    const list = await readStrict();
+    let updated: CalendarEvent | null = null;
+    const next = list.map((e) => {
+      if (e.id !== id) return e;
+      updated = { ...e, ...patch };
+      return updated;
+    });
+    if (updated) await saveEvents(next);
+    return updated;
+  });
+}
+
+export async function removeEvent(id: string): Promise<void> {
+  return serialize(async () => {
+    const list = await readStrict();
+    await saveEvents(list.filter((e) => e.id !== id));
+  });
+}
+
+export async function eventsForDate(dateISO: string): Promise<CalendarEvent[]> {
+  const list = await loadEvents();
+  return list
+    .filter((e) => e.dateISO === dateISO)
+    .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+}
