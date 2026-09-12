@@ -140,6 +140,20 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
             GITHUB_NEEDS.includes(item.$?.["android:name"])
           ),
       );
+      // Notifee declares no USE_FULL_SCREEN_INTENT, and expo nets the
+      // permissions + blockedPermissions pair out entirely, so filtering the
+      // remove marker above leaves nothing to keep. Add it explicitly for the
+      // sideload build — the roznama full-screen appointment alarm needs it.
+      // Play never runs this mod, so it stays absent there.
+      if (
+        !manifest["uses-permission"].some(
+          (i: any) => i.$?.["android:name"] === "android.permission.USE_FULL_SCREEN_INTENT",
+        )
+      ) {
+        manifest["uses-permission"].push({
+          $: { "android:name": "android.permission.USE_FULL_SCREEN_INTENT" },
+        } as any);
+      }
       const app = AndroidConfig.Manifest.getMainApplicationOrThrow(
         modConfig.modResults,
       );
@@ -905,10 +919,6 @@ const config: ExpoConfig = {
       "POST_NOTIFICATIONS",
       // Used for time-sensitive prayer and reminder notifications.
       "SCHEDULE_EXACT_ALARM",
-      // The roznama appointment alarm launches a full-screen intent. Declared
-      // here so the sideload build has a base <uses-permission> for GITHUB_NEEDS
-      // to keep (Notifee adds none); still removed on Play via blockedPermissions.
-      "USE_FULL_SCREEN_INTENT",
       "VIBRATE",
       "WAKE_LOCK",
       // Sideload channel only — see DISTRIBUTION above.
