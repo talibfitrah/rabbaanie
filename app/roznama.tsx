@@ -399,25 +399,28 @@ export default function RoznamaScreen() {
       afterMutation(dateToISO(savedDate)).catch(() => {});
       // An alarm needs the exact-alarm ("Alarms & reminders") permission to ring
       // on time on Android 13/14. Prompt ONCE — a user who chose "Later" isn't
-      // re-nagged on every save (the alarm still fires, just less precisely, and
-      // they can grant it in Android settings anytime).
-      if (Platform.OS === "android" && formReminder != null && !(await ensureExactAlarmAllowed())) {
-        const asked = await AsyncStorage.getItem("@calendar_alarm_perm_asked");
-        if (!asked) {
-          await AsyncStorage.setItem("@calendar_alarm_perm_asked", "1");
-          Alert.alert(
-            tx(lang, "Alarmtoestemming", "Alarm permission", "إذن المنبّه"),
-            tx(lang,
-              "Sta 'Wekkers en herinneringen' toe zodat de afspraakalarm op tijd afgaat.",
-              "Allow 'Alarms & reminders' so the appointment alarm rings on time.",
-              "اسمح بـ«المنبّهات والتذكيرات» ليعمل منبّه الموعد في وقته."),
-            [
-              { text: tx(lang, "Later", "Later", "لاحقًا"), style: "cancel" },
-              { text: tx(lang, "Instellingen", "Settings", "الإعدادات"), onPress: () => { openAlarmPermission(); } },
-            ],
-          );
+      // re-nagged on every save. Own try/catch: this is UI-only after an already
+      // persisted appointment, so a storage error here must not trip the
+      // "save failed" alert below.
+      try {
+        if (Platform.OS === "android" && formReminder != null && !(await ensureExactAlarmAllowed())) {
+          const asked = await AsyncStorage.getItem("@calendar_alarm_perm_asked");
+          if (!asked) {
+            await AsyncStorage.setItem("@calendar_alarm_perm_asked", "1");
+            Alert.alert(
+              tx(lang, "Alarmtoestemming", "Alarm permission", "إذن المنبّه"),
+              tx(lang,
+                "Sta 'Wekkers en herinneringen' toe zodat de afspraakalarm op tijd afgaat.",
+                "Allow 'Alarms & reminders' so the appointment alarm rings on time.",
+                "اسمح بـ«المنبّهات والتذكيرات» ليعمل منبّه الموعد في وقته."),
+              [
+                { text: tx(lang, "Later", "Later", "لاحقًا"), style: "cancel" },
+                { text: tx(lang, "Instellingen", "Settings", "الإعدادات"), onPress: () => { openAlarmPermission(); } },
+              ],
+            );
+          }
         }
-      }
+      } catch {}
     } catch (e) {
       Alert.alert(
         tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),

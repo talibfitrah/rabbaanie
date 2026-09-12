@@ -75,6 +75,7 @@ import {
   rescheduleEventReminders,
   CALENDAR_EVENT_TYPE,
 } from "@/lib/event-reminders";
+import { cancelCalendarAlarms } from "@/lib/calendar-alarm";
 import {
   PrayerPopupModal,
   usePopupNotifications,
@@ -457,6 +458,10 @@ function NotificationLifecycle({
       await Promise.all([
         Notifications.cancelAllScheduledNotificationsAsync(),
         Notifications.dismissAllNotificationsAsync(),
+        // Notifee triggers (roznama full-screen appointment alarms) are NOT
+        // touched by expo's cancel-all — cancel them explicitly so a signed-out
+        // or age-gated user (child-audience policy) stops getting alarms.
+        cancelCalendarAlarms(),
       ]);
     };
 
