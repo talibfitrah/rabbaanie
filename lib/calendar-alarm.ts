@@ -74,6 +74,11 @@ function channelId(sound: CalendarSound): string {
 
 export async function ensureCalendarAlarmChannels(): Promise<void> {
   if (Platform.OS !== "android") return;
+  // Remove the retired expo channel from a prior version so it doesn't linger,
+  // empty, in the user's Android notification settings after upgrade.
+  try {
+    await notifee.deleteChannel("calendar_events_v1");
+  } catch {}
   for (const { id } of CALENDAR_SOUND_OPTIONS) {
     await notifee.createChannel({
       id: channelId(id),
