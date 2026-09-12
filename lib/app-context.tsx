@@ -563,14 +563,23 @@ export function mergeServerState(
       let touched = false;
       if (sc.motherId != null && sc.motherId !== lc.motherId) {
         next.motherId = sc.motherId;
-        if (sc.motherName != null) next.motherName = sc.motherName;
+        // Refresh the cached display name TOGETHER with the id — never keep the
+        // old name against a new id (that would show the previous, wrong mother).
+        // Clearing it when the server carries none is safe: the name resolves
+        // from motherId at render time.
+        next.motherName = sc.motherName ?? undefined;
         touched = true;
       }
       if (sc.fatherId != null && sc.fatherId !== lc.fatherId) {
         next.fatherId = sc.fatherId;
         touched = true;
       }
-      if (touched) childrenChanged = true;
+      if (touched) {
+        childrenChanged = true;
+        console.log(
+          `[CloudSync] Corrected child ${lc.id} attribution from server: motherId ${lc.motherId} -> ${next.motherId}`,
+        );
+      }
       return touched ? next : lc;
     });
     // 2. Add server children we don't have locally (union — never removes).
