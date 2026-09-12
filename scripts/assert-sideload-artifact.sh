@@ -180,6 +180,18 @@ if ! grep -q "^uses-permission: name='android.permission.PACKAGE_USAGE_STATS'" "
   echo "A stale android/ survives prebuild — rebuild with 'expo prebuild --clean'." >&2
   exit 1
 fi
+# The roznama appointment alarm launches a full-screen intent; without this
+# permission Android silently demotes it to a heads-up banner. It was absent
+# once during development — blockedPermissions strips it on BOTH channels and
+# only GITHUB_NEEDS undoes it for sideload (the fragile stale-entry mechanism
+# noted above). Assert PRESENCE so the capability can't vanish silently.
+if ! grep -q "^uses-permission: name='android.permission.USE_FULL_SCREEN_INTENT'" "$TMP/perms.txt"; then
+  echo "" >&2
+  echo "FORBIDDEN: USE_FULL_SCREEN_INTENT is missing from $ART." >&2
+  echo "The roznama appointment alarm would silently demote to a heads-up banner." >&2
+  echo "A stale android/ survives prebuild — rebuild with 'expo prebuild --clean'." >&2
+  exit 1
+fi
 
 # One xmltree dump serves the two checks below: the stalkerware-policy metadata
 # (not in `dump permissions`, not in `dump badging`) and versionName.
