@@ -81,6 +81,9 @@ export async function ensureCalendarAlarmChannels(): Promise<void> {
       importance: AndroidImportance.HIGH,
       sound: id, // "default" → system sound; nature id → res/raw/<id>.mp3
       vibration: true,
+      // An alarm should sound through Do-Not-Disturb (the old expo channel set
+      // this too; category ALARM is usually DND-exempt, but be explicit).
+      bypassDnd: true,
       // Appointment titles are personal — keep them off a bystander lock screen
       // (matches the old calendar_events_v1 channel's PRIVATE choice).
       visibility: AndroidVisibility.PRIVATE,

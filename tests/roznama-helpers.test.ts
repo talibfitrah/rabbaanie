@@ -35,7 +35,13 @@ vi.mock("@/lib/calendar-events", () => ({
   removeEvent: vi.fn(),
   eventsForDate: vi.fn(),
 }));
-vi.mock("@/lib/event-reminders", () => ({ setupCalendarEventChannel: vi.fn(), rescheduleEventReminders: vi.fn() }));
+vi.mock("@/lib/event-reminders", () => ({ rescheduleEventReminders: vi.fn() }));
+vi.mock("@/lib/calendar-alarm", () => ({
+  CALENDAR_SOUND_OPTIONS: [],
+  loadCalendarSound: vi.fn().mockResolvedValue("default"),
+  saveCalendarSound: vi.fn(),
+  ensureCalendarAlarmChannels: vi.fn(),
+}));
 
 import { parseISODate, daysInMonth, computeEffectiveToday } from "@/app/roznama";
 import { calculatePrayerTimes, CALC_METHODS, type SavedPrayerLocation } from "@/lib/prayer-data";
