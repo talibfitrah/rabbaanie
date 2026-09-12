@@ -210,7 +210,7 @@ export default function RoznamaScreen() {
     // Create the full-screen alarm channels (per sound) up front so the first
     // appointment's alarm has its channel. Replaces the old expo
     // calendar_events_v1 channel, which the Android path no longer uses.
-    ensureCalendarAlarmChannels();
+    ensureCalendarAlarmChannels().catch(() => {});
     loadEvents().then(setAllEvents);
   }, []);
   useEffect(() => {

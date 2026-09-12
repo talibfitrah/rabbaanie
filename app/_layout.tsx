@@ -147,23 +147,22 @@ Notifications.setNotificationHandler({
 // day on the calendar — the expo-notifications response listener below never
 // sees Notifee events, so mirror its CALENDAR_EVENT_TYPE routing here. The
 // small delay lets the router mount when the tap is what foregrounded the app.
-let lastCalendarRouteUrl = "";
-let lastCalendarRouteAt = 0;
-function routeNotifeeTap(detail: any, opts?: { force?: boolean }) {
+let pendingCalendarRoute: ReturnType<typeof setTimeout> | null = null;
+function routeNotifeeTap(detail: any) {
   const data = detail?.notification?.data;
   if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
     const url = data.url as string;
-    const now = Date.now();
-    // A cold-start tap reaches BOTH onBackgroundEvent and getInitialNotification;
-    // dedup so /roznama isn't pushed twice. But getInitialNotification passes
-    // force:true — it's the RELIABLE path (router is mounted by then), so it must
-    // never be suppressed by the module-scope handler's earlier (possibly
-    // pre-mount, failed) push. It still arms the guard so a later foreground
-    // event doesn't double.
-    if (!opts?.force && url === lastCalendarRouteUrl && now - lastCalendarRouteAt < 3000) return;
-    lastCalendarRouteUrl = url;
-    lastCalendarRouteAt = now;
-    setTimeout(() => { try { router.push(url as any); } catch {} }, 800);
+    // One tap can reach several handlers (onBackgroundEvent + onForegroundEvent
+    // + getInitialNotification). Collapse them to a SINGLE navigation: cancel any
+    // pending push and (re)schedule. Whichever source fires last within the
+    // window wins, and the 800ms delay lets the router mount when the tap
+    // launched the app — so a reliable post-mount source supersedes an earlier
+    // pre-mount one instead of racing it (no double, no suppression).
+    if (pendingCalendarRoute) clearTimeout(pendingCalendarRoute);
+    pendingCalendarRoute = setTimeout(() => {
+      pendingCalendarRoute = null;
+      try { router.push(url as any); } catch {}
+    }, 800);
   }
 }
 notifee.onBackgroundEvent(async ({ type, detail }) => {
@@ -623,7 +622,7 @@ export default function RootLayout() {
     // onBackgroundEvent can't reliably route before the router has mounted. 800ms
     // lets the auth/onboarding gate settle first (same reason as the routes below).
     notifee.getInitialNotification().then((initial) => {
-      if (initial) routeNotifeeTap(initial, { force: true });
+      if (initial) routeNotifeeTap(initial);
     }).catch(() => {});
 
     const responseSubscription =
