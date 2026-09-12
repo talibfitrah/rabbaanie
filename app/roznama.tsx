@@ -664,7 +664,7 @@ export default function RoznamaScreen() {
         supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
         onRequestClose={() => setModalVisible(false)}
       >
-        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
         <View style={st.modalOverlay}>
           <View style={st.modalContent}>
             <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
