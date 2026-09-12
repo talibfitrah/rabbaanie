@@ -47,8 +47,8 @@ export default function OnboardingScreen() {
   const hasInteracted = useRef(false);
   useEffect(() => {
     if (hasInteracted.current) return;
-    if (isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
-      console.log("[Onboarding] Data already exists, skipping to main app");
+    if (isProfileComplete({ parentProfile: state.parentProfile, children: state.children }) || state.onboardingCompleted) {
+      console.log("[Onboarding] Data already exists (or onboarding already completed), skipping to main app");
       router.replace("/(tabs)");
     }
   }, [state.parentProfile, state.children]);
@@ -350,6 +350,17 @@ export default function OnboardingScreen() {
           {tx(lang, "Islamitisch opvoedingsprogramma", "Islamic parenting program", "برنامج التربية الإسلامية")}
         </Text>
       </View>
+
+      {/* TEMP diagnostic (Daa3iyah دوامة): shows ONLY for a user who already
+          completed onboarding yet is somehow back here — the loop condition.
+          Remove once the loop is confirmed closed. */}
+      {state.onboardingCompleted && (
+        <View style={{ backgroundColor: "#FEF3C7", borderColor: "#F59E0B", borderWidth: 1, borderRadius: 8, padding: 8, marginBottom: 12 }}>
+          <Text selectable style={{ fontSize: 11, color: "#92400E", textAlign: isRTL ? "right" : "left" }}>
+            {`dbg oc=${String(state.onboardingCompleted)} g=${state.parentProfile.gender || "∅"} m=${state.parentProfile.maritalStatus || "∅"} fn=${state.parentProfile.firstName ? "1" : "∅"} ad=${(state.parentProfile.address || state.parentProfile.streetHouseNumber) ? "1" : "∅"} ph=${state.parentProfile.phoneNumber ? "1" : "∅"} ch=${state.children.length} hnc=${String(state.parentProfile.hasNoChildren)} step=${getFirstIncompleteOnboardingStep({ parentProfile: state.parentProfile, children: state.children })}`}
+          </Text>
+        </View>
+      )}
 
       {/* Progress indicator */}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "center", gap: 8, marginBottom: 24 }}>

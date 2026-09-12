@@ -242,10 +242,16 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const inSetup = isSetupRoute(segment);
   const profileDone = appLoading
     ? true
+    // Once a user has completed onboarding, never force them back through it —
+    // even if a profile field transiently reads empty (a sync/restore race).
+    // The guard→/onboarding ↔ skip oscillation this prevents was the persistent
+    // دوامة (Daa3iyah, 3 reports; two field-specific fixes didn't close it). A
+    // completed user with a genuinely-missing field can fill it in Settings; a
+    // total lockout loop is far worse. New users (flag false) still onboard.
     : isProfileComplete({
         parentProfile: appState?.parentProfile,
         children: appState?.children,
-      });
+      }) || !!appState?.onboardingCompleted;
   // permissionsSetupCompleted lives on AppState (lib/store.ts), not a
   // separate AsyncStorage key read once on AuthGate's mount — that was tried
   // first and needed a new special-cased re-read trigger for every path that
