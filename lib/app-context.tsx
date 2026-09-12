@@ -544,7 +544,36 @@ export function mergeServerState(
   // Merge children
   if (serverState.children && serverState.children.length > 0) {
     const localChildren = localState.children || [];
-    const merged = [...localChildren];
+    let childrenChanged = false;
+    // 1. Adopt the server's parent attribution (motherId/fatherId/motherName)
+    //    on children we ALREADY have. These fields are set server-side from the
+    //    confirmed parent_child_links, so the server copy is authoritative; a
+    //    stale LOCAL value — e.g. a co-wife crosslink baked into the device —
+    //    used to win forever because this merge only ever ADDED children and
+    //    never touched an existing one. That is exactly what let a corrected
+    //    motherId "revert on sync": the device kept re-pushing its stale copy.
+    //    Only a present (non-null) server value overwrites, so it corrects
+    //    without ever clearing an attribution the server simply doesn't carry.
+    const merged = localChildren.map((lc: any) => {
+      const sc: any = serverState.children.find(
+        (s: any) => s.id === lc.id || (s.name === lc.name && s.birthDate === lc.birthDate),
+      );
+      if (!sc) return lc;
+      const next: any = { ...lc };
+      let touched = false;
+      if (sc.motherId != null && sc.motherId !== lc.motherId) {
+        next.motherId = sc.motherId;
+        if (sc.motherName != null) next.motherName = sc.motherName;
+        touched = true;
+      }
+      if (sc.fatherId != null && sc.fatherId !== lc.fatherId) {
+        next.fatherId = sc.fatherId;
+        touched = true;
+      }
+      if (touched) childrenChanged = true;
+      return touched ? next : lc;
+    });
+    // 2. Add server children we don't have locally (union — never removes).
     for (const sc of serverState.children) {
       const exists = merged.some(
         (lc: any) =>
@@ -553,14 +582,12 @@ export function mergeServerState(
       );
       if (!exists) {
         merged.push(sc);
+        childrenChanged = true;
       }
     }
-    if (merged.length > localChildren.length) {
+    if (childrenChanged) {
       updatedState = { ...updatedState, children: merged };
       changed = true;
-      console.log(
-        `[CloudSync] Merged ${merged.length - localChildren.length} new children from server`,
-      );
     }
   }
 

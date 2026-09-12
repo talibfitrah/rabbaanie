@@ -322,6 +322,39 @@ describe("mergeServerState (hydrate's background-sync decision)", () => {
     expect(state.parentProfile.gender).toBe("vrouw");
   });
 
+  it("adopts the server's motherId for a child already held locally (co-wife crosslink correction)", () => {
+    const child = { id: "c1", name: "Child", birthDate: "2015-01-01", gender: "jongen" as const, profileCompleted: false, laterInvullen: true };
+    const localState = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: completeServerProfile,
+      children: [{ ...child, motherId: 6390002, motherName: "Yamina" }],
+    };
+    const server = { ...serverState, children: [{ ...child, motherId: 3870001, motherName: "S Dahri" }] };
+
+    const { state, changed } = mergeServerState(localState, server);
+
+    expect(changed).toBe(true);
+    expect(state.children).toHaveLength(1); // corrected in place, not duplicated
+    expect((state.children[0] as any).motherId).toBe(3870001);
+    expect((state.children[0] as any).motherName).toBe("S Dahri");
+  });
+
+  it("does not clear a local motherId when the server child carries none", () => {
+    const child = { id: "c1", name: "Child", birthDate: "2015-01-01", gender: "jongen" as const, profileCompleted: false, laterInvullen: true };
+    const localState = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: completeServerProfile,
+      children: [{ ...child, motherId: 3870001 }],
+    };
+    const server = { ...serverState, children: [child] }; // server child has no motherId
+
+    const { state } = mergeServerState(localState, server);
+
+    expect((state.children[0] as any).motherId).toBe(3870001);
+  });
+
   it("a genuine new user (local and server both empty/default) reports no change — still onboards", () => {
     const localState = { ...defaultAppState }; // onboardingCompleted: false, everything empty
     const emptyServer = { ...defaultAppState };
