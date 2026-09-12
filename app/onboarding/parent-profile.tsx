@@ -812,19 +812,17 @@ export default function ParentProfileScreen() {
       ? { ...state.parentProfile, hasNoChildren: false }
       : state.parentProfile,
   );
-  // Snapshot at mount: skip gender/marital/birthDate ONLY if already answered
-  // before the wizard. The short onboarding (app/onboarding/index.tsx) collects
-  // all three and calls completeOnboarding() BEFORE handing off here, so an
-  // onboardingCompleted flag is a race-proof "these are known" signal even when
-  // a hydrate/partner-sync momentarily lags state.parentProfile.* at mount —
-  // which is what made the wizard re-ask gender the user had already given
-  // (Daa3iyah's "دوامة"). Referencing live state in the `conditional` instead
-  // made an in-wizard answer hide its own question, hence the frozen ref.
-  const onboardingDone = !!state.onboardingCompleted;
+  // Snapshot at mount: skip gender/marital/birthDate ONLY if the field ACTUALLY
+  // has a value. Trusting onboardingCompleted instead would skip a genuinely
+  // empty field on a restored/linked device (the flag can be stale-true with a
+  // blank profile), and since this wizard is the ONLY gender editor, that would
+  // leave gender permanently unset — silently disabling the gender-gated حيض
+  // module. Referencing live state in the `conditional` instead made an
+  // in-wizard answer hide its own question, hence the frozen ref.
   const knownAtMount = useRef({
-    gender: !!state.parentProfile.gender || onboardingDone,
-    maritalStatus: !!state.parentProfile.maritalStatus || onboardingDone,
-    birthDate: !!state.parentProfile.birthDate || onboardingDone,
+    gender: !!state.parentProfile.gender,
+    maritalStatus: !!state.parentProfile.maritalStatus,
+    birthDate: !!state.parentProfile.birthDate,
   });
 
   const PHASES = useMemo(() => getPHASES(lang, profile.gender, knownAtMount.current), [lang, profile.gender]);

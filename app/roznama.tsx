@@ -365,12 +365,17 @@ export default function RoznamaScreen() {
       };
       if (editingId) await updateEvent(editingId, data);
       else await addEvent(data);
+      // The appointment is now persisted. Everything below is UI refresh only:
+      // its failure must NOT surface as "save failed" (that misled the user
+      // into thinking nothing saved, and re-adding a duplicate). setSelectedDate
+      // re-fires the day-load effect, so the list refreshes even if afterMutation
+      // (reload + notification reschedule) rejects.
       setModalVisible(false);
       // Jump the calendar to the day the appointment lands on. Without this a
       // future-dated appointment saved fine but stayed invisible (the view was
       // still on today), which read as "it didn't save".
       setSelectedDate(savedDate);
-      await afterMutation(dateToISO(savedDate));
+      afterMutation(dateToISO(savedDate)).catch(() => {});
     } catch (e) {
       Alert.alert(
         tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),
