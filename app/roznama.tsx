@@ -23,8 +23,8 @@ import {
 import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
-import { setupCalendarEventChannel, rescheduleEventReminders } from "@/lib/event-reminders";
-import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound } from "@/lib/calendar-alarm";
+import { rescheduleEventReminders } from "@/lib/event-reminders";
+import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels } from "@/lib/calendar-alarm";
 
 // Same defensive require() as components/date-picker.tsx: the native module
 // has no web implementation, so guard it there and fall back to text inputs.
@@ -207,7 +207,10 @@ export default function RoznamaScreen() {
   const selectedISO = dateToISO(selectedDate);
 
   useEffect(() => {
-    setupCalendarEventChannel();
+    // Create the full-screen alarm channels (per sound) up front so the first
+    // appointment's alarm has its channel. Replaces the old expo
+    // calendar_events_v1 channel, which the Android path no longer uses.
+    ensureCalendarAlarmChannels();
     loadEvents().then(setAllEvents);
   }, []);
   useEffect(() => {
@@ -891,29 +894,40 @@ export default function RoznamaScreen() {
                 <MaterialIcons name="close" size={24} color="#6B7B72" />
               </Pressable>
             </View>
-            <Text style={st.fieldLabel}>{tx(lang, "Alarmgeluid afspraak", "Appointment alarm sound", "صوت منبّه الموعد")}</Text>
-            <Text style={{ fontSize: 12, color: "#6B7B72", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
-              {tx(lang,
-                "De herinnering verschijnt schermvullend en klinkt tot je hem sluit.",
-                "The reminder appears full-screen and rings until you dismiss it.",
-                "يظهر التنبيه بملء الشاشة ويرنّ حتى تُغلقه.")}
-            </Text>
-            {CALENDAR_SOUND_OPTIONS.map((opt) => (
-              <Pressable
-                key={opt.id}
-                onPress={() => selectReminderSound(opt.id)}
-                style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 12 }, pressed && { opacity: 0.6 }]}
-              >
-                <MaterialIcons
-                  name={reminderSound === opt.id ? "radio-button-checked" : "radio-button-unchecked"}
-                  size={22}
-                  color={reminderSound === opt.id ? "#1B4332" : "#9CA3AF"}
-                />
-                <Text style={{ fontSize: 15, color: "#1B4332", marginHorizontal: 10 }}>
-                  {tx(lang, opt.nameNl, opt.nameEn, opt.nameAr)}
+            {Platform.OS === "android" ? (
+              <>
+                <Text style={st.fieldLabel}>{tx(lang, "Alarmgeluid afspraak", "Appointment alarm sound", "صوت منبّه الموعد")}</Text>
+                <Text style={{ fontSize: 12, color: "#6B7B72", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+                  {tx(lang,
+                    "De herinnering verschijnt schermvullend en klinkt tot je hem sluit.",
+                    "The reminder appears full-screen and rings until you dismiss it.",
+                    "يظهر التنبيه بملء الشاشة ويرنّ حتى تُغلقه.")}
                 </Text>
-              </Pressable>
-            ))}
+                {CALENDAR_SOUND_OPTIONS.map((opt) => (
+                  <Pressable
+                    key={opt.id}
+                    onPress={() => selectReminderSound(opt.id)}
+                    style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 12 }, pressed && { opacity: 0.6 }]}
+                  >
+                    <MaterialIcons
+                      name={reminderSound === opt.id ? "radio-button-checked" : "radio-button-unchecked"}
+                      size={22}
+                      color={reminderSound === opt.id ? "#1B4332" : "#9CA3AF"}
+                    />
+                    <Text style={{ fontSize: 15, color: "#1B4332", marginHorizontal: 10 }}>
+                      {tx(lang, opt.nameNl, opt.nameEn, opt.nameAr)}
+                    </Text>
+                  </Pressable>
+                ))}
+              </>
+            ) : (
+              <Text style={{ fontSize: 13, color: "#6B7B72", textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang,
+                  "Op iPhone klinkt de afspraakherinnering met de standaardtoon.",
+                  "On iPhone the appointment reminder uses the default tone.",
+                  "على الآيفون يُنبّهك الموعد بالنغمة الافتراضية.")}
+              </Text>
+            )}
             <View style={{ height: insets.bottom + 12 }} />
           </View>
         </View>

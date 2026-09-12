@@ -103,7 +103,7 @@ import {
   restoreQueryCache,
   setupQueryPersistence,
 } from "@/lib/query-persistence";
-import notifee from "@notifee/react-native";
+import notifee, { EventType } from "@notifee/react-native";
 import {
   AgeGateProvider,
   canUseNotifications,
@@ -142,10 +142,23 @@ Notifications.setNotificationHandler({
   },
 });
 
-// Notifee background event handler (module scope, required by Notifee). Used
-// for the full-screen prayer notifications; tapping/full-screen just opens the
-// app, so nothing extra to do here — this registration silences the warning.
-notifee.onBackgroundEvent(async () => {});
+// Notifee event handlers (module scope, required by Notifee). Tapping a
+// full-screen appointment alarm (lib/calendar-alarm.ts) opens the appointment's
+// day on the calendar — the expo-notifications response listener below never
+// sees Notifee events, so mirror its CALENDAR_EVENT_TYPE routing here. The
+// small delay lets the router mount when the tap is what foregrounded the app.
+function routeNotifeeTap(detail: any) {
+  const data = detail?.notification?.data;
+  if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
+    setTimeout(() => { try { router.push(data.url as any); } catch {} }, 800);
+  }
+}
+notifee.onBackgroundEvent(async ({ type, detail }) => {
+  if (type === EventType.PRESS) routeNotifeeTap(detail);
+});
+notifee.onForegroundEvent(({ type, detail }) => {
+  if (type === EventType.PRESS) routeNotifeeTap(detail);
+});
 
 // Keep splash screen visible until auth is resolved
 SplashScreen.preventAutoHideAsync().catch(() => {});

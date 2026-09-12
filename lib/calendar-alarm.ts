@@ -163,6 +163,10 @@ export async function scheduleCalendarAlarms(lang: Lang): Promise<number> {
             fullScreenAction: { id: "default" },
             pressAction: { id: "default" },
             autoCancel: true,
+            // Ring until dismissed (owner requirement) — the channel sound
+            // otherwise plays once. Stops when the notification is tapped
+            // (autoCancel) or swiped away.
+            loopSound: true,
           },
         },
         trigger,
