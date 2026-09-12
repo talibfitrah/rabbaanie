@@ -518,9 +518,13 @@ export default function RoznamaScreen() {
         }
       } catch {}
     } catch (e) {
+      // Diagnostic (2946): "Opslaan mislukt" only fires from addEvent/updateEvent
+      // (AsyncStorage). The save logic is device-agnostic, so surface the actual
+      // error to pinpoint a device/storage cause. Temporary — trim once diagnosed.
+      const detail = String((e as any)?.message ?? e ?? "").slice(0, 300);
       Alert.alert(
         tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),
-        tx(lang, "Probeer het opnieuw.", "Please try again.", "يرجى المحاولة مرة أخرى."),
+        tx(lang, "Probeer het opnieuw.", "Please try again.", "يرجى المحاولة مرة أخرى.") + (detail ? `\n\n[${detail}]` : ""),
       );
     } finally {
       setSaving(false);
