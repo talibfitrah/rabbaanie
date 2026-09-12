@@ -24,6 +24,7 @@ import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
 import { setupCalendarEventChannel, rescheduleEventReminders } from "@/lib/event-reminders";
+import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound } from "@/lib/calendar-alarm";
 
 // Same defensive require() as components/date-picker.tsx: the native module
 // has no web implementation, so guard it there and fall back to text inputs.
@@ -314,6 +315,18 @@ export default function RoznamaScreen() {
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
+  const [settingsVisible, setSettingsVisible] = useState(false);
+  const [reminderSound, setReminderSound] = useState<CalendarSound>("default");
+  useEffect(() => {
+    loadCalendarSound().then(setReminderSound);
+  }, []);
+  async function selectReminderSound(s: CalendarSound) {
+    setReminderSound(s);
+    await saveCalendarSound(s);
+    // Reschedule so pending alarms move to the newly chosen sound's channel
+    // (an Android channel's sound is immutable — see lib/calendar-alarm.ts).
+    await rescheduleEventReminders(lang);
+  }
 
   function openAddModal() {
     setEditingId(null);
@@ -833,9 +846,14 @@ export default function RoznamaScreen() {
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
         <Text style={st.topTitle}>{tx(lang, "Roznama", "Almanac", "روزنامة")}</Text>
-        <Pressable onPress={goToday} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
-          <MaterialIcons name="today" size={22} color="#C4A35A" />
-        </Pressable>
+        <View style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+          <Pressable onPress={goToday} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
+            <MaterialIcons name="today" size={22} color="#C4A35A" />
+          </Pressable>
+          <Pressable onPress={() => setSettingsVisible(true)} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
+            <MaterialIcons name="settings" size={22} color="#6B7B72" />
+          </Pressable>
+        </View>
       </View>
 
       <View style={[st.segmentRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -862,6 +880,44 @@ export default function RoznamaScreen() {
         {viewMode === "day" && renderDayDetail()}
         {viewMode === "year" && renderYearView()}
       </ScrollView>
+
+      {/* Roznama settings: appointment-alarm sound picker */}
+      <Modal visible={settingsVisible} transparent animationType="slide" supportedOrientations={["portrait", "portrait-upside-down", "landscape"]} onRequestClose={() => setSettingsVisible(false)}>
+        <View style={st.modalOverlay}>
+          <View style={st.modalContent}>
+            <View style={[st.modalHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={st.modalTitle}>{tx(lang, "Roznama-instellingen", "Roznama settings", "إعدادات الروزنامة")}</Text>
+              <Pressable onPress={() => setSettingsVisible(false)}>
+                <MaterialIcons name="close" size={24} color="#6B7B72" />
+              </Pressable>
+            </View>
+            <Text style={st.fieldLabel}>{tx(lang, "Alarmgeluid afspraak", "Appointment alarm sound", "صوت منبّه الموعد")}</Text>
+            <Text style={{ fontSize: 12, color: "#6B7B72", marginBottom: 10, textAlign: isRTL ? "right" : "left" }}>
+              {tx(lang,
+                "De herinnering verschijnt schermvullend en klinkt tot je hem sluit.",
+                "The reminder appears full-screen and rings until you dismiss it.",
+                "يظهر التنبيه بملء الشاشة ويرنّ حتى تُغلقه.")}
+            </Text>
+            {CALENDAR_SOUND_OPTIONS.map((opt) => (
+              <Pressable
+                key={opt.id}
+                onPress={() => selectReminderSound(opt.id)}
+                style={({ pressed }) => [{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", paddingVertical: 12 }, pressed && { opacity: 0.6 }]}
+              >
+                <MaterialIcons
+                  name={reminderSound === opt.id ? "radio-button-checked" : "radio-button-unchecked"}
+                  size={22}
+                  color={reminderSound === opt.id ? "#1B4332" : "#9CA3AF"}
+                />
+                <Text style={{ fontSize: 15, color: "#1B4332", marginHorizontal: 10 }}>
+                  {tx(lang, opt.nameNl, opt.nameEn, opt.nameAr)}
+                </Text>
+              </Pressable>
+            ))}
+            <View style={{ height: insets.bottom + 12 }} />
+          </View>
+        </View>
+      </Modal>
 
       {renderModal()}
     </View>

@@ -276,6 +276,24 @@ const withAdhanSoundResources: ConfigPlugin = (config) =>
         }
         fs.copyFileSync(source, path.join(rawDir, `${id}.mp3`));
       }
+      // Roznama appointment-alarm sounds. Same res/raw requirement so the
+      // full-screen calendar-alarm channel (lib/calendar-alarm.ts) can name
+      // them. Deliberately NOT the adhan — the call to prayer must not become
+      // a dentist-appointment ringtone — so the calendar picker offers these
+      // neutral nature sounds (plus the system default). Files have no prefix
+      // (assets/sounds/<id>.mp3).
+      for (const id of ["water_stream", "birds_chirp", "wind_gentle", "rain_soft"]) {
+        const source = path.join(
+          modConfig.modRequest.projectRoot,
+          `assets/sounds/${id}.mp3`,
+        );
+        if (!fs.existsSync(source)) {
+          throw new Error(
+            `withAdhanSoundResources: missing ${source} — expected one MP3 per calendar nature sound`,
+          );
+        }
+        fs.copyFileSync(source, path.join(rawDir, `${id}.mp3`));
+      }
       return modConfig;
     },
   ]);

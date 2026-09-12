@@ -4,6 +4,7 @@ import { enqueue } from "./notification-queue";
 import { readStoredLanguage } from "./notifications";
 import { loadEvents, type CalendarEvent } from "./calendar-events";
 import { IOS_PENDING_BUDGET } from "./notification-horizons";
+import { scheduleCalendarAlarms } from "./calendar-alarm";
 
 // ============ NOTIFICATION TYPE ============
 
@@ -88,6 +89,16 @@ export function rescheduleEventReminders(lang?: Lang): Promise<number> {
 async function rescheduleEventRemindersInner(lang?: Lang): Promise<number> {
   if (Platform.OS === "web") return 0;
 
+  // Android: appointment reminders are full-screen ALARMS (lib/calendar-alarm.ts,
+  // Notifee) — Daa3iyah asked for an alarm that shows and rings until dismissed,
+  // which expo-notifications can't do (no full-screen intent). Clear any legacy
+  // expo calendar reminders a prior version scheduled, then delegate. The
+  // expo-notifications path below is iOS-only now.
+  if (Platform.OS === "android") {
+    await cancelEventReminders();
+    return scheduleCalendarAlarms(lang ?? (await readStoredLanguage()));
+  }
+
   // Ensure the Android channel exists before scheduling: this runs at launch
   // (initNotifications) too, i.e. before Roznama has necessarily mounted, so the
   // scheduler can't rely on the screen's setup. Idempotent; no-ops on iOS.
@@ -138,8 +149,9 @@ async function rescheduleEventRemindersInner(lang?: Lang): Promise<number> {
             url: `/roznama?date=${event.dateISO}`,
             showPopup: true,
           },
-          ...(Platform.OS === "android" ? { channelId: CALENDAR_EVENTS_CHANNEL_ID } : {}),
-          ...(Platform.OS === "ios" ? { sound: "default" } : {}),
+          // This path is iOS-only now (Android returns early to the full-screen
+          // alarm above), so no Android channelId here.
+          sound: "default",
         },
         trigger: {
           type: Notifications.SchedulableTriggerInputTypes.DATE,
