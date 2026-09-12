@@ -149,28 +149,32 @@ Notifications.setNotificationHandler({
 // sees Notifee events, so mirror its CALENDAR_EVENT_TYPE routing here. The
 // small delay lets the router mount when the tap is what foregrounded the app.
 let pendingCalendarRoute: ReturnType<typeof setTimeout> | null = null;
-function routeNotifeeTap(detail: any) {
+async function routeNotifeeTap(detail: any) {
   const data = detail?.notification?.data;
-  if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
-    const url = data.url as string;
-    // One tap can reach several handlers (onBackgroundEvent + onForegroundEvent
-    // + getInitialNotification). Collapse them to a SINGLE navigation: cancel any
-    // pending push and (re)schedule. Whichever source fires last within the
-    // window wins, and the 800ms delay lets the router mount when the tap
-    // launched the app — so a reliable post-mount source supersedes an earlier
-    // pre-mount one instead of racing it (no double, no suppression).
-    if (pendingCalendarRoute) clearTimeout(pendingCalendarRoute);
-    pendingCalendarRoute = setTimeout(() => {
-      pendingCalendarRoute = null;
-      try { router.push(url as any); } catch {}
-    }, 800);
-  }
+  if (data?.type !== CALENDAR_EVENT_TYPE || typeof data.url !== "string") return;
+  // Same eligibility gate the expo response listener enforces below: a
+  // signed-out / age-gated user (child-audience policy) must not be navigated by
+  // a tap. (cancelCalendarAlarms on that transition should already remove their
+  // pending alarms; this keeps the two tap paths consistent regardless.)
+  if (!(await hasStoredNotificationEligibility())) return;
+  const url = data.url as string;
+  // One tap can reach several handlers (onBackgroundEvent + onForegroundEvent
+  // + getInitialNotification). Collapse them to a SINGLE navigation: cancel any
+  // pending push and (re)schedule. Whichever source fires last within the
+  // window wins, and the 800ms delay lets the router mount when the tap
+  // launched the app — so a reliable post-mount source supersedes an earlier
+  // pre-mount one instead of racing it (no double, no suppression).
+  if (pendingCalendarRoute) clearTimeout(pendingCalendarRoute);
+  pendingCalendarRoute = setTimeout(() => {
+    pendingCalendarRoute = null;
+    try { router.push(url as any); } catch {}
+  }, 800);
 }
 notifee.onBackgroundEvent(async ({ type, detail }) => {
-  if (type === EventType.PRESS) routeNotifeeTap(detail);
+  if (type === EventType.PRESS) await routeNotifeeTap(detail);
 });
 notifee.onForegroundEvent(({ type, detail }) => {
-  if (type === EventType.PRESS) routeNotifeeTap(detail);
+  if (type === EventType.PRESS) void routeNotifeeTap(detail);
 });
 
 // Keep splash screen visible until auth is resolved
@@ -627,7 +631,7 @@ export default function RootLayout() {
     // onBackgroundEvent can't reliably route before the router has mounted. 800ms
     // lets the auth/onboarding gate settle first (same reason as the routes below).
     notifee.getInitialNotification().then((initial) => {
-      if (initial) routeNotifeeTap(initial);
+      if (initial) void routeNotifeeTap(initial);
     }).catch(() => {});
 
     const responseSubscription =
