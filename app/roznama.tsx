@@ -3,7 +3,7 @@
 // and user appointments (calendar-events.ts + event-reminders.ts). Visual
 // language mirrors app/details/upcoming-days.tsx.
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert, KeyboardAvoidingView } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert, KeyboardAvoidingView, Switch } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -17,9 +17,17 @@ import {
   getCurrentMinutesInTimezone,
   getIslamicDate,
   formatHijriDate,
+  getCityAR,
   type SavedPrayerLocation,
   type CalcMethod,
 } from "@/lib/prayer-data";
+import {
+  detectPrayerConflict,
+  loadPrayerConflictPrefs,
+  savePrayerConflictPrefs,
+  DEFAULT_PRAYER_CONFLICT_PREFS,
+  type PrayerConflictPrefs,
+} from "@/lib/prayer-conflict";
 import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
@@ -45,6 +53,38 @@ type ViewMode = "day" | "week" | "month" | "year";
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
+}
+
+// Promise-wrapped two-button Alert so handleSave can await the user's choice
+// (prayer-time conflict, 2929). Resolves true = confirm, false = cancel.
+function confirmAsync(title: string, message: string, confirmText: string, cancelText: string): Promise<boolean> {
+  return new Promise((resolve) => {
+    Alert.alert(
+      title,
+      message,
+      [
+        { text: cancelText, style: "cancel", onPress: () => resolve(false) },
+        { text: confirmText, onPress: () => resolve(true) },
+      ],
+      { cancelable: false },
+    );
+  });
+}
+
+// Display value is pre-formatted by the caller via dig() so it honours the
+// app-wide numeral-system setting (roznama routes every number through dig()).
+function MinuteStepper({ display, onDec, onInc, isRTL }: { display: string; onDec: () => void; onInc: () => void; isRTL: boolean }) {
+  return (
+    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 14 }}>
+      <Pressable onPress={onDec} hitSlop={8} style={({ pressed }) => [{ width: 30, height: 30, borderRadius: 15, backgroundColor: "#1B433215", alignItems: "center", justifyContent: "center" }, pressed && { opacity: 0.6 }]}>
+        <MaterialIcons name="remove" size={16} color="#1B4332" />
+      </Pressable>
+      <Text style={{ fontSize: 15, fontWeight: "700", color: "#1B4332", minWidth: 34, textAlign: "center" }}>{display}</Text>
+      <Pressable onPress={onInc} hitSlop={8} style={({ pressed }) => [{ width: 30, height: 30, borderRadius: 15, backgroundColor: "#1B433215", alignItems: "center", justifyContent: "center" }, pressed && { opacity: 0.6 }]}>
+        <MaterialIcons name="add" size={16} color="#1B4332" />
+      </Pressable>
+    </View>
+  );
 }
 
 /** Local (not UTC) "YYYY-MM-DD" -- avoids the off-by-one toISOString() gives west of UTC. */
@@ -315,6 +355,9 @@ export default function RoznamaScreen() {
   const [formTime, setFormTime] = useState<Date>(new Date());
   const [formNote, setFormNote] = useState("");
   const [formReminder, setFormReminder] = useState<number | null>(null);
+  // Revealed only when the user overrides a Jumu'ah-time block by travelling (2929).
+  const [formTravelCity, setFormTravelCity] = useState("");
+  const [showTravelCity, setShowTravelCity] = useState(false);
   const [showDatePicker, setShowDatePicker] = useState(false);
   const [showTimePicker, setShowTimePicker] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -323,6 +366,18 @@ export default function RoznamaScreen() {
   useEffect(() => {
     loadCalendarSound().then(setReminderSound);
   }, []);
+  // Prayer-time awareness prefs (2929): warn on daily prayers, block Jumu'ah.
+  const [conflictPrefs, setConflictPrefs] = useState<PrayerConflictPrefs>(DEFAULT_PRAYER_CONFLICT_PREFS);
+  useEffect(() => {
+    loadPrayerConflictPrefs().then(setConflictPrefs);
+  }, []);
+  const updateConflictPrefs = useCallback(async (patch: Partial<PrayerConflictPrefs>) => {
+    // Keep the updater pure (StrictMode/concurrent can double-invoke it): compute
+    // next from the render-time value, set it plainly, persist alongside.
+    const next = { ...conflictPrefs, ...patch };
+    setConflictPrefs(next);
+    try { await savePrayerConflictPrefs(next); } catch {}
+  }, [conflictPrefs]);
   async function selectReminderSound(s: CalendarSound) {
     setReminderSound(s);
     try {
@@ -343,6 +398,8 @@ export default function RoznamaScreen() {
     setFormTime(new Date());
     setFormNote("");
     setFormReminder(null);
+    setFormTravelCity("");
+    setShowTravelCity(false);
     setShowDatePicker(false);
     setShowTimePicker(false);
     setSaving(false);
@@ -357,6 +414,8 @@ export default function RoznamaScreen() {
     setFormTime(time);
     setFormNote(ev.note ?? "");
     setFormReminder(ev.reminderMinutesBefore);
+    setFormTravelCity(ev.travelCity ?? "");
+    setShowTravelCity(!!ev.travelCity);
     setShowDatePicker(false);
     setShowTimePicker(false);
     setSaving(false);
@@ -373,6 +432,42 @@ export default function RoznamaScreen() {
       );
       return;
     }
+    // Prayer-time awareness (2929): warn when the appointment lands in a daily
+    // prayer window, and BLOCK Friday Dhuhr (Jumu'ah) unless the user says they
+    // will be in another city — then ask for that city. Native two-button Alert
+    // only (RN-web can't resolve it reliably), so web saves without the check.
+    if (savedLocation && Platform.OS !== "web") {
+      const times = calculatePrayerTimes(formDate, savedLocation.lat, savedLocation.lng, selectedMethod, savedLocation.tz);
+      const conflict = detectPrayerConflict(formDate, formTime.getHours(), formTime.getMinutes(), times, conflictPrefs);
+      if (conflict.kind === "jumuah" && !formTravelCity.trim()) {
+        const homeCity = lang === "ar" ? getCityAR(savedLocation.city) : savedLocation.city;
+        const travelling = await confirmAsync(
+          tx(lang, "Vrijdaggebed (Jumu'ah)", "Friday prayer (Jumu'ah)", "صلاة الجمعة"),
+          tx(lang,
+            `Dit valt in de tijd van het vrijdaggebed, verplicht voor wie in zijn stad (${homeCity}) woont.\n\n«Wanneer op vrijdag tot het gebed wordt opgeroepen, haast je dan naar het gedenken van Allaah en laat de handel» [al-Djumu'ah: 9].\n\nBen je in een andere stad?`,
+            `This falls during the Friday prayer, obligatory for a resident of his city (${homeCity}).\n\n"When the call is made for prayer on Friday, hasten to the remembrance of Allaah and leave off trade" [al-Jumu'ah: 9].\n\nWill you be in another city?`,
+            `هذا الموعد في وقت صلاة الجمعة، وهي واجبة على المقيم في مدينته (${homeCity}).\n\n﴿إِذَا نُودِيَ لِلصَّلَاةِ مِنْ يَوْمِ الْجُمُعَةِ فَاسْعَوْا إِلَىٰ ذِكْرِ اللَّهِ وَذَرُوا الْبَيْعَ﴾ [الجمعة: ٩].\n\nأستكون في مدينة أخرى؟`),
+          tx(lang, "In een andere stad", "In another city", "نعم، في مدينة أخرى"),
+          tx(lang, "In mijn stad", "In my city", "لا، في مدينتي"),
+        );
+        if (!travelling) return; // Jumu'ah is in the home city — block the booking.
+        setShowTravelCity(true); // reveal the city field; the user fills it and saves again.
+        return;
+      }
+      if (conflict.kind === "daily" && conflict.prayer) {
+        const pn = tx(lang, PRAYER_LABELS[conflict.prayer].nl, PRAYER_LABELS[conflict.prayer].en, PRAYER_LABELS[conflict.prayer].ar);
+        const proceed = await confirmAsync(
+          tx(lang, "Gebedstijd", "Prayer time", "وقت صلاة"),
+          tx(lang,
+            `Deze afspraak valt in de tijd van het ${pn}-gebed.\n\n«Het gebed is de gelovigen voorgeschreven op vaste tijden» [an-Nisa': 103]. Wie dicht bij de moskee woont, bidt het in gemeenschap, behalve bij noodzaak.\n\nToch opslaan?`,
+            `This appointment falls during ${pn} prayer time.\n\n"Prayer has been decreed upon the believers at fixed times" [an-Nisa': 103]. One living near the mosque prays it in congregation, except out of necessity.\n\nSave anyway?`,
+            `هذا الموعد في وقت صلاة ${pn}.\n\n﴿إِنَّ الصَّلَاةَ كَانَتْ عَلَى الْمُؤْمِنِينَ كِتَابًا مَوْقُوتًا﴾ [النساء: ١٠٣]. ومن كان قريبًا من المسجد وجب عليه أداؤها جماعةً إلا لضرورة.\n\nأتحفظه مع ذلك؟`),
+          tx(lang, "Toch opslaan", "Save anyway", "احفظ مع ذلك"),
+          tx(lang, "Tijd wijzigen", "Change time", "تغيير الوقت"),
+        );
+        if (!proceed) return;
+      }
+    }
     setSaving(true);
     try {
       const savedDate = formDate;
@@ -383,6 +478,7 @@ export default function RoznamaScreen() {
         minute: formTime.getMinutes(),
         note: formNote.trim() || undefined,
         reminderMinutesBefore: formReminder,
+        travelCity: formTravelCity.trim() || undefined,
       };
       if (editingId) await updateEvent(editingId, data);
       else await addEvent(data);
@@ -815,6 +911,21 @@ export default function RoznamaScreen() {
                 maxLength={500}
               />
 
+              {showTravelCity && (
+                <>
+                  <Text style={st.fieldLabel}>{tx(lang, "Stad (je reist tijdens Jumu'ah)", "City (travelling during Jumu'ah)", "المدينة (مسافر وقت الجمعة)")}</Text>
+                  <TextInput
+                    value={formTravelCity}
+                    onChangeText={setFormTravelCity}
+                    style={[st.textInput, { textAlign: isRTL ? "right" : "left" }]}
+                    placeholder={tx(lang, "Naam van de stad", "City name", "اسم المدينة")}
+                    placeholderTextColor="#9CA3AF"
+                    maxLength={80}
+                    autoFocus
+                  />
+                </>
+              )}
+
               <Text style={st.fieldLabel}>{tx(lang, "Herinnering", "Reminder", "التذكير")}</Text>
               <View style={[st.reminderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 {REMINDER_OPTIONS.map((opt) => (
@@ -923,6 +1034,7 @@ export default function RoznamaScreen() {
                 <MaterialIcons name="close" size={24} color="#6B7B72" />
               </Pressable>
             </View>
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
             {Platform.OS === "android" ? (
               <>
                 <Text style={st.fieldLabel}>{tx(lang, "Alarmgeluid afspraak", "Appointment alarm sound", "صوت منبّه الموعد")}</Text>
@@ -957,7 +1069,40 @@ export default function RoznamaScreen() {
                   "على الآيفون يُنبّهك الموعد بالنغمة الافتراضية.")}
               </Text>
             )}
+
+            {/* Prayer-time awareness (2929) */}
+            <View style={{ height: 1, backgroundColor: "#E5E7EB", marginVertical: 14 }} />
+            <Text style={st.fieldLabel}>{tx(lang, "Gebedstijden", "Prayer times", "أوقات الصلاة")}</Text>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
+              <Text style={{ flex: 1, fontSize: 14, color: "#1B4332", textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Waarschuwen bij gebedstijd", "Warn at prayer time", "التنبيه عند وقت الصلاة")}
+              </Text>
+              <Switch value={conflictPrefs.enabled} onValueChange={() => updateConflictPrefs({ enabled: !conflictPrefs.enabled })} />
+            </View>
+            {conflictPrefs.enabled && (
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4, paddingHorizontal: 6 }}>
+                <Text style={{ fontSize: 13, color: "#6B7B72", textAlign: isRTL ? "right" : "left" }}>{tx(lang, "Gebedsvenster (min)", "Prayer window (min)", "نافذة الصلاة (دقائق)")}</Text>
+                <MinuteStepper display={dig(conflictPrefs.dailyWindowMinutes)} isRTL={isRTL}
+                  onDec={() => updateConflictPrefs({ dailyWindowMinutes: Math.max(5, conflictPrefs.dailyWindowMinutes - 5) })}
+                  onInc={() => updateConflictPrefs({ dailyWindowMinutes: Math.min(60, conflictPrefs.dailyWindowMinutes + 5) })} />
+              </View>
+            )}
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 8 }}>
+              <Text style={{ flex: 1, fontSize: 14, color: "#1B4332", textAlign: isRTL ? "right" : "left" }}>
+                {tx(lang, "Afspraken blokkeren tijdens Jumu'ah", "Block appointments during Jumu'ah", "منع المواعيد وقت الجمعة")}
+              </Text>
+              <Switch value={conflictPrefs.blockJumuah} onValueChange={() => updateConflictPrefs({ blockJumuah: !conflictPrefs.blockJumuah })} />
+            </View>
+            {conflictPrefs.blockJumuah && (
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingVertical: 4, paddingHorizontal: 6 }}>
+                <Text style={{ fontSize: 13, color: "#6B7B72", textAlign: isRTL ? "right" : "left" }}>{tx(lang, "Jumu'ah-venster (min)", "Jumu'ah window (min)", "نافذة الجمعة (دقائق)")}</Text>
+                <MinuteStepper display={dig(conflictPrefs.jumuahWindowMinutes)} isRTL={isRTL}
+                  onDec={() => updateConflictPrefs({ jumuahWindowMinutes: Math.max(30, conflictPrefs.jumuahWindowMinutes - 15) })}
+                  onInc={() => updateConflictPrefs({ jumuahWindowMinutes: Math.min(180, conflictPrefs.jumuahWindowMinutes + 15) })} />
+              </View>
+            )}
             <View style={{ height: insets.bottom + 12 }} />
+            </ScrollView>
           </View>
         </View>
       </Modal>

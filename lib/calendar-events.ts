@@ -10,6 +10,7 @@ export interface CalendarEvent {
   minute: number; // 0-59
   note?: string;
   reminderMinutesBefore: number | null; // null = no reminder
+  travelCity?: string; // set only when the user overrides a Jumu'ah-time block by travelling (2929)
 }
 
 // ============ STORAGE ============
