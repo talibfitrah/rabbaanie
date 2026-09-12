@@ -24,7 +24,7 @@ import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
 import { rescheduleEventReminders } from "@/lib/event-reminders";
-import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels } from "@/lib/calendar-alarm";
+import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels, ensureExactAlarmAllowed, openAlarmPermission } from "@/lib/calendar-alarm";
 
 // Same defensive require() as components/date-picker.tsx: the native module
 // has no web implementation, so guard it there and fall back to text inputs.
@@ -392,6 +392,21 @@ export default function RoznamaScreen() {
       // still on today), which read as "it didn't save".
       setSelectedDate(savedDate);
       afterMutation(dateToISO(savedDate)).catch(() => {});
+      // An alarm needs the exact-alarm ("Alarms & reminders") permission to ring
+      // on time on Android 13/14. Prompt once, at the moment a reminder is set.
+      if (Platform.OS === "android" && formReminder != null && !(await ensureExactAlarmAllowed())) {
+        Alert.alert(
+          tx(lang, "Alarmtoestemming", "Alarm permission", "إذن المنبّه"),
+          tx(lang,
+            "Sta 'Wekkers en herinneringen' toe zodat de afspraakalarm op tijd afgaat.",
+            "Allow 'Alarms & reminders' so the appointment alarm rings on time.",
+            "اسمح بـ«المنبّهات والتذكيرات» ليعمل منبّه الموعد في وقته."),
+          [
+            { text: tx(lang, "Later", "Later", "لاحقًا"), style: "cancel" },
+            { text: tx(lang, "Instellingen", "Settings", "الإعدادات"), onPress: () => { openAlarmPermission(); } },
+          ],
+        );
+      }
     } catch (e) {
       Alert.alert(
         tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),

@@ -41,6 +41,8 @@ vi.mock("@/lib/calendar-alarm", () => ({
   loadCalendarSound: vi.fn().mockResolvedValue("default"),
   saveCalendarSound: vi.fn(),
   ensureCalendarAlarmChannels: vi.fn(),
+  ensureExactAlarmAllowed: vi.fn().mockResolvedValue(true),
+  openAlarmPermission: vi.fn(),
 }));
 
 import { parseISODate, daysInMonth, computeEffectiveToday } from "@/app/roznama";
