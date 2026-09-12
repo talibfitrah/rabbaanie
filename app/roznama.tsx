@@ -325,10 +325,15 @@ export default function RoznamaScreen() {
   }, []);
   async function selectReminderSound(s: CalendarSound) {
     setReminderSound(s);
-    await saveCalendarSound(s);
-    // Reschedule so pending alarms move to the newly chosen sound's channel
-    // (an Android channel's sound is immutable — see lib/calendar-alarm.ts).
-    await rescheduleEventReminders(lang);
+    try {
+      await saveCalendarSound(s);
+      // Reschedule so pending alarms move to the newly chosen sound's channel
+      // (an Android channel's sound is immutable — see lib/calendar-alarm.ts).
+      await rescheduleEventReminders(lang);
+    } catch {
+      // A notifee channel/schedule failure here is non-fatal — the choice is
+      // saved and applies on the next reschedule; don't leave an unhandled reject.
+    }
   }
 
   function openAddModal() {
