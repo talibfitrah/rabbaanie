@@ -875,7 +875,11 @@ const config: ExpoConfig = {
       monochromeImage: "./assets/images/android-icon-monochrome.png",
     },
     predictiveBackGestureEnabled: false,
-    softwareKeyboardLayoutMode: "pan",
+    // "resize" (not "pan"): the window shrinks to sit above the keyboard so a
+    // focused field and a form's pinned footer stay visible — "pan" left the
+    // roznama appointment note (and its Save button) hidden under the keyboard.
+    // resize is the standard mode for input-heavy screens; ScrollViews handle it.
+    softwareKeyboardLayoutMode: "resize",
     package: env.androidPackage,
     versionCode: APP_VERSION_CODE,
     permissions: [

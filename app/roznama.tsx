@@ -3,7 +3,7 @@
 // and user appointments (calendar-events.ts + event-reminders.ts). Visual
 // language mirrors app/details/upcoming-days.tsx.
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert, KeyboardAvoidingView } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -664,9 +664,10 @@ export default function RoznamaScreen() {
         supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
         onRequestClose={() => setModalVisible(false)}
       >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : undefined}>
         <View style={st.modalOverlay}>
           <View style={st.modalContent}>
-            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
+            <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
               <View style={[st.modalHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <Text style={st.modalTitle}>
                   {editingId ? tx(lang, "Afspraak bewerken", "Edit appointment", "تعديل الموعد") : tx(lang, "Nieuwe afspraak", "New appointment", "موعد جديد")}
@@ -813,6 +814,7 @@ export default function RoznamaScreen() {
             </View>
           </View>
         </View>
+        </KeyboardAvoidingView>
       </Modal>
     );
   }
