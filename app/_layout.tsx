@@ -147,10 +147,19 @@ Notifications.setNotificationHandler({
 // day on the calendar — the expo-notifications response listener below never
 // sees Notifee events, so mirror its CALENDAR_EVENT_TYPE routing here. The
 // small delay lets the router mount when the tap is what foregrounded the app.
+let lastCalendarRouteUrl = "";
+let lastCalendarRouteAt = 0;
 function routeNotifeeTap(detail: any) {
   const data = detail?.notification?.data;
   if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
-    setTimeout(() => { try { router.push(data.url as any); } catch {} }, 800);
+    const url = data.url as string;
+    // A cold-start tap is delivered to BOTH onBackgroundEvent and
+    // getInitialNotification; dedup so /roznama isn't pushed twice.
+    const now = Date.now();
+    if (url === lastCalendarRouteUrl && now - lastCalendarRouteAt < 3000) return;
+    lastCalendarRouteUrl = url;
+    lastCalendarRouteAt = now;
+    setTimeout(() => { try { router.push(url as any); } catch {} }, 800);
   }
 }
 notifee.onBackgroundEvent(async ({ type, detail }) => {
@@ -610,10 +619,7 @@ export default function RootLayout() {
     // onBackgroundEvent can't reliably route before the router has mounted. 800ms
     // lets the auth/onboarding gate settle first (same reason as the routes below).
     notifee.getInitialNotification().then((initial) => {
-      const data = initial?.notification?.data as any;
-      if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
-        setTimeout(() => { try { router.push(data.url as any); } catch {} }, 800);
-      }
+      if (initial) routeNotifeeTap(initial);
     }).catch(() => {});
 
     const responseSubscription =

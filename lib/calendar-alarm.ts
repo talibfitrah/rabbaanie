@@ -20,7 +20,7 @@ import notifee, {
 } from "@notifee/react-native";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate } from "./calendar-events";
+import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate, reminderBody } from "./calendar-events";
 
 // ============ SOUND OPTIONS ============
 // Deliberately NOT the adhan (see withAdhanSoundResources in app.config.ts):
@@ -90,14 +90,6 @@ export async function ensureCalendarAlarmChannels(): Promise<void> {
 
 // ============ SCHEDULING ============
 type Lang = "nl" | "en" | "ar";
-
-function reminderBody(lang: Lang): string {
-  return lang === "ar"
-    ? "تذكير بموعدك"
-    : lang === "en"
-    ? "Reminder for your appointment"
-    : "Herinnering voor je afspraak";
-}
 
 // Prefix on every notification id so cancel touches only THIS module's alarms.
 const ID_PREFIX = "cal_alarm_";

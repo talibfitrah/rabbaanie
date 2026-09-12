@@ -2,7 +2,7 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { enqueue } from "./notification-queue";
 import { readStoredLanguage } from "./notifications";
-import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate } from "./calendar-events";
+import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate, reminderBody } from "./calendar-events";
 import { IOS_PENDING_BUDGET } from "./notification-horizons";
 import { scheduleCalendarAlarms } from "./calendar-alarm";
 
@@ -35,14 +35,6 @@ const IOS_EVENT_SAFETY_MARGIN = 2;
 // ============ SCHEDULING ============
 
 type Lang = "nl" | "en" | "ar";
-
-function reminderBody(lang: Lang): string {
-  return lang === "ar"
-    ? "تذكير بموعدك"
-    : lang === "en"
-    ? "Reminder for your appointment"
-    : "Herinnering voor je afspraak";
-}
 
 /**
  * Schedule reminders for every event with reminderMinutesBefore set, whose

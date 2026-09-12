@@ -130,3 +130,12 @@ export function eventReminderTriggerDate(event: CalendarEvent): Date {
   const eventDate = new Date(year, month - 1, day, event.hour, event.minute, 0, 0);
   return new Date(eventDate.getTime() - (event.reminderMinutesBefore ?? 0) * 60000);
 }
+
+/** Localized body text for a calendar reminder notification. */
+export function reminderBody(lang: "nl" | "en" | "ar"): string {
+  return lang === "ar"
+    ? "تذكير بموعدك"
+    : lang === "en"
+    ? "Reminder for your appointment"
+    : "Herinnering voor je afspraak";
+}
