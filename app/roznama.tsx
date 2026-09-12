@@ -218,8 +218,8 @@ export default function RoznamaScreen() {
   // adjacent month, and eventsForMonth would silently miss an event on those.
   const eventDateSet = useMemo(() => new Set(allEvents.map((e) => e.dateISO)), [allEvents]);
 
-  async function afterMutation() {
-    await Promise.all([loadEvents().then(setAllEvents), eventsForDate(selectedISO).then(setDayEvents)]);
+  async function afterMutation(iso: string = selectedISO) {
+    await Promise.all([loadEvents().then(setAllEvents), eventsForDate(iso).then(setDayEvents)]);
     await rescheduleEventReminders(lang);
   }
 
@@ -342,12 +342,22 @@ export default function RoznamaScreen() {
     setModalVisible(true);
   }
   async function handleSave() {
-    if (!formTitle.trim() || saving) return;
+    if (saving) return;
+    // Empty title used to return silently, so the (never truly disabled) save
+    // button did nothing with no feedback — read as "it won't save".
+    if (!formTitle.trim()) {
+      Alert.alert(
+        tx(lang, "Titel vereist", "Title required", "العنوان مطلوب"),
+        tx(lang, "Voer een titel in voor de afspraak.", "Enter a title for the appointment.", "أدخل عنوانًا للموعد."),
+      );
+      return;
+    }
     setSaving(true);
     try {
+      const savedDate = formDate;
       const data = {
         title: formTitle.trim(),
-        dateISO: dateToISO(formDate),
+        dateISO: dateToISO(savedDate),
         hour: formTime.getHours(),
         minute: formTime.getMinutes(),
         note: formNote.trim() || undefined,
@@ -356,7 +366,16 @@ export default function RoznamaScreen() {
       if (editingId) await updateEvent(editingId, data);
       else await addEvent(data);
       setModalVisible(false);
-      await afterMutation();
+      // Jump the calendar to the day the appointment lands on. Without this a
+      // future-dated appointment saved fine but stayed invisible (the view was
+      // still on today), which read as "it didn't save".
+      setSelectedDate(savedDate);
+      await afterMutation(dateToISO(savedDate));
+    } catch (e) {
+      Alert.alert(
+        tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),
+        tx(lang, "Probeer het opnieuw.", "Please try again.", "يرجى المحاولة مرة أخرى."),
+      );
     } finally {
       setSaving(false);
     }
