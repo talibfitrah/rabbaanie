@@ -118,13 +118,18 @@ const withPlayMonitoringDisabled: ConfigPlugin = (config) => {
     // So the module compiled in (bytecode present) while its own manifest
     // declarations were stripped on the way through — PACKAGE_USAGE_STATS and
     // isMonitoringTool both absent from an APK that otherwise looked correct.
-    // Only the ones github actually needs are undone; SYSTEM_ALERT_WINDOW,
-    // RECORD_AUDIO, ACTIVITY_RECOGNITION and USE_FULL_SCREEN_INTENT are blocked
-    // on BOTH channels and must stay removed.
+    // Only the ones github actually needs are undone. USE_FULL_SCREEN_INTENT is
+    // undone for github now that the roznama appointment alarm launches a
+    // full-screen intent (lib/calendar-alarm.ts) — without it Android demotes the
+    // alarm to a heads-up banner instead of the centre-screen-over-lock alarm
+    // Daa3iyah asked for. It stays removed on Play (a child-audience app is
+    // scrutinized for it). SYSTEM_ALERT_WINDOW, RECORD_AUDIO and
+    // ACTIVITY_RECOGNITION stay blocked on BOTH channels and must stay removed.
     const GITHUB_NEEDS = [
       "android.permission.PACKAGE_USAGE_STATS",
       "android.permission.READ_EXTERNAL_STORAGE",
       "android.permission.WRITE_EXTERNAL_STORAGE",
+      "android.permission.USE_FULL_SCREEN_INTENT",
     ];
     return withAndroidManifest(withoutStaleExclusion, (modConfig) => {
       const manifest = modConfig.modResults.manifest;
@@ -920,9 +925,11 @@ const config: ExpoConfig = {
     //     are Audio.Sound playback, so nothing records. A microphone permission
     //     on an app whose declared audience includes children is a review flag
     //     with no feature behind it.
-    //   USE_FULL_SCREEN_INTENT  Notifications never launch full-screen UI.
-    //     Blocking it is necessary because prebuild can retain a stale manifest
-    //     entry even after it is removed from the permissions allow-list.
+    //   USE_FULL_SCREEN_INTENT  The roznama appointment alarm launches a
+    //     full-screen intent (lib/calendar-alarm.ts), so github NEEDS it and it
+    //     is undone via GITHUB_NEEDS above. Kept in this block list because a
+    //     child-audience Play app is scrutinized for it, and listed here (rather
+    //     than only conditionally) because prebuild can retain a stale entry.
     //   ACTIVITY_RECOGNITION  The app uses the magnetometer for Qibla, but does
     //     not read steps or physical-activity state.
     blockedPermissions: [
