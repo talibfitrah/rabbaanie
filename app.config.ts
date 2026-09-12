@@ -905,6 +905,10 @@ const config: ExpoConfig = {
       "POST_NOTIFICATIONS",
       // Used for time-sensitive prayer and reminder notifications.
       "SCHEDULE_EXACT_ALARM",
+      // The roznama appointment alarm launches a full-screen intent. Declared
+      // here so the sideload build has a base <uses-permission> for GITHUB_NEEDS
+      // to keep (Notifee adds none); still removed on Play via blockedPermissions.
+      "USE_FULL_SCREEN_INTENT",
       "VIBRATE",
       "WAKE_LOCK",
       // Sideload channel only — see DISTRIBUTION above.
