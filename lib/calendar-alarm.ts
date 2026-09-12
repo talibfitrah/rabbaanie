@@ -20,7 +20,7 @@ import notifee, {
 } from "@notifee/react-native";
 import { Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { loadEvents, type CalendarEvent } from "./calendar-events";
+import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate } from "./calendar-events";
 
 // ============ SOUND OPTIONS ============
 // Deliberately NOT the adhan (see withAdhanSoundResources in app.config.ts):
@@ -102,13 +102,6 @@ function reminderBody(lang: Lang): string {
 // Prefix on every notification id so cancel touches only THIS module's alarms.
 const ID_PREFIX = "cal_alarm_";
 
-/** Event's local wall-clock time minus its reminder offset (ms). */
-function triggerMs(event: CalendarEvent): number {
-  const [y, m, d] = event.dateISO.split("-").map(Number);
-  const at = new Date(y, m - 1, d, event.hour, event.minute, 0, 0);
-  return at.getTime() - (event.reminderMinutesBefore ?? 0) * 60000;
-}
-
 /** Cancel only this module's scheduled alarms (id-prefixed). */
 export async function cancelCalendarAlarms(): Promise<void> {
   if (Platform.OS !== "android") return;
@@ -139,7 +132,7 @@ export async function scheduleCalendarAlarms(lang: Lang): Promise<number> {
   const now = Date.now();
   const due = events
     .filter((e) => e.reminderMinutesBefore != null)
-    .map((e) => ({ e, ms: triggerMs(e) }))
+    .map((e) => ({ e, ms: eventReminderTriggerDate(e).getTime() }))
     .filter((c) => c.ms > now);
 
   let n = 0;
@@ -155,7 +148,7 @@ export async function scheduleCalendarAlarms(lang: Lang): Promise<number> {
           id: `${ID_PREFIX}${e.id}`,
           title: e.title,
           body: reminderBody(lang),
-          data: { type: "calendar_event", eventId: e.id, url: `/roznama?date=${e.dateISO}` },
+          data: { type: CALENDAR_EVENT_TYPE, eventId: e.id, url: `/roznama?date=${e.dateISO}` },
           android: {
             channelId: channelId(sound),
             importance: AndroidImportance.HIGH,

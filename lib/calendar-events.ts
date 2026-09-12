@@ -115,3 +115,18 @@ export async function eventsForDate(dateISO: string): Promise<CalendarEvent[]> {
     .filter((e) => e.dateISO === dateISO)
     .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
 }
+
+// ============ REMINDER HELPERS (shared by event-reminders.ts + calendar-alarm.ts) ============
+
+/** Type tag on calendar reminder notifications — tap routing + foreground filter. */
+export const CALENDAR_EVENT_TYPE = "calendar_event";
+
+/** Event's local wall-clock time, minus its reminder offset. */
+export function eventReminderTriggerDate(event: CalendarEvent): Date {
+  const [year, month, day] = event.dateISO.split("-").map(Number);
+  // ponytail: naive local Date() — a spring-forward-gap wall time (e.g. 02:30
+  // on the DST night) normalizes to 03:30; acceptable for personal
+  // appointments, no IANA tz lib.
+  const eventDate = new Date(year, month - 1, day, event.hour, event.minute, 0, 0);
+  return new Date(eventDate.getTime() - (event.reminderMinutesBefore ?? 0) * 60000);
+}

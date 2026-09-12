@@ -2,33 +2,14 @@ import * as Notifications from "expo-notifications";
 import { Platform } from "react-native";
 import { enqueue } from "./notification-queue";
 import { readStoredLanguage } from "./notifications";
-import { loadEvents, type CalendarEvent } from "./calendar-events";
+import { loadEvents, CALENDAR_EVENT_TYPE, eventReminderTriggerDate } from "./calendar-events";
 import { IOS_PENDING_BUDGET } from "./notification-horizons";
 import { scheduleCalendarAlarms } from "./calendar-alarm";
 
-// ============ NOTIFICATION TYPE ============
-
-export const CALENDAR_EVENT_TYPE = "calendar_event";
-
-// ============ ANDROID CHANNEL ============
-
-export const CALENDAR_EVENTS_CHANNEL_ID = "calendar_events_v1";
-
-export async function setupCalendarEventChannel(): Promise<void> {
-  if (Platform.OS !== "android") return;
-
-  await Notifications.setNotificationChannelAsync(CALENDAR_EVENTS_CHANNEL_ID, {
-    name: "تذكيرات الروزنامة / Calendar Reminders",
-    importance: Notifications.AndroidImportance.HIGH,
-    sound: "default",
-    bypassDnd: true,
-    // PRIVATE, not PUBLIC: appointment titles are personal (e.g. a clinic
-    // name) and must not show on a locked screen.
-    lockscreenVisibility: Notifications.AndroidNotificationVisibility.PRIVATE,
-    enableLights: true,
-    lightColor: "#7C3AED",
-  });
-}
+// CALENDAR_EVENT_TYPE + eventReminderTriggerDate live in calendar-events.ts now
+// (shared with lib/calendar-alarm.ts without a circular import). Re-export the
+// type tag so app/_layout.tsx's existing import path keeps resolving.
+export { CALENDAR_EVENT_TYPE };
 
 // ============ SCHEDULING CAP ============
 
@@ -63,16 +44,6 @@ function reminderBody(lang: Lang): string {
     : "Herinnering voor je afspraak";
 }
 
-/** Event's local wall-clock time, minus its reminder offset. */
-function eventReminderTriggerDate(event: CalendarEvent): Date {
-  const [year, month, day] = event.dateISO.split("-").map(Number);
-  // ponytail: naive local Date() — a spring-forward-gap wall time (e.g. 02:30
-  // on the DST night) normalizes to 03:30; acceptable for personal
-  // appointments, no IANA tz lib.
-  const eventDate = new Date(year, month - 1, day, event.hour, event.minute, 0, 0);
-  return new Date(eventDate.getTime() - (event.reminderMinutesBefore ?? 0) * 60000);
-}
-
 /**
  * Schedule reminders for every event with reminderMinutesBefore set, whose
  * reminder time is still in the future. Cancels this module's own previous
@@ -99,30 +70,21 @@ async function rescheduleEventRemindersInner(lang?: Lang): Promise<number> {
     return scheduleCalendarAlarms(lang ?? (await readStoredLanguage()));
   }
 
-  // Ensure the Android channel exists before scheduling: this runs at launch
-  // (initNotifications) too, i.e. before Roznama has necessarily mounted, so the
-  // scheduler can't rely on the screen's setup. Idempotent; no-ops on iOS.
-  await setupCalendarEventChannel();
+  // Reached only on iOS now (web and Android returned above): expo-notifications
+  // reminder with the default sound — iOS has no full-screen intent.
   await cancelEventReminders();
 
   // Dynamic iOS cap: fill only whatever budget room the ~10 other launch
   // schedulers (which already ran and share the same 64-request iOS pending
   // cap) left behind, instead of always claiming IOS_EVENT_REMINDER_CAP and
-  // starving them. getAllScheduledNotificationsAsync() is read AFTER
-  // cancelEventReminders() above, so it reflects everyone ELSE's pending
-  // requests, not this module's own. Deliberate priority: prayer/adhkar
-  // notifications come first and appointment reminders take only the leftover
-  // room (on a saturated iOS budget they may schedule 0). They are re-topped-up
-  // on every launch/foreground refresh (initNotifications calls this), so slots
-  // freed as prayer horizons roll forward get reclaimed. Android is uncapped.
-  let limit: number;
-  if (Platform.OS === "ios") {
-    const pending = (await Notifications.getAllScheduledNotificationsAsync()).length;
-    const room = Math.max(0, IOS_PENDING_BUDGET - pending - IOS_EVENT_SAFETY_MARGIN);
-    limit = Math.min(IOS_EVENT_REMINDER_CAP, room);
-  } else {
-    limit = Infinity; // Android has no OS-level pending-request cap.
-  }
+  // starving them. Read AFTER cancelEventReminders() above, so it reflects
+  // everyone ELSE's pending requests, not this module's own. Prayer/adhkaar
+  // notifications come first; appointments take only the leftover room (on a
+  // saturated budget they may schedule 0), re-topped-up on every launch/
+  // foreground refresh as prayer horizons roll forward.
+  const pending = (await Notifications.getAllScheduledNotificationsAsync()).length;
+  const room = Math.max(0, IOS_PENDING_BUDGET - pending - IOS_EVENT_SAFETY_MARGIN);
+  const limit = Math.min(IOS_EVENT_REMINDER_CAP, room);
 
   const language = lang ?? (await readStoredLanguage());
   const events = await loadEvents();

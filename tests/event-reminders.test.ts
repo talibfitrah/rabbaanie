@@ -4,7 +4,7 @@ import { vi } from "vitest";
 // Mutable so a single test can flip OS mid-run (mirrors
 // tests/ios-notification-budget.test.ts, the repo's pattern for testing
 // platform-dependent scheduling behaviour without vi.resetModules()).
-const mockPlatform = vi.hoisted(() => ({ OS: "android" as "ios" | "android" | "web" }));
+const mockPlatform = vi.hoisted(() => ({ OS: "ios" as "ios" | "android" | "web" }));
 vi.mock("react-native", () => ({ Platform: mockPlatform }));
 
 const scheduled: any[] = [];
@@ -36,23 +36,22 @@ vi.mock("@react-native-async-storage/async-storage", () => ({
   },
 }));
 
-// event-reminders.ts reuses lib/notifications.ts's readStoredLanguage(), which
-// pulls in @/lib/_core/auth transitively; that module reaches for
-// expo-secure-store, which chokes outside a real RN runtime (same reason
-// tests/ios-notification-budget.test.ts and tests/notifications.test.ts stub it).
 vi.mock("@/lib/_core/auth", () => ({ getUserInfo: vi.fn().mockResolvedValue(null) }));
 
-import * as Notifications from "expo-notifications";
+// The Android path delegates to the Notifee full-screen alarm scheduler
+// (lib/calendar-alarm.ts, which pulls in the native @notifee module). Mock it
+// so event-reminders' Android branch is testable without a real device.
+vi.mock("../lib/calendar-alarm", () => ({ scheduleCalendarAlarms: vi.fn(async () => 3) }));
+
 import { addEvent } from "../lib/calendar-events";
 import { IOS_PENDING_BUDGET } from "../lib/notification-horizons";
 import {
   rescheduleEventReminders,
   cancelEventReminders,
-  setupCalendarEventChannel,
   CALENDAR_EVENT_TYPE,
-  CALENDAR_EVENTS_CHANNEL_ID,
   IOS_EVENT_REMINDER_CAP,
 } from "../lib/event-reminders";
+import { scheduleCalendarAlarms } from "../lib/calendar-alarm";
 
 /** Pushes `count` dummy pending requests from OTHER (non-calendar) schedulers
  * straight into the mock pending store, simulating how much of the shared iOS
@@ -67,12 +66,16 @@ function fillOtherPending(count: number) {
   }
 }
 
-describe("event-reminders", () => {
+describe("event-reminders (iOS expo path; Android delegates to the full-screen alarm)", () => {
   beforeEach(() => {
     store.clear();
     scheduled.length = 0;
     seq = 0;
-    mockPlatform.OS = "android";
+    // Default to iOS: the expo-notifications scheduling below is the iOS path.
+    // Android reminders are full-screen alarms (lib/calendar-alarm.ts), covered
+    // by the delegation test.
+    mockPlatform.OS = "ios";
+    (scheduleCalendarAlarms as any).mockClear();
   });
 
   it("schedules a DATE trigger reminderMinutesBefore earlier than the event time", async () => {
@@ -95,7 +98,7 @@ describe("event-reminders", () => {
     expect(new Date(req.trigger.date)).toEqual(new Date(2099, 8, 10, 8, 30, 0));
   });
 
-  it("carries eventId and the roznama url in data, and channelId on Android", async () => {
+  it("carries eventId and the roznama url in data, and sets the iOS sound (no channelId)", async () => {
     const created = await addEvent({
       title: "Doctor",
       dateISO: "2099-09-10",
@@ -109,21 +112,6 @@ describe("event-reminders", () => {
     expect(req.content.data.eventId).toBe(created.id);
     expect(req.content.data.url).toBe("/roznama?date=2099-09-10");
     expect(req.content.data.showPopup).toBe(true);
-    expect(req.content.channelId).toBe(CALENDAR_EVENTS_CHANNEL_ID);
-  });
-
-  it("sets sound on iOS content instead of channelId", async () => {
-    mockPlatform.OS = "ios";
-    await addEvent({
-      title: "Doctor",
-      dateISO: "2099-09-10",
-      hour: 9,
-      minute: 0,
-      reminderMinutesBefore: 30,
-    });
-
-    await rescheduleEventReminders("en");
-    const req = scheduled[0];
     expect(req.content.sound).toBe("default");
     expect(req.content.channelId).toBeUndefined();
   });
@@ -183,7 +171,18 @@ describe("event-reminders", () => {
     expect(scheduled.some((s) => s.content.data.type === CALENDAR_EVENT_TYPE)).toBe(false);
   });
 
-  it("caps scheduled reminders to the nearest N on iOS, but schedules all of them on Android", async () => {
+  it("delegates to the Notifee full-screen alarm scheduler on Android, not expo", async () => {
+    mockPlatform.OS = "android";
+    await addEvent({ title: "Doctor", dateISO: "2099-09-10", hour: 9, minute: 0, reminderMinutesBefore: 30 });
+
+    const count = await rescheduleEventReminders("en");
+    expect(scheduleCalendarAlarms).toHaveBeenCalledTimes(1);
+    expect(count).toBe(3); // the mock's return
+    // No expo calendar notification scheduled on Android anymore.
+    expect(scheduled.some((s) => s.content?.data?.type === CALENDAR_EVENT_TYPE)).toBe(false);
+  });
+
+  it("caps scheduled reminders to the nearest N on iOS", async () => {
     // Added out of chronological order on purpose: a correct cap keeps the
     // soonest-firing reminders, not however many were added first.
     const hours = [16, 9, 14, 10, 15, 11, 13, 12];
@@ -197,10 +196,6 @@ describe("event-reminders", () => {
       });
     }
 
-    const androidCount = await rescheduleEventReminders("en");
-    expect(androidCount).toBe(8);
-
-    mockPlatform.OS = "ios";
     const iosCount = await rescheduleEventReminders("en");
     expect(iosCount).toBe(IOS_EVENT_REMINDER_CAP);
 
@@ -217,7 +212,6 @@ describe("event-reminders", () => {
     // 63 of the 64 iOS pending slots are already spent by other schedulers.
     fillOtherPending(IOS_PENDING_BUDGET - 1);
 
-    mockPlatform.OS = "ios";
     for (const hour of [9, 10, 11]) {
       await addEvent({
         title: `Event ${hour}`,
@@ -238,7 +232,6 @@ describe("event-reminders", () => {
     // 59 of the 64 iOS pending slots are already spent by other schedulers.
     fillOtherPending(IOS_PENDING_BUDGET - 5);
 
-    mockPlatform.OS = "ios";
     for (const hour of [9, 10, 11, 12, 13]) {
       await addEvent({
         title: `Event ${hour}`,
@@ -260,25 +253,6 @@ describe("event-reminders", () => {
     await addEvent({ title: "Doctor", dateISO: "2099-09-10", hour: 9, minute: 0, reminderMinutesBefore: 30 });
     await rescheduleEventReminders();
     expect(scheduled[0].content.body).toMatch(/[؀-ۿ]/); // Arabic body text
-  });
-
-  it("setupCalendarEventChannel sets up the Android channel with HIGH importance and default sound", async () => {
-    mockPlatform.OS = "android";
-    await setupCalendarEventChannel();
-    expect(Notifications.setNotificationChannelAsync).toHaveBeenCalledWith(
-      CALENDAR_EVENTS_CHANNEL_ID,
-      expect.objectContaining({
-        importance: Notifications.AndroidImportance.HIGH,
-        sound: "default",
-      })
-    );
-  });
-
-  it("setupCalendarEventChannel no-ops off Android", async () => {
-    mockPlatform.OS = "ios";
-    (Notifications.setNotificationChannelAsync as any).mockClear();
-    await setupCalendarEventChannel();
-    expect(Notifications.setNotificationChannelAsync).not.toHaveBeenCalled();
   });
 
   it("no-ops on web", async () => {

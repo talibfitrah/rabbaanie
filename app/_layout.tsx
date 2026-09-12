@@ -604,6 +604,18 @@ export default function RootLayout() {
   useEffect(() => {
     if (Platform.OS === "web") return;
 
+    // Cold-start: if a full-screen appointment alarm (Notifee, lib/calendar-alarm.ts)
+    // launched the app from a killed state, route to the appointment's day. The
+    // expo listener below never sees Notifee events, and the module-scope
+    // onBackgroundEvent can't reliably route before the router has mounted. 800ms
+    // lets the auth/onboarding gate settle first (same reason as the routes below).
+    notifee.getInitialNotification().then((initial) => {
+      const data = initial?.notification?.data as any;
+      if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
+        setTimeout(() => { try { router.push(data.url as any); } catch {} }, 800);
+      }
+    }).catch(() => {});
+
     const responseSubscription =
       Notifications.addNotificationResponseReceivedListener(
         async (response) => {
