@@ -149,14 +149,18 @@ Notifications.setNotificationHandler({
 // small delay lets the router mount when the tap is what foregrounded the app.
 let lastCalendarRouteUrl = "";
 let lastCalendarRouteAt = 0;
-function routeNotifeeTap(detail: any) {
+function routeNotifeeTap(detail: any, opts?: { force?: boolean }) {
   const data = detail?.notification?.data;
   if (data?.type === CALENDAR_EVENT_TYPE && typeof data.url === "string") {
     const url = data.url as string;
-    // A cold-start tap is delivered to BOTH onBackgroundEvent and
-    // getInitialNotification; dedup so /roznama isn't pushed twice.
     const now = Date.now();
-    if (url === lastCalendarRouteUrl && now - lastCalendarRouteAt < 3000) return;
+    // A cold-start tap reaches BOTH onBackgroundEvent and getInitialNotification;
+    // dedup so /roznama isn't pushed twice. But getInitialNotification passes
+    // force:true — it's the RELIABLE path (router is mounted by then), so it must
+    // never be suppressed by the module-scope handler's earlier (possibly
+    // pre-mount, failed) push. It still arms the guard so a later foreground
+    // event doesn't double.
+    if (!opts?.force && url === lastCalendarRouteUrl && now - lastCalendarRouteAt < 3000) return;
     lastCalendarRouteUrl = url;
     lastCalendarRouteAt = now;
     setTimeout(() => { try { router.push(url as any); } catch {} }, 800);
@@ -619,7 +623,7 @@ export default function RootLayout() {
     // onBackgroundEvent can't reliably route before the router has mounted. 800ms
     // lets the auth/onboarding gate settle first (same reason as the routes below).
     notifee.getInitialNotification().then((initial) => {
-      if (initial) routeNotifeeTap(initial);
+      if (initial) routeNotifeeTap(initial, { force: true });
     }).catch(() => {});
 
     const responseSubscription =
