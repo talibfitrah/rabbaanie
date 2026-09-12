@@ -55,6 +55,12 @@ function AddChildScreenInner() {
   );
   const [externalFatherNameInput, setExternalFatherNameInput] = useState(editingChild?.externalFatherName || "");
   const [motherChoice, setMotherChoice] = useState<number | null>(editingChild?.motherId ?? null);
+  // Owner request (Daa3iyah): once a child's mother is determined it must not
+  // change. So on a child that already HAS a motherId, show the mother
+  // read-only instead of the picker. A child without one yet (new child, or an
+  // older record with no mother set) still gets the picker to set it the first
+  // time — this locks after determination, it doesn't block the first choice.
+  const motherLocked = viewerGender === "man" && !!editingChild && editingChild.motherId != null;
   const [showOtherFather, setShowOtherFather] = useState(false);
 
   // Pre-fills the single-co-parent default once it loads. A plain effect,
@@ -284,19 +290,32 @@ function AddChildScreenInner() {
             )}
 
             {viewerGender === "man" && otherTier === "choose-required" && (
-              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
-                {coParents.map((p) => (
-                  <Pressable
-                    key={p.id}
-                    onPress={() => setMotherChoice(p.id)}
-                    style={{ backgroundColor: motherChoice === p.id ? colors.primary : colors.primary + "12", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: motherChoice === p.id ? 0 : 1, borderColor: colors.primary + "40" }}
-                  >
-                    <Text style={{ color: motherChoice === p.id ? "#fff" : colors.primary, fontSize: 12, fontWeight: "600" }}>
-                      {p.name || tx(lang, "Echtgenote", "Wife", "الزوجة")}
+              motherLocked ? (
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 8, alignItems: "center" }}>
+                  <View style={{ backgroundColor: colors.primary, borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8 }}>
+                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: "600" }}>
+                      {coParents.find((p) => p.id === motherChoice)?.name || tx(lang, "Moeder", "Mother", "الأم")}
                     </Text>
-                  </Pressable>
-                ))}
-              </View>
+                  </View>
+                  <Text style={{ fontSize: 11, color: colors.muted }}>
+                    {tx(lang, "Moeder vastgelegd", "Mother is fixed", "الأم محدَّدة ولا تتغيّر")}
+                  </Text>
+                </View>
+              ) : (
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", flexWrap: "wrap", gap: 8, marginBottom: 8 }}>
+                  {coParents.map((p) => (
+                    <Pressable
+                      key={p.id}
+                      onPress={() => setMotherChoice(p.id)}
+                      style={{ backgroundColor: motherChoice === p.id ? colors.primary : colors.primary + "12", borderRadius: 20, paddingHorizontal: 14, paddingVertical: 8, borderWidth: motherChoice === p.id ? 0 : 1, borderColor: colors.primary + "40" }}
+                    >
+                      <Text style={{ color: motherChoice === p.id ? "#fff" : colors.primary, fontSize: 12, fontWeight: "600" }}>
+                        {p.name || tx(lang, "Echtgenote", "Wife", "الزوجة")}
+                      </Text>
+                    </Pressable>
+                  ))}
+                </View>
+              )
             )}
             <View style={{ height: 12 }} />
           </>
