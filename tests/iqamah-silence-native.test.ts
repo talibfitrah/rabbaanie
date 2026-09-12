@@ -139,7 +139,41 @@ describe("scheduleIqamahSilence also arms native exact alarms", () => {
     expect(new Set(requestCodes).size).toBe(requestCodes.length);
     for (const entry of entries) {
       expect(entry.triggerAtMs).toBeGreaterThan(Date.now());
-      expect(entry.durationMinutes).toBe(10); // DEFAULT_IQAMAH_SILENCE_PREFS.silenceDurationMinutes
+      // requestCode = dayOffset*5 + prayerIndex ([fajr,dhuhr,asr,maghrib,isha]).
+      // With default prefs every window is the 10-min default EXCEPT Friday
+      // Dhuhr, which takes the 45-min Jumu'ah slot (2926).
+      const prayerIdx = entry.requestCode % 5;
+      const d = new Date();
+      d.setDate(d.getDate() + Math.floor(entry.requestCode / 5));
+      const isFridayDhuhr = prayerIdx === 1 && d.getDay() === 5;
+      expect(entry.durationMinutes).toBe(isFridayDhuhr ? 45 : 10);
+    }
+  });
+
+  it("resolves explicit per-prayer durations, Jumu'ah overriding Friday Dhuhr (2926)", async () => {
+    const { scheduleIqamahSilence, saveIqamahSilencePrefs, DEFAULT_IQAMAH_SILENCE_PREFS } = await import(
+      "../lib/iqamah-silence"
+    );
+    await saveIqamahSilencePrefs({
+      ...DEFAULT_IQAMAH_SILENCE_PREFS,
+      perPrayerDuration: { fajr: 3, dhuhr: 7, asr: 4, maghrib: 6, isha: 8 },
+      jumuah: { enabled: true, durationMinutes: 50 },
+    });
+    await scheduleIqamahSilence("en");
+
+    const entries = nativeMock.scheduleSilenceAlarms.mock.calls[0][0] as Array<{
+      requestCode: number;
+      durationMinutes: number;
+    }>;
+    expect(entries.length).toBeGreaterThan(0);
+    const perPrayer = [3, 7, 4, 6, 8]; // fajr, dhuhr, asr, maghrib, isha
+    for (const entry of entries) {
+      const prayerIdx = entry.requestCode % 5;
+      const d = new Date();
+      d.setDate(d.getDate() + Math.floor(entry.requestCode / 5));
+      const isFridayDhuhr = prayerIdx === 1 && d.getDay() === 5;
+      // Friday Dhuhr takes the Jumu'ah slot (50), NOT its per-prayer Dhuhr value (7).
+      expect(entry.durationMinutes).toBe(isFridayDhuhr ? 50 : perPrayer[prayerIdx]);
     }
   });
 
@@ -152,5 +186,42 @@ describe("scheduleIqamahSilence also arms native exact alarms", () => {
 
     expect(nativeMock.scheduleSilenceAlarms).toHaveBeenCalledTimes(1);
     expect(nativeMock.scheduleSilenceAlarms).toHaveBeenCalledWith([]);
+  });
+});
+
+describe("loadIqamahSilencePrefs: Jumu'ah migration for pre-2926 records (2926)", () => {
+  // A record written before 2926 has no `jumuah` key. It must NOT silently opt a
+  // user who deliberately disabled Dhuhr into a new Friday mute.
+  async function storePre2926(dhuhr: boolean) {
+    const { saveIqamahSilencePrefs, DEFAULT_IQAMAH_SILENCE_PREFS } = await import("../lib/iqamah-silence");
+    const stored: any = { ...DEFAULT_IQAMAH_SILENCE_PREFS };
+    delete stored.jumuah;
+    stored.prayers = { ...stored.prayers, dhuhr };
+    await saveIqamahSilencePrefs(stored);
+  }
+
+  it("inherits jumuah.enabled=false from an existing Dhuhr-OFF choice", async () => {
+    await storePre2926(false);
+    const { loadIqamahSilencePrefs } = await import("../lib/iqamah-silence");
+    expect((await loadIqamahSilencePrefs()).jumuah).toEqual({ enabled: false, durationMinutes: 45 });
+  });
+
+  it("keeps jumuah ON when the pre-2926 record had Dhuhr ON", async () => {
+    await storePre2926(true);
+    const { loadIqamahSilencePrefs } = await import("../lib/iqamah-silence");
+    expect((await loadIqamahSilencePrefs()).jumuah).toEqual({ enabled: true, durationMinutes: 45 });
+  });
+
+  it("never overrides an already-present jumuah preference", async () => {
+    const { loadIqamahSilencePrefs, saveIqamahSilencePrefs, DEFAULT_IQAMAH_SILENCE_PREFS } = await import(
+      "../lib/iqamah-silence"
+    );
+    await saveIqamahSilencePrefs({ ...DEFAULT_IQAMAH_SILENCE_PREFS, jumuah: { enabled: false, durationMinutes: 90 } });
+    expect((await loadIqamahSilencePrefs()).jumuah).toEqual({ enabled: false, durationMinutes: 90 });
+  });
+
+  it("defaults jumuah ON for a fresh install (no stored record)", async () => {
+    const { loadIqamahSilencePrefs } = await import("../lib/iqamah-silence"); // storage cleared in beforeEach
+    expect((await loadIqamahSilencePrefs()).jumuah).toEqual({ enabled: true, durationMinutes: 45 });
   });
 });

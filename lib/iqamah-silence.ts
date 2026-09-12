@@ -35,11 +35,13 @@ const IQAMAH_PRIOR_RINGER_KEY = "@iqamah_prior_ringer_mode";
 
 // ============ TYPES ============
 
+export type IqamahPrayerKey = "fajr" | "dhuhr" | "asr" | "maghrib" | "isha";
+
 export interface IqamahSilencePrefs {
   enabled: boolean;
   /** Minutes after adhan to start silence (default: 10) */
   minutesAfterAdhan: number;
-  /** Duration of silence in minutes (default: 10) */
+  /** Fallback silence duration in minutes when a prayer has no per-prayer value */
   silenceDurationMinutes: number;
   /** Which prayers to silence for */
   prayers: {
@@ -48,6 +50,20 @@ export interface IqamahSilencePrefs {
     asr: boolean;
     maghrib: boolean;
     isha: boolean;
+  };
+  /**
+   * Per-prayer silence duration (minutes). Owner request (2926): the mute time
+   * set per prayer. A missing entry falls back to silenceDurationMinutes, so old
+   * stored prefs (which lack this) keep the previous single-duration behaviour.
+   */
+  perPrayerDuration?: Partial<Record<IqamahPrayerKey, number>>;
+  /**
+   * Friday Jumu'ah (2926): on Fridays the Dhuhr slot uses this instead — a
+   * longer window for the khutbah + prayer. Optional so old prefs are unaffected.
+   */
+  jumuah?: {
+    enabled: boolean;
+    durationMinutes: number;
   };
 }
 
@@ -62,6 +78,10 @@ export const DEFAULT_IQAMAH_SILENCE_PREFS: IqamahSilencePrefs = {
     maghrib: true,
     isha: true,
   },
+  perPrayerDuration: {},
+  // Friday khutbah + prayer runs longer than a regular Dhuhr; follows the
+  // Dhuhr-silence default (on) with a longer window the user can tune.
+  jumuah: { enabled: true, durationMinutes: 45 },
 };
 
 // ============ PREFERENCES ============
@@ -71,7 +91,18 @@ export async function loadIqamahSilencePrefs(): Promise<IqamahSilencePrefs> {
     const raw = await AsyncStorage.getItem(IQAMAH_SILENCE_PREFS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      return { ...DEFAULT_IQAMAH_SILENCE_PREFS, ...parsed };
+      const merged = { ...DEFAULT_IQAMAH_SILENCE_PREFS, ...parsed };
+      // Migration (2926): a pre-2926 record has no `jumuah` key. Inherit the
+      // user's existing Dhuhr choice rather than silently opting them into a new
+      // Friday mute — an explicit Dhuhr-off stays off. A fresh install (no stored
+      // record at all) skips this and keeps the enabled-by-default below.
+      if (parsed.jumuah === undefined) {
+        merged.jumuah = {
+          enabled: parsed.prayers?.dhuhr ?? true,
+          durationMinutes: DEFAULT_IQAMAH_SILENCE_PREFS.jumuah!.durationMinutes,
+        };
+      }
+      return merged;
     }
   } catch {}
   return { ...DEFAULT_IQAMAH_SILENCE_PREFS };
@@ -189,7 +220,17 @@ async function scheduleIqamahSilenceInner(
     const times = calculatePrayerTimes(date, location.lat, location.lng, method, location.tz);
 
     for (const prayer of prayerKeys) {
-      if (!prefs.prayers[prayer]) continue;
+      // Friday Dhuhr = Jumu'ah (2926): its own (longer) window for the khutbah,
+      // and driven by the jumuah toggle even when plain Dhuhr silencing is off.
+      const isFridayDhuhr = prayer === "dhuhr" && date.getDay() === 5;
+      const jumuahActive = isFridayDhuhr && prefs.jumuah?.enabled === true;
+      if (!prefs.prayers[prayer] && !jumuahActive) continue;
+
+      // Per-prayer duration (2926), Jumu'ah overriding on Fridays; both fall
+      // back to the shared silenceDurationMinutes so old prefs are unchanged.
+      const durationMinutes = jumuahActive
+        ? (prefs.jumuah?.durationMinutes ?? prefs.silenceDurationMinutes)
+        : (prefs.perPrayerDuration?.[prayer] ?? prefs.silenceDurationMinutes);
 
       const timeStr = times[prayer];
       const [h, m] = timeStr.split(":").map(Number);
@@ -205,10 +246,12 @@ async function scheduleIqamahSilenceInner(
       alarmEntries.push({
         requestCode: dayOffset * 5 + prayerKeys.indexOf(prayer),
         triggerAtMs: iqamahDate.getTime(),
-        durationMinutes: prefs.silenceDurationMinutes,
+        durationMinutes,
       });
 
-      const prayerName = PRAYER_NAMES[language][prayer];
+      const prayerName = jumuahActive
+        ? (language === "ar" ? "الجمعة" : language === "en" ? "Jumu'ah" : "Joemoea")
+        : PRAYER_NAMES[language][prayer];
 
       /**
        * Only Android actually silences anything. Apple exposes no programmatic
@@ -245,15 +288,15 @@ async function scheduleIqamahSilenceInner(
 
       const silenceBody = remindOnly
         ? language === "ar"
-          ? `أسكت هاتفك الآن لصلاة ${prayerName}. سنذكّرك بعد ${prefs.silenceDurationMinutes} دقائق.`
+          ? `أسكت هاتفك الآن لصلاة ${prayerName}. سنذكّرك بعد ${durationMinutes} دقائق.`
           : language === "en"
-          ? `Silence your phone now for ${prayerName} prayer. We'll remind you in ${prefs.silenceDurationMinutes} min.`
-          : `Zet je telefoon nu op stil voor ${prayerName} gebed. Over ${prefs.silenceDurationMinutes} min herinneren we je.`
+          ? `Silence your phone now for ${prayerName} prayer. We'll remind you in ${durationMinutes} min.`
+          : `Zet je telefoon nu op stil voor ${prayerName} gebed. Over ${durationMinutes} min herinneren we je.`
         : language === "ar"
-        ? `تم إسكات الهاتف تلقائياً لمدة ${prefs.silenceDurationMinutes} دقائق لصلاة ${prayerName}`
+        ? `تم إسكات الهاتف تلقائياً لمدة ${durationMinutes} دقائق لصلاة ${prayerName}`
         : language === "en"
-        ? `Phone auto-silenced for ${prefs.silenceDurationMinutes} min for ${prayerName} prayer`
-        : `Telefoon automatisch gedempt voor ${prefs.silenceDurationMinutes} min voor ${prayerName} gebed`;
+        ? `Phone auto-silenced for ${durationMinutes} min for ${prayerName} prayer`
+        : `Telefoon automatisch gedempt voor ${durationMinutes} min voor ${prayerName} gebed`;
 
       try {
         await Notifications.scheduleNotificationAsync({
@@ -264,7 +307,7 @@ async function scheduleIqamahSilenceInner(
               type: "iqamah_silence",
               prayer,
               action: "silence",
-              durationMinutes: prefs.silenceDurationMinutes,
+              durationMinutes,
               showPopup: true,
               ruling: "واجب",
             },
@@ -283,7 +326,7 @@ async function scheduleIqamahSilenceInner(
       }
 
       // Schedule restore notification (silence + duration)
-      const restoreDate = new Date(iqamahDate.getTime() + prefs.silenceDurationMinutes * 60 * 1000);
+      const restoreDate = new Date(iqamahDate.getTime() + durationMinutes * 60 * 1000);
 
       // Still fires on iOS, with the claim removed: the user silenced the phone
       // by hand a few minutes ago on this platform, so the end of the period is
@@ -392,6 +435,10 @@ export async function handleIqamahSilenceAction(action: "silence" | "restore"): 
       // AsyncStorage is only a fallback for when the native module isn't
       // linked at all (e.g. a dev client built before this module existed).
       if (IqamahAlarmNative.isAvailable()) {
+        // Records only the prior ringer mode to restore TO (the duration arg is
+        // stored but not read — the real restore timing is the per-alarm
+        // EXTRA_DURATION_MINUTES + the JS restore notification, both already
+        // per-prayer/Jumu'ah). So this generic path keeps the shared default.
         const { silenceDurationMinutes } = await loadIqamahSilencePrefs();
         await IqamahAlarmNative.captureRingerModeIfNeeded(silenceDurationMinutes);
       } else {

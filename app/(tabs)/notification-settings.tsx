@@ -135,6 +135,24 @@ function ToggleRow({ label, enabled, onToggle, colors, isRTL, icon, iconColor, l
   );
 }
 
+// Compact +/- minute stepper (per-prayer + Jumu'ah durations, 2926). The two
+// pre-existing iqamah steppers stay inline; this serves the new ones.
+function Stepper({ value, onDec, onInc, colors, isRTL }: {
+  value: number; onDec: () => void; onInc: () => void; colors: any; isRTL: boolean;
+}) {
+  return (
+    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
+      <Pressable onPress={onDec} style={({ pressed }) => [{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
+        <MaterialIcons name="remove" size={16} color={colors.primary} />
+      </Pressable>
+      <Text style={{ fontSize: 15, fontWeight: "700", color: colors.foreground, minWidth: 36, textAlign: "center" }}>{value}</Text>
+      <Pressable onPress={onInc} style={({ pressed }) => [{ width: 30, height: 30, borderRadius: 15, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
+        <MaterialIcons name="add" size={16} color={colors.primary} />
+      </Pressable>
+    </View>
+  );
+}
+
 export default function NotificationSettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
@@ -357,6 +375,36 @@ export default function NotificationSettingsScreen() {
     const min = field === "minutesAfterAdhan" ? 0 : 1;
     const newVal = Math.max(min, Math.min(60, current + delta));
     const newPrefs = { ...iqamahPrefs, [field]: newVal };
+    setIqamahPrefs(newPrefs);
+    await saveIqamahSilencePrefs(newPrefs);
+    await scheduleIqamahSilence(language as "nl" | "en" | "ar");
+  }, [iqamahPrefs, language]);
+
+  // Per-prayer silence duration (2926). Starts from whatever that prayer
+  // currently resolves to (its own value, else the shared default) and writes
+  // an explicit override.
+  const handleIqamahPerPrayerDuration = useCallback(async (prayer: keyof IqamahSilencePrefs["prayers"], delta: number) => {
+    const current = iqamahPrefs.perPrayerDuration?.[prayer] ?? iqamahPrefs.silenceDurationMinutes;
+    const newVal = Math.max(1, Math.min(60, current + delta));
+    const newPrefs = { ...iqamahPrefs, perPrayerDuration: { ...iqamahPrefs.perPrayerDuration, [prayer]: newVal } };
+    setIqamahPrefs(newPrefs);
+    await saveIqamahSilencePrefs(newPrefs);
+    await scheduleIqamahSilence(language as "nl" | "en" | "ar");
+  }, [iqamahPrefs, language]);
+
+  // Jumu'ah special slot (2926): toggle + its own longer duration (Friday Dhuhr).
+  const handleJumuahToggle = useCallback(async () => {
+    const cur = iqamahPrefs.jumuah!; // invariant: seeded from DEFAULT, load always returns it
+    const newPrefs = { ...iqamahPrefs, jumuah: { ...cur, enabled: !cur.enabled } };
+    setIqamahPrefs(newPrefs);
+    await saveIqamahSilencePrefs(newPrefs);
+    await scheduleIqamahSilence(language as "nl" | "en" | "ar");
+  }, [iqamahPrefs, language]);
+
+  const handleJumuahDuration = useCallback(async (delta: number) => {
+    const cur = iqamahPrefs.jumuah!; // invariant: seeded from DEFAULT, load always returns it
+    const newVal = Math.max(1, Math.min(120, cur.durationMinutes + delta));
+    const newPrefs = { ...iqamahPrefs, jumuah: { ...cur, durationMinutes: newVal } };
     setIqamahPrefs(newPrefs);
     await saveIqamahSilencePrefs(newPrefs);
     await scheduleIqamahSilence(language as "nl" | "en" | "ar");
@@ -658,7 +706,7 @@ export default function NotificationSettingsScreen() {
               {/* Duration */}
               <View style={{ marginBottom: 8 }}>
                 <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-                  {getLabel("مدة الإسكات (دقائق)", "Silence duration (minutes)", "Duur stilte (minuten)")}
+                  {getLabel("المدة الافتراضية (دقائق)", "Default duration (minutes)", "Standaardduur (minuten)")}
                 </Text>
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 12 }}>
                   <Pressable onPress={() => handleIqamahTimingChange("silenceDurationMinutes", -1)} style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.primary + "15", alignItems: "center", justifyContent: "center", opacity: pressed ? 0.6 : 1 }]}>
@@ -670,13 +718,40 @@ export default function NotificationSettingsScreen() {
                   </Pressable>
                 </View>
               </View>
-              {/* Per-prayer iqamah toggles */}
+              {/* Per-prayer: include toggle + its own silence duration (2926) */}
               <Text style={{ fontSize: 12, color: colors.muted, marginTop: 8, marginBottom: 6, textAlign: isRTL ? "right" : "left" }}>
-                {getLabel("الصلوات المشمولة", "Included prayers", "Inbegrepen gebeden")}
+                {getLabel("الصلوات ومدّة كلٍّ منها", "Prayers & each duration", "Gebeden & duur per gebed")}
               </Text>
               {(["fajr", "dhuhr", "asr", "maghrib", "isha"] as const).map((p) => (
-                <ToggleRow key={p} label={t(`prayer.${p}`)} enabled={iqamahPrefs.prayers[p]} onToggle={() => handleIqamahPrayerToggle(p)} colors={colors} isRTL={isRTL} />
+                <View key={p}>
+                  <ToggleRow label={t(`prayer.${p}`)} enabled={iqamahPrefs.prayers[p]} onToggle={() => handleIqamahPrayerToggle(p)} colors={colors} isRTL={isRTL} />
+                  {iqamahPrefs.prayers[p] && (
+                    <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, marginTop: -2, marginBottom: 8 }}>
+                      <Text style={{ fontSize: 12, color: colors.muted }}>{getLabel("مدة الإسكات (دقائق)", "Silence (min)", "Stilte (min)")}</Text>
+                      <Stepper value={iqamahPrefs.perPrayerDuration?.[p] ?? iqamahPrefs.silenceDurationMinutes} onDec={() => handleIqamahPerPrayerDuration(p, -1)} onInc={() => handleIqamahPerPrayerDuration(p, 1)} colors={colors} isRTL={isRTL} />
+                    </View>
+                  )}
+                </View>
               ))}
+
+              {/* Jumu'ah special slot (2926): Friday Dhuhr uses its own longer window */}
+              <View style={{ height: 1, backgroundColor: colors.border + "40", marginTop: 4, marginBottom: 8 }} />
+              <ToggleRow label={getLabel("وقت خاص للجمعة", "Special Jumu'ah time", "Speciale Jumu'ah-tijd")} enabled={iqamahPrefs.jumuah!.enabled} onToggle={handleJumuahToggle} colors={colors} isRTL={isRTL} icon="event" iconColor="#7C3AED" />
+              {iqamahPrefs.jumuah!.enabled && (
+                <>
+                  <Text style={{ fontSize: 11, color: colors.muted, paddingHorizontal: 12, marginBottom: 6, textAlign: isRTL ? "right" : "left", lineHeight: 16 }}>
+                    {getLabel(
+                      "يوم الجمعة تُستبدل مدّة الظهر بهذه المدّة (الخطبة والصلاة).",
+                      "On Fridays, Dhuhr uses this duration instead (khutbah + prayer).",
+                      "Op vrijdag gebruikt Dhuhr deze duur (khutbah + gebed)."
+                    )}
+                  </Text>
+                  <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 12, marginBottom: 8 }}>
+                    <Text style={{ fontSize: 12, color: colors.muted }}>{getLabel("مدة إسكات الجمعة (دقائق)", "Jumu'ah silence (min)", "Jumu'ah-stilte (min)")}</Text>
+                    <Stepper value={iqamahPrefs.jumuah!.durationMinutes} onDec={() => handleJumuahDuration(-1)} onInc={() => handleJumuahDuration(1)} colors={colors} isRTL={isRTL} />
+                  </View>
+                </>
+              )}
             </>
           )}
         </SectionCollapsible>
