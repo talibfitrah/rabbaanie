@@ -555,9 +555,13 @@ export function mergeServerState(
     //    Only a present (non-null) server value overwrites, so it corrects
     //    without ever clearing an attribution the server simply doesn't carry.
     const merged = localChildren.map((lc: any) => {
-      const sc: any = serverState.children.find(
-        (s: any) => s.id === lc.id || (s.name === lc.name && s.birthDate === lc.birthDate),
-      );
+      // Prefer an exact id match, then fall back to name+birthDate — deterministic
+      // even if the server list carries duplicate name+birthDate rows with
+      // different attribution (this family has such duplicates), where a single
+      // `||` find would adopt whichever copy happened to be first.
+      const sc: any =
+        serverState.children.find((s: any) => s.id === lc.id) ??
+        serverState.children.find((s: any) => s.name === lc.name && s.birthDate === lc.birthDate);
       if (!sc) return lc;
       const next: any = { ...lc };
       let touched = false;
