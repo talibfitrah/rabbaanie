@@ -24,6 +24,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   const confirmLabel = tx(lang, "Deze locatie kiezen", "Choose this location", "اختيار هذا الموقع");
   const tapHint = tx(lang, "Tik op de kaart of zoek hierboven", "Tap the map or search above", "انقر على الخريطة أو ابحث أعلاه");
   const noResults = tx(lang, "Niets gevonden", "No results", "لا نتائج");
+  const searchError = tx(lang, "Zoeken mislukt", "Search failed", "تعذّر البحث");
   const dir = lang === "ar" ? "rtl" : "ltr";
   // Embedded JS uses quotes + concatenation (no backticks) to stay inside this
   // template literal. Nominatim usage policy: low-volume personal use, 1 req/s.
@@ -79,6 +80,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   map.on('click', function(e){
     var la = e.latlng.lat, lo = e.latlng.lng;
     setMarker(la, lo);
+    sel = null; document.getElementById('ok').className = ''; // invalidate until this tap's reverse resolves — can't confirm a stale pick
     document.getElementById('addr').textContent = '…';
     if(revTimer) clearTimeout(revTimer);
     revTimer = setTimeout(function(){ reverse(la, lo); }, 350); // debounce rapid taps (OSM usage policy)
@@ -102,7 +104,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
           sel = null; document.getElementById('ok').className = ''; // no match — don't let a stale pick be confirmed
           document.getElementById('addr').textContent = '${noResults}';
         }
-      }).catch(function(){ if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = '${noResults}'; } });
+      }).catch(function(){ if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = '${searchError}'; } });
   }
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
