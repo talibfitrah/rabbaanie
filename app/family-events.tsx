@@ -10,6 +10,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
+import { DatePicker } from "@/components/date-picker";
 import { loadFamilyEvents, addFamilyEvent, removeFamilyEvent, type FamilyEvent, type FamilyEventType } from "@/lib/family-events";
 
 type Lang = "nl" | "en" | "ar";
@@ -20,13 +21,6 @@ function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-function isRealDate(s: string): boolean {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
-  const [y, m, d] = s.split("-").map(Number);
-  const dt = new Date(y, m - 1, d);
-  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
-}
-
 type EventMeta = { key: FamilyEventType; icon: string; color: string; nl: string; en: string; ar: string };
 const EVENT_TYPES: EventMeta[] = [
   { key: "marriage", icon: "favorite", color: "#C4A35A", nl: "Huwelijk", en: "Marriage", ar: "زواج" },
@@ -86,8 +80,8 @@ export default function FamilyEventsScreen() {
 
   async function confirmLog() {
     if (!active) return;
-    if (!isRealDate(formDate.trim())) {
-      Alert.alert(tx(lang, "Ongeldige datum", "Invalid date", "تاريخ غير صالح"), tx(lang, "Gebruik JJJJ-MM-DD.", "Use YYYY-MM-DD.", "استخدم الصيغة سنة-شهر-يوم."));
+    if (!formDate) {
+      Alert.alert(tx(lang, "Geen datum", "No date", "لا تاريخ"), tx(lang, "Selecteer een datum.", "Select a date.", "اختر التاريخ."));
       return;
     }
     const { route } = resolveAction(active.key, isWoman);
@@ -159,7 +153,7 @@ export default function FamilyEventsScreen() {
               <Pressable onPress={() => setActive(null)}><MaterialIcons name="close" size={24} color="#6B7B72" /></Pressable>
             </View>
             <Text style={st.fieldLabel}>{tx(lang, "Datum", "Date", "التاريخ")}</Text>
-            <TextInput value={formDate} onChangeText={setFormDate} style={[st.input, { textAlign: isRTL ? "right" : "left" }]} placeholder="YYYY-MM-DD" placeholderTextColor="#9CA3AF" />
+            <DatePicker value={formDate} onChange={setFormDate} placeholder={tx(lang, "Selecteer datum", "Select date", "اختر التاريخ")} />
             <Text style={st.fieldLabel}>{tx(lang, "Notitie (optioneel)", "Note (optional)", "ملاحظة (اختياري)")}</Text>
             <TextInput value={formNote} onChangeText={setFormNote} style={[st.input, { textAlign: isRTL ? "right" : "left" }]} placeholder={tx(lang, "Details...", "Details...", "تفاصيل...")} placeholderTextColor="#9CA3AF" maxLength={120} />
             <Pressable onPress={confirmLog} style={({ pressed }) => [st.saveBtn, pressed && { opacity: 0.85 }]}>
