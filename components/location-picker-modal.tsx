@@ -19,7 +19,7 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 // Default map center when the user has no saved prayer location: Makkah.
 const DEFAULT_CENTER = { lat: 21.4225, lng: 39.8262 };
 
-function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
+function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: PickedLocation | null): string {
   const searchPlaceholder = tx(lang, "Zoek een plaats...", "Search a place...", "ابحث عن مكان...");
   const confirmLabel = tx(lang, "Deze locatie kiezen", "Choose this location", "اختيار هذا الموقع");
   const tapHint = tx(lang, "Tik op de kaart of zoek hierboven", "Tap the map or search above", "انقر على الخريطة أو ابحث أعلاه");
@@ -109,6 +109,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
   document.getElementById('ok').addEventListener('click', function(){ if(sel){ post({ type:'pick', lat: sel.lat, lng: sel.lng, address: sel.address }); } });
+  ${preset ? `setMarker(${preset.lat}, ${preset.lng}); sel = ${JSON.stringify(preset)}; document.getElementById('addr').textContent = ${JSON.stringify(preset.address)}; document.getElementById('ok').className = 'on';` : ""}
 </script></body></html>`;
 }
 
@@ -117,6 +118,7 @@ export function LocationPickerModal({
   lang,
   isRTL,
   initialCenter,
+  initialSelection,
   onPick,
   onClose,
 }: {
@@ -124,12 +126,20 @@ export function LocationPickerModal({
   lang: Lang;
   isRTL: boolean;
   initialCenter?: { lat: number; lng: number } | null;
+  // When editing an event that already has a picked spot: pre-place the marker,
+  // pre-select it, and center there. Distinct from initialCenter, which only
+  // centers the map (prayer location) without a marker/selection.
+  initialSelection?: PickedLocation | null;
   onPick: (r: PickedLocation) => void;
   onClose: () => void;
 }) {
-  const center = initialCenter ?? DEFAULT_CENTER;
+  const preset = initialSelection ?? null;
+  const center = preset ?? initialCenter ?? DEFAULT_CENTER;
   // Rebuild the HTML only when the inputs that shape it change.
-  const html = useMemo(() => buildHtml(lang, center), [lang, center.lat, center.lng]);
+  const html = useMemo(
+    () => buildHtml(lang, { lat: center.lat, lng: center.lng }, preset),
+    [lang, center.lat, center.lng, preset?.lat, preset?.lng, preset?.address],
+  );
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
