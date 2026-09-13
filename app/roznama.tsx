@@ -848,7 +848,10 @@ export default function RoznamaScreen() {
     return (
       <>
       <Modal
-        visible={modalVisible}
+        // Hide the form while the map picker is up: only one RN Modal visible at
+        // a time (iOS rejects presenting a second modal over a live one). Form
+        // state is React state, so it survives the hide/show. (2972)
+        visible={modalVisible && !showLocationPicker}
         transparent
         animationType="slide"
         supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
@@ -971,7 +974,17 @@ export default function RoznamaScreen() {
                   maxLength={120}
                 />
                 <Pressable
-                  onPress={() => setShowLocationPicker(true)}
+                  onPress={() => {
+                    // react-native-webview is a stub on web, so the map picker
+                    // can't run there — fall back to opening maps (web users also
+                    // have the manual text field above). (2972)
+                    if (Platform.OS === "web") {
+                      const q = formLocation.trim();
+                      Linking.openURL(q ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}` : "https://www.google.com/maps").catch(() => {});
+                    } else {
+                      setShowLocationPicker(true);
+                    }
+                  }}
                   style={({ pressed }) => [st.mapsBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
                 >
                   <MaterialIcons name="add-location-alt" size={18} color="#1B4332" />
