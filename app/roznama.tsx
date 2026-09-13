@@ -30,7 +30,7 @@ import {
 } from "@/lib/prayer-conflict";
 import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
-import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
+import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent, type CalendarEntryType } from "@/lib/calendar-events";
 import { rescheduleEventReminders } from "@/lib/event-reminders";
 import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels, ensureExactAlarmAllowed, openAlarmPermission } from "@/lib/calendar-alarm";
 import { LocationPickerModal } from "@/components/location-picker-modal";
@@ -178,6 +178,14 @@ const REMINDER_OPTIONS: { value: number | null; label: Record<Lang, string> }[] 
 // Non-null preset values — derived once so the "is this a custom value" check
 // stays in sync if a preset chip is added/removed (2963).
 const PRESET_REMINDERS = REMINDER_OPTIONS.map((o) => o.value).filter((v): v is number => v !== null);
+
+// Calendar entry types (2982): حدث / مهمة / عبادة (عبادة replaces Google's birthday).
+const ENTRY_TYPES: { key: CalendarEntryType; icon: string; nl: string; en: string; ar: string }[] = [
+  { key: "event", icon: "event", nl: "Gebeurtenis", en: "Event", ar: "حدث" },
+  { key: "task", icon: "task-alt", nl: "Taak", en: "Task", ar: "مهمة" },
+  { key: "worship", icon: "mosque", nl: "Aanbidding", en: "Worship", ar: "عبادة" },
+];
+const ENTRY_COLORS = ["#1B4332", "#C4A35A", "#2563EB", "#C62828", "#5E35B1", "#00897B"];
 
 export default function RoznamaScreen() {
   const router = useRouter();
@@ -380,6 +388,12 @@ export default function RoznamaScreen() {
   const [formNote, setFormNote] = useState("");
   const [formReminder, setFormReminder] = useState<number | null>(null);
   const [customReminder, setCustomReminder] = useState(false); // custom minutes-before (2963)
+  // Calendar entry capabilities (2982): type (حدث/مهمة/عبادة), all-day, end time, color.
+  const [formType, setFormType] = useState<CalendarEntryType>("event");
+  const [formAllDay, setFormAllDay] = useState(false);
+  const [formEndTime, setFormEndTime] = useState<Date | null>(null);
+  const [formColor, setFormColor] = useState<string | null>(null);
+  const [showEndTimePicker, setShowEndTimePicker] = useState(false);
   const [formLocation, setFormLocation] = useState(""); // appointment place (2963)
   const [showLocationPicker, setShowLocationPicker] = useState(false); // map picker (2972)
   const [formLat, setFormLat] = useState<number | null>(null); // exact picked coords (2972)
@@ -428,6 +442,11 @@ export default function RoznamaScreen() {
     setFormNote("");
     setFormReminder(null);
     setCustomReminder(false);
+    setFormType("event");
+    setFormAllDay(false);
+    setFormEndTime(null);
+    setFormColor(null);
+    setShowEndTimePicker(false);
     setFormLocation("");
     setFormLat(null);
     setFormLng(null);
@@ -448,6 +467,11 @@ export default function RoznamaScreen() {
     setFormNote(ev.note ?? "");
     setFormReminder(ev.reminderMinutesBefore);
     setCustomReminder(ev.reminderIsCustom ?? (ev.reminderMinutesBefore != null && !PRESET_REMINDERS.includes(ev.reminderMinutesBefore)));
+    setFormType(ev.type ?? "event");
+    setFormAllDay(!!ev.allDay);
+    if (ev.endHour != null && ev.endMinute != null) { const et = new Date(); et.setHours(ev.endHour, ev.endMinute, 0, 0); setFormEndTime(et); } else setFormEndTime(null);
+    setFormColor(ev.color ?? null);
+    setShowEndTimePicker(false);
     setFormLocation(ev.location ?? "");
     setFormLat(ev.lat ?? null);
     setFormLng(ev.lng ?? null);
@@ -473,7 +497,7 @@ export default function RoznamaScreen() {
     // prayer window, and BLOCK Friday Dhuhr (Jumu'ah) unless the user says they
     // will be in another city — then ask for that city. Native two-button Alert
     // only (RN-web can't resolve it reliably), so web saves without the check.
-    if (savedLocation && Platform.OS !== "web") {
+    if (savedLocation && Platform.OS !== "web" && !formAllDay) {
       const times = calculatePrayerTimes(formDate, savedLocation.lat, savedLocation.lng, selectedMethod, savedLocation.tz);
       const conflict = detectPrayerConflict(formDate, formTime.getHours(), formTime.getMinutes(), times, conflictPrefs);
       if (conflict.kind === "jumuah" && !formTravelCity.trim()) {
@@ -520,6 +544,11 @@ export default function RoznamaScreen() {
         lat: formLat ?? undefined,
         lng: formLng ?? undefined,
         travelCity: formTravelCity.trim() || undefined,
+        type: formType,
+        allDay: formAllDay || undefined,
+        endHour: !formAllDay && formEndTime ? formEndTime.getHours() : undefined,
+        endMinute: !formAllDay && formEndTime ? formEndTime.getMinutes() : undefined,
+        color: formColor ?? undefined,
       };
       if (editingId) await updateEvent(editingId, data);
       else await addEvent(data);
@@ -576,6 +605,11 @@ export default function RoznamaScreen() {
     setModalVisible(false);
     await afterMutation();
   }
+  // Toggle a task's completion straight from the day list (2982).
+  async function toggleDone(ev: CalendarEvent) {
+    await updateEvent(ev.id, { done: !ev.done });
+    await afterMutation();
+  }
 
   function pickDate() {
     if (Platform.OS === "android" && DateTimePickerAndroid) {
@@ -602,6 +636,21 @@ export default function RoznamaScreen() {
       });
     } else {
       setShowTimePicker((v) => !v);
+    }
+  }
+  function pickEndTime() {
+    const base = formEndTime ?? formTime;
+    if (Platform.OS === "android" && DateTimePickerAndroid) {
+      DateTimePickerAndroid.open({
+        value: base,
+        mode: "time",
+        is24Hour: true,
+        onChange: (_e: any, d?: Date) => {
+          if (d) setFormEndTime(d);
+        },
+      });
+    } else {
+      setShowEndTimePicker((v) => !v);
     }
   }
 
@@ -773,12 +822,26 @@ export default function RoznamaScreen() {
           <Text style={st.hintText}>{tx(lang, "Geen afspraken op deze dag", "No appointments on this day", "لا توجد مواعيد في هذا اليوم")}</Text>
         ) : (
           dayEvents.map((ev) => (
-            <View key={ev.id} style={[st.apptRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <View key={ev.id} style={[st.apptRow, { flexDirection: isRTL ? "row-reverse" : "row" }, ev.color ? (isRTL ? { borderRightWidth: 4, borderRightColor: ev.color } : { borderLeftWidth: 4, borderLeftColor: ev.color }) : null]}>
               <Text style={st.apptTime}>
-                {dig(String(ev.hour).padStart(2, "0"))}:{dig(String(ev.minute).padStart(2, "0"))}
+                {ev.allDay
+                  ? tx(lang, "Hele dag", "All day", "طوال اليوم")
+                  : `${dig(String(ev.hour).padStart(2, "0"))}:${dig(String(ev.minute).padStart(2, "0"))}`}
               </Text>
               <View style={{ flex: 1 }}>
-                <Text style={st.apptTitle}>{ev.title}</Text>
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
+                  {ev.type === "task" ? (
+                    <Pressable onPress={() => toggleDone(ev)} hitSlop={6}>
+                      <MaterialIcons name={ev.done ? "check-circle" : "radio-button-unchecked"} size={16} color={ev.done ? "#16A34A" : "#6B7B72"} />
+                    </Pressable>
+                  ) : ev.type === "worship" ? (
+                    <MaterialIcons name="mosque" size={14} color="#1B4332" />
+                  ) : null}
+                  <Text style={[st.apptTitle, ev.done ? { textDecorationLine: "line-through", color: "#9CA3AF" } : null]}>{ev.title}</Text>
+                </View>
+                {!ev.allDay && ev.endHour != null && ev.endMinute != null ? (
+                  <Text style={st.apptNote}>{tx(lang, "tot", "until", "حتى")} {dig(String(ev.endHour).padStart(2, "0"))}:{dig(String(ev.endMinute).padStart(2, "0"))}</Text>
+                ) : null}
                 {ev.note ? <Text style={st.apptNote}>{ev.note}</Text> : null}
                 {ev.location ? (
                   <Pressable
@@ -882,6 +945,19 @@ export default function RoznamaScreen() {
                 </Pressable>
               </View>
 
+              <Text style={st.fieldLabel}>{tx(lang, "Type", "Type", "النوع")}</Text>
+              <View style={[st.typeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                {ENTRY_TYPES.map((et) => {
+                  const on = formType === et.key;
+                  return (
+                    <Pressable key={et.key} onPress={() => setFormType(et.key)} style={({ pressed }) => [st.typeChip, { flexDirection: isRTL ? "row-reverse" : "row" }, on && st.typeChipOn, pressed && { opacity: 0.8 }]}>
+                      <MaterialIcons name={et.icon as any} size={16} color={on ? "#fff" : "#1B4332"} />
+                      <Text style={[st.typeChipText, on && st.typeChipTextOn]}>{tx(lang, et.nl, et.en, et.ar)}</Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+
               <Text style={st.fieldLabel}>{tx(lang, "Titel", "Title", "العنوان")}</Text>
               <TextInput
                 value={formTitle}
@@ -891,6 +967,11 @@ export default function RoznamaScreen() {
                 placeholderTextColor="#9CA3AF"
                 maxLength={100}
               />
+
+              <View style={[st.allDayRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <Text style={st.allDayLabel}>{tx(lang, "Hele dag", "All day", "طوال اليوم")}</Text>
+                <Switch value={formAllDay} onValueChange={setFormAllDay} trackColor={{ true: "#1B4332" }} />
+              </View>
 
               {Platform.OS === "web" ? (
                 <View style={[st.fieldRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -907,6 +988,7 @@ export default function RoznamaScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
                   </View>
+                  {!formAllDay && (
                   <View style={{ flex: 1 }}>
                     <Text style={st.fieldLabel}>{tx(lang, "Tijd", "Time", "الوقت")}</Text>
                     <TextInput
@@ -923,8 +1005,10 @@ export default function RoznamaScreen() {
                       placeholderTextColor="#9CA3AF"
                     />
                   </View>
+                  )}
                 </View>
               ) : (
+                <>
                 <View style={[st.fieldRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                   <View style={{ flex: 1 }}>
                     <Text style={st.fieldLabel}>{tx(lang, "Datum", "Date", "التاريخ")}</Text>
@@ -932,15 +1016,28 @@ export default function RoznamaScreen() {
                       <Text style={st.pickerFieldText}>{dig(dateToISO(formDate))}</Text>
                     </Pressable>
                   </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={st.fieldLabel}>{tx(lang, "Tijd", "Time", "الوقت")}</Text>
-                    <Pressable onPress={pickTime} style={st.pickerField}>
-                      <Text style={st.pickerFieldText}>
-                        {dig(String(formTime.getHours()).padStart(2, "0"))}:{dig(String(formTime.getMinutes()).padStart(2, "0"))}
-                      </Text>
-                    </Pressable>
-                  </View>
+                  {!formAllDay && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.fieldLabel}>{tx(lang, "Van", "Start", "البداية")}</Text>
+                      <Pressable onPress={pickTime} style={st.pickerField}>
+                        <Text style={st.pickerFieldText}>
+                          {dig(String(formTime.getHours()).padStart(2, "0"))}:{dig(String(formTime.getMinutes()).padStart(2, "0"))}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
+                  {!formAllDay && (
+                    <View style={{ flex: 1 }}>
+                      <Text style={st.fieldLabel}>{tx(lang, "Tot", "End", "النهاية")}</Text>
+                      <Pressable onPress={pickEndTime} style={st.pickerField}>
+                        <Text style={[st.pickerFieldText, !formEndTime && { color: "#9CA3AF" }]}>
+                          {formEndTime ? `${dig(String(formEndTime.getHours()).padStart(2, "0"))}:${dig(String(formEndTime.getMinutes()).padStart(2, "0"))}` : "—"}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  )}
                 </View>
+                </>
               )}
               {showDatePicker && DateTimePicker && (
                 <DateTimePicker
@@ -960,6 +1057,17 @@ export default function RoznamaScreen() {
                   is24Hour
                   onChange={(_e: any, d?: Date) => {
                     if (d) setFormTime(d);
+                  }}
+                />
+              )}
+              {showEndTimePicker && DateTimePicker && (
+                <DateTimePicker
+                  value={formEndTime ?? formTime}
+                  mode="time"
+                  display="spinner"
+                  is24Hour
+                  onChange={(_e: any, d?: Date) => {
+                    if (d) setFormEndTime(d);
                   }}
                 />
               )}
@@ -1054,6 +1162,18 @@ export default function RoznamaScreen() {
                   </Pressable>
                 </View>
               )}
+
+              <Text style={st.fieldLabel}>{tx(lang, "Kleur (optioneel)", "Color (optional)", "اللون (اختياري)")}</Text>
+              <View style={[st.colorRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <Pressable onPress={() => setFormColor(null)} style={[st.colorSwatch, st.colorNone, !formColor && st.colorOn]}>
+                  <MaterialIcons name="block" size={16} color="#9CA3AF" />
+                </Pressable>
+                {ENTRY_COLORS.map((c) => (
+                  <Pressable key={c} onPress={() => setFormColor(c)} style={[st.colorSwatch, { backgroundColor: c }, formColor === c && st.colorOn]}>
+                    {formColor === c ? <MaterialIcons name="check" size={16} color="#fff" /> : null}
+                  </Pressable>
+                ))}
+              </View>
 
             </ScrollView>
             {/* Pinned footer: the save/delete buttons stay visible in any
@@ -1334,6 +1454,17 @@ const st = StyleSheet.create({
   pickerField: { borderWidth: 1, borderColor: "#E8ECE9", borderRadius: 10, padding: 12, alignItems: "center" },
   pickerFieldText: { fontSize: 14, fontWeight: "600", color: "#1F2937" },
   reminderRow: { flexWrap: "wrap", gap: 8 },
+  typeRow: { gap: 8, marginBottom: 4 },
+  typeChip: { flex: 1, alignItems: "center", justifyContent: "center", gap: 6, paddingVertical: 10, borderRadius: 10, borderWidth: 1, borderColor: "#E8ECE9", backgroundColor: "#fff" },
+  typeChipOn: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
+  typeChipText: { fontSize: 13, fontWeight: "700", color: "#1B4332" },
+  typeChipTextOn: { color: "#fff" },
+  allDayRow: { alignItems: "center", justifyContent: "space-between", marginTop: 12 },
+  allDayLabel: { fontSize: 14, fontWeight: "600", color: "#1F2937" },
+  colorRow: { flexWrap: "wrap", gap: 10, marginTop: 4 },
+  colorSwatch: { width: 30, height: 30, borderRadius: 15, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#00000018" },
+  colorNone: { backgroundColor: "#F1F1F1" },
+  colorOn: { borderWidth: 2, borderColor: "#1B4332" },
   reminderChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: "#F3F4F6" },
   reminderChipActive: { backgroundColor: "#1B4332" },
   mapsBtn: { alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: "#1B433212", borderWidth: 1, borderColor: "#1B433230" },

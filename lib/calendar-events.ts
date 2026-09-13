@@ -2,6 +2,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // ============ TYPES ============
 
+// Calendar entry kind (Daa3iyah 2982/2986): a general event, a to-do task, or an
+// act of worship (عبادة, which replaces the Google-Calendar "birthday" type).
+export type CalendarEntryType = "event" | "task" | "worship";
+
 export interface CalendarEvent {
   id: string;
   title: string;
@@ -15,6 +19,12 @@ export interface CalendarEvent {
   lat?: number; // exact picked coordinates (2972); present only when set via the map picker
   lng?: number;
   travelCity?: string; // set only when the user overrides a Jumu'ah-time block by travelling (2929)
+  type?: CalendarEntryType; // undefined = "event" (back-compat with pre-2982 entries)
+  done?: boolean; // task completion, for type "task" (2982)
+  allDay?: boolean; // "طوال اليوم" — no specific time; hour/minute ignored for display (2982)
+  endHour?: number; // optional end time (2982); undefined = no explicit end
+  endMinute?: number;
+  color?: string; // optional entry color (hex), for at-a-glance grouping (2982)
 }
 
 // ============ STORAGE ============
