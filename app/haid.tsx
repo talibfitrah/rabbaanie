@@ -108,8 +108,15 @@ export default function HaidScreen() {
   // Deep-link from Family Events (pregnancy): open settings once the feature is
   // enabled. Read reactively (not a useState initializer) so it survives
   // expo-router's first-render param hydration, and gated on `enabled` so it
-  // also fires after the user taps «تفعيل» on the enable screen.
-  useEffect(() => { if (params.settings === "1" && settings.enabled) setShowSettings(true); }, [params.settings, settings.enabled]);
+  // also fires after the user taps «تفعيل» on the enable screen. One-shot via a
+  // ref so a later enable/disable toggle can't re-open a panel the user closed.
+  const settingsDeepLinkDone = useRef(false);
+  useEffect(() => {
+    if (params.settings === "1" && settings.enabled && !settingsDeepLinkDone.current) {
+      settingsDeepLinkDone.current = true;
+      setShowSettings(true);
+    }
+  }, [params.settings, settings.enabled]);
 
   // Explicit `today` (item E-2): `to` extends 45 days into the future for the
   // calendar/predictions display, but the unlogged-day extension must stop at

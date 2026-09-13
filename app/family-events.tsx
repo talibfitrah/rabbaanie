@@ -4,7 +4,7 @@
 // family tab (husband); marriage/divorce → Settings (add/manage a wife) or the
 // family tab. Routing is gender-aware because the target screens self-gate.
 import { useState, useCallback } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Modal, Alert } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Modal, Alert, ActivityIndicator } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -61,7 +61,7 @@ export default function FamilyEventsScreen() {
   const lang = language as Lang;
   const router = useRouter();
   const insets = useSafeAreaInsets();
-  const { state } = useAppState();
+  const { state, loading } = useAppState();
   const isWoman = state.parentProfile?.gender === "vrouw"; // unset/man → husband routing (codebase's default-to-man convention)
 
   const [events, setEvents] = useState<FamilyEvent[]>([]);
@@ -80,10 +80,8 @@ export default function FamilyEventsScreen() {
 
   async function confirmLog() {
     if (!active) return;
-    if (!formDate) {
-      Alert.alert(tx(lang, "Geen datum", "No date", "لا تاريخ"), tx(lang, "Selecteer een datum.", "Select a date.", "اختر التاريخ."));
-      return;
-    }
+    // formDate is always a valid ISO: initialized to today and only ever set by
+    // the constrained <DatePicker>, so no date-format guard is needed here.
     const { route } = resolveAction(active.key, isWoman);
     try {
       await addFamilyEvent({ type: active.key, dateISO: formDate.trim(), note: formNote.trim() || undefined });
@@ -96,6 +94,10 @@ export default function FamilyEventsScreen() {
     reload();
     router.push(route as any); // route to the feature that handles this event
   }
+
+  // Wait for app state before rendering tappable cards: routing reads gender,
+  // which is still hydrating on a cold start (mirrors haid.tsx's !loading gate).
+  if (loading) return <View style={[st.root, { paddingTop: insets.top, justifyContent: "center" }]}><ActivityIndicator /></View>;
 
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
