@@ -31,6 +31,8 @@ export default function FamilyEventAdviceScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const router = useRouter();
+  // Safe back: a direct deep-link has no stack, so fall back to the hub.
+  const goBack = () => (router.canGoBack() ? router.back() : router.replace("/family-events" as any));
   const insets = useSafeAreaInsets();
   const { state, loading } = useAppState();
   const isWoman = state.parentProfile?.gender === "vrouw"; // unset/man → husband routing (default-to-man convention)
@@ -69,7 +71,7 @@ export default function FamilyEventAdviceScreen() {
   return (
     <View style={[st.root, { paddingTop: insets.top }]}>
       <View style={[st.topBar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-        <Pressable onPress={() => router.back()} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
+        <Pressable onPress={goBack} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
         <Text style={st.topTitle}>{tr(EVENT_TITLE[type], lang)}</Text>
@@ -98,7 +100,7 @@ export default function FamilyEventAdviceScreen() {
             {questions.length > 0 ? (
               <Pressable onPress={() => { setAnswers({}); setQIndex(0); }} style={({ pressed }) => [st.revise, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.6 }]}>
                 <MaterialIcons name="refresh" size={16} color="#6B7B72" />
-                <Text style={st.reviseText}>{tx(lang, "Vragen opnieuw", "Answer again", "إعادة الأسئلة")}</Text>
+                <Text style={st.reviseText}>{tr({ nl: "Vragen opnieuw", en: "Answer again", ar: "إعادة الأسئلة" }, lang)}</Text>
               </Pressable>
             ) : null}
 
@@ -114,20 +116,16 @@ export default function FamilyEventAdviceScreen() {
             ))}
 
             <Pressable onPress={() => router.replace(routeForEvent(type, isWoman) as any)} style={({ pressed }) => [st.continueBtn, pressed && { opacity: 0.85 }]}>
-              <Text style={st.continueText}>{tx(lang, "Doorgaan", "Continue", "المتابعة")}</Text>
+              <Text style={st.continueText}>{tr({ nl: "Doorgaan", en: "Continue", ar: "المتابعة" }, lang)}</Text>
             </Pressable>
-            <Pressable onPress={() => router.back()} style={({ pressed }) => [st.doneBtn, pressed && { opacity: 0.6 }]}>
-              <Text style={st.doneText}>{tx(lang, "Klaar", "Done", "تمّ")}</Text>
+            <Pressable onPress={goBack} style={({ pressed }) => [st.doneBtn, pressed && { opacity: 0.6 }]}>
+              <Text style={st.doneText}>{tr({ nl: "Klaar", en: "Done", ar: "تمّ" }, lang)}</Text>
             </Pressable>
           </View>
         )}
       </ScrollView>
     </View>
   );
-}
-
-function tx(lang: Lang, nl: string, en: string, ar: string): string {
-  return lang === "ar" ? ar : lang === "en" ? en : nl;
 }
 
 const st = StyleSheet.create({

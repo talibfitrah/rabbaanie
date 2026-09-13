@@ -45,8 +45,9 @@ export function routeForEvent(k: FamilyEventType, isWoman: boolean): string {
     case "divorce":
       return isWoman ? "/(tabs)/family" : "/(tabs)/settings";
   }
-  const _exhaustive: never = k; // a newly-added FamilyEventType must be handled above
-  return _exhaustive;
+  const _exhaustive: never = k; // compile-time: a new FamilyEventType must be handled above
+  void _exhaustive;
+  return "/(tabs)/family"; // unreachable for valid input; safe fallback if called untyped
 }
 
 // Returns the advice items that apply given the user's answers: an item with no
