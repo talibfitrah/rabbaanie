@@ -4,6 +4,7 @@
 // direct دليل (aayah «يقول الله تعالى» / authentic hadith / athar of the Sahaba),
 // not madhhab-attribution — and reviewed by him before release. No AI at runtime.
 import type { FamilyEventType } from "@/lib/family-events";
+import adviceData from "@/data/family-event-advice.json";
 
 export type Trilingual = { nl: string; en: string; ar: string };
 
@@ -54,5 +55,7 @@ export function adviceForAnswers(config: EventAdviceConfig, answers: Record<stri
   );
 }
 
-// Content is filled in by the reviewed draft (see scratchpad/event-advice/).
-export const EVENT_ADVICE: Record<FamilyEventType, EventAdviceConfig> = {} as Record<FamilyEventType, EventAdviceConfig>;
+// Content curated on Daa3iyah's manhaj, verses verified against the Uthmani
+// mushaf; lives in data/family-event-advice.json (bundled). See scratchpad
+// verification reports for per-verse/hadith provenance.
+export const EVENT_ADVICE = adviceData as unknown as Record<FamilyEventType, EventAdviceConfig>;
