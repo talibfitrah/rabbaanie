@@ -17,6 +17,12 @@ type Lang = "nl" | "en" | "ar";
 function tr(v: Trilingual, lang: Lang): string {
   return lang === "ar" ? v.ar : lang === "en" ? v.en : v.nl;
 }
+const EVENT_TITLE: Record<FamilyEventType, Trilingual> = {
+  marriage: { nl: "Huwelijk", en: "Marriage", ar: "زواج" },
+  pregnancy: { nl: "Zwangerschap", en: "Pregnancy", ar: "حمل" },
+  birth: { nl: "Geboorte", en: "Birth", ar: "ولادة" },
+  divorce: { nl: "Scheiding", en: "Divorce", ar: "طلاق" },
+};
 function isEventType(v: string | undefined): v is FamilyEventType {
   return !!v && (FAMILY_EVENT_TYPES as readonly string[]).includes(v);
 }
@@ -64,11 +70,12 @@ export default function FamilyEventAdviceScreen() {
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
-        <Text style={st.topTitle}>{tr(config.intro, lang).slice(0, 40)}</Text>
+        <Text style={st.topTitle}>{tr(EVENT_TITLE[type], lang)}</Text>
         <View style={{ width: 40 }} />
       </View>
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
+        <Text style={[st.intro, { textAlign: isRTL ? "right" : "left" }]}>{tr(config.intro, lang)}</Text>
         {onQuestions ? (
           <View>
             {questions[qIndex] ? (
@@ -126,6 +133,7 @@ const st = StyleSheet.create({
   topBar: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 8, paddingVertical: 8 },
   iconBtn: { width: 40, height: 40, alignItems: "center", justifyContent: "center" },
   topTitle: { fontSize: 16, fontWeight: "800", color: "#1B4332", flex: 1, textAlign: "center" },
+  intro: { fontSize: 14, color: "#4b5a52", lineHeight: 22, backgroundColor: "#fff", borderWidth: 1, borderColor: "#E8ECE9", borderRadius: 10, padding: 12, marginBottom: 16 },
   question: { fontSize: 18, fontWeight: "700", color: "#1B4332", marginBottom: 16, lineHeight: 26 },
   option: { alignItems: "center", gap: 10, backgroundColor: "#fff", borderRadius: 12, padding: 16, marginBottom: 10, borderWidth: 1, borderColor: "#E8ECE9" },
   optionText: { fontSize: 15, color: "#1F2937", flex: 1, fontWeight: "600" },
