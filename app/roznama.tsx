@@ -390,6 +390,7 @@ export default function RoznamaScreen() {
   const [customReminder, setCustomReminder] = useState(false); // custom minutes-before (2963)
   // Calendar entry capabilities (2982): type (حدث/مهمة/عبادة), all-day, end time, color.
   const [formType, setFormType] = useState<CalendarEntryType>("event");
+  const [formDone, setFormDone] = useState(false); // task completion, preserved across edits
   const [formAllDay, setFormAllDay] = useState(false);
   const [formEndTime, setFormEndTime] = useState<Date | null>(null);
   const [formColor, setFormColor] = useState<string | null>(null);
@@ -443,6 +444,7 @@ export default function RoznamaScreen() {
     setFormReminder(null);
     setCustomReminder(false);
     setFormType("event");
+    setFormDone(false);
     setFormAllDay(false);
     setFormEndTime(null);
     setFormColor(null);
@@ -468,6 +470,7 @@ export default function RoznamaScreen() {
     setFormReminder(ev.reminderMinutesBefore);
     setCustomReminder(ev.reminderIsCustom ?? (ev.reminderMinutesBefore != null && !PRESET_REMINDERS.includes(ev.reminderMinutesBefore)));
     setFormType(ev.type ?? "event");
+    setFormDone(!!ev.done);
     setFormAllDay(!!ev.allDay);
     if (ev.endHour != null && ev.endMinute != null) { const et = new Date(); et.setHours(ev.endHour, ev.endMinute, 0, 0); setFormEndTime(et); } else setFormEndTime(null);
     setFormColor(ev.color ?? null);
@@ -556,6 +559,7 @@ export default function RoznamaScreen() {
         lng: formLng ?? undefined,
         travelCity: formTravelCity.trim() || undefined,
         type: formType,
+        done: formType === "task" ? formDone : undefined, // clears a stale done if the type changed away from task
         allDay: formAllDay || undefined,
         endHour: !formAllDay && formEndTime ? formEndTime.getHours() : undefined,
         endMinute: !formAllDay && formEndTime ? formEndTime.getMinutes() : undefined,
@@ -848,7 +852,7 @@ export default function RoznamaScreen() {
                   ) : ev.type === "worship" ? (
                     <MaterialIcons name="mosque" size={14} color="#1B4332" />
                   ) : null}
-                  <Text style={[st.apptTitle, ev.done ? { textDecorationLine: "line-through", color: "#9CA3AF" } : null]}>{ev.title}</Text>
+                  <Text style={[st.apptTitle, ev.type === "task" && ev.done ? { textDecorationLine: "line-through", color: "#9CA3AF" } : null]}>{ev.title}</Text>
                 </View>
                 {!ev.allDay && ev.endHour != null && ev.endMinute != null ? (
                   <Text style={st.apptNote}>{tx(lang, "tot", "until", "حتى")} {dig(String(ev.endHour).padStart(2, "0"))}:{dig(String(ev.endMinute).padStart(2, "0"))}</Text>
