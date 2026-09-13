@@ -83,7 +83,8 @@ async function rescheduleEventRemindersInner(lang?: Lang): Promise<number> {
   const now = Date.now();
 
   const candidates = events
-    .filter((e) => e.reminderMinutesBefore != null)
+    .filter((e) => e.reminderMinutesBefore != null && !(e.type === "task" && e.done)) // no reminder for a completed task
+
     .map((event) => ({ event, triggerDate: eventReminderTriggerDate(event) }))
     .filter((c) => c.triggerDate.getTime() > now)
     .sort((a, b) => a.triggerDate.getTime() - b.triggerDate.getTime());

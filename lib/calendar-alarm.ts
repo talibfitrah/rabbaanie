@@ -131,7 +131,7 @@ export async function scheduleCalendarAlarms(lang: Lang): Promise<number> {
   const events = await loadEvents();
   const now = Date.now();
   const due = events
-    .filter((e) => e.reminderMinutesBefore != null)
+    .filter((e) => e.reminderMinutesBefore != null && !(e.type === "task" && e.done)) // no alarm for a completed task
     .map((e) => ({ e, ms: eventReminderTriggerDate(e).getTime() }))
     .filter((c) => c.ms > now);
 
