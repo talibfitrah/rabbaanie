@@ -1,0 +1,21 @@
+components/date-picker.tsx
+  s_132c73e77515ad::t_057517e8b7a267 92
+  s_132c73e77515ad::t_26bfb4d3f7c07c 135
+  s_132c73e77515ad::t_c9b35b220b6c8e 29-36
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "478f5cb2770b1d8ca0c833d088e376936774e038",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
