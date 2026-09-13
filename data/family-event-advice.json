@@ -2,17 +2,18 @@
   "marriage": {
     "type": "marriage",
     "intro": {
-      "ar": "الزَّوَاجُ فِي الْإِسْلَامِ مِيثَاقٌ غَلِيظٌ، وَنِعْمَةٌ مِنَ اللهِ تَعَالَى يَجْعَلُ بِهَا بَيْنَ الزَّوْجَيْنِ سَكَنًا وَمَوَدَّةً وَرَحْمَةً. وَقَدْ أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَتَزَوَّجَ أَكْثَرَ مِنِ امْرَأَةٍ، لَكِنَّهُ عَلَّقَ ذَلِكَ بِشَرْطِ الْعَدْلِ، وَجَعَلَ لِكُلِّ زَوْجَةٍ حُقُوقًا لَا تَسْقُطُ بِزَوَاجِ غَيْرِهَا. هَذِهِ نَصَائِحُ مُخْتَصَرَةٌ مُسْتَمَدَّةٌ مِنَ الْقُرْآنِ وَالسُّنَّةِ، تُعِينُكَ عَلَى إِقَامَةِ بَيْتِكَ عَلَى تَقْوَى اللهِ وَحُسْنِ الْعِشْرَةِ.",
-      "nl": "Het huwelijk is in de islam een plechtig verbond (miethaaq ghaliedh) en een gunst van Allaah, waarmee Hij tussen de echtgenoten rust (sakienah), liefde en barmhartigheid legt. Allaah heeft een man toegestaan met meer dan één vrouw te trouwen, maar heeft dit gebonden aan de voorwaarde van rechtvaardigheid, en heeft elke echtgenote rechten gegeven die niet vervallen wanneer hij met een ander trouwt. Dit zijn beknopte adviezen, ontleend aan de Koran en de Soennah, om je te helpen je gezin op te bouwen op godvrezendheid (taqwa) en een goede omgang.",
-      "en": "Marriage in Islam is a solemn covenant (mithaaq ghaleedh) and a favour from Allaah, through which He places tranquility (sakeenah), love, and mercy between the spouses. Allaah has permitted a man to marry more than one wife, but has made this conditional on justice, and has given every wife rights that do not lapse when he marries another. These are brief pieces of advice drawn from the Qur'an and the Sunnah, to help you build your home upon taqwa (God-consciousness) and good companionship."
+      "ar": "الزَّوَاجُ فِي الْإِسْلَامِ مِيثَاقٌ غَلِيظٌ وَنِعْمَةٌ مِنَ اللهِ تَعَالَى، جَعَلَ بِهِ بَيْنَ الزَّوْجَيْنِ سَكَنًا وَمَوَدَّةً وَرَحْمَةً، وَفَرَضَ لِكُلٍّ مِنَ الزَّوْجَيْنِ عَلَى الْآخَرِ حُقُوقًا يَجِبُ الْوَفَاءُ بِهَا. وَقَدْ أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَتَزَوَّجَ بِزَوْجَةٍ ثَانِيَةٍ أَوْ ثَالِثَةٍ أَوْ رَابِعَةٍ، لَكِنَّهُ عَلَّقَ ذَلِكَ بِشَرْطِ الْعَدْلِ، وَجَعَلَ لِكُلِّ زَوْجَةٍ حُقُوقًا لَا تَسْقُطُ بِزَوَاجِهِ بِغَيْرِهَا. هَذِهِ نَصَائِحُ مُخْتَصَرَةٌ مُسْتَمَدَّةٌ مِنَ الْقُرْآنِ وَالسُّنَّةِ، تُنَاسِبُ حَالَ كُلٍّ مِنَ الزَّوْجِ وَالزَّوْجَةِ، لِإِعَانَةِ كُلٍّ مِنْهُمَا عَلَى إِقَامَةِ الْبَيْتِ عَلَى تَقْوَى اللهِ وَحُسْنِ الْعِشْرَةِ.",
+      "nl": "Het huwelijk is in de islam een plechtig verbond (mithaaq ghaliedh) en een gunst van Allaah, waarmee Hij tussen de echtgenoten rust (sakienah), liefde en barmhartigheid heeft gelegd, en waarin Hij voor elke echtgenoot rechten ten opzichte van de ander heeft vastgesteld die nagekomen moeten worden. Allaah heeft een man toegestaan met een tweede, derde of vierde echtgenote te trouwen, maar heeft dit gebonden aan de voorwaarde van rechtvaardigheid, en heeft elke echtgenote rechten gegeven die niet vervallen wanneer hij met een ander trouwt. Dit zijn beknopte adviezen, ontleend aan de Koran en de Soennah, passend bij de situatie van zowel de man als de vrouw, om beiden te helpen hun gezin op te bouwen op godvrezendheid (taqwa) en een goede omgang.",
+      "en": "Marriage in Islam is a solemn covenant (mithaaq ghaleedh) and a favour from Allaah, through which He has placed tranquility (sakeenah), love, and mercy between the spouses, and established rights each spouse owes the other that must be fulfilled. Allaah has permitted a man to marry a second, third, or fourth wife, but has made this conditional on justice, and has given every wife rights that do not lapse when he marries another. These are brief pieces of advice drawn from the Qur'an and the Sunnah, suited to the situation of both husband and wife, to help each of them build their home upon taqwa (God-consciousness) and good companionship."
     },
     "questions": [
       {
         "id": "count",
+        "gender": "man",
         "text": {
-          "ar": "هَلْ هَذَا زَوَاجُكَ الْأَوَّلُ، أَمْ تَنْوِي الزَّوَاجَ بِزَوْجَةٍ إِضَافِيَّةٍ؟",
-          "nl": "Is dit uw eerste huwelijk, of trouwt u met een extra echtgenote?",
-          "en": "Is this your first marriage, or are you marrying an additional wife?"
+          "ar": "هَلْ هَذَا زَوَاجُكَ الْأَوَّلُ، أَمْ زَوَاجٌ بِزَوْجَةٍ ثَانِيَةٍ أَوْ ثَالِثَةٍ أَوْ رَابِعَةٍ؟",
+          "nl": "Is dit uw eerste huwelijk, of trouwt u met een tweede, derde of vierde echtgenote?",
+          "en": "Is this your first marriage, or are you marrying a second, third, or fourth wife?"
         },
         "options": [
           {
@@ -24,19 +25,63 @@
             }
           },
           {
-            "value": "additional",
+            "value": "second",
             "label": {
-              "ar": "زَوْجَةٌ إِضَافِيَّةٌ (تَعَدُّدُ الزَّوْجَاتِ)",
-              "nl": "Een extra echtgenote (polygynie)",
-              "en": "An additional wife (polygyny)"
+              "ar": "زَوْجَةٌ ثَانِيَةٌ",
+              "nl": "Een tweede echtgenote",
+              "en": "A second wife"
+            }
+          },
+          {
+            "value": "third",
+            "label": {
+              "ar": "زَوْجَةٌ ثَالِثَةٌ",
+              "nl": "Een derde echtgenote",
+              "en": "A third wife"
+            }
+          },
+          {
+            "value": "fourth",
+            "label": {
+              "ar": "زَوْجَةٌ رَابِعَةٌ",
+              "nl": "Een vierde echtgenote",
+              "en": "A fourth wife"
+            }
+          }
+        ]
+      },
+      {
+        "id": "prior",
+        "gender": "man",
+        "text": {
+          "ar": "هَلْ سَبَقَ لَكَ زَوَاجٌ أَوْ طَلَاقٌ مِنْ قَبْلُ؟",
+          "nl": "Bent u eerder getrouwd of gescheiden geweest?",
+          "en": "Have you been married or divorced before?"
+        },
+        "options": [
+          {
+            "value": "none",
+            "label": {
+              "ar": "لَا، لَمْ يَسْبِقْ لِي ذَلِكَ",
+              "nl": "Nee",
+              "en": "No"
+            }
+          },
+          {
+            "value": "prior",
+            "label": {
+              "ar": "نَعَمْ، سَبَقَ لِي زَوَاجٌ أَوْ طَلَاقٌ",
+              "nl": "Ja, ik ben eerder getrouwd geweest of gescheiden",
+              "en": "Yes, I have been married or divorced before"
             }
           }
         ]
       },
       {
         "id": "stage",
+        "gender": "man",
         "text": {
-          "ar": "مَا الْوَصْفُ الْأَقْرَبُ لِحَالِكَ الْآنَ؟",
+          "ar": "مَا أَقْرَبُ وَصْفٍ لِحَالِكَ؟",
           "nl": "Wat beschrijft uw huidige situatie het best?",
           "en": "What best describes your situation right now?"
         },
@@ -58,14 +103,49 @@
             }
           }
         ]
+      },
+      {
+        "id": "w_state",
+        "gender": "woman",
+        "text": {
+          "ar": "مَا أَقْرَبُ وَصْفٍ لِحَالِكِ؟",
+          "nl": "Wat beschrijft uw huidige situatie het best?",
+          "en": "What best describes your situation right now?"
+        },
+        "options": [
+          {
+            "value": "new",
+            "label": {
+              "ar": "زَوَاجٌ جَدِيدٌ، أَوْ أُحَضِّرُ لِلزَّوَاجِ",
+              "nl": "Pas getrouwd, of ik bereid het huwelijk voor",
+              "en": "Newly married, or preparing for marriage"
+            }
+          },
+          {
+            "value": "cowife",
+            "label": {
+              "ar": "تَزَوَّجَ زَوْجِي عَلَيَّ",
+              "nl": "Mijn man is met een andere vrouw getrouwd",
+              "en": "My husband has married another wife"
+            }
+          },
+          {
+            "value": "difficulties",
+            "label": {
+              "ar": "زَوَاجٌ قَائِمٌ مُنْذُ مُدَّةٍ، وَأُوَاجِهُ بَعْضَ الصُّعُوبَاتِ",
+              "nl": "Al langer getrouwd, en ik ervaar wat moeilijkheden",
+              "en": "Married for a while, and facing some difficulties"
+            }
+          }
+        ]
       }
     ],
     "advice": [
       {
         "body": {
-          "ar": "أَصْلُ الزَّوَاجِ فِي الْإِسْلَامِ أَنْ يَكُونَ مَحَلَّ سَكَنٍ وَمَوَدَّةٍ وَرَحْمَةٍ، لَا سَاحَةَ تَنَافُسٍ أَوْ إِيذَاءٍ. فَاجْعَلْ نِيَّتَكَ فِي زَوَاجِكَ ابْتِغَاءَ مَا شَرَعَهُ اللهُ مِنَ السَّكِينَةِ وَالْمَوَدَّةِ، سَوَاءٌ أَكَانَتْ هَذِهِ زَوْجَتَكَ الْأُولَى أَمْ غَيْرَهَا.",
-          "nl": "Het huwelijk is in de basis een plaats van rust, liefde en barmhartigheid — geen strijdtoneel of plek van onrecht. Laat je intentie in het huwelijk zijn: het zoeken van de rust en liefde die Allaah heeft voorgeschreven, of dit nu je eerste echtgenote is of niet.",
-          "en": "The essence of marriage in Islam is to be a place of tranquility, love and mercy — not an arena of rivalry or harm. Let your intention in marriage be to seek the tranquility and love Allaah has prescribed, whether this is your first wife or not."
+          "ar": "أَصْلُ الزَّوَاجِ فِي الْإِسْلَامِ أَنْ يَكُونَ مَحَلَّ سَكَنٍ وَمَوَدَّةٍ وَرَحْمَةٍ بَيْنَ الزَّوْجَيْنِ، لَا سَاحَةَ تَنَافُسٍ أَوْ إِيذَاءٍ. فَلْتَكُنِ النِّيَّةُ فِي هَذَا الزَّوَاجِ ابْتِغَاءَ مَا شَرَعَهُ اللهُ مِنَ السَّكِينَةِ وَالْمَحَبَّةِ، وَلْيَحْرِصْ كُلٌّ مِنَ الزَّوْجَيْنِ عَلَى أَنْ يَكُونَ سَبَبًا فِي طُمَأْنِينَةِ الْآخَرِ لَا فِي قَلَقِهِ.",
+          "nl": "Het huwelijk is in de kern bedoeld als een plaats van rust, liefde en barmhartigheid tussen de echtgenoten — geen strijdtoneel of bron van leed. Laat de intentie in dit huwelijk zijn: het zoeken van de rust en liefde die Allaah heeft voorgeschreven, en laat ieder van de echtgenoten ernaar streven een bron van gemoedsrust voor de ander te zijn, niet van onrust.",
+          "en": "The essence of marriage in Islam is to be a place of tranquility, love and mercy between the spouses — not an arena of rivalry or harm. Let the intention in this marriage be to seek the tranquility and love Allaah has prescribed, and let each spouse strive to be a source of the other's peace of mind, not their distress."
         },
         "daleel": {
           "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَمِنْ ءَايَٰتِهِۦٓ أَنْ خَلَقَ لَكُم مِّنْ أَنفُسِكُمْ أَزْوَٰجًۭا لِّتَسْكُنُوٓا۟ إِلَيْهَا وَجَعَلَ بَيْنَكُم مَّوَدَّةًۭ وَرَحْمَةً ۚ إِنَّ فِى ذَٰلِكَ لَءَايَٰتٍۢ لِّقَوْمٍۢ يَتَفَكَّرُونَ﴾ (الروم: ٢١)",
@@ -75,33 +155,29 @@
       },
       {
         "body": {
-          "ar": "مِنْ أَعْظَمِ مَا يُحَافَظُ بِهِ عَلَى الْبَيْتِ: حُسْنُ مُعَامَلَةِ الزَّوْجَةِ حَتَّى فِي أَوْقَاتِ الْكَرَاهِيَةِ أَوِ الْخِلَافِ، فَلَا يَجُوزُ لِلزَّوْجِ أَنْ يُسِيءَ عِشْرَةَ زَوْجَتِهِ لِيُضَيِّقَ عَلَيْهَا أَوْ يَحْمِلَهَا عَلَى التَّنَازُلِ عَنْ حَقٍّ مِنْ حُقُوقِهَا.",
-          "nl": "Een van de belangrijkste zaken om een gezin in stand te houden is: goede omgang met je echtgenote, ook in tijden van onenigheid of afkeer. Het is een man niet toegestaan zijn vrouw slecht te behandelen om haar onder druk te zetten of haar te dwingen een van haar rechten op te geven.",
-          "en": "One of the greatest safeguards for a household is good treatment of one's wife, even during times of disagreement or dislike. It is not permissible for a husband to mistreat his wife in order to pressure her or force her to give up any of her rights."
+          "ar": "مِنْ أَعْظَمِ مَا يُحَافَظُ بِهِ الزَّوْجُ عَلَى بَيْتِهِ: حُسْنُ مُعَاشَرَةِ زَوْجَتِهِ حَتَّى فِي أَوْقَاتِ الْكَرَاهِيَةِ أَوِ الْخِلَافِ، فَلَا يَجُوزُ لَهُ أَنْ يُسِيءَ عِشْرَتَهَا لِيُضَيِّقَ عَلَيْهَا أَوْ يَحْمِلَهَا عَلَى التَّنَازُلِ عَنْ حَقٍّ مِنْ حُقُوقِهَا.",
+          "nl": "Een van de belangrijkste zaken waarmee een man zijn gezin in stand houdt, is: goede omgang met zijn echtgenote, ook in tijden van onenigheid of afkeer. Het is hem niet toegestaan haar slecht te behandelen om haar onder druk te zetten of haar te dwingen een van haar rechten op te geven.",
+          "en": "One of the greatest ways a husband safeguards his household is good treatment of his wife, even during times of disagreement or dislike. He may not mistreat her in order to pressure her or force her to give up any of her rights."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿... وَعَاشِرُوهُنَّ بِٱلْمَعْرُوفِ ۚ فَإِن كَرِهْتُمُوهُنَّ فَعَسَىٰٓ أَن تَكْرَهُوا۟ شَيْـًۭٔا وَيَجْعَلَ ٱللَّهُ فِيهِ خَيْرًۭا كَثِيرًۭا﴾ (النساء: ١٩)",
-          "nl": "Allaah, de Verhevene, zegt: '... En leef met hen samen op behoorlijke wijze. Als jullie een afkeer van hen hebben, dan is het mogelijk dat jullie een afkeer hebben van iets waarin Allaah veel goeds heeft geplaatst.' (Soerat an-Nisaa: 19)",
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿... وَعَاشِرُوهُنَّ بِٱلْمَعْرُوفِ ۚ فَإِن كَرِهْتُمُوهُنَّ فَعَسَىٰٓ أَن تَكْرَهُوا۟ شَيْـًۭٔا وَيَجْعَلَ ٱللَّهُ فِيهِ خَيْرًۭا كَثِيرًۭا ...﴾ (النساء: ١٩)",
+          "nl": "Allaah, de Verhevene, zegt: '...En leef met hen samen op behoorlijke wijze. Als jullie een afkeer van hen hebben, dan is het mogelijk dat jullie een afkeer hebben van iets waarin Allaah veel goeds heeft geplaatst.' (Soerat an-Nisaa: 19)",
           "en": "Allaah, the Exalted, says: '...And live with them in kindness. For if you dislike them, perhaps you dislike a thing in which Allaah has placed much good.' (Surat an-Nisaa: 19)"
-        }
+        },
+        "gender": "man"
       },
       {
         "body": {
-          "ar": "مِنْ حَقِّ الزَّوْجَةِ عَلَى زَوْجِهَا مُنْذُ أَوَّلِ يَوْمٍ: النَّفَقَةُ وَالْكِسْوَةُ بِالْمَعْرُوفِ، بِحَسَبِ يَسَارِهِ. فَاحْرِصْ مِنْ بِدَايَةِ زَوَاجِكَ عَلَى أَنْ تُقِيمَ هَذَا الْحَقَّ عَنْ طِيبِ نَفْسٍ، لَا عَنْ تَقْصِيرٍ أَوْ مِنَّةٍ.",
-          "nl": "Vanaf de eerste dag heeft de echtgenote recht op levensonderhoud (nafaqah) en kleding op een behoorlijke wijze, naar vermogen van de man. Zorg er vanaf het begin van je huwelijk voor dat je dit recht met een goed hart geeft, niet met tekortkoming of het gevoel dat zij je iets verschuldigd is.",
-          "en": "From the very first day, a wife has a right to maintenance (nafaqah) and clothing in a fitting manner, according to her husband's means. From the start of your marriage, make sure you fulfil this right willingly, not with neglect or as if she owes you something for it."
+          "ar": "مِنْ حَقِّ الزَّوْجَةِ عَلَى زَوْجِهَا مُنْذُ أَوَّلِ يَوْمٍ: النَّفَقَةُ وَالْكِسْوَةُ بِالْمَعْرُوفِ بِحَسَبِ يَسَارِهِ، وَهُوَ حَقٌّ لَا يَسْقُطُ بِطُولِ الزَّوَاجِ وَلَا يَنْقُصُ بِتَعَدُّدِ زَوْجَاتِهِ إِنْ تَعَدَّدَ. فَاحْرِصْ عَلَى أَنْ تُقِيمَ هَذَا الْحَقَّ عَنْ طِيبِ نَفْسٍ، لَا عَنْ تَقْصِيرٍ أَوْ مِنَّةٍ.",
+          "nl": "Vanaf de eerste dag heeft de echtgenote recht op levensonderhoud (nafaqah) en kleding op een behoorlijke wijze, naar vermogen van haar man — een recht dat niet vervalt naarmate het huwelijk langer duurt, en niet vermindert als hij meer dan één vrouw heeft. Zorg ervoor dat je dit recht met een goed hart geeft, niet met tekortkoming of het gevoel dat zij het jou verschuldigd is.",
+          "en": "From the very first day, a wife has a right to maintenance (nafaqah) and clothing in a fitting manner, according to her husband's means — a right that does not lapse as the marriage goes on, and does not shrink if he has more than one wife. Make sure you fulfil this right willingly, not with neglect or as if she owes you something for it."
         },
         "daleel": {
-          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ فِي خُطْبَةِ حَجَّةِ الْوَدَاعِ: «... وَلَهُنَّ عَلَيْكُمْ رِزْقُهُنَّ وَكِسْوَتُهُنَّ بِالْمَعْرُوفِ» رَوَاهُ مُسْلِمٌ.",
-          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei in zijn toespraak tijdens de Afscheidsbedevaart: '... En zij hebben van jullie het recht op hun levensonderhoud en kleding op behoorlijke wijze.' Overgeleverd door Moeslim.",
-          "en": "The Messenger of Allaah (peace be upon him) said in his Farewell Pilgrimage sermon: '...And they have upon you their provision and their clothing in a fitting manner.' Narrated by Muslim."
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ فِي خُطْبَتِهِ يَوْمَ عَرَفَةَ فِي حَجَّةِ الْوَدَاعِ: «... وَلَهُنَّ عَلَيْكُمْ رِزْقُهُنَّ وَكِسْوَتُهُنَّ بِالْمَعْرُوفِ» رَوَاهُ مُسْلِمٌ (١٢١٨) مِنْ حَدِيثِ جَابِرِ بْنِ عَبْدِ اللهِ رَضِيَ اللهُ عَنْهُ.",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei in zijn toespraak op de Dag van 'Arafah tijdens de Afscheidsbedevaart: '...En zij hebben van jullie het recht op hun levensonderhoud en kleding op behoorlijke wijze.' Overgeleverd door Moeslim (1218), van Jaabir ibn 'Abdillaah (moge Allaah tevreden over hem zijn).",
+          "en": "The Messenger of Allaah (peace be upon him) said in his sermon on the Day of 'Arafah during the Farewell Pilgrimage: '...And they have upon you their provision and their clothing in a fitting manner.' Narrated by Muslim (1218), from Jabir ibn 'Abdullah (may Allaah be pleased with him)."
         },
-        "when": [
-          {
-            "q": "stage",
-            "value": "new"
-          }
-        ]
+        "gender": "man"
       },
       {
         "body": {
@@ -110,10 +186,11 @@
           "en": "If you notice a trait in your wife that displeases you, do not let that become a reason to hate her altogether or to rush toward thoughts of separation. No one is perfect, and often another trait you are pleased with stands opposite the one that displeases you."
         },
         "daleel": {
-          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لَا يَفْرَكْ مُؤْمِنٌ مُؤْمِنَةً، إِنْ كَرِهَ مِنْهَا خُلُقًا رَضِيَ مِنْهَا آخَرَ» رَوَاهُ مُسْلِمٌ.",
-          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Laat een gelovige man geen afkeer hebben van een gelovige vrouw [zijn echtgenote]: als hij een eigenschap van haar niet mag, zal hij tevreden zijn met een andere.' Overgeleverd door Moeslim.",
-          "en": "The Messenger of Allaah (peace be upon him) said: 'A believing man should not hate a believing woman [his wife]: if he dislikes one of her characteristics, he will be pleased with another.' Narrated by Muslim."
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لاَ يَفْرَكْ مُؤْمِنٌ مُؤْمِنَةً إِنْ كَرِهَ مِنْهَا خُلُقًا رَضِيَ مِنْهَا آخَرَ» رَوَاهُ مُسْلِمٌ (١٤٦٨) عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ.",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Laat een gelovige man geen afkeer hebben van een gelovige vrouw [zijn echtgenote]: als hij een eigenschap van haar niet mag, zal hij tevreden zijn met een andere.' Overgeleverd door Moeslim (1468), van Aboe Hoerayrah (moge Allaah tevreden over hem zijn).",
+          "en": "The Messenger of Allaah (peace be upon him) said: 'A believing man should not hate a believing woman [his wife] altogether: if he dislikes one of her characteristics, he will be pleased with another.' Narrated by Muslim (1468), from Abu Hurayrah (may Allaah be pleased with him)."
         },
+        "gender": "man",
         "when": [
           {
             "q": "stage",
@@ -123,79 +200,326 @@
       },
       {
         "body": {
-          "ar": "أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَجْمَعَ فِي عِصْمَتِهِ حَتَّى أَرْبَعِ نِسْوَةٍ، لَكِنَّ هَذَا الْإِذْنَ مُقَيَّدٌ بِشَرْطٍ صَرِيحٍ، وَهُوَ الْقُدْرَةُ عَلَى الْعَدْلِ. فَمَنْ لَمْ يَثِقْ مِنْ نَفْسِهِ بِالْقُدْرَةِ عَلَى الْعَدْلِ بَيْنَ زَوْجَاتِهِ فِي النَّفَقَةِ وَالْقَسْمِ وَحُسْنِ الْمُعَامَلَةِ، فَالِاقْتِصَارُ عَلَى وَاحِدَةٍ أَسْلَمُ لَهُ وَلِمَنْ تَحْتَ يَدِهِ.",
-          "nl": "Allaah heeft een man toegestaan om tot vier vrouwen tegelijk te huwen, maar deze toestemming is gebonden aan een uitdrukkelijke voorwaarde: het vermogen om rechtvaardig te zijn. Wie er bij zichzelf niet zeker van is rechtvaardig te kunnen zijn tussen zijn vrouwen in levensonderhoud, verdeling van tijd en goede behandeling, doet er veiliger aan — voor hemzelf en voor wie onder zijn zorg valt — zich tot één vrouw te beperken.",
-          "en": "Allaah has permitted a man to marry up to four wives, but this permission is bound by an explicit condition: the ability to be just. Whoever is not confident in himself that he can be just between his wives in maintenance, division of time, and good treatment, is safer — for himself and for those in his care — sticking to one wife."
+          "ar": "أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَجْمَعَ فِي عِصْمَتِهِ حَتَّى أَرْبَعِ نِسْوَةٍ، لَكِنَّ هَذَا الْإِذْنَ مُقَيَّدٌ بِشَرْطٍ صَرِيحٍ: الْقُدْرَةُ عَلَى الْعَدْلِ بَيْنَ الزَّوْجَاتِ. فَمَنْ لَمْ يَثِقْ مِنْ نَفْسِهِ بِالْقُدْرَةِ عَلَى الْعَدْلِ فِي النَّفَقَةِ وَالْقَسْمِ وَحُسْنِ الْمُعَامَلَةِ، فَالِاقْتِصَارُ عَلَى مَنْ عِنْدَهُ أَسْلَمُ لَهُ وَلِمَنْ تَحْتَ يَدِهِ.",
+          "nl": "Allaah heeft een man toegestaan om tot vier vrouwen tegelijk te huwen, maar deze toestemming is gebonden aan een uitdrukkelijke voorwaarde: het vermogen om rechtvaardig te zijn tussen de echtgenotes. Wie er bij zichzelf niet zeker van is rechtvaardig te kunnen zijn in levensonderhoud, verdeling van tijd en goede behandeling, doet er veiliger aan — voor hemzelf en voor wie onder zijn zorg valt — zich te beperken tot wie hij al heeft.",
+          "en": "Allaah has permitted a man to marry up to four wives, but this permission is bound by an explicit condition: the ability to be just between the wives. Whoever is not confident in himself that he can be just in maintenance, division of time, and good treatment, is safer — for himself and for those in his care — sticking to who he already has."
         },
         "daleel": {
           "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَإِنْ خِفْتُمْ أَلَّا تُقْسِطُوا۟ فِى ٱلْيَتَٰمَىٰ فَٱنكِحُوا۟ مَا طَابَ لَكُم مِّنَ ٱلنِّسَآءِ مَثْنَىٰ وَثُلَٰثَ وَرُبَٰعَ ۖ فَإِنْ خِفْتُمْ أَلَّا تَعْدِلُوا۟ فَوَٰحِدَةً أَوْ مَا مَلَكَتْ أَيْمَٰنُكُمْ ۚ ذَٰلِكَ أَدْنَىٰٓ أَلَّا تَعُولُوا۟﴾ (النساء: ٣)",
           "nl": "Allaah, de Verhevene, zegt: 'En als jullie vrezen dat jullie niet rechtvaardig zullen zijn tegenover de wees-meisjes, trouwt dan met wie jullie bevalt van de vrouwen: twee, drie of vier. Maar als jullie vrezen niet rechtvaardig te zijn, trouwt dan met één... Dat is dichter bij het niet onrechtvaardig handelen.' (Soerat an-Nisaa: 3)",
           "en": "Allaah, the Exalted, says: 'And if you fear that you will not deal justly with the orphan girls, then marry those that please you of [other] women: two or three or four. But if you fear that you will not be just, then [marry only] one... That is more suitable, that you may not oppress.' (Surat an-Nisaa: 3)"
         },
+        "gender": "man",
         "when": [
           {
             "q": "count",
-            "value": "additional"
+            "value": "second"
           }
         ]
       },
       {
         "body": {
-          "ar": "الْعَدْلُ الْوَاجِبُ بَيْنَ الزَّوْجَاتِ هُوَ الْعَدْلُ فِي الْأُمُورِ الَّتِي يَمْلِكُهَا الْإِنْسَانُ وَيَقْدِرُ عَلَيْهَا: كَالنَّفَقَةِ، وَالْمَبِيتِ، وَحُسْنِ الْمُعَامَلَةِ الظَّاهِرَةِ. أَمَّا مَيْلُ الْقَلْبِ وَزِيَادَةُ الْمَحَبَّةِ لِإِحْدَاهُنَّ فَأَمْرٌ لَا يَمْلِكُهُ الْإِنْسَانُ، وَلَا يُؤَاخَذُ بِهِ مَا لَمْ يُتَرْجِمْهُ إِلَى تَقْصِيرٍ فِي الْحُقُوقِ الظَّاهِرَةِ. لَكِنِ الْوَاجِبُ أَلَّا تَدَعَ ذَلِكَ الْمَيْلَ الْقَلْبِيَّ يَجُرُّكَ إِلَى إِهْمَالِ الْأُخْرَى بِالْكُلِّيَّةِ.",
-          "nl": "De verplichte rechtvaardigheid tussen echtgenotes betreft de zaken die een mens in zijn macht heeft: levensonderhoud, overnachting, en de uiterlijke goede behandeling. De neiging van het hart en extra liefde voor een van hen is iets waar een mens geen macht over heeft, en daar wordt hij niet op afgerekend zolang dit niet leidt tot tekortschieten in de zichtbare rechten. Wél is het verplicht om die neiging van het hart je niet te laten meeslepen tot het volledig verwaarlozen van de andere echtgenote.",
-          "en": "The justice obligatory between wives concerns matters within a person's control: maintenance, nightly rotation, and outward good treatment. An inclination of the heart and greater love for one of them is beyond a person's control, and he is not held accountable for it as long as it does not translate into neglect of the visible rights. What is obligatory, however, is not letting that inclination of the heart drag you into completely neglecting the other wife."
+          "ar": "أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَجْمَعَ فِي عِصْمَتِهِ حَتَّى أَرْبَعِ نِسْوَةٍ، لَكِنَّ هَذَا الْإِذْنَ مُقَيَّدٌ بِشَرْطٍ صَرِيحٍ: الْقُدْرَةُ عَلَى الْعَدْلِ بَيْنَ الزَّوْجَاتِ. فَمَنْ لَمْ يَثِقْ مِنْ نَفْسِهِ بِالْقُدْرَةِ عَلَى الْعَدْلِ فِي النَّفَقَةِ وَالْقَسْمِ وَحُسْنِ الْمُعَامَلَةِ، فَالِاقْتِصَارُ عَلَى مَنْ عِنْدَهُ أَسْلَمُ لَهُ وَلِمَنْ تَحْتَ يَدِهِ.",
+          "nl": "Allaah heeft een man toegestaan om tot vier vrouwen tegelijk te huwen, maar deze toestemming is gebonden aan een uitdrukkelijke voorwaarde: het vermogen om rechtvaardig te zijn tussen de echtgenotes. Wie er bij zichzelf niet zeker van is rechtvaardig te kunnen zijn in levensonderhoud, verdeling van tijd en goede behandeling, doet er veiliger aan — voor hemzelf en voor wie onder zijn zorg valt — zich te beperken tot wie hij al heeft.",
+          "en": "Allaah has permitted a man to marry up to four wives, but this permission is bound by an explicit condition: the ability to be just between the wives. Whoever is not confident in himself that he can be just in maintenance, division of time, and good treatment, is safer — for himself and for those in his care — sticking to who he already has."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَن تَسْتَطِيعُوٓا۟ أَن تَعْدِلُوا۟ بَيْنَ ٱلنِّسَآءِ وَلَوْ حَرَصْتُمْ ۖ فَلَا تَمِيلُوا۟ كُلَّ ٱلْمَيْلِ فَتَذَرُوهَا كَٱلْمُعَلَّقَةِ ۚ وَإِن تُصْلِحُوا۟ وَتَتَّقُوا۟ فَإِنَّ ٱللَّهَ كَانَ غَفُورًۭا رَّحِيمًۭا﴾ (النساء: ١٢٩)",
-          "nl": "Allaah, de Verhevene, zegt: 'En jullie zullen nooit in staat zijn rechtvaardig te zijn tussen de vrouwen, ook al zouden jullie dat heel graag willen. Neig dan niet met een volledige neiging, zodat jullie haar als het ware hangend achterlaten. En als jullie het goedmaken en (Allaah) vrezen: voorwaar, Allaah is Vergevensgezind, Meest Barmhartig.' (Soerat an-Nisaa: 129)",
-          "en": "Allaah, the Exalted, says: 'And you will never be able to be equitable between wives, even if you should strive [to do so]. So do not incline completely [toward one] and leave another hanging. And if you amend [your affairs] and fear Allaah, then indeed Allaah is ever Forgiving and Merciful.' (Surat an-Nisaa: 129)"
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَإِنْ خِفْتُمْ أَلَّا تُقْسِطُوا۟ فِى ٱلْيَتَٰمَىٰ فَٱنكِحُوا۟ مَا طَابَ لَكُم مِّنَ ٱلنِّسَآءِ مَثْنَىٰ وَثُلَٰثَ وَرُبَٰعَ ۖ فَإِنْ خِفْتُمْ أَلَّا تَعْدِلُوا۟ فَوَٰحِدَةً أَوْ مَا مَلَكَتْ أَيْمَٰنُكُمْ ۚ ذَٰلِكَ أَدْنَىٰٓ أَلَّا تَعُولُوا۟﴾ (النساء: ٣)",
+          "nl": "Allaah, de Verhevene, zegt: 'En als jullie vrezen dat jullie niet rechtvaardig zullen zijn tegenover de wees-meisjes, trouwt dan met wie jullie bevalt van de vrouwen: twee, drie of vier. Maar als jullie vrezen niet rechtvaardig te zijn, trouwt dan met één... Dat is dichter bij het niet onrechtvaardig handelen.' (Soerat an-Nisaa: 3)",
+          "en": "Allaah, the Exalted, says: 'And if you fear that you will not deal justly with the orphan girls, then marry those that please you of [other] women: two or three or four. But if you fear that you will not be just, then [marry only] one... That is more suitable, that you may not oppress.' (Surat an-Nisaa: 3)"
         },
+        "gender": "man",
         "when": [
           {
             "q": "count",
-            "value": "additional"
+            "value": "third"
           }
         ]
       },
       {
         "body": {
-          "ar": "التَّرْجِيحُ الظَّاهِرُ لِإِحْدَى الزَّوْجَاتِ عَلَى الْأُخْرَى — فِي الْمَبِيتِ، أَوِ النَّفَقَةِ، أَوِ الْهَدَايَا، أَوْ حُسْنِ الْمُعَامَلَةِ — مِنَ التَّقْصِيرِ الَّذِي حَذَّرَ مِنْهُ النَّبِيُّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ أَشَدَّ التَّحْذِيرِ. فَاحْذَرْ أَنْ تُقَدِّمَ زَوْجَتَكَ الْجَدِيدَةَ عَلَى زَوْجَتِكَ الْأُولَى بِمَا يُضَيِّعُ حَقَّهَا، أَوِ الْعَكْسَ.",
-          "nl": "Het duidelijk bevoordelen van de ene echtgenote boven de andere — in overnachting, levensonderhoud, geschenken, of goede behandeling — behoort tot de tekortkomingen waar de Profeet (vrede zij met hem) op de meest indringende wijze voor gewaarschuwd heeft. Waak ervoor je nieuwe echtgenote zo te bevoordelen dat het recht van je eerste echtgenote verloren gaat, en ook andersom.",
-          "en": "Clearly favouring one wife over another — in nightly rotation, maintenance, gifts, or good treatment — is among the shortcomings the Prophet (peace be upon him) warned against in the strongest terms. Be careful not to favour your new wife in a way that causes your first wife's right to be lost, and likewise the reverse."
+          "ar": "أَبَاحَ اللهُ تَعَالَى لِلرَّجُلِ أَنْ يَجْمَعَ فِي عِصْمَتِهِ حَتَّى أَرْبَعِ نِسْوَةٍ، لَكِنَّ هَذَا الْإِذْنَ مُقَيَّدٌ بِشَرْطٍ صَرِيحٍ: الْقُدْرَةُ عَلَى الْعَدْلِ بَيْنَ الزَّوْجَاتِ. فَمَنْ لَمْ يَثِقْ مِنْ نَفْسِهِ بِالْقُدْرَةِ عَلَى الْعَدْلِ فِي النَّفَقَةِ وَالْقَسْمِ وَحُسْنِ الْمُعَامَلَةِ، فَالِاقْتِصَارُ عَلَى مَنْ عِنْدَهُ أَسْلَمُ لَهُ وَلِمَنْ تَحْتَ يَدِهِ.",
+          "nl": "Allaah heeft een man toegestaan om tot vier vrouwen tegelijk te huwen, maar deze toestemming is gebonden aan een uitdrukkelijke voorwaarde: het vermogen om rechtvaardig te zijn tussen de echtgenotes. Wie er bij zichzelf niet zeker van is rechtvaardig te kunnen zijn in levensonderhoud, verdeling van tijd en goede behandeling, doet er veiliger aan — voor hemzelf en voor wie onder zijn zorg valt — zich te beperken tot wie hij al heeft.",
+          "en": "Allaah has permitted a man to marry up to four wives, but this permission is bound by an explicit condition: the ability to be just between the wives. Whoever is not confident in himself that he can be just in maintenance, division of time, and good treatment, is safer — for himself and for those in his care — sticking to who he already has."
         },
         "daleel": {
-          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «مَنْ كَانَتْ لَهُ امْرَأَتَانِ فَمَالَ إِلَى إِحْدَاهُمَا جَاءَ يَوْمَ الْقِيَامَةِ وَشِقُّهُ مَائِلٌ» رَوَاهُ أَبُو دَاوُدَ، وَصَحَّحَهُ الْأَلْبَانِيُّ.",
-          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Wie twee vrouwen heeft en naar een van hen beiden neigt, zal op de Dag der Opstanding komen met zijn zijde hangend/verlamd.' Overgeleverd door Aboe Dawoed; authentiek (sahih) verklaard door al-Albaanie.",
-          "en": "The Messenger of Allaah (peace be upon him) said: 'Whoever has two wives and inclines [in favour] toward one of them will come on the Day of Resurrection with his side leaning/paralyzed.' Narrated by Abu Dawud; graded authentic (sahih) by al-Albaani."
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَإِنْ خِفْتُمْ أَلَّا تُقْسِطُوا۟ فِى ٱلْيَتَٰمَىٰ فَٱنكِحُوا۟ مَا طَابَ لَكُم مِّنَ ٱلنِّسَآءِ مَثْنَىٰ وَثُلَٰثَ وَرُبَٰعَ ۖ فَإِنْ خِفْتُمْ أَلَّا تَعْدِلُوا۟ فَوَٰحِدَةً أَوْ مَا مَلَكَتْ أَيْمَٰنُكُمْ ۚ ذَٰلِكَ أَدْنَىٰٓ أَلَّا تَعُولُوا۟﴾ (النساء: ٣)",
+          "nl": "Allaah, de Verhevene, zegt: 'En als jullie vrezen dat jullie niet rechtvaardig zullen zijn tegenover de wees-meisjes, trouwt dan met wie jullie bevalt van de vrouwen: twee, drie of vier. Maar als jullie vrezen niet rechtvaardig te zijn, trouwt dan met één... Dat is dichter bij het niet onrechtvaardig handelen.' (Soerat an-Nisaa: 3)",
+          "en": "Allaah, the Exalted, says: 'And if you fear that you will not deal justly with the orphan girls, then marry those that please you of [other] women: two or three or four. But if you fear that you will not be just, then [marry only] one... That is more suitable, that you may not oppress.' (Surat an-Nisaa: 3)"
         },
+        "gender": "man",
         "when": [
           {
             "q": "count",
-            "value": "additional"
+            "value": "fourth"
           }
         ]
       },
       {
         "body": {
-          "ar": "إِذَا تَزَوَّجْتَ زَوْجَةً جَدِيدَةً، فَمِنَ السُّنَّةِ أَنْ تَخُصَّهَا بِأَيَّامٍ فِي بِدَايَةِ الزَّوَاجِ قَبْلَ اسْتِئْنَافِ الْقَسْمِ الْمُعْتَادِ بَيْنَ جَمِيعِ زَوْجَاتِكَ: سَبْعُ لَيَالٍ إِنْ كَانَتْ بِكْرًا، وَثَلَاثٌ إِنْ كَانَتْ ثَيِّبًا. وَهَذَا حَقٌّ خَاصٌّ بِهَا فِي أَوَّلِ عَهْدِهَا، لَا يُنْقِصُ مِنْ حَقِّ زَوْجَتِكَ الْأُولَى شَيْئًا، إِذْ يَعُودُ الْقَسْمُ بَعْدَهَا عَادِلًا بَيْنَ الْجَمِيعِ كَمَا كَانَ.",
-          "nl": "Wanneer je met een nieuwe echtgenote trouwt, is het Soennah om haar aan het begin van het huwelijk een aantal dagen exclusief te geven, voordat de gebruikelijke verdeling (qasm) tussen al je echtgenotes hervat wordt: zeven nachten als zij nog niet eerder getrouwd is geweest, en drie nachten als zij weduwe of gescheiden was. Dit is een recht dat alleen voor haar geldt in het begin, en doet niets af aan het recht van je eerste echtgenote: daarna keert de rechtvaardige verdeling tussen iedereen terug zoals die was.",
-          "en": "When you marry a new wife, it is Sunnah to give her a number of exclusive days at the start of the marriage, before resuming the usual rotation (qasm) among all your wives: seven nights if she was not previously married, and three nights if she was a widow or divorcee. This is a right specific to her at the very start, and takes nothing away from your first wife's right — after it, the just rotation between everyone returns as it was."
+          "ar": "الْعَدْلُ الْوَاجِبُ بَيْنَ الزَّوْجَاتِ هُوَ الْعَدْلُ فِيمَا يَمْلِكُهُ الْإِنْسَانُ وَيَقْدِرُ عَلَيْهِ: كَالنَّفَقَةِ، وَالْمَبِيتِ، وَحُسْنِ الْمُعَامَلَةِ الظَّاهِرَةِ. أَمَّا مَيْلُ الْقَلْبِ وَزِيَادَةُ الْمَحَبَّةِ لِإِحْدَاهُنَّ فَأَمْرٌ لَا يَمْلِكُهُ الْإِنْسَانُ، وَلَا يُؤَاخَذُ بِهِ مَا لَمْ يُتَرْجِمْهُ إِلَى تَقْصِيرٍ فِي الْحُقُوقِ الظَّاهِرَةِ. لَكِنَّ التَّرْجِيحَ الظَّاهِرَ لِزَوْجَتِكَ الْجَدِيدَةِ عَلَى زَوْجَتِكَ الْأُولَى — فِي الْمَبِيتِ أَوِ النَّفَقَةِ أَوِ الْهَدَايَا أَوْ حُسْنِ الْمُعَامَلَةِ — مِنَ التَّقْصِيرِ الَّذِي حَذَّرَ مِنْهُ النَّبِيُّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ أَشَدَّ التَّحْذِيرِ. فَاحْذَرْ أَنْ يَجُرَّكَ حُبُّ الْجَدِيدَةِ إِلَى إِهْمَالِ الْأُولَى وَتَضْيِيعِ حَقِّهَا.",
+          "nl": "De verplichte rechtvaardigheid tussen echtgenotes betreft de zaken die een mens in zijn macht heeft: levensonderhoud, overnachting, en de uiterlijke goede behandeling. De neiging van het hart en extra liefde voor een van hen is iets waar een mens geen macht over heeft, en daar wordt hij niet op afgerekend zolang dit niet leidt tot tekortschieten in de zichtbare rechten. Maar het duidelijk bevoordelen van je nieuwe echtgenote boven je eerste — in overnachting, levensonderhoud, geschenken, of goede behandeling — behoort tot de tekortkomingen waar de Profeet (vrede zij met hem) op de meest indringende wijze voor gewaarschuwd heeft. Waak ervoor dat liefde voor de nieuwe echtgenote je meesleept tot verwaarlozing van de eerste en het verlies van haar recht.",
+          "en": "The justice obligatory between wives concerns matters within a person's control: maintenance, nightly rotation, and outward good treatment. An inclination of the heart and greater love for one of them is beyond a person's control, and he is not held accountable for it as long as it does not translate into neglect of the visible rights. But clearly favouring your new wife over your first — in nightly rotation, maintenance, gifts, or good treatment — is among the shortcomings the Prophet (peace be upon him) warned against in the strongest terms. Be careful that love for the new wife does not drag you into neglecting the first and causing her right to be lost."
         },
         "daleel": {
-          "ar": "قَالَ أَنَسُ بْنُ مَالِكٍ رَضِيَ اللهُ عَنْهُ، عَنِ النَّبِيِّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «إِذَا تَزَوَّجَ الرَّجُلُ الْبِكْرَ عَلَى الثَّيِّبِ أَقَامَ عِنْدَهَا سَبْعًا وَقَسَمَ، وَإِذَا تَزَوَّجَ الثَّيِّبَ عَلَى الْبِكْرِ أَقَامَ عِنْدَهَا ثَلَاثًا ثُمَّ قَسَمَ» رَوَاهُ الْبُخَارِيُّ.",
-          "nl": "Anas ibn Malik (moge Allaah tevreden over hem zijn) verhaalde van de Profeet (vrede zij met hem): 'Als een man trouwt met een maagd terwijl hij al een eerder-getrouwde vrouw heeft, blijft hij zeven [nachten] bij haar en verdeelt daarna [de tijd weer gelijk]; en als hij trouwt met een eerder-getrouwde vrouw terwijl hij al een maagd heeft, blijft hij drie [nachten] bij haar, en verdeelt daarna [de tijd weer gelijk].' Overgeleverd door al-Boekhaarie.",
-          "en": "Anas ibn Malik (may Allaah be pleased with him) narrated from the Prophet (peace be upon him): 'When a man marries a virgin while [already] having a previously-married wife, he stays with her seven [nights], then divides [time equally again]; and when he marries a previously-married woman while [already] having a virgin wife, he stays with her three [nights], then divides [time equally again].' Narrated by al-Bukhari."
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَن تَسْتَطِيعُوٓا۟ أَن تَعْدِلُوا۟ بَيْنَ ٱلنِّسَآءِ وَلَوْ حَرَصْتُمْ ۖ فَلَا تَمِيلُوا۟ كُلَّ ٱلْمَيْلِ فَتَذَرُوهَا كَٱلْمُعَلَّقَةِ ۚ وَإِن تُصْلِحُوا۟ وَتَتَّقُوا۟ فَإِنَّ ٱللَّهَ كَانَ غَفُورًۭا رَّحِيمًۭا﴾ (النساء: ١٢٩). وَقَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «مَنْ كَانَتْ لَهُ امْرَأَتَانِ فَمَالَ إِلَى إِحْدَاهُمَا جَاءَ يَوْمَ الْقِيَامَةِ وَشِقُّهُ مَائِلٌ» رَوَاهُ أَبُو دَاوُدَ (٢١٣٣) عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ، وَصَحَّحَهُ الْأَلْبَانِيُّ.",
+          "nl": "Allaah, de Verhevene, zegt: 'En jullie zullen nooit in staat zijn rechtvaardig te zijn tussen de vrouwen, ook al zouden jullie dat heel graag willen. Neig dan niet met een volledige neiging, zodat jullie haar als het ware hangend achterlaten. En als jullie het goedmaken en (Allaah) vrezen: voorwaar, Allaah is Vergevensgezind, Meest Barmhartig.' (Soerat an-Nisaa: 129). En de Boodschapper van Allaah (vrede zij met hem) zei: 'Wie twee vrouwen heeft en naar een van hen beiden neigt, zal op de Dag der Opstanding komen met zijn zijde hangend/verlamd.' Overgeleverd door Aboe Dawoed (2133), van Aboe Hoerayrah (moge Allaah tevreden over hem zijn); authentiek (sahih) verklaard door al-Albaanie.",
+          "en": "Allaah, the Exalted, says: 'And you will never be able to be equitable between wives, even if you should strive [to do so]. So do not incline completely [toward one] and leave another hanging. And if you amend [your affairs] and fear Allaah, then indeed Allaah is ever Forgiving and Merciful.' (Surat an-Nisaa: 129). And the Messenger of Allaah (peace be upon him) said: 'Whoever has two wives and inclines [in favour] toward one of them will come on the Day of Resurrection with his side leaning/paralyzed.' Narrated by Abu Dawud (2133), from Abu Hurayrah (may Allaah be pleased with him); graded authentic (sahih) by al-Albaani."
         },
+        "gender": "man",
         "when": [
           {
             "q": "count",
-            "value": "additional"
+            "value": "second"
+          }
+        ]
+      },
+      {
+        "body": {
+          "ar": "الْعَدْلُ الْوَاجِبُ بَيْنَ الزَّوْجَاتِ هُوَ الْعَدْلُ فِيمَا يَمْلِكُهُ الْإِنْسَانُ وَيَقْدِرُ عَلَيْهِ: كَالنَّفَقَةِ، وَالْمَبِيتِ، وَحُسْنِ الْمُعَامَلَةِ الظَّاهِرَةِ. أَمَّا مَيْلُ الْقَلْبِ وَزِيَادَةُ الْمَحَبَّةِ لِإِحْدَاهُنَّ فَأَمْرٌ لَا يَمْلِكُهُ الْإِنْسَانُ، وَلَا يُؤَاخَذُ بِهِ مَا لَمْ يُتَرْجِمْهُ إِلَى تَقْصِيرٍ فِي الْحُقُوقِ الظَّاهِرَةِ. لَكِنَّ التَّرْجِيحَ الظَّاهِرَ لِزَوْجَتِكَ الْجَدِيدَةِ عَلَى زَوْجَتِكَ الْأُولَى — فِي الْمَبِيتِ أَوِ النَّفَقَةِ أَوِ الْهَدَايَا أَوْ حُسْنِ الْمُعَامَلَةِ — مِنَ التَّقْصِيرِ الَّذِي حَذَّرَ مِنْهُ النَّبِيُّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ أَشَدَّ التَّحْذِيرِ. فَاحْذَرْ أَنْ يَجُرَّكَ حُبُّ الْجَدِيدَةِ إِلَى إِهْمَالِ الْأُولَى وَتَضْيِيعِ حَقِّهَا.",
+          "nl": "De verplichte rechtvaardigheid tussen echtgenotes betreft de zaken die een mens in zijn macht heeft: levensonderhoud, overnachting, en de uiterlijke goede behandeling. De neiging van het hart en extra liefde voor een van hen is iets waar een mens geen macht over heeft, en daar wordt hij niet op afgerekend zolang dit niet leidt tot tekortschieten in de zichtbare rechten. Maar het duidelijk bevoordelen van je nieuwe echtgenote boven je eerste — in overnachting, levensonderhoud, geschenken, of goede behandeling — behoort tot de tekortkomingen waar de Profeet (vrede zij met hem) op de meest indringende wijze voor gewaarschuwd heeft. Waak ervoor dat liefde voor de nieuwe echtgenote je meesleept tot verwaarlozing van de eerste en het verlies van haar recht.",
+          "en": "The justice obligatory between wives concerns matters within a person's control: maintenance, nightly rotation, and outward good treatment. An inclination of the heart and greater love for one of them is beyond a person's control, and he is not held accountable for it as long as it does not translate into neglect of the visible rights. But clearly favouring your new wife over your first — in nightly rotation, maintenance, gifts, or good treatment — is among the shortcomings the Prophet (peace be upon him) warned against in the strongest terms. Be careful that love for the new wife does not drag you into neglecting the first and causing her right to be lost."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَن تَسْتَطِيعُوٓا۟ أَن تَعْدِلُوا۟ بَيْنَ ٱلنِّسَآءِ وَلَوْ حَرَصْتُمْ ۖ فَلَا تَمِيلُوا۟ كُلَّ ٱلْمَيْلِ فَتَذَرُوهَا كَٱلْمُعَلَّقَةِ ۚ وَإِن تُصْلِحُوا۟ وَتَتَّقُوا۟ فَإِنَّ ٱللَّهَ كَانَ غَفُورًۭا رَّحِيمًۭا﴾ (النساء: ١٢٩). وَقَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «مَنْ كَانَتْ لَهُ امْرَأَتَانِ فَمَالَ إِلَى إِحْدَاهُمَا جَاءَ يَوْمَ الْقِيَامَةِ وَشِقُّهُ مَائِلٌ» رَوَاهُ أَبُو دَاوُدَ (٢١٣٣) عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ، وَصَحَّحَهُ الْأَلْبَانِيُّ.",
+          "nl": "Allaah, de Verhevene, zegt: 'En jullie zullen nooit in staat zijn rechtvaardig te zijn tussen de vrouwen, ook al zouden jullie dat heel graag willen. Neig dan niet met een volledige neiging, zodat jullie haar als het ware hangend achterlaten. En als jullie het goedmaken en (Allaah) vrezen: voorwaar, Allaah is Vergevensgezind, Meest Barmhartig.' (Soerat an-Nisaa: 129). En de Boodschapper van Allaah (vrede zij met hem) zei: 'Wie twee vrouwen heeft en naar een van hen beiden neigt, zal op de Dag der Opstanding komen met zijn zijde hangend/verlamd.' Overgeleverd door Aboe Dawoed (2133), van Aboe Hoerayrah (moge Allaah tevreden over hem zijn); authentiek (sahih) verklaard door al-Albaanie.",
+          "en": "Allaah, the Exalted, says: 'And you will never be able to be equitable between wives, even if you should strive [to do so]. So do not incline completely [toward one] and leave another hanging. And if you amend [your affairs] and fear Allaah, then indeed Allaah is ever Forgiving and Merciful.' (Surat an-Nisaa: 129). And the Messenger of Allaah (peace be upon him) said: 'Whoever has two wives and inclines [in favour] toward one of them will come on the Day of Resurrection with his side leaning/paralyzed.' Narrated by Abu Dawud (2133), from Abu Hurayrah (may Allaah be pleased with him); graded authentic (sahih) by al-Albaani."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "count",
+            "value": "third"
+          }
+        ]
+      },
+      {
+        "body": {
+          "ar": "الْعَدْلُ الْوَاجِبُ بَيْنَ الزَّوْجَاتِ هُوَ الْعَدْلُ فِيمَا يَمْلِكُهُ الْإِنْسَانُ وَيَقْدِرُ عَلَيْهِ: كَالنَّفَقَةِ، وَالْمَبِيتِ، وَحُسْنِ الْمُعَامَلَةِ الظَّاهِرَةِ. أَمَّا مَيْلُ الْقَلْبِ وَزِيَادَةُ الْمَحَبَّةِ لِإِحْدَاهُنَّ فَأَمْرٌ لَا يَمْلِكُهُ الْإِنْسَانُ، وَلَا يُؤَاخَذُ بِهِ مَا لَمْ يُتَرْجِمْهُ إِلَى تَقْصِيرٍ فِي الْحُقُوقِ الظَّاهِرَةِ. لَكِنَّ التَّرْجِيحَ الظَّاهِرَ لِزَوْجَتِكَ الْجَدِيدَةِ عَلَى زَوْجَتِكَ الْأُولَى — فِي الْمَبِيتِ أَوِ النَّفَقَةِ أَوِ الْهَدَايَا أَوْ حُسْنِ الْمُعَامَلَةِ — مِنَ التَّقْصِيرِ الَّذِي حَذَّرَ مِنْهُ النَّبِيُّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ أَشَدَّ التَّحْذِيرِ. فَاحْذَرْ أَنْ يَجُرَّكَ حُبُّ الْجَدِيدَةِ إِلَى إِهْمَالِ الْأُولَى وَتَضْيِيعِ حَقِّهَا.",
+          "nl": "De verplichte rechtvaardigheid tussen echtgenotes betreft de zaken die een mens in zijn macht heeft: levensonderhoud, overnachting, en de uiterlijke goede behandeling. De neiging van het hart en extra liefde voor een van hen is iets waar een mens geen macht over heeft, en daar wordt hij niet op afgerekend zolang dit niet leidt tot tekortschieten in de zichtbare rechten. Maar het duidelijk bevoordelen van je nieuwe echtgenote boven je eerste — in overnachting, levensonderhoud, geschenken, of goede behandeling — behoort tot de tekortkomingen waar de Profeet (vrede zij met hem) op de meest indringende wijze voor gewaarschuwd heeft. Waak ervoor dat liefde voor de nieuwe echtgenote je meesleept tot verwaarlozing van de eerste en het verlies van haar recht.",
+          "en": "The justice obligatory between wives concerns matters within a person's control: maintenance, nightly rotation, and outward good treatment. An inclination of the heart and greater love for one of them is beyond a person's control, and he is not held accountable for it as long as it does not translate into neglect of the visible rights. But clearly favouring your new wife over your first — in nightly rotation, maintenance, gifts, or good treatment — is among the shortcomings the Prophet (peace be upon him) warned against in the strongest terms. Be careful that love for the new wife does not drag you into neglecting the first and causing her right to be lost."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَن تَسْتَطِيعُوٓا۟ أَن تَعْدِلُوا۟ بَيْنَ ٱلنِّسَآءِ وَلَوْ حَرَصْتُمْ ۖ فَلَا تَمِيلُوا۟ كُلَّ ٱلْمَيْلِ فَتَذَرُوهَا كَٱلْمُعَلَّقَةِ ۚ وَإِن تُصْلِحُوا۟ وَتَتَّقُوا۟ فَإِنَّ ٱللَّهَ كَانَ غَفُورًۭا رَّحِيمًۭا﴾ (النساء: ١٢٩). وَقَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «مَنْ كَانَتْ لَهُ امْرَأَتَانِ فَمَالَ إِلَى إِحْدَاهُمَا جَاءَ يَوْمَ الْقِيَامَةِ وَشِقُّهُ مَائِلٌ» رَوَاهُ أَبُو دَاوُدَ (٢١٣٣) عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ، وَصَحَّحَهُ الْأَلْبَانِيُّ.",
+          "nl": "Allaah, de Verhevene, zegt: 'En jullie zullen nooit in staat zijn rechtvaardig te zijn tussen de vrouwen, ook al zouden jullie dat heel graag willen. Neig dan niet met een volledige neiging, zodat jullie haar als het ware hangend achterlaten. En als jullie het goedmaken en (Allaah) vrezen: voorwaar, Allaah is Vergevensgezind, Meest Barmhartig.' (Soerat an-Nisaa: 129). En de Boodschapper van Allaah (vrede zij met hem) zei: 'Wie twee vrouwen heeft en naar een van hen beiden neigt, zal op de Dag der Opstanding komen met zijn zijde hangend/verlamd.' Overgeleverd door Aboe Dawoed (2133), van Aboe Hoerayrah (moge Allaah tevreden over hem zijn); authentiek (sahih) verklaard door al-Albaanie.",
+          "en": "Allaah, the Exalted, says: 'And you will never be able to be equitable between wives, even if you should strive [to do so]. So do not incline completely [toward one] and leave another hanging. And if you amend [your affairs] and fear Allaah, then indeed Allaah is ever Forgiving and Merciful.' (Surat an-Nisaa: 129). And the Messenger of Allaah (peace be upon him) said: 'Whoever has two wives and inclines [in favour] toward one of them will come on the Day of Resurrection with his side leaning/paralyzed.' Narrated by Abu Dawud (2133), from Abu Hurayrah (may Allaah be pleased with him); graded authentic (sahih) by al-Albaani."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "count",
+            "value": "fourth"
+          }
+        ]
+      },
+      {
+        "body": {
+          "ar": "إِذَا تَزَوَّجْتَ زَوْجَةً جَدِيدَةً، فَمِنَ السُّنَّةِ أَنْ تَخُصَّهَا بِأَيَّامٍ فِي بِدَايَةِ الزَّوَاجِ قَبْلَ اسْتِئْنَافِ الْقَسْمِ الْمُعْتَادِ بَيْنَ جَمِيعِ زَوْجَاتِكَ: سَبْعُ لَيَالٍ إِنْ كَانَتْ بِكْرًا، وَثَلَاثٌ إِنْ كَانَتْ ثَيِّبًا. وَهَذَا حَقٌّ خَاصٌّ بِهَا فِي أَوَّلِ عَهْدِهَا، لَا يُنْقِصُ مِنْ حَقِّ بَقِيَّةِ زَوْجَاتِكَ شَيْئًا، إِذْ يَعُودُ الْقَسْمُ بَعْدَهَا عَادِلًا بَيْنَ الْجَمِيعِ كَمَا كَانَ.",
+          "nl": "Wanneer je met een nieuwe echtgenote trouwt, is het Soennah om haar aan het begin van het huwelijk een aantal dagen exclusief te geven, voordat de gebruikelijke verdeling (qasm) tussen al je echtgenotes hervat wordt: zeven nachten als zij nog niet eerder getrouwd is geweest, en drie nachten als zij weduwe of gescheiden was. Dit is een recht dat alleen voor haar geldt in het begin, en doet niets af aan het recht van je overige echtgenotes: daarna keert de rechtvaardige verdeling tussen iedereen terug zoals die was.",
+          "en": "When you marry a new wife, it is Sunnah to give her a number of exclusive days at the start of the marriage, before resuming the usual rotation (qasm) among all your wives: seven nights if she was not previously married, and three nights if she was a widow or divorcee. This is a right specific to her at the very start, and takes nothing away from the right of your other wives — after it, the just rotation between everyone returns as it was."
+        },
+        "daleel": {
+          "ar": "قَالَ أَنَسُ بْنُ مَالِكٍ رَضِيَ اللهُ عَنْهُ: «مِنَ السُّنَّةِ إِذَا تَزَوَّجَ الرَّجُلُ الْبِكْرَ عَلَى الثَّيِّبِ أَقَامَ عِنْدَهَا سَبْعًا وَقَسَمَ، وَإِذَا تَزَوَّجَ الثَّيِّبَ عَلَى الْبِكْرِ أَقَامَ عِنْدَهَا ثَلاَثًا ثُمَّ قَسَمَ» رَوَاهُ الْبُخَارِيُّ (٥٢١٤)، وَهُوَ فِي حُكْمِ الْمَرْفُوعِ لِأَنَّهُ إِخْبَارٌ عَنْ هَدْيٍ كَانَ فِي عَهْدِ النَّبِيِّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ.",
+          "nl": "Anas ibn Malik (moge Allaah tevreden over hem zijn) zei: 'Het behoort tot de Soennah dat wanneer een man met een maagd trouwt terwijl hij al een eerder-getrouwde vrouw heeft, hij zeven [nachten] bij haar blijft en daarna [de tijd weer gelijk] verdeelt; en wanneer hij met een eerder-getrouwde vrouw trouwt terwijl hij al een maagd heeft, blijft hij drie [nachten] bij haar, en verdeelt daarna [de tijd weer gelijk].' Overgeleverd door al-Boekhaarie (5214); dit geldt als een overlevering met het gezag van een Profetische uitspraak, omdat het gaat om een gebruik uit de tijd van de Profeet (vrede zij met hem).",
+          "en": "Anas ibn Malik (may Allaah be pleased with him) said: 'It is from the Sunnah that when a man marries a virgin while [already] having a previously-married wife, he stays with her seven [nights], then divides [time equally again]; and when he marries a previously-married woman while [already] having a virgin wife, he stays with her three [nights], then divides [time equally again].' Narrated by al-Bukhari (5214); this carries the ruling of a Prophetic report, since it describes a practice from the time of the Prophet (peace be upon him)."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "count",
+            "value": "second"
           },
           {
             "q": "stage",
             "value": "new"
           }
         ]
+      },
+      {
+        "body": {
+          "ar": "إِذَا تَزَوَّجْتَ زَوْجَةً جَدِيدَةً، فَمِنَ السُّنَّةِ أَنْ تَخُصَّهَا بِأَيَّامٍ فِي بِدَايَةِ الزَّوَاجِ قَبْلَ اسْتِئْنَافِ الْقَسْمِ الْمُعْتَادِ بَيْنَ جَمِيعِ زَوْجَاتِكَ: سَبْعُ لَيَالٍ إِنْ كَانَتْ بِكْرًا، وَثَلَاثٌ إِنْ كَانَتْ ثَيِّبًا. وَهَذَا حَقٌّ خَاصٌّ بِهَا فِي أَوَّلِ عَهْدِهَا، لَا يُنْقِصُ مِنْ حَقِّ بَقِيَّةِ زَوْجَاتِكَ شَيْئًا، إِذْ يَعُودُ الْقَسْمُ بَعْدَهَا عَادِلًا بَيْنَ الْجَمِيعِ كَمَا كَانَ.",
+          "nl": "Wanneer je met een nieuwe echtgenote trouwt, is het Soennah om haar aan het begin van het huwelijk een aantal dagen exclusief te geven, voordat de gebruikelijke verdeling (qasm) tussen al je echtgenotes hervat wordt: zeven nachten als zij nog niet eerder getrouwd is geweest, en drie nachten als zij weduwe of gescheiden was. Dit is een recht dat alleen voor haar geldt in het begin, en doet niets af aan het recht van je overige echtgenotes: daarna keert de rechtvaardige verdeling tussen iedereen terug zoals die was.",
+          "en": "When you marry a new wife, it is Sunnah to give her a number of exclusive days at the start of the marriage, before resuming the usual rotation (qasm) among all your wives: seven nights if she was not previously married, and three nights if she was a widow or divorcee. This is a right specific to her at the very start, and takes nothing away from the right of your other wives — after it, the just rotation between everyone returns as it was."
+        },
+        "daleel": {
+          "ar": "قَالَ أَنَسُ بْنُ مَالِكٍ رَضِيَ اللهُ عَنْهُ: «مِنَ السُّنَّةِ إِذَا تَزَوَّجَ الرَّجُلُ الْبِكْرَ عَلَى الثَّيِّبِ أَقَامَ عِنْدَهَا سَبْعًا وَقَسَمَ، وَإِذَا تَزَوَّجَ الثَّيِّبَ عَلَى الْبِكْرِ أَقَامَ عِنْدَهَا ثَلاَثًا ثُمَّ قَسَمَ» رَوَاهُ الْبُخَارِيُّ (٥٢١٤)، وَهُوَ فِي حُكْمِ الْمَرْفُوعِ لِأَنَّهُ إِخْبَارٌ عَنْ هَدْيٍ كَانَ فِي عَهْدِ النَّبِيِّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ.",
+          "nl": "Anas ibn Malik (moge Allaah tevreden over hem zijn) zei: 'Het behoort tot de Soennah dat wanneer een man met een maagd trouwt terwijl hij al een eerder-getrouwde vrouw heeft, hij zeven [nachten] bij haar blijft en daarna [de tijd weer gelijk] verdeelt; en wanneer hij met een eerder-getrouwde vrouw trouwt terwijl hij al een maagd heeft, blijft hij drie [nachten] bij haar, en verdeelt daarna [de tijd weer gelijk].' Overgeleverd door al-Boekhaarie (5214); dit geldt als een overlevering met het gezag van een Profetische uitspraak, omdat het gaat om een gebruik uit de tijd van de Profeet (vrede zij met hem).",
+          "en": "Anas ibn Malik (may Allaah be pleased with him) said: 'It is from the Sunnah that when a man marries a virgin while [already] having a previously-married wife, he stays with her seven [nights], then divides [time equally again]; and when he marries a previously-married woman while [already] having a virgin wife, he stays with her three [nights], then divides [time equally again].' Narrated by al-Bukhari (5214); this carries the ruling of a Prophetic report, since it describes a practice from the time of the Prophet (peace be upon him)."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "count",
+            "value": "third"
+          },
+          {
+            "q": "stage",
+            "value": "new"
+          }
+        ]
+      },
+      {
+        "body": {
+          "ar": "إِذَا تَزَوَّجْتَ زَوْجَةً جَدِيدَةً، فَمِنَ السُّنَّةِ أَنْ تَخُصَّهَا بِأَيَّامٍ فِي بِدَايَةِ الزَّوَاجِ قَبْلَ اسْتِئْنَافِ الْقَسْمِ الْمُعْتَادِ بَيْنَ جَمِيعِ زَوْجَاتِكَ: سَبْعُ لَيَالٍ إِنْ كَانَتْ بِكْرًا، وَثَلَاثٌ إِنْ كَانَتْ ثَيِّبًا. وَهَذَا حَقٌّ خَاصٌّ بِهَا فِي أَوَّلِ عَهْدِهَا، لَا يُنْقِصُ مِنْ حَقِّ بَقِيَّةِ زَوْجَاتِكَ شَيْئًا، إِذْ يَعُودُ الْقَسْمُ بَعْدَهَا عَادِلًا بَيْنَ الْجَمِيعِ كَمَا كَانَ.",
+          "nl": "Wanneer je met een nieuwe echtgenote trouwt, is het Soennah om haar aan het begin van het huwelijk een aantal dagen exclusief te geven, voordat de gebruikelijke verdeling (qasm) tussen al je echtgenotes hervat wordt: zeven nachten als zij nog niet eerder getrouwd is geweest, en drie nachten als zij weduwe of gescheiden was. Dit is een recht dat alleen voor haar geldt in het begin, en doet niets af aan het recht van je overige echtgenotes: daarna keert de rechtvaardige verdeling tussen iedereen terug zoals die was.",
+          "en": "When you marry a new wife, it is Sunnah to give her a number of exclusive days at the start of the marriage, before resuming the usual rotation (qasm) among all your wives: seven nights if she was not previously married, and three nights if she was a widow or divorcee. This is a right specific to her at the very start, and takes nothing away from the right of your other wives — after it, the just rotation between everyone returns as it was."
+        },
+        "daleel": {
+          "ar": "قَالَ أَنَسُ بْنُ مَالِكٍ رَضِيَ اللهُ عَنْهُ: «مِنَ السُّنَّةِ إِذَا تَزَوَّجَ الرَّجُلُ الْبِكْرَ عَلَى الثَّيِّبِ أَقَامَ عِنْدَهَا سَبْعًا وَقَسَمَ، وَإِذَا تَزَوَّجَ الثَّيِّبَ عَلَى الْبِكْرِ أَقَامَ عِنْدَهَا ثَلاَثًا ثُمَّ قَسَمَ» رَوَاهُ الْبُخَارِيُّ (٥٢١٤)، وَهُوَ فِي حُكْمِ الْمَرْفُوعِ لِأَنَّهُ إِخْبَارٌ عَنْ هَدْيٍ كَانَ فِي عَهْدِ النَّبِيِّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ.",
+          "nl": "Anas ibn Malik (moge Allaah tevreden over hem zijn) zei: 'Het behoort tot de Soennah dat wanneer een man met een maagd trouwt terwijl hij al een eerder-getrouwde vrouw heeft, hij zeven [nachten] bij haar blijft en daarna [de tijd weer gelijk] verdeelt; en wanneer hij met een eerder-getrouwde vrouw trouwt terwijl hij al een maagd heeft, blijft hij drie [nachten] bij haar, en verdeelt daarna [de tijd weer gelijk].' Overgeleverd door al-Boekhaarie (5214); dit geldt als een overlevering met het gezag van een Profetische uitspraak, omdat het gaat om een gebruik uit de tijd van de Profeet (vrede zij met hem).",
+          "en": "Anas ibn Malik (may Allaah be pleased with him) said: 'It is from the Sunnah that when a man marries a virgin while [already] having a previously-married wife, he stays with her seven [nights], then divides [time equally again]; and when he marries a previously-married woman while [already] having a virgin wife, he stays with her three [nights], then divides [time equally again].' Narrated by al-Bukhari (5214); this carries the ruling of a Prophetic report, since it describes a practice from the time of the Prophet (peace be upon him)."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "count",
+            "value": "fourth"
+          },
+          {
+            "q": "stage",
+            "value": "new"
+          }
+        ]
+      },
+      {
+        "body": {
+          "ar": "إِذَا كُنْتَ قَدْ سَبَقَ لَكَ زَوَاجٌ أَوْ طَلَاقٌ، فَاجْعَلْ مِنْ ذَلِكَ عِبْرَةً تُحْسِنُ بِهَا اخْتِيَارَكَ هَذِهِ الْمَرَّةَ: فَلْيَكُنِ الدِّينُ وَالْخُلُقُ أَوَّلَ مَا تَنْظُرُ إِلَيْهِ فِي زَوْجَتِكَ الْجَدِيدَةِ، وَاسْتَخِرِ اللهَ تَعَالَى قَبْلَ الْإِقْدَامِ، وَكُنْ صَادِقًا مَعَهَا فِيمَا يَلْزَمُكَ بَيَانُهُ مِنْ حَالِكَ.",
+          "nl": "Als je eerder getrouwd of gescheiden bent geweest, maak daar dan een les van om deze keer een betere keuze te maken: laat geloof en karakter het eerste zijn waar je op let bij je nieuwe echtgenote, vraag Allaah om leiding (istikhaarah) voordat je verdergaat, en wees eerlijk tegenover haar over wat je haar behoort te vertellen over je situatie.",
+          "en": "If you have been married or divorced before, let that be a lesson that helps you choose better this time: let religion and character be the first thing you look for in your new wife, seek Allaah's guidance (istikharah) before proceeding, and be honest with her about what you owe her to disclose of your situation."
+        },
+        "daleel": {
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «تُنْكَحُ الْمَرْأَةُ لأَرْبَعٍ لِمَالِهَا وَلِحَسَبِهَا وَجَمَالِهَا وَلِدِينِهَا، فَاظْفَرْ بِذَاتِ الدِّينِ تَرِبَتْ يَدَاكَ» رَوَاهُ الْبُخَارِيُّ (٥٠٩٠) وَمُسْلِمٌ (١٤٦٦) عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ. وَعَنْ جَابِرِ بْنِ عَبْدِ اللهِ رَضِيَ اللهُ عَنْهُمَا قَالَ: «إِذَا هَمَّ أَحَدُكُمْ بِالأَمْرِ فَلْيَرْكَعْ رَكْعَتَيْنِ مِنْ غَيْرِ الْفَرِيضَةِ ثُمَّ لِيَقُلِ اللَّهُمَّ إِنِّي أَسْتَخِيرُكَ بِعِلْمِكَ وَأَسْتَقْدِرُكَ بِقُدْرَتِكَ، وَأَسْأَلُكَ مِنْ فَضْلِكَ الْعَظِيمِ، فَإِنَّكَ تَقْدِرُ وَلاَ أَقْدِرُ وَتَعْلَمُ وَلاَ أَعْلَمُ وَأَنْتَ عَلاَّمُ الْغُيُوبِ، اللَّهُمَّ إِنْ كُنْتَ تَعْلَمُ أَنَّ هَذَا الأَمْرَ خَيْرٌ لِي فِي دِينِي وَمَعَاشِي وَعَاقِبَةِ أَمْرِي ـ أَوْ قَالَ عَاجِلِ أَمْرِي وَآجِلِهِ ـ فَاقْدُرْهُ لِي وَيَسِّرْهُ لِي ثُمَّ بَارِكْ لِي فِيهِ، وَإِنْ كُنْتَ تَعْلَمُ أَنَّ هَذَا الأَمْرَ شَرٌّ لِي فِي دِينِي وَمَعَاشِي وَعَاقِبَةِ أَمْرِي ـ أَوْ قَالَ فِي عَاجِلِ أَمْرِي وَآجِلِهِ ـ فَاصْرِفْهُ عَنِّي وَاصْرِفْنِي عَنْهُ، وَاقْدُرْ لِي الْخَيْرَ حَيْثُ كَانَ ثُمَّ أَرْضِنِي بِهِ ـ قَالَ ـ وَيُسَمِّي حَاجَتَهُ» رَوَاهُ الْبُخَارِيُّ (١١٦٦). وَيَقُولُ اللهُ تَعَالَى: ﴿يَٰٓأَيُّهَا ٱلَّذِينَ ءَامَنُوا۟ ٱتَّقُوا۟ ٱللَّهَ وَكُونُوا۟ مَعَ ٱلصَّٰدِقِينَ﴾ (التوبة: ١١٩).",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Een vrouw wordt getrouwd om vier zaken: om haar bezit, om haar afkomst, om haar schoonheid, en om haar geloof. Kies daarom voor degene met geloof, moge je daardoor voorspoedig worden.' Overgeleverd door al-Boekhaarie (5090) en Moeslim (1466), van Aboe Hoerayrah (moge Allaah tevreden over hem zijn). En Jaabir ibn 'Abdillaah (moge Allaah tevreden over hen beiden zijn) zei: 'De Boodschapper van Allaah (vrede zij met hem) leerde ons de istikhaarah in alle zaken, zoals hij ons een soerah uit de Koran leerde.' Overgeleverd door al-Boekhaarie (1166). En Allaah, de Verhevene, zegt: 'O jullie die geloven, vrees Allaah en wees met de waarachtigen.' (Soerat at-Tawbah: 119).",
+          "en": "The Messenger of Allaah (peace be upon him) said: 'A woman is married for one of four things: her wealth, her lineage, her beauty, or her religion. So seek out the one with religion, may you thereby prosper.' Narrated by al-Bukhari (5090) and Muslim (1466), from Abu Hurayrah (may Allaah be pleased with him). And Jabir ibn 'Abdullah (may Allaah be pleased with them both) said: 'The Messenger of Allaah (peace be upon him) used to teach us istikharah in all matters, just as he taught us a surah from the Qur'an.' Narrated by al-Bukhari (1166). And Allaah, the Exalted, says: 'O you who believe, fear Allaah and be with the truthful.' (Surat at-Tawbah: 119)."
+        },
+        "gender": "man",
+        "when": [
+          {
+            "q": "prior",
+            "value": "prior"
+          }
+        ]
+      },
+      {
+        "gender": "woman",
+        "body": {
+          "ar": "مِنْ حُسْنِ تَبَعُّلِكِ لِزَوْجِكِ أَنْ تُطِيعِيهِ بِالْمَعْرُوفِ فِيمَا لَيْسَ فِيهِ مَعْصِيَةٌ لِلَّهِ تَعَالَى؛ فَحَقُّهُ عَلَيْكِ عَظِيمٌ حَتَّى إِنَّ بَعْضَ نَوَافِلِ الْعِبَادَةِ يَتَوَقَّفُ عَلَى إِذْنِهِ. غَيْرَ أَنَّ هَذِهِ الطَّاعَةَ مُقَيَّدَةٌ بِحَدٍّ لَا تَتَجَاوَزِينَهُ أَبَدًا: فَإِنْ أَمَرَكِ زَوْجُكِ بِمَعْصِيَةٍ فَلَا تُطِيعِيهِ فِيهَا.",
+          "nl": "Tot goede omgang (husn at-taba'ul) met je echtgenoot behoort dat je hem gehoorzaamt op behoorlijke wijze, in alles wat geen ongehoorzaamheid aan Allaah inhoudt. Zijn recht op jou is groot, zozeer dat sommige vrijwillige (niet-verplichte) vormen van aanbidding afhankelijk zijn van zijn toestemming. Maar deze gehoorzaamheid kent een grens die je nooit overschrijdt: als je man je tot een zonde beveelt, gehoorzaam hem daar dan niet in.",
+          "en": "Part of good companionship (husn al-taba'ul) with your husband is to obey him in what is right, in anything that does not involve disobedience to Allaah. His right over you is great, to the point that some voluntary acts of worship depend on his permission. But this obedience has a limit you must never cross: if your husband commands you to something sinful, do not obey him in it."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿... فَٱلصَّٰلِحَٰتُ قَٰنِتَٰتٌ ...﴾ (النساء: ٣٤). وَقَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لاَ يَحِلُّ لِلْمَرْأَةِ أَنْ تَصُومَ وَزَوْجُهَا شَاهِدٌ إِلاَّ بِإِذْنِهِ» رَوَاهُ الْبُخَارِيُّ. وَقَالَ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لاَ طَاعَةَ فِي مَعْصِيَةِ اللَّهِ إِنَّمَا الطَّاعَةُ فِي الْمَعْرُوفِ» رَوَاهُ مُسْلِمٌ.",
+          "nl": "Allaah, de Verhevene, zegt: '...Zo zijn de deugdzame vrouwen gehoorzaam...' (Soerat an-Nisaa: 34). En de Boodschapper van Allaah (vrede zij met hem) zei: 'Het is niet toegestaan voor een vrouw om (vrijwillig) te vasten terwijl haar man aanwezig is, behalve met zijn toestemming.' Overgeleverd door al-Boekhaarie. En hij (vrede zij met hem) zei: 'Er is geen gehoorzaamheid in ongehoorzaamheid aan Allaah; gehoorzaamheid geldt alleen in het behoorlijke.' Overgeleverd door Moeslim.",
+          "en": "Allaah, the Exalted, says: '...So righteous women are devoutly obedient...' (Surat an-Nisaa: 34). And the Messenger of Allaah (peace be upon him) said: 'It is not lawful for a woman to fast [voluntarily] while her husband is present, except with his permission.' Narrated by al-Bukhari. And he (peace be upon him) said: 'There is no obedience in disobedience to Allaah; obedience is only in what is right.' Narrated by Muslim."
+        }
+      },
+      {
+        "gender": "woman",
+        "body": {
+          "ar": "مِنْ صِفَاتِ الزَّوْجَةِ الصَّالِحَةِ أَنْ تَحْفَظَ زَوْجَهَا فِي غَيْبَتِهِ: فَتَصُونَ نَفْسَهَا وَعِرْضَهَا، وَتَحْفَظَ مَالَهُ مِنَ الضَّيَاعِ أَوِ التَّبْذِيرِ، وَلَا تُفْشِيَ أَسْرَارَ بَيْتِهَا وَخَلَوَاتِهَا لِأَحَدٍ. فَهَذَا مِنْ أَعْظَمِ الْأَمَانَةِ الَّتِي جَعَلَهَا اللهُ فِي عُنُقِكِ.",
+          "nl": "Tot de eigenschappen van een deugdzame echtgenote behoort dat zij haar man beschermt in zijn afwezigheid: zij bewaart zichzelf en haar eer, beschermt zijn bezit tegen verlies of verkwisting, en onthult de geheimen van haar huis en de intimiteit tussen haar en haar man aan niemand. Dit behoort tot de grootste vorm van het vertrouwen (amaanah) dat Allaah op jouw schouders heeft gelegd.",
+          "en": "Among the qualities of a righteous wife is that she guards her husband in his absence: she safeguards herself and her honour, protects his wealth from loss or waste, and does not disclose the secrets of her household and marital privacy to anyone. This is among the greatest trusts (amaanah) that Allaah has placed on your shoulders."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿... حَٰفِظَٰتٌۭ لِّلْغَيْبِ بِمَا حَفِظَ ٱللَّهُ ۚ ...﴾ (النساء: ٣٤).",
+          "nl": "Allaah, de Verhevene, zegt: '...en zij waken over wat er te bewaken valt in de afwezigheid [van hun echtgenoten], zoals Allaah [dat] bewaakt wil zien...' (Soerat an-Nisaa: 34).",
+          "en": "Allaah, the Exalted, says: '...and guard, in [their husbands'] absence, what Allaah has [ordained] to be guarded...' (Surat an-Nisaa: 34)."
+        }
+      },
+      {
+        "gender": "woman",
+        "when": [
+          {
+            "q": "w_state",
+            "value": "new"
+          }
+        ],
+        "body": {
+          "ar": "أَنْتِ رَاعِيَةٌ فِي بَيْتِ زَوْجِكِ مِنْ أَوَّلِ يَوْمٍ فِيهِ، وَمَسْؤُولَةٌ عَمَّنْ تَحْتَ يَدِكِ مِنْ أَهْلِ الْبَيْتِ. فَاجْعَلِي بَيْتَكِ الْجَدِيدَ مَحَلًّا تُقَامُ فِيهِ شَعَائِرُ الدِّينِ مِنَ الصَّلَاةِ وَذِكْرِ اللهِ وَتَعْلِيمِ الْخَيْرِ، فَبِذَلِكَ تُؤَدِّينَ أَمَانَةَ الرِّعَايَةِ الَّتِي حَمَّلَكِ اللهُ إِيَّاهَا.",
+          "nl": "Jij bent een hoedster in het huis van je echtgenoot, vanaf de allereerste dag daarin, en verantwoordelijk voor wie onder jouw zorg valt in dat huis. Maak van je nieuwe huis een plek waar de rituelen van de religie tot stand komen: het gebed, de gedachtenis aan Allaah (dhikr), en het onderwijzen van het goede. Daarmee vervul je het vertrouwen van de zorg die Allaah jou heeft toevertrouwd.",
+          "en": "You are a shepherd in your husband's house, from its very first day, and responsible for those under your care within it. Make your new home a place where the rites of the religion are established: prayer, remembrance of Allaah, and teaching what is good. In that way you fulfil the trust of care that Allaah has placed upon you."
+        },
+        "daleel": {
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «كُلُّكُمْ رَاعٍ، وَكُلُّكُمْ مَسْئُولٌ عَنْ رَعِيَّتِهِ ... وَالْمَرْأَةُ رَاعِيَةٌ فِي بَيْتِ زَوْجِهَا وَمَسْئُولَةٌ عَنْ رَعِيَّتِهَا» مُتَّفَقٌ عَلَيْهِ.",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Ieder van jullie is een hoeder, en ieder van jullie is verantwoordelijk voor waarover hij hoedt... en de vrouw is een hoedster in het huis van haar man, en zij is verantwoordelijk voor waarover zij hoedt.' Overeengekomen (al-Boekhaarie en Moeslim).",
+          "en": "The Messenger of Allaah (peace be upon him) said: 'Each of you is a shepherd, and each of you is responsible for what he shepherds... and a woman is a shepherd in her husband's house, and she is responsible for what she shepherds.' Agreed upon (al-Bukhari and Muslim)."
+        }
+      },
+      {
+        "gender": "woman",
+        "when": [
+          {
+            "q": "w_state",
+            "value": "difficulties"
+          }
+        ],
+        "body": {
+          "ar": "إِذَا مَرَّتْ بِكِ أَيَّامٌ يَصْعُبُ فِيهَا الْعَيْشُ مَعَ زَوْجِكِ، فَاحْذَرِي أَنْ يَحْمِلَكِ ذَلِكَ عَلَى جُحُودِ مَعْرُوفِهِ كُلِّهِ لِأَجْلِ مَوْقِفٍ وَاحِدٍ يُغْضِبُكِ؛ فَهَذَا مِنَ الْخُلُقِ الَّذِي حَذَّرَ مِنْهُ النَّبِيُّ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ أَشَدَّ التَّحْذِيرِ. وَكَمَا عَلَّمَ اللهُ زَوْجَكِ أَلَّا يَكْرَهَكِ كَرَاهِيَةً تَامَّةً لِأَجْلِ خَصْلَةٍ وَاحِدَةٍ، بَلْ يَتَذَكَّرَ مَا يُرْضِيهِ مِنْ خِصَالِكِ الْأُخْرَى، فَهَذَا الْمِيزَانُ الْعَادِلُ جَدِيرٌ بِكِ أَنْتِ أَيْضًا أَنْ تُعْمِلِيهِ فِي قَلْبِكِ تُجَاهَهُ: فَاصْبِرِي، وَاذْكُرِي مَحَاسِنَهُ، وَلَا تَجْحَدِي مَعْرُوفَهُ.",
+          "nl": "Als je dagen meemaakt waarin het leven met je echtgenoot moeilijk aanvoelt, waak er dan voor dat dit je ertoe brengt al zijn goedheid te ontkennen vanwege één moment dat je boos maakt; dit behoort tot het gedrag waarvoor de Profeet (vrede zij met hem) op de meest indringende wijze gewaarschuwd heeft. En zoals Allaah je echtgenoot heeft geleerd geen volledige afkeer van jou te hebben vanwege één eigenschap, maar zich de andere, prettige eigenschappen van jou te herinneren, zo past het jou ook om diezelfde rechtvaardige balans in jouw hart jegens hem toe te passen: wees geduldig, herinner je zijn goede kanten, en ontken zijn goedheid niet.",
+          "en": "If you go through days when life with your husband feels difficult, be careful that this does not lead you to deny all his good qualities because of one moment that angers you; this is among the traits the Prophet (peace be upon him) warned against in the strongest terms. And just as Allaah taught your husband not to hate you completely over a single trait, but to remember the other qualities in you that please him, that same fair balance is fitting for you too, to apply in your heart toward him: be patient, remember his good qualities, and do not deny his kindness."
+        },
+        "daleel": {
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «أُرِيتُ النَّارَ فَإِذَا أَكْثَرُ أَهْلِهَا النِّسَاءُ يَكْفُرْنَ قِيلَ أَيَكْفُرْنَ بِاللَّهِ قَالَ يَكْفُرْنَ الْعَشِيرَ، وَيَكْفُرْنَ الإِحْسَانَ، لَوْ أَحْسَنْتَ إِلَى إِحْدَاهُنَّ الدَّهْرَ ثُمَّ رَأَتْ مِنْكَ شَيْئًا قَالَتْ مَا رَأَيْتُ مِنْكَ خَيْرًا قَطُّ» رَوَاهُ الْبُخَارِيُّ. وَقَالَ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لاَ يَفْرَكْ مُؤْمِنٌ مُؤْمِنَةً إِنْ كَرِهَ مِنْهَا خُلُقًا رَضِيَ مِنْهَا آخَرَ» رَوَاهُ مُسْلِمٌ.",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Mij werd het Vuur getoond, en de meerderheid van zijn bewoners waren vrouwen die ondankbaar zijn.' Er werd gezegd: 'Zijn zij ondankbaar jegens Allaah?' Hij zei: 'Zij zijn ondankbaar jegens hun echtgenoot, en ondankbaar voor het goede: als jij een van hen je hele leven lang goed behandelt en zij dan iets (onprettigs) van jou ziet, zegt zij: Ik heb nooit iets goeds van jou gezien.' Overgeleverd door al-Boekhaarie. En hij (vrede zij met hem) zei: 'Laat een gelovige man geen afkeer hebben van een gelovige vrouw [zijn echtgenote]: als hij een eigenschap van haar niet mag, zal hij tevreden zijn met een andere.' Overgeleverd door Moeslim.",
+          "en": "The Messenger of Allaah (peace be upon him) said: 'I was shown the Fire, and most of its inhabitants were women who are ungrateful.' It was asked: 'Are they ungrateful to Allaah?' He said: 'They are ungrateful to their companions [husbands], and ungrateful for good treatment: if you are good to one of them for a lifetime and she then sees something [displeasing] from you, she will say: I have never seen anything good from you.' Narrated by al-Bukhari. And he (peace be upon him) said: 'Let not a believing man hate a believing woman [his wife]: if he dislikes one of her traits, he will be pleased with another.' Narrated by Muslim."
+        }
+      },
+      {
+        "gender": "woman",
+        "when": [
+          {
+            "q": "w_state",
+            "value": "cowife"
+          }
+        ],
+        "body": {
+          "ar": "إِذَا تَزَوَّجَ زَوْجُكِ بِأُخْرَى، فَاعْلَمِي أَنَّ اللهَ تَعَالَى قَدْ أَبَاحَ لَهُ ذَلِكَ بِشَرْطِ الْعَدْلِ، فَلَيْسَتْ ضَرَّتُكِ مُذْنِبَةً فِي حَقِّكِ حَتَّى تَسْتَحِقَّ مِنْكِ الْحِقْدَ أَوِ الْحَسَدَ الْمَذْمُومَ. احْفَظِي قَلْبَكِ مِنَ الْبُغْضِ وَسُوءِ الظَّنِّ، وَأَحْسِنِي الظَّنَّ بِرَبِّكِ أَوَّلًا، ثُمَّ بِزَوْجِكِ وَبِضَرَّتِكِ، فَإِنَّ كَثِيرًا مِمَّا يَقَعُ بَيْنَ الضَّرَائِرِ مِنَ الشَّرِّ سَبَبُهُ ظَنٌّ لَا حَقِيقَةَ لَهُ.",
+          "nl": "Als je echtgenoot met een andere vrouw trouwt, weet dan dat Allaah, de Verhevene, hem dit heeft toegestaan onder de voorwaarde van rechtvaardigheid. Je mede-echtgenote (darrah) heeft dus geen fout tegenover jou begaan waarvoor zij wrok of verwerpelijke jaloezie van jou verdient. Bewaar je hart voor haat en achterdocht, en denk eerst goed over Allaah, en vervolgens over je echtgenoot en je mede-echtgenote: veel van het kwaad dat tussen mede-echtgenotes ontstaat, komt voort uit een vermoeden zonder werkelijke grond.",
+          "en": "If your husband marries another woman, know that Allaah, the Exalted, permitted him this on the condition of justice. Your co-wife has therefore done nothing wrong against you that would deserve resentment or blameworthy envy from you. Guard your heart against hatred and suspicion, and think well of Allaah first, then of your husband and your co-wife: much of the harm that arises between co-wives stems from mere assumption with no real basis."
+        },
+        "daleel": {
+          "ar": "قَالَ رَسُولُ اللهِ صَلَّى اللهُ عَلَيْهِ وَسَلَّمَ: «لاَ تَحَاسَدُوا وَلاَ تَنَاجَشُوا وَلاَ تَبَاغَضُوا وَلاَ تَدَابَرُوا ... وَكُونُوا عِبَادَ اللَّهِ إِخْوَانًا» رَوَاهُ مُسْلِمٌ.",
+          "nl": "De Boodschapper van Allaah (vrede zij met hem) zei: 'Benijd elkaar niet, drijf de prijzen niet kunstmatig tegen elkaar op, haat elkaar niet, keer elkaar niet de rug toe... en wees, dienaren van Allaah, broeders (en zusters).' Overgeleverd door Moeslim.",
+          "en": "The Messenger of Allaah (peace be upon him) said: 'Do not envy one another, do not bid up prices against one another [to deceive a buyer], do not hate one another, do not turn away from one another... and be, slaves of Allaah, brothers.' Narrated by Muslim."
+        }
+      },
+      {
+        "gender": "woman",
+        "when": [
+          {
+            "q": "w_state",
+            "value": "cowife"
+          }
+        ],
+        "body": {
+          "ar": "مِنَ الْإِنْصَافِ أَنْ تُطَالِبِي بِحَقِّكِ فِي الْعَدْلِ وَالنَّفَقَةِ وَالْقَسْمِ إِذَا قَصَّرَ فِيهِ زَوْجُكِ، لَكِنَّ مُطَالَبَتَكِ بِحَقِّكِ لَا تُبِيحُ لَكِ أَنْ تَبْغِي عَلَى ضَرَّتِكِ بِالْأَذَى أَوِ الْكَذِبِ أَوِ الْكَيْدِ؛ فَالظُّلْمُ حَرَامٌ وَلَوْ كَانَ الْمَظْلُومُ مَنْ تَجِدِينَ فِي نَفْسِكِ مِنْهُ حَرَجًا. وَجِّهِي مَا تَرَيْنَهُ تَقْصِيرًا إِلَى زَوْجِكِ صَاحِبِ الْمَسْؤُولِيَّةِ فِي الْعَدْلِ، لَا إِلَى ضَرَّتِكِ الَّتِي لَا ذَنْبَ لَهَا.",
+          "nl": "Het is rechtvaardig dat je opkomt voor je recht op rechtvaardigheid, levensonderhoud en verdeling van tijd, als je echtgenoot daarin tekortschiet. Maar het opkomen voor je recht geeft je niet het recht om onrecht (baghy) te plegen tegen je mede-echtgenote door haar te schaden, te belasteren of tegen haar te intrigeren; onrecht is verboden, ook al is degene die onrecht wordt aangedaan iemand tegen wie je een ongemakkelijk gevoel hebt. Richt wat jij als tekortkoming ziet tot je echtgenoot, die de verantwoordelijkheid voor rechtvaardigheid draagt, niet tot je mede-echtgenote, die daaraan part noch deel heeft.",
+          "en": "It is fair for you to ask for your right to justice, maintenance, and fair rotation if your husband falls short in it. But asking for your right does not permit you to commit injustice (baghy) against your co-wife by harming her, slandering her, or scheming against her; injustice is forbidden, even toward someone you feel discomfort with. Direct what you see as a shortcoming to your husband, who carries the responsibility of justice, not to your co-wife, who bears no blame for it."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿إِنَّ ٱللَّهَ يَأْمُرُ بِٱلْعَدْلِ وَٱلْإِحْسَٰنِ وَإِيتَآئِ ذِى ٱلْقُرْبَىٰ وَيَنْهَىٰ عَنِ ٱلْفَحْشَآءِ وَٱلْمُنكَرِ وَٱلْبَغْىِ ۚ يَعِظُكُمْ لَعَلَّكُمْ تَذَكَّرُونَ﴾ (النحل: ٩٠).",
+          "nl": "Allaah, de Verhevene, zegt: 'Voorwaar, Allaah beveelt rechtvaardigheid, het goede doen, en het geven aan de verwanten; en Hij verbiedt gruweldaden, het verwerpelijke en onderdrukking (al-baghy). Hij vermaant jullie, opdat jullie er lering uit trekken.' (Soerat an-Nahl: 90).",
+          "en": "Allaah, the Exalted, says: 'Indeed, Allaah orders justice and good conduct and giving to relatives, and forbids immorality, bad conduct, and oppression (al-baghy). He admonishes you that perhaps you will be reminded.' (Surat an-Nahl: 90)."
+        }
+      },
+      {
+        "gender": "woman",
+        "when": [
+          {
+            "q": "w_state",
+            "value": "cowife"
+          }
+        ],
+        "body": {
+          "ar": "اجْعَلِي صَبْرَكِ عَلَى مَا يَشُقُّ عَلَيْكِ مِنَ التَّعَدُّدِ عِبَادَةً تَبْتَغِينَ بِهَا الْأَجْرَ عِنْدَ اللهِ، لَا مُجَرَّدَ تَحَمُّلٍ بِلَا ثَمَرَةٍ. فَاللهُ تَعَالَى لَا يُضِيعُ صَبْرَ الصَّابِرَاتِ، بَلْ يُوَفِّيهِنَّ أَجْرَهُنَّ أَضْعَافًا مُضَاعَفَةً بِغَيْرِ حِسَابٍ.",
+          "nl": "Maak van je geduld met wat de polygynie voor jou moeilijk maakt een vorm van aanbidding waarmee je de beloning bij Allaah zoekt, niet slechts een verdragen zonder vrucht. Allaah, de Verhevene, laat het geduld van de geduldigen niet verloren gaan; Hij geeft hun hun beloning in veelvoud, zonder afrekening.",
+          "en": "Make your patience with what polygyny brings that is difficult for you an act of worship through which you seek reward with Allaah, not merely bearing it without benefit. Allaah, the Exalted, does not let the patience of the patient go to waste; He gives them their reward multiplied, without account."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿... إِنَّمَا يُوَفَّى ٱلصَّٰبِرُونَ أَجْرَهُم بِغَيْرِ حِسَابٍۢ﴾ (الزمر: ١٠).",
+          "nl": "Allaah, de Verhevene, zegt: '...Voorwaar, aan de geduldigen zal hun beloning zonder afrekening gegeven worden.' (Soerat az-Zoemar: 10).",
+          "en": "Allaah, the Exalted, says: '...Indeed, the patient will be given their reward without account.' (Surat az-Zumar: 10)."
+        }
       }
     ]
   },
@@ -255,6 +579,32 @@
               "nl": "Nee, alhamdulillaah",
               "en": "No, alhamdulillaah",
               "ar": "لَا، بِحَمْدِ اللهِ"
+            }
+          }
+        ]
+      },
+      {
+        "id": "prior_loss",
+        "text": {
+          "nl": "Heb je eerder een zwangerschap verloren (miskraam)?",
+          "en": "Have you lost a pregnancy before (miscarriage)?",
+          "ar": "هَلْ سَبَقَ أَنْ فَقَدْتِ حَمْلًا (إِجْهَاض) مِنْ قَبْلُ؟"
+        },
+        "options": [
+          {
+            "value": "no",
+            "label": {
+              "nl": "Nee",
+              "en": "No",
+              "ar": "لا"
+            }
+          },
+          {
+            "value": "yes",
+            "label": {
+              "nl": "Ja",
+              "en": "Yes",
+              "ar": "نعم"
             }
           }
         ]
@@ -368,6 +718,24 @@
             "value": "yes"
           }
         ]
+      },
+      {
+        "body": {
+          "nl": "Als je eerder een zwangerschap hebt verloren: wees geduldig en verwacht de beloning bij Allaah, en wanhoop niet aan Zijn barmhartigheid. Vermeerder het smeken om vrome nakomelingen en verwacht het goede.",
+          "en": "If you have lost a pregnancy before: be patient and seek the reward with Allaah, and do not despair of His mercy. Increase your supplication for righteous offspring and expect good.",
+          "ar": "إِنْ سَبَقَ أَنْ فَقَدْتِ حَمْلًا، فَاصْبِرِي وَاحْتَسِبِي الأَجْرَ عِنْدَ اللهِ، وَلَا تَيْأَسِي مِنْ رَوْحِ اللهِ؛ وَأَكْثِرِي مِنَ الدُّعَاءِ بِالذُّرِّيَّةِ الصَّالِحَةِ، وَأَبْشِرِي بِخَيْرِ اللهِ."
+        },
+        "daleel": {
+          "nl": "Allaah zegt: 'Wij zullen jullie zeker beproeven met iets van angst en honger en vermindering van bezittingen, levens en vruchten. En verkondig het goede nieuws aan de geduldigen' (Soerat al-Baqarah: 155).",
+          "en": "Allaah says: 'And We will surely test you with something of fear and hunger and a loss of wealth, lives, and fruits. But give good tidings to the patient' (Surah al-Baqarah: 155).",
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَنَبْلُوَنَّكُم بِشَىْءٍۢ مِّنَ ٱلْخَوْفِ وَٱلْجُوعِ وَنَقْصٍۢ مِّنَ ٱلْأَمْوَٰلِ وَٱلْأَنفُسِ وَٱلثَّمَرَٰتِ ۗ وَبَشِّرِ ٱلصَّٰبِرِينَ﴾ ]البقرة: 155[."
+        },
+        "when": [
+          {
+            "q": "prior_loss",
+            "value": "yes"
+          }
+        ]
       }
     ]
   },
@@ -411,12 +779,12 @@
         "body": {
           "nl": "Het is aanbevolen om de adhaan direct na de geboorte in het oor van de baby te roepen, zodat het eerste wat hij of zij hoort de grootheid van Allaah is. Bedank Allaah voor deze gunst en verwelkom je baby met blijdschap, of het nu een jongen of een meisje is; beide zijn een gift van Allaah, en een dochter is geen tekort of slecht voorteken.",
           "en": "It is recommended to call the adhaan into the newborn's ear right after birth, so that the first thing the baby hears is the greatness of Allaah. Thank Allaah for this blessing and welcome your newborn with joy, whether a boy or a girl; both are a gift from Allaah, and a daughter is no deficiency or bad omen.",
-          "ar": "يُسْتَحَبُّ أَنْ يُؤَذَّنَ فِي أُذُنِ المَوْلُودِ عِنْدَ وِلَادَتِهِ، لِيَكُونَ أَوَّلَ مَا يَقْرَعُ سَمْعَهُ ذِكْرُ اللهِ. وَاحْمَدِ اللهَ عَلَى هَذِهِ النِّعْمَةِ، وَاسْتَقْبِلْ مَوْلُودَكَ بِالتَّفَاؤُلِ وَالفَرَحِ سَوَاءٌ كَانَ ذَكَرًا أَوْ أُنْثَى؛ فَكِلَاهُمَا عَطِيَّةٌ مِنَ اللهِ، وَلَيْسَ فِي الأُنْثَى نَقْصٌ وَلَا شُؤْمٌ."
+          "ar": "يُسْتَحَبُّ أَنْ يُؤَذَّنَ فِي أُذُنِ المَوْلُودِ عِنْدَ وِلَادَتِهِ، لِيَكُونَ أَوَّلَ مَا يَقْرَعُ سَمْعَهُ ذِكْرُ اللَّهِ. وَاحْمَدِ اللَّهَ عَلَى هَذِهِ النِّعْمَةِ، وَاسْتَقْبِلْ مَوْلُودَكَ بِالتَّفَاؤُلِ وَالفَرَحِ سَوَاءٌ كَانَ ذَكَرًا أَوْ أُنْثَى؛ فَكِلَاهُمَا عَطِيَّةٌ مِنَ اللَّهِ، وَلَيْسَ فِي الأُنْثَى نَقْصٌ وَلَا شُؤْمٌ."
         },
         "daleel": {
-          "nl": "Aboe Raafi' (radiyallaahoe 'anhoe) zei: «رَأَيْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم أَذَّنَ فِي أُذُنِ الْحَسَنِ بْنِ عَلِيٍّ حِينَ وَلَدَتْهُ فَاطِمَةُ بِالصَّلَاةِ» (betekenis: \"Ik zag de Boodschapper van Allaah ﷺ de adhaan roepen in het oor van al-Hasan ibn 'Ali, toen Faatimah hem net gebaard had.\") [أبو داود ٥١٠٥ — حسن (الألباني)]. يَقُولُ اللهُ تَعَالَى: ﴿لِّلَّهِ مُلْكُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ يَخْلُقُ مَا يَشَآءُ ۚ يَهَبُ لِمَن يَشَآءُ إِنَٰثًۭا وَيَهَبُ لِمَن يَشَآءُ ٱلذُّكُورَ أَوْ يُزَوِّجُهُمْ ذُكْرَانًۭا وَإِنَٰثًۭا ۖ وَيَجْعَلُ مَن يَشَآءُ عَقِيمًا ۚ إِنَّهُۥ عَلِيمٌۭ قَدِيرٌۭ﴾ (betekenis: \"Aan Allaah behoort de heerschappij over de hemelen en de aarde. Hij schept wat Hij wil; Hij schenkt aan wie Hij wil dochters, en Hij schenkt aan wie Hij wil zonen. Of Hij geeft hun beide, zonen en dochters, en Hij maakt onvruchtbaar wie Hij wil. Voorwaar, Hij is Alwetend, Almachtig.\") [الشورى ٤٩-٥٠]",
+          "nl": "Aboe Raafi' (radiyallaahoe 'anhoe) zei: «رَأَيْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم أَذَّنَ فِي أُذُنِ الْحَسَنِ بْنِ عَلِيٍّ حِينَ وَلَدَتْهُ فَاطِمَةُ بِالصَّلَاةِ» (betekenis: \"Ik zag de Boodschapper van Allaah ﷺ de adhaan roepen in het oor van al-Hasan ibn 'Ali, toen Faatimah hem net gebaard had.\") [أبو داود ٥١٠٥ — حسن (الألباني)]. يَقُولُ اللَّهُ تَعَالَى: ﴿لِّلَّهِ مُلْكُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ يَخْلُقُ مَا يَشَآءُ ۚ يَهَبُ لِمَن يَشَآءُ إِنَٰثًۭا وَيَهَبُ لِمَن يَشَآءُ ٱلذُّكُورَ أَوْ يُزَوِّجُهُمْ ذُكْرَانًۭا وَإِنَٰثًۭا ۖ وَيَجْعَلُ مَن يَشَآءُ عَقِيمًا ۚ إِنَّهُۥ عَلِيمٌۭ قَدِيرٌۭ﴾ (betekenis: \"Aan Allaah behoort de heerschappij over de hemelen en de aarde. Hij schept wat Hij wil; Hij schenkt aan wie Hij wil dochters, en Hij schenkt aan wie Hij wil zonen. Of Hij geeft hun beide, zonen en dochters, en Hij maakt onvruchtbaar wie Hij wil. Voorwaar, Hij is Alwetend, Almachtig.\") [الشورى ٤٩-٥٠]",
           "en": "Abu Rafi' (may Allaah be pleased with him) said: «رَأَيْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم أَذَّنَ فِي أُذُنِ الْحَسَنِ بْنِ عَلِيٍّ حِينَ وَلَدَتْهُ فَاطِمَةُ بِالصَّلَاةِ» (meaning: \"I saw the Messenger of Allaah ﷺ call the adhaan into the ear of al-Hasan ibn 'Ali when Fatimah had just given birth to him.\") [أبو داود ٥١٠٥ — حسن (الألباني)]. Allaah the Exalted says: ﴿لِّلَّهِ مُلْكُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ يَخْلُقُ مَا يَشَآءُ ۚ يَهَبُ لِمَن يَشَآءُ إِنَٰثًۭا وَيَهَبُ لِمَن يَشَآءُ ٱلذُّكُورَ أَوْ يُزَوِّجُهُمْ ذُكْرَانًۭا وَإِنَٰثًۭا ۖ وَيَجْعَلُ مَن يَشَآءُ عَقِيمًا ۚ إِنَّهُۥ عَلِيمٌۭ قَدِيرٌۭ﴾ (meaning: \"To Allaah belongs the dominion of the heavens and the earth. He creates what He wills. He grants to whom He wills daughters, and He grants to whom He wills sons. Or He grants them both males and females, and He renders whom He wills barren. Indeed, He is Knowing and Competent.\") [الشورى ٤٩-٥٠]",
-          "ar": "عَنْ أَبِي رَافِعٍ رَضِيَ اللهُ عَنْهُ قَالَ: «رَأَيْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم أَذَّنَ فِي أُذُنِ الْحَسَنِ بْنِ عَلِيٍّ حِينَ وَلَدَتْهُ فَاطِمَةُ بِالصَّلَاةِ» [أبو داود ٥١٠٥ — حسن (الألباني)]. يَقُولُ اللهُ تَعَالَى: ﴿لِّلَّهِ مُلْكُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ يَخْلُقُ مَا يَشَآءُ ۚ يَهَبُ لِمَن يَشَآءُ إِنَٰثًۭا وَيَهَبُ لِمَن يَشَآءُ ٱلذُّكُورَ أَوْ يُزَوِّجُهُمْ ذُكْرَانًۭا وَإِنَٰثًۭا ۖ وَيَجْعَلُ مَن يَشَآءُ عَقِيمًا ۚ إِنَّهُۥ عَلِيمٌۭ قَدِيرٌۭ﴾ [الشورى ٤٩-٥٠]"
+          "ar": "عَنْ أَبِي رَافِعٍ رَضِيَ اللَّهُ عَنْهُ قَالَ: «رَأَيْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم أَذَّنَ فِي أُذُنِ الْحَسَنِ بْنِ عَلِيٍّ حِينَ وَلَدَتْهُ فَاطِمَةُ بِالصَّلَاةِ» [أبو داود ٥١٠٥ — حسن (الألباني)]. يَقُولُ اللَّهُ تَعَالَى: ﴿لِّلَّهِ مُلْكُ ٱلسَّمَٰوَٰتِ وَٱلْأَرْضِ ۚ يَخْلُقُ مَا يَشَآءُ ۚ يَهَبُ لِمَن يَشَآءُ إِنَٰثًۭا وَيَهَبُ لِمَن يَشَآءُ ٱلذُّكُورَ أَوْ يُزَوِّجُهُمْ ذُكْرَانًۭا وَإِنَٰثًۭا ۖ وَيَجْعَلُ مَن يَشَآءُ عَقِيمًا ۚ إِنَّهُۥ عَلِيمٌۭ قَدِيرٌۭ﴾ [الشورى ٤٩-٥٠]"
         }
       },
       {
@@ -428,19 +796,19 @@
         "daleel": {
           "nl": "Aboe Moesa al-Asj'arie (radiyallaahoe 'anhoe) zei: «وُلِدَ لِي غُلَامٌ فَأَتَيْتُ بِهِ النَّبِيَّ صلى الله عليه وسلم فَسَمَّاهُ إِبْرَاهِيمَ، فَحَنَّكَهُ بِتَمْرَةٍ، وَدَعَا لَهُ بِالْبَرَكَةِ، وَدَفَعَهُ إِلَيَّ» (betekenis: \"Mij werd een zoon geboren; ik bracht hem naar de Profeet ﷺ, hij noemde hem Ibraahiem, deed tahnik bij hem met een dadel, vroeg voor hem om zegen, en gaf hem aan mij terug.\") [البخاري ٥٤٦٧ ومسلم ٢١٤٥]",
           "en": "Abu Musa al-Ash'ari (may Allaah be pleased with him) said: «وُلِدَ لِي غُلَامٌ فَأَتَيْتُ بِهِ النَّبِيَّ صلى الله عليه وسلم فَسَمَّاهُ إِبْرَاهِيمَ، فَحَنَّكَهُ بِتَمْرَةٍ، وَدَعَا لَهُ بِالْبَرَكَةِ، وَدَفَعَهُ إِلَيَّ» (meaning: \"A son was born to me, and I brought him to the Prophet ﷺ; he named him Ibraahim, did tahnik for him with a date, invoked blessing for him, and returned him to me.\") [البخاري ٥٤٦٧ ومسلم ٢١٤٥]",
-          "ar": "عَنْ أَبِي مُوسَى الأَشْعَرِيِّ رَضِيَ اللهُ عَنْهُ قَالَ: «وُلِدَ لِي غُلَامٌ فَأَتَيْتُ بِهِ النَّبِيَّ صلى الله عليه وسلم فَسَمَّاهُ إِبْرَاهِيمَ، فَحَنَّكَهُ بِتَمْرَةٍ، وَدَعَا لَهُ بِالْبَرَكَةِ، وَدَفَعَهُ إِلَيَّ» [البخاري ٥٤٦٧ ومسلم ٢١٤٥]"
+          "ar": "عَنْ أَبِي مُوسَى الأَشْعَرِيِّ رَضِيَ اللَّهُ عَنْهُ قَالَ: «وُلِدَ لِي غُلَامٌ فَأَتَيْتُ بِهِ النَّبِيَّ صلى الله عليه وسلم فَسَمَّاهُ إِبْرَاهِيمَ، فَحَنَّكَهُ بِتَمْرَةٍ، وَدَعَا لَهُ بِالْبَرَكَةِ، وَدَفَعَهُ إِلَيَّ» [البخاري ٥٤٦٧ ومسلم ٢١٤٥]"
         }
       },
       {
         "body": {
           "nl": "Het is aanbevolen om voor de baby, jongen of meisje, een mooie naam met een goede betekenis te kiezen, en namen te vermijden met een lelijke betekenis of namen die aanbidding aan iets anders dan Allaah toeschrijven.",
           "en": "It is recommended to choose a beautiful, meaningful name for the newborn, boy or girl, and to avoid names with an ugly meaning or names that ascribe worship to other than Allaah.",
-          "ar": "يُسْتَحَبُّ اخْتِيَارُ اسْمٍ حَسَنٍ لِلْمَوْلُودِ ذَكَرًا كَانَ أَوْ أُنْثَى، وَتَجَنُّبُ الأَسْمَاءِ القَبِيحَةِ المَعْنَى أَوِ الَّتِي فِيهَا تَعْبِيدٌ لِغَيْرِ اللهِ."
+          "ar": "يُسْتَحَبُّ اخْتِيَارُ اسْمٍ حَسَنٍ لِلْمَوْلُودِ ذَكَرًا كَانَ أَوْ أُنْثَى، وَتَجَنُّبُ الأَسْمَاءِ القَبِيحَةِ المَعْنَى أَوِ الَّتِي فِيهَا تَعْبِيدٌ لِغَيْرِ اللَّهِ."
         },
         "daleel": {
           "nl": "Ibn 'Oemar (radiyallaahoe 'anhoemaa) overlevert dat de Boodschapper van Allaah ﷺ zei: «إِنَّ أَحَبَّ أَسْمَائِكُمْ إِلَى اللَّهِ عَبْدُ اللَّهِ وَعَبْدُ الرَّحْمَنِ» (betekenis: \"De namen die het meest geliefd zijn bij Allaah, zijn 'Abdoellaah en 'Abdoer-Rahmaan.\") [مسلم ٢١٣٢]",
           "en": "Ibn 'Umar (may Allaah be pleased with them both) reported that the Messenger of Allaah ﷺ said: «إِنَّ أَحَبَّ أَسْمَائِكُمْ إِلَى اللَّهِ عَبْدُ اللَّهِ وَعَبْدُ الرَّحْمَنِ» (meaning: \"The names most beloved to Allaah are 'Abdullaah and 'Abdur-Rahmaan.\") [مسلم ٢١٣٢]",
-          "ar": "عَنِ ابْنِ عُمَرَ رَضِيَ اللهُ عَنْهُمَا أَنَّ رَسُولَ اللهِ صلى الله عليه وسلم قَالَ: «إِنَّ أَحَبَّ أَسْمَائِكُمْ إِلَى اللَّهِ عَبْدُ اللَّهِ وَعَبْدُ الرَّحْمَنِ» [مسلم ٢١٣٢]"
+          "ar": "عَنِ ابْنِ عُمَرَ رَضِيَ اللَّهُ عَنْهُمَا أَنَّ رَسُولَ اللَّهِ صلى الله عليه وسلم قَالَ: «إِنَّ أَحَبَّ أَسْمَائِكُمْ إِلَى اللَّهِ عَبْدُ اللَّهِ وَعَبْدُ الرَّحْمَنِ» [مسلم ٢١٣٢]"
         }
       },
       {
@@ -452,7 +820,7 @@
         "daleel": {
           "nl": "Samoerah ibn Djoendoeb (radiyallaahoe 'anhoe) overlevert dat de Boodschapper van Allaah ﷺ zei: «كُلُّ غُلَامٍ رَهِينَةٌ بِعَقِيقَتِهِ، تُذْبَحُ عَنْهُ يَوْمَ سَابِعِهِ، وَيُحْلَقُ، وَيُسَمَّى» (betekenis: \"Iedere jongen staat garant voor zijn 'aqiqah: er wordt voor hem geslacht op zijn zevende dag, zijn hoofd wordt geschoren, en hij krijgt zijn naam.\") [أبو داود ٢٨٣٨ — صحيح (الألباني)]",
           "en": "Samurah ibn Jundub (may Allaah be pleased with him) reported that the Messenger of Allaah ﷺ said: «كُلُّ غُلَامٍ رَهِينَةٌ بِعَقِيقَتِهِ، تُذْبَحُ عَنْهُ يَوْمَ سَابِعِهِ، وَيُحْلَقُ، وَيُسَمَّى» (meaning: \"Every boy is in pledge for his 'aqiqah: it is sacrificed for him on his seventh day, his head is shaved, and he is named.\") [أبو داود ٢٨٣٨ — صحيح (الألباني)]",
-          "ar": "عَنْ سَمُرَةَ بْنِ جُنْدُبٍ رَضِيَ اللهُ عَنْهُ أَنَّ رَسُولَ اللهِ صلى الله عليه وسلم قَالَ: «كُلُّ غُلَامٍ رَهِينَةٌ بِعَقِيقَتِهِ، تُذْبَحُ عَنْهُ يَوْمَ سَابِعِهِ، وَيُحْلَقُ، وَيُسَمَّى» [أبو داود ٢٨٣٨ — صحيح (الألباني)]"
+          "ar": "عَنْ سَمُرَةَ بْنِ جُنْدُبٍ رَضِيَ اللَّهُ عَنْهُ أَنَّ رَسُولَ اللَّهِ صلى الله عليه وسلم قَالَ: «كُلُّ غُلَامٍ رَهِينَةٌ بِعَقِيقَتِهِ، تُذْبَحُ عَنْهُ يَوْمَ سَابِعِهِ، وَيُحْلَقُ، وَيُسَمَّى» [أبو داود ٢٨٣٨ — صحيح (الألباني)]"
         }
       },
       {
@@ -464,7 +832,7 @@
         "daleel": {
           "nl": "Oemm Koerz al-Ka'biyyah (radiyallaahoe 'anhaa) zei: ik hoorde de Boodschapper van Allaah ﷺ zeggen: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» (betekenis: \"Voor een jongen twee gelijkwaardige schapen, en voor een meisje één schaap.\") [أبو داود ٢٨٣٤ — صحيح (الألباني)]",
           "en": "Umm Kurz al-Ka'biyyah (may Allaah be pleased with her) said: I heard the Messenger of Allaah ﷺ say: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» (meaning: \"For a boy, two equivalent sheep, and for a girl, one sheep.\") [أبو داود ٢٨٣٤ — صحيح (الألباني)]",
-          "ar": "عَنْ أُمِّ كُرْزٍ الكَعْبِيَّةِ رَضِيَ اللهُ عَنْهَا قَالَتْ: سَمِعْتُ رَسُولَ اللهِ صلى الله عليه وسلم يَقُولُ: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» [أبو داود ٢٨٣٤ — صحيح (الألباني)]"
+          "ar": "عَنْ أُمِّ كُرْزٍ الكَعْبِيَّةِ رَضِيَ اللَّهُ عَنْهَا قَالَتْ: سَمِعْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم يَقُولُ: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» [أبو داود ٢٨٣٤ — صحيح (الألباني)]"
         },
         "when": [
           {
@@ -482,7 +850,7 @@
         "daleel": {
           "nl": "Oemm Koerz al-Ka'biyyah (radiyallaahoe 'anhaa) zei: ik hoorde de Boodschapper van Allaah ﷺ zeggen: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» (betekenis: \"Voor een jongen twee gelijkwaardige schapen, en voor een meisje één schaap.\") [أبو داود ٢٨٣٤ — صحيح (الألباني)]",
           "en": "Umm Kurz al-Ka'biyyah (may Allaah be pleased with her) said: I heard the Messenger of Allaah ﷺ say: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» (meaning: \"For a boy, two equivalent sheep, and for a girl, one sheep.\") [أبو داود ٢٨٣٤ — صحيح (الألباني)]",
-          "ar": "عَنْ أُمِّ كُرْزٍ الكَعْبِيَّةِ رَضِيَ اللهُ عَنْهَا قَالَتْ: سَمِعْتُ رَسُولَ اللهِ صلى الله عليه وسلم يَقُولُ: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» [أبو داود ٢٨٣٤ — صحيح (الألباني)]"
+          "ar": "عَنْ أُمِّ كُرْزٍ الكَعْبِيَّةِ رَضِيَ اللَّهُ عَنْهَا قَالَتْ: سَمِعْتُ رَسُولَ اللَّهِ صلى الله عليه وسلم يَقُولُ: «عَنِ الْغُلَامِ شَاتَانِ مُكَافِئَتَانِ، وَعَنِ الْجَارِيَةِ شَاةٌ» [أبو داود ٢٨٣٤ — صحيح (الألباني)]"
         },
         "when": [
           {
@@ -500,7 +868,7 @@
         "daleel": {
           "nl": "'Ali ibn Abie Taalib (radiyallaahoe 'anhoe) zei: «عَقَّ رَسُولُ اللَّهِ صلى الله عليه وسلم عَنِ الْحَسَنِ بِشَاةٍ، وَقَالَ: يَا فَاطِمَةُ احْلِقِي رَأْسَهُ وَتَصَدَّقِي بِزِنَةِ شَعْرِهِ فِضَّةً» (betekenis: \"De Boodschapper van Allaah ﷺ slachtte voor al-Hasan één schaap als 'aqiqah en zei: 'O Faatimah, scheer zijn hoofd en geef het gewicht van zijn haar in zilver als sadaqah.'\") [الترمذي ١٥١٩ — حسن غريب؛ إسناده غير متصل عند الترمذي]",
           "en": "'Ali ibn Abi Talib (may Allaah be pleased with him) said: «عَقَّ رَسُولُ اللَّهِ صلى الله عليه وسلم عَنِ الْحَسَنِ بِشَاةٍ، وَقَالَ: يَا فَاطِمَةُ احْلِقِي رَأْسَهُ وَتَصَدَّقِي بِزِنَةِ شَعْرِهِ فِضَّةً» (meaning: \"The Messenger of Allaah ﷺ offered one sheep as 'aqiqah for al-Hasan and said: 'O Fatimah, shave his head and give the weight of his hair in silver as charity.'\") [الترمذي ١٥١٩ — حسن غريب؛ إسناده غير متصل عند الترمذي]",
-          "ar": "عَنْ عَلِيِّ بْنِ أَبِي طَالِبٍ رَضِيَ اللهُ عَنْهُ قَالَ: «عَقَّ رَسُولُ اللَّهِ صلى الله عليه وسلم عَنِ الْحَسَنِ بِشَاةٍ، وَقَالَ: يَا فَاطِمَةُ احْلِقِي رَأْسَهُ وَتَصَدَّقِي بِزِنَةِ شَعْرِهِ فِضَّةً» [الترمذي ١٥١٩ — حسن غريب؛ إسناده غير متصل عند الترمذي]"
+          "ar": "عَنْ عَلِيِّ بْنِ أَبِي طَالِبٍ رَضِيَ اللَّهُ عَنْهُ قَالَ: «عَقَّ رَسُولُ اللَّهِ صلى الله عليه وسلم عَنِ الْحَسَنِ بِشَاةٍ، وَقَالَ: يَا فَاطِمَةُ احْلِقِي رَأْسَهُ وَتَصَدَّقِي بِزِنَةِ شَعْرِهِ فِضَّةً» [الترمذي ١٥١٩ — حسن غريب؛ إسناده غير متصل عند الترمذي]"
         },
         "when": [
           {
@@ -518,7 +886,7 @@
         "daleel": {
           "nl": "Aboe Hoerayrah (radiyallaahoe 'anhoe) overlevert dat de Profeet ﷺ zei: «الْفِطْرَةُ خَمْسٌ: الْخِتَانُ، وَالِاسْتِحْدَادُ، وَقَصُّ الشَّارِبِ، وَتَقْلِيمُ الْأَظْفَارِ، وَنَتْفُ الْآبَاطِ» (betekenis: \"De fitrah bestaat uit vijf dingen: besnijdenis, het scheren van het schaamhaar, het bijknippen van de snor, het knippen van de nagels, en het epileren van het okselhaar.\") [البخاري ٥٨٩١ ومسلم ٢٥٧]",
           "en": "Abu Hurairah (may Allaah be pleased with him) reported that the Prophet ﷺ said: «الْفِطْرَةُ خَمْسٌ: الْخِتَانُ، وَالِاسْتِحْدَادُ، وَقَصُّ الشَّارِبِ، وَتَقْلِيمُ الْأَظْفَارِ، وَنَتْفُ الْآبَاطِ» (meaning: \"The fitrah is five things: circumcision, shaving the pubic hair, trimming the moustache, cutting the nails, and plucking the armpit hair.\") [البخاري ٥٨٩١ ومسلم ٢٥٧]",
-          "ar": "عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللهُ عَنْهُ أَنَّ النَّبِيَّ صلى الله عليه وسلم قَالَ: «الْفِطْرَةُ خَمْسٌ: الْخِتَانُ، وَالِاسْتِحْدَادُ، وَقَصُّ الشَّارِبِ، وَتَقْلِيمُ الْأَظْفَارِ، وَنَتْفُ الْآبَاطِ» [البخاري ٥٨٩١ ومسلم ٢٥٧]"
+          "ar": "عَنْ أَبِي هُرَيْرَةَ رَضِيَ اللَّهُ عَنْهُ أَنَّ النَّبِيَّ صلى الله عليه وسلم قَالَ: «الْفِطْرَةُ خَمْسٌ: الْخِتَانُ، وَالِاسْتِحْدَادُ، وَقَصُّ الشَّارِبِ، وَتَقْلِيمُ الْأَظْفَارِ، وَنَتْفُ الْآبَاطِ» [البخاري ٥٨٩١ ومسلم ٢٥٧]"
         },
         "when": [
           {
@@ -532,33 +900,209 @@
   "divorce": {
     "type": "divorce",
     "intro": {
-      "ar": "الطلاقُ أبغضُ الحلالِ إلى قلوبِ المؤمنين، وقد أباحه اللهُ رخصةً عند الحاجة، وأحاط أحكامَه بضوابطَ تحفظُ حقَّ الزوجين والأولاد. سواء كنتَ تُفكِّر فيه أو وقع بالفعل، فهذه إرشاداتٌ من كتابِ اللهِ وسنّةِ نبيِّه ﷺ تُعينُك على السَّيرِ فيه بتقوى ورحمة.",
-      "en": "Divorce is heavy on the hearts of believers, though Allaah has permitted it as a release when it is truly needed, surrounding it with rulings that protect the rights of both spouses and the children. Whether you are still weighing this decision or it has already taken place, here is guidance from the Qur'an and the authentic Sunnah to help you walk this path with taqwa and mercy.",
-      "nl": "Echtscheiding weegt zwaar op het hart van een gelovige, al heeft Allaah het toegestaan als uitweg wanneer het echt nodig is, en heeft Hij er regels omheen gesteld die de rechten van beide echtgenoten en de kinderen beschermen. Of je er nog over nadenkt of het al heeft plaatsgevonden: hier is begeleiding uit de Qor'aan en de authentieke Soennah om dit pad met taqwa en barmhartigheid te bewandelen."
+      "ar": "الطلاقُ أمرٌ عظيمٌ له أحكامٌ دقيقةٌ تختلفُ باختلافِ الحالِ. أجِبْ/أجيبي عن الأسئلةِ التاليةِ بصدقٍ لتصلَك إرشاداتٌ تُناسبُ حالتَك، مع العلمِ أنّ بعضَ التفاصيلِ الدقيقةِ (كالنيّةِ في بعضِ الألفاظِ، أو عدِّ الطلقاتِ في حالاتٍ معيّنةٍ) لا يُفتي فيها إلا عالمٌ موثوقٌ مطّلعٌ على تفاصيلِ حالتِك بعينِها.",
+      "nl": "Echtscheiding (talaaq) is een gewichtige zaak met nauwkeurige regels die per situatie verschillen. Beantwoord de volgende vragen eerlijk, zodat het advies bij uw situatie past. Let op: sommige fijne details (zoals de intentie achter bepaalde bewoordingen, of het tellen van uitgesproken scheidingen in specifieke gevallen) kunnen alleen door een betrouwbare geleerde worden beoordeeld die uw exacte situatie kent.",
+      "en": "Divorce (talaaq) is a weighty matter with precise rulings that differ by situation. Answer the following questions honestly so the guidance fits your exact case. Note: some fine details (such as the intention behind certain wording, or counting pronouncements in specific cases) can only be judged by a trustworthy scholar who knows the full particulars of your case."
     },
     "questions": [
       {
         "id": "stage",
+        "gender": "man",
         "text": {
-          "ar": "في أيِّ مرحلةٍ أنت؟",
-          "en": "Which stage are you in?",
-          "nl": "In welke fase bevind je je?"
+          "ar": "أتُفكِّرُ في الطلاقِ أم وقعَ بالفعلِ؟",
+          "nl": "Overweegt u een echtscheiding, of heeft die al plaatsgevonden?",
+          "en": "Are you considering divorce, or has it already occurred?"
         },
         "options": [
           {
             "value": "considering",
             "label": {
-              "ar": "لا زلتُ أفكِّر في الأمر",
-              "en": "I am still considering it",
-              "nl": "Ik overweeg het nog"
+              "ar": "أفكِّرُ فيه ولم يقعْ بعدُ",
+              "nl": "Ik overweeg het, het is nog niet gebeurd",
+              "en": "I am considering it, it has not happened yet"
             }
           },
           {
             "value": "occurred",
             "label": {
-              "ar": "وقع الطلاق بالفعل",
-              "en": "The divorce has already occurred",
-              "nl": "De echtscheiding heeft al plaatsgevonden"
+              "ar": "وقعَ بالفعلِ",
+              "nl": "Het is al gebeurd",
+              "en": "It has already happened"
+            }
+          }
+        ]
+      },
+      {
+        "id": "count",
+        "gender": "man",
+        "text": {
+          "ar": "إن وقعَ: أهي الطلقةُ الأولى أم الثانيةُ أم الثالثةُ؟",
+          "nl": "Als het al is gebeurd: was dit de eerste, tweede of derde talaaq-uitspraak?",
+          "en": "If it happened: was this the first, second, or third pronouncement?"
+        },
+        "options": [
+          {
+            "value": "first",
+            "label": {
+              "ar": "الأولى",
+              "nl": "De eerste",
+              "en": "The first"
+            }
+          },
+          {
+            "value": "second",
+            "label": {
+              "ar": "الثانية",
+              "nl": "De tweede",
+              "en": "The second"
+            }
+          },
+          {
+            "value": "third",
+            "label": {
+              "ar": "الثالثة",
+              "nl": "De derde",
+              "en": "The third"
+            }
+          }
+        ]
+      },
+      {
+        "id": "wording",
+        "gender": "man",
+        "text": {
+          "ar": "بأيّ لفظٍ وقعَ؟",
+          "nl": "Met welke bewoording is de talaaq uitgesproken?",
+          "en": "With what wording was it pronounced?"
+        },
+        "options": [
+          {
+            "value": "sareeh",
+            "label": {
+              "ar": "لفظٌ صريحٌ، مثلُ: «أنتِ طالقٌ»",
+              "nl": "Directe/expliciete bewoording, zoals: \"jij bent verstoten\"",
+              "en": "Explicit wording, such as: \"you are divorced\""
+            }
+          },
+          {
+            "value": "kinaya",
+            "label": {
+              "ar": "لفظٌ كنائيٌّ، مثلُ: «الحقي بأهلِك»، «اذهبي إلى أهلِك»",
+              "nl": "Indirecte bewoording (kinaayah), zoals: \"ga terug naar je familie\", \"ga naar je ouders\"",
+              "en": "Indirect wording (kinaayah), such as: \"go back to your family,\" \"go to your parents\""
+            }
+          }
+        ]
+      },
+      {
+        "id": "state",
+        "gender": "man",
+        "text": {
+          "ar": "ما حالُ الزوجةِ حينَ وقوعِه؟",
+          "nl": "In welke staat verkeerde uw vrouw op het moment van de uitspraak?",
+          "en": "What was your wife's state at the time it was pronounced?"
+        },
+        "options": [
+          {
+            "value": "pure_untouched",
+            "label": {
+              "ar": "طُهرٌ لم تُجامِعْها فيه",
+              "nl": "Reinheidsperiode (geen menstruatie) waarin u geen gemeenschap met haar heeft gehad",
+              "en": "A period of purity (no menstruation) in which you did not have intercourse with her"
+            }
+          },
+          {
+            "value": "pure_touched",
+            "label": {
+              "ar": "طُهرٌ جامعتَها فيه",
+              "nl": "Reinheidsperiode waarin u wel gemeenschap met haar heeft gehad",
+              "en": "A period of purity in which you did have intercourse with her"
+            }
+          },
+          {
+            "value": "menses",
+            "label": {
+              "ar": "حيضٌ",
+              "nl": "Menstruatie",
+              "en": "Menstruation"
+            }
+          },
+          {
+            "value": "pregnant",
+            "label": {
+              "ar": "حاملٌ",
+              "nl": "Zwanger",
+              "en": "Pregnant"
+            }
+          }
+        ]
+      },
+      {
+        "id": "w_stage",
+        "gender": "woman",
+        "text": {
+          "ar": "ما حالُكِ الآن؟",
+          "nl": "Wat is uw huidige situatie?",
+          "en": "What is your current situation?"
+        },
+        "options": [
+          {
+            "value": "just",
+            "label": {
+              "ar": "طُلِّقتُ حديثًا",
+              "nl": "Ik ben net verstoten",
+              "en": "I have just been divorced"
+            }
+          },
+          {
+            "value": "iddah",
+            "label": {
+              "ar": "أنا في العدّةِ",
+              "nl": "Ik ben in de iddah (wachtperiode)",
+              "en": "I am in the iddah (waiting period)"
+            }
+          },
+          {
+            "value": "ended",
+            "label": {
+              "ar": "انتهت عدّتي",
+              "nl": "Mijn iddah is beëindigd",
+              "en": "My iddah has ended"
+            }
+          }
+        ]
+      },
+      {
+        "id": "w_count",
+        "gender": "woman",
+        "text": {
+          "ar": "أهي الطلقةُ الأولى أم الثانيةُ أم الثالثةُ؟",
+          "nl": "Was dit de eerste, tweede of derde talaaq-uitspraak?",
+          "en": "Was this the first, second, or third pronouncement?"
+        },
+        "options": [
+          {
+            "value": "first",
+            "label": {
+              "ar": "الأولى",
+              "nl": "De eerste",
+              "en": "The first"
+            }
+          },
+          {
+            "value": "second",
+            "label": {
+              "ar": "الثانية",
+              "nl": "De tweede",
+              "en": "The second"
+            }
+          },
+          {
+            "value": "third",
+            "label": {
+              "ar": "الثالثة",
+              "nl": "De derde",
+              "en": "The third"
             }
           }
         ]
@@ -566,153 +1110,259 @@
     ],
     "advice": [
       {
+        "gender": "man",
+        "when": [
+          {
+            "q": "stage",
+            "value": "considering"
+          }
+        ],
         "body": {
-          "ar": "قدِّم تقوى اللهِ وتحكيمَ العقلِ على غلبةِ الغضبِ في كلِّ قرارٍ يخصُّ زواجَك؛ فمن اتقى اللهَ في أزمته كفاه اللهُ ورزقه من حيثُ لا يحتسب.",
-          "en": "Put taqwa of Allaah and sound reasoning ahead of anger in every decision about your marriage. Whoever is mindful of Allaah in his crisis, Allaah will make a way out for him and provide for him from where he does not expect.",
-          "nl": "Stel taqwa van Allaah en gezond verstand boven woede in elke beslissing over je huwelijk. Wie Allaah vreest in zijn beproeving, voor hem zal Allaah een uitweg maken en hem voorzien vanwaar hij het niet verwacht."
+          "ar": "اتّقِ اللهَ في زوجتِك، واصبِرْ واكفُفْ غضبَك، واسعَ إلى الإصلاحِ بينكما ولو ببعثِ حكمٍ من أهلِك وحكمٍ من أهلِها، ولا تتعجّلْ بالطلاقِ فهو آخرُ الحلولِ لا أوّلَها.",
+          "nl": "Vrees Allaah in de omgang met uw vrouw, wees geduldig en beheers uw woede. Zoek verzoening tussen jullie, desnoods door een bemiddelaar van uw familie en een bemiddelaar van haar familie in te schakelen. Overhaast de echtscheiding niet — het is de laatste oplossing, niet de eerste.",
+          "en": "Fear Allaah in how you treat your wife, be patient, and control your anger. Seek reconciliation between you, even by appointing a mediator from your family and one from hers. Do not rush into divorce — it is the last resort, not the first."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَمَن يَتَّقِ اللَّهَ يَجْعَل لَّهُ مَخْرَجًا وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾ ]الطلاق: 2-3[",
-          "en": "Allaah the Almighty says: \"And whoever fears Allaah, He will make for him a way out, and will provide for him from where he does not expect.\" (Surah At-Talaq 65:2-3)",
-          "nl": "Allaah de Almachtige zegt: \"En wie Allaah vreest, voor hem zal Hij een uitweg maken, en Hij zal hem voorzien vanwaar hij het niet verwacht.\" (Soerat at-Talaaq 65:2-3)"
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَإِنْ خِفْتُمْ شِقَاقَ بَيْنِهِمَا فَٱبْعَثُوا۟ حَكَمًۭا مِّنْ أَهْلِهِۦ وَحَكَمًۭا مِّنْ أَهْلِهَآ إِن يُرِيدَآ إِصْلَٰحًۭا يُوَفِّقِ ٱللَّهُ بَيْنَهُمَآ ۗ إِنَّ ٱللَّهَ كَانَ عَلِيمًا خَبِيرًۭا﴾ [النساء: ٣٥]. عَنْ أَبِي هُرَيْرَةَ رضي الله عنه أَنَّ رَجُلًا قَالَ لِلنَّبِيِّ ﷺ: «أَوْصِنِي»، قَالَ: «لَا تَغْضَبْ» فَرَدَّدَ مِرَارًا، قَالَ: «لَا تَغْضَبْ» (رواه البخاري). وَعَنْ أَبِي هُرَيْرَةَ رضي الله عنه أَنَّ رَسُولَ اللهِ ﷺ قَالَ: «لَا يَفْرَكْ مُؤْمِنٌ مُؤْمِنَةً، إِنْ كَرِهَ مِنْهَا خُلُقًا رَضِيَ مِنْهَا آخَرَ» (رواه مسلم).",
+          "nl": "Allaah zegt: \"En als jullie een breuk tussen hen beiden vrezen, stuur dan een bemiddelaar van zijn familie en een bemiddelaar van haar familie; als zij beiden verzoening willen, zal Allaah tussen hen beiden overeenstemming brengen.\" (Soerat an-Nisaa 4:35). Van Aboe Hoerayrah: een man vroeg de Profeet ﷺ om raad, hij zei: \"Word niet boos,\" en herhaalde dit meermaals (overgeleverd door al-Boekhaarie). En van Aboe Hoerayrah: de Boodschapper van Allaah ﷺ zei: \"Een gelovige man mag een gelovige vrouw niet haten; mishaagt hem een eigenschap van haar, dan is hij tevreden met een andere.\" (overgeleverd door Moeslim).",
+          "en": "Allaah says: \"And if you fear dissension between the two, send an arbitrator from his people and an arbitrator from her people. If they both desire reconciliation, Allaah will cause harmony between them.\" (Surat an-Nisaa 4:35). Abu Hurayrah reported that a man asked the Prophet ﷺ for advice; he said, \"Do not become angry,\" repeating it several times (reported by al-Bukhari). And from Abu Hurayrah: the Messenger of Allaah ﷺ said, \"A believing man must not hate a believing woman; if he dislikes one of her traits, he will be pleased with another.\" (reported by Muslim)."
         }
       },
       {
-        "body": {
-          "ar": "قبل أن يبلغَ الخلافُ حدَّ الطلاق، اسعَ إلى الإصلاح، وإن استحكم الشقاقُ فابعثوا حكمًا من أهله وحكمًا من أهلها يسعيان بالنصح والصدق؛ فكثيرًا ما يوفِّق اللهُ بين الزوجين بهذا السبب.",
-          "en": "Before disagreement reaches the point of divorce, seek reconciliation. If the rift deepens, send an arbitrator from his family and one from hers to mediate sincerely — Allaah often brings about reconciliation through this means.",
-          "nl": "Voordat een meningsverschil uitmondt in echtscheiding: zoek verzoening. Als de breuk dieper wordt, stuur dan een bemiddelaar van zijn familie en een van haar familie om oprecht te bemiddelen — Allaah brengt hierdoor vaak verzoening tot stand."
-        },
-        "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَإِنْ خِفْتُمْ شِقَاقَ بَيْنِهِمَا فَابْعَثُوا حَكَمًا مِّنْ أَهْلِهِ وَحَكَمًا مِّنْ أَهْلِهَا إِن يُرِيدَا إِصْلَاحًا يُوَفِّقِ اللَّهُ بَيْنَهُمَا ۗ إِنَّ اللَّهَ كَانَ عَلِيمًا خَبِيرًا﴾ ]النساء: 35[",
-          "en": "Allaah the Almighty says: \"And if you fear dissension between the two, send an arbitrator from his people and an arbitrator from her people. If they both desire reconciliation, Allaah will cause it between them. Indeed, Allaah is ever Knowing and Acquainted [with all things].\" (Surah An-Nisa 4:35)",
-          "nl": "Allaah de Almachtige zegt: \"En als jullie een breuk tussen hen beiden vrezen, stuur dan een bemiddelaar van zijn familie en een bemiddelaar van haar familie. Als zij beiden verzoening wensen, zal Allaah tussen hen verzoening bewerkstelligen. Voorwaar, Allaah is Alwetend, Alkundig.\" (Soerat an-Nisaa 4:35)"
-        },
+        "gender": "man",
         "when": [
           {
             "q": "stage",
-            "value": "considering"
+            "value": "occurred"
+          },
+          {
+            "q": "wording",
+            "value": "sareeh"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "لا تتعجَّل في هدم بيتٍ لخصلةٍ تكرهها في زوجك؛ فقلَّ أن يخلو إنسانٌ من عيبٍ، وقد يكون في صفاتٍ أخرى منه خيرٌ كثير. اصبر وتذكَّر محاسنه قبل أن تُقدِم على قرارٍ لا رجعة فيه أحيانًا.",
-          "en": "Do not rush to tear down a marriage over one trait you dislike in your spouse — no one is free of some flaw, and other qualities in them may hold much good. Be patient and remember their good points before taking a step that is sometimes irreversible.",
-          "nl": "Haast je niet om een huwelijk af te breken vanwege één eigenschap die je niet bevalt aan je echtgenoot — niemand is vrij van gebreken, en andere eigenschappen kunnen veel goeds bevatten. Wees geduldig en denk aan de goede kanten, voordat je een stap zet die soms onomkeerbaar is."
+          "ar": "إذا تلفّظتَ بلفظٍ صريحٍ كـ«أنتِ طالقٌ»، وقعَ به الطلاقُ ولو لم تكنْ ناويًا الطلاقَ حينَ التلفّظِ به؛ لأنّ اللفظَ الصريحَ يُحمَلُ على ظاهرِه.",
+          "nl": "Als u een expliciete uitspraak heeft gedaan zoals \"jij bent verstoten\", dan is de talaaq daarmee voltrokken, ook als u op dat moment niet daadwerkelijk de intentie had om te scheiden — expliciete bewoording wordt naar haar letterlijke betekenis beoordeeld.",
+          "en": "If you used explicit wording such as \"you are divorced,\" the divorce takes effect by that wording even if you did not truly intend divorce at that moment — explicit wording is judged by its plain meaning."
         },
         "daleel": {
-          "ar": "قَالَ رَسُولُ اللَّهِ ﷺ: «لَا يَفْرَكْ مُؤْمِنٌ مُؤْمِنَةً، إِنْ كَرِهَ مِنْهَا خُلُقًا رَضِيَ مِنْهَا آخَرَ» (رواه مسلم)",
-          "en": "The Messenger of Allaah (sallAllaahu 'alayhi wa sallam) said: \"A believing man must not hate a believing woman [his wife]; if he dislikes one of her characteristics, he will be pleased with another.\" (Reported by Muslim)",
-          "nl": "De Boodschapper van Allaah (sallAllaahu 'alayhi wa sallam) zei: \"Een gelovige man mag een gelovige vrouw [zijn echtgenote] niet haten; als hij één eigenschap in haar afkeurt, zal hij tevreden zijn met een andere.\" (Overgeleverd door Moeslim)"
-        },
+          "ar": "عَنِ ابْنِ عُمَرَ رضي الله عنهما أَنَّهُ طَلَّقَ امْرَأَتَهُ وَهِيَ حَائِضٌ، فَسَأَلَ عُمَرُ بْنُ الْخَطَّابِ رضي الله عنه رَسُولَ اللهِ ﷺ عَنْ ذَلِكَ، فَقَالَ رَسُولُ اللهِ ﷺ: «مُرْهُ فَلْيُرَاجِعْهَا» (مُتَّفَقٌ عَلَيْهِ: رواه البخاري ومسلم). فأمرَ ﷺ بمراجعتِها ولم يسألْه عن نيّتِه؛ لأنّ اللفظَ الصريحَ يقعُ به الطلاقُ بذاتِه.",
+          "nl": "Ibn 'Oemar verstootte zijn vrouw terwijl zij menstrueerde. 'Oemar ibn al-Khattaab vroeg de Boodschapper van Allaah ﷺ hiernaar; hij zei: \"Beveel hem haar terug te nemen.\" (overeengekomen overlevering: al-Boekhaarie en Moeslim). De Profeet ﷺ beval de terugname zonder naar zijn intentie te vragen — het expliciete woord voltrekt de talaaq op zichzelf.",
+          "en": "Ibn 'Umar divorced his wife while she was menstruating. 'Umar ibn al-Khattab asked the Messenger of Allaah ﷺ about it; he said, \"Order him to take her back.\" (agreed upon: al-Bukhari and Muslim). The Prophet ﷺ commanded the return without asking about his intention — the explicit word effects the divorce by itself."
+        }
+      },
+      {
+        "gender": "man",
         "when": [
           {
             "q": "stage",
-            "value": "considering"
+            "value": "occurred"
+          },
+          {
+            "q": "wording",
+            "value": "kinaya"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "إن وقع الطلاق، فالسنّةُ أن تُطلَّق المرأةُ طلقةً واحدةً في طُهرٍ لم يُجامِعها فيه الزوجُ، لا في حيضٍ ولا في طهرٍ جامعها فيه؛ فهذا أرفقُ بها وأحفظُ لحقِّها في مراجعةٍ محتملة.",
-          "en": "If divorce takes place, the Sunnah is to issue a single pronouncement during a period of purity in which the husband has not had intercourse with her — not during her menses, nor during a pure period in which relations occurred. This is gentler for her and preserves her right to a possible return.",
-          "nl": "Als de echtscheiding heeft plaatsgevonden, is de Soennah om één enkele verstoting uit te spreken tijdens een reine periode waarin de man geen gemeenschap met haar heeft gehad — niet tijdens haar menstruatie, en niet tijdens een reine periode waarin wel gemeenschap plaatsvond. Dit is zachter voor haar en behoudt haar recht op een mogelijke terugkeer."
+          "ar": "إذا تلفّظتَ بلفظٍ كنائيٍّ كـ«الحقي بأهلِك» أو «اذهبي إلى أهلِك»، فلا يقعُ به الطلاقُ إلا إن كنتَ ناويًا به الطلاقَ حينَ التلفّظِ. هذه مسألةٌ متعلّقةٌ بنيّتِك أنتَ وحدَك، والتطبيقُ لا يستطيعُ الحكمَ عليها؛ فإن كنتَ مترددًا في نيّتِك، أو التبسَ عليك الأمرُ، فاعرِضْ تفصيلَ حالِك بعينِها على عالمٍ موثوقٍ ليحكمَ فيها.",
+          "nl": "Als u indirecte bewoording heeft gebruikt zoals \"ga terug naar je familie\" of \"ga naar je ouders\", dan treedt de talaaq alleen in werking als u op dat moment daadwerkelijk de intentie tot scheiding had. Dit hangt volledig af van uw eigen intentie, en deze app kan hierover geen oordeel vellen. Twijfelt u over uw eigen intentie, of is de situatie onduidelijk? Leg dan de precieze details van uw geval voor aan een betrouwbare geleerde.",
+          "en": "If you used indirect wording such as \"go back to your family\" or \"go to your parents,\" the divorce only takes effect if you genuinely intended divorce at that moment. This depends entirely on your own intention, and this app cannot judge that for you. If you are unsure of your own intention, or the situation is unclear, present the exact details of your case to a trustworthy scholar."
         },
         "daleel": {
-          "ar": "عَنِ ابْنِ عُمَرَ رضي الله عنهما أَنَّهُ طَلَّقَ امْرَأَتَهُ وَهِيَ حَائِضٌ عَلَى عَهْدِ رَسُولِ اللَّهِ ﷺ، فَسَأَلَ عُمَرُ بْنُ الْخَطَّابِ رَسُولَ اللَّهِ ﷺ عَنْ ذَلِكَ، فَقَالَ رَسُولُ اللَّهِ ﷺ: «مُرْهُ فَلْيُرَاجِعْهَا، ثُمَّ لْيُمْسِكْهَا حَتَّى تَطْهُرَ، ثُمَّ تَحِيضَ، ثُمَّ تَطْهُرَ، ثُمَّ إِنْ شَاءَ أَمْسَكَ بَعْدُ، وَإِنْ شَاءَ طَلَّقَ قَبْلَ أَنْ يَمَسَّ، فَتِلْكَ الْعِدَّةُ الَّتِي أَمَرَ اللَّهُ أَنْ تُطَلَّقَ لَهَا النِّسَاءُ» (رواه البخاري ومسلم)",
-          "en": "Ibn 'Umar (radiyAllaahu 'anhuma) divorced his wife while she was menstruating, during the time of the Messenger of Allaah (sallAllaahu 'alayhi wa sallam). 'Umar ibn al-Khattab asked the Messenger of Allaah (sallAllaahu 'alayhi wa sallam) about it, and he said: \"Tell him to take her back, then keep her until she becomes pure, then menstruates again, then becomes pure again. Then, if he wishes, he may keep her, or if he wishes, he may divorce her before touching her. That is the waiting period which Allaah has commanded for the divorce of women.\" (Reported by Bukhari and Muslim)",
-          "nl": "Ibn 'Umar (radiyAllaahu 'anhoema) verstootte zijn vrouw terwijl zij menstrueerde, tijdens de tijd van de Boodschapper van Allaah (sallAllaahu 'alayhi wa sallam). 'Oemar ibn al-Khattaab vroeg de Boodschapper van Allaah (sallAllaahu 'alayhi wa sallam) hiernaar, en hij zei: \"Beveel hem haar terug te nemen, haar dan te behouden totdat zij rein wordt, dan weer menstrueert, dan weer rein wordt. Daarna kan hij haar, als hij wil, behouden, of als hij wil, haar verstoten voordat hij gemeenschap met haar heeft gehad. Dat is de wachtperiode die Allaah heeft voorgeschreven voor het verstoten van vrouwen.\" (Overgeleverd door al-Boekhaarie en Moeslim)"
-        },
+          "ar": "عَنْ عُمَرَ بْنِ الْخَطَّابِ رضي الله عنه قَالَ: سَمِعْتُ رَسُولَ اللهِ ﷺ يَقُولُ: «إِنَّمَا الْأَعْمَالُ بِالنِّيَّاتِ، وَإِنَّمَا لِكُلِّ امْرِئٍ مَا نَوَى» (مُتَّفَقٌ عَلَيْهِ: رواه البخاري ومسلم).",
+          "nl": "'Oemar ibn al-Khattaab zei: ik hoorde de Boodschapper van Allaah ﷺ zeggen: \"Daden worden slechts beoordeeld naar de intenties, en ieder mens krijgt slechts wat hij heeft beoogd.\" (overeengekomen overlevering: al-Boekhaarie en Moeslim).",
+          "en": "'Umar ibn al-Khattab said: I heard the Messenger of Allaah ﷺ say, \"Actions are but by intentions, and every person shall have only what he intended.\" (agreed upon: al-Bukhari and Muslim)."
+        }
+      },
+      {
+        "gender": "man",
         "when": [
           {
             "q": "stage",
             "value": "occurred"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "احفظ عدَّتها وأحصِها بدقة، ولا تُخرِجها من بيت الزوجية أثناءها إلا أن تأتي بفاحشةٍ ظاهرة؛ فبقاؤها في البيت من حقها وفيه مصلحةُ الطرفين والأولاد.",
-          "en": "Keep careful count of her waiting period ('iddah), and do not put her out of the marital home during it unless she commits a clear, open immorality. Her remaining in the home is her right, and it serves the interest of both spouses and the children.",
-          "nl": "Houd haar wachtperiode ('iddah) nauwkeurig bij, en zet haar er tijdens deze periode niet uit, tenzij zij een duidelijke, openlijke zedeloosheid begaat. Dat zij in huis blijft is haar recht, en het dient het belang van beide echtgenoten en de kinderen."
+          "ar": "الطلاقُ الموافقُ للسنّةِ أن يكونَ طلقةً واحدةً في طُهرٍ لم تُجامِعْ زوجتَك فيه.",
+          "nl": "De talaaq die overeenstemt met de Soennah is: één enkele uitspraak, tijdens een reinheidsperiode waarin u geen gemeenschap met uw vrouw heeft gehad.",
+          "en": "The divorce that conforms to the Sunnah is: a single pronouncement, during a period of purity in which you did not have intercourse with your wife."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿يَا أَيُّهَا النَّبِيُّ إِذَا طَلَّقْتُمُ النِّسَاءَ فَطَلِّقُوهُنَّ لِعِدَّتِهِنَّ وَأَحْصُوا الْعِدَّةَ ۖ وَاتَّقُوا اللَّهَ رَبَّكُمْ ۖ لَا تُخْرِجُوهُنَّ مِن بُيُوتِهِنَّ وَلَا يَخْرُجْنَ إِلَّا أَن يَأْتِينَ بِفَاحِشَةٍ مُّبَيِّنَةٍ﴾ ]الطلاق: 1[",
-          "en": "Allaah the Almighty says: \"O Prophet, when you [Muslims] divorce women, divorce them for [the commencement of] their waiting period and count the waiting period, and fear Allaah, your Lord. Do not evict them from their homes, nor should they leave [themselves], unless they are committing a clear immorality.\" (Surah At-Talaq 65:1)",
-          "nl": "Allaah de Almachtige zegt: \"O Profeet, wanneer jullie de vrouwen verstoten, verstoot hen dan met het oog op hun wachtperiode, en telt de wachtperiode nauwkeurig, en vreest Allaah, jullie Heer. Zet hen niet uit hun huizen, en laat hen ook niet zelf weggaan, tenzij zij een duidelijke zedeloosheid begaan.\" (Soerat at-Talaaq 65:1)"
+          "ar": "عَنِ ابْنِ عُمَرَ رضي الله عنهما أَنَّهُ طَلَّقَ امْرَأَتَهُ وَهِيَ حَائِضٌ عَلَى عَهْدِ رَسُولِ اللهِ ﷺ، فَسَأَلَ عُمَرُ بْنُ الْخَطَّابِ رضي الله عنه رَسُولَ اللهِ ﷺ عَنْ ذَلِكَ، فَقَالَ رَسُولُ اللهِ ﷺ: «مُرْهُ فَلْيُرَاجِعْهَا، ثُمَّ لْيُمْسِكْهَا حَتَّى تَطْهُرَ، ثُمَّ تَحِيضَ، ثُمَّ تَطْهُرَ، ثُمَّ إِنْ شَاءَ أَمْسَكَ بَعْدُ، وَإِنْ شَاءَ طَلَّقَ قَبْلَ أَنْ يَمَسَّ، فَتِلْكَ الْعِدَّةُ الَّتِي أَمَرَ اللهُ أَنْ تُطَلَّقَ لَهَا النِّسَاءُ» (مُتَّفَقٌ عَلَيْهِ: رواه البخاري ومسلم).",
+          "nl": "Ibn 'Oemar verstootte zijn vrouw terwijl zij menstrueerde, tijdens het leven van de Boodschapper van Allaah ﷺ. 'Oemar ibn al-Khattaab vroeg de Boodschapper van Allaah ﷺ hiernaar; hij zei: \"Beveel hem haar terug te nemen, haar te behouden totdat zij rein wordt, dan menstrueert, dan weer rein wordt; daarna kan hij haar behouden als hij wil, of haar verstoten voordat hij gemeenschap met haar heeft indien hij dat wil — dat is de periode die Allaah heeft aangewezen waarin vrouwen verstoten mogen worden.\" (overeengekomen overlevering: al-Boekhaarie en Moeslim).",
+          "en": "Ibn 'Umar divorced his wife while she was menstruating, during the Prophet's ﷺ lifetime. 'Umar ibn al-Khattab asked the Messenger of Allaah ﷺ about it; he said, \"Order him to take her back, keep her until she becomes pure, then menstruates, then becomes pure again; then afterward he may keep her if he wishes, or divorce her before touching her if he wishes — that is the period Allaah appointed for divorcing women.\" (agreed upon: al-Bukhari and Muslim)."
+        }
+      },
+      {
+        "gender": "man",
+        "when": [
+          {
+            "q": "stage",
+            "value": "occurred"
+          },
+          {
+            "q": "state",
+            "value": "menses"
+          }
+        ],
+        "body": {
+          "ar": "حالُ زوجتِك حينَ الطلاقِ كانتْ حيضًا، وهذا طلاقُ بدعةٍ محرَّمٌ؛ فالواجبُ عليك أن تراجِعَها. أمّا احتسابُ هذه الطلقةِ ضمنَ العددِ، فهذه نقطةٌ تفصيليّةٌ تُرجَعُ فيها إلى عالمٍ موثوقٍ يعرفُ كاملَ حالِك.",
+          "nl": "Uw vrouw verkeerde in menstruatie op het moment van de talaaq — dit is een verboden, niet-Soennah-conforme talaaq (bid'ah). U bent verplicht haar terug te nemen. Of deze uitspraak meetelt in het totale aantal talaaq's, is een detailkwestie die aan een betrouwbare geleerde moet worden voorgelegd die uw volledige situatie kent.",
+          "en": "Your wife was menstruating when the divorce was pronounced — this is a forbidden, non-Sunnah divorce (bid'ah). You are obligated to take her back. Whether this pronouncement counts toward the total number of divorces is a detailed matter to bring to a trustworthy scholar who knows your full situation."
         },
+        "daleel": {
+          "ar": "عَنِ ابْنِ عُمَرَ رضي الله عنهما أَنَّهُ طَلَّقَ امْرَأَتَهُ وَهِيَ حَائِضٌ، فَسَأَلَ عُمَرُ بْنُ الْخَطَّابِ رضي الله عنه رَسُولَ اللهِ ﷺ عَنْ ذَلِكَ، فَقَالَ رَسُولُ اللهِ ﷺ: «مُرْهُ فَلْيُرَاجِعْهَا» (مُتَّفَقٌ عَلَيْهِ: رواه البخاري ومسلم).",
+          "nl": "Ibn 'Oemar verstootte zijn vrouw terwijl zij menstrueerde. 'Oemar ibn al-Khattaab vroeg de Boodschapper van Allaah ﷺ hiernaar; hij zei: \"Beveel hem haar terug te nemen.\" (overeengekomen overlevering: al-Boekhaarie en Moeslim).",
+          "en": "Ibn 'Umar divorced his wife while she was menstruating. 'Umar ibn al-Khattab asked the Messenger of Allaah ﷺ about it; he said, \"Order him to take her back.\" (agreed upon: al-Bukhari and Muslim)."
+        }
+      },
+      {
+        "gender": "man",
+        "when": [
+          {
+            "q": "stage",
+            "value": "occurred"
+          },
+          {
+            "q": "state",
+            "value": "pure_touched"
+          }
+        ],
+        "body": {
+          "ar": "طلّقتَ زوجتَك في طُهرٍ جامعتَها فيه، وهذا أيضًا طلاقُ بدعةٍ محرَّمٌ؛ لاحتمالِ ظهورِ حملٍ لا تدري به. والواجبُ عليك مراجعتُها، أمّا احتسابُ هذه الطلقةِ ضمنَ العددِ فيُرجَعُ فيه إلى عالمٍ موثوقٍ يعرفُ كاملَ حالِك.",
+          "nl": "U heeft uw vrouw verstoten tijdens een reinheidsperiode waarin u wél gemeenschap met haar heeft gehad — ook dit is een verboden, niet-Soennah-conforme talaaq (bid'ah), vanwege de mogelijkheid dat zij zwanger is zonder dat u het weet. U bent verplicht haar terug te nemen. Of deze uitspraak meetelt in het totale aantal, moet worden voorgelegd aan een betrouwbare geleerde die uw volledige situatie kent.",
+          "en": "You divorced your wife during a period of purity in which you had intercourse with her — this too is a forbidden, non-Sunnah divorce (bid'ah), because of the possibility she may be pregnant without your knowledge. You are obligated to take her back. Whether this pronouncement counts toward the total number should be brought to a trustworthy scholar who knows your full situation."
+        },
+        "daleel": {
+          "ar": "عَنِ ابْنِ عُمَرَ رضي الله عنهما أَنَّهُ طَلَّقَ امْرَأَتَهُ وَهِيَ حَائِضٌ عَلَى عَهْدِ رَسُولِ اللهِ ﷺ، فَسَأَلَ عُمَرُ بْنُ الْخَطَّابِ رضي الله عنه رَسُولَ اللهِ ﷺ عَنْ ذَلِكَ، فَقَالَ رَسُولُ اللهِ ﷺ: «مُرْهُ فَلْيُرَاجِعْهَا، ثُمَّ لْيُمْسِكْهَا حَتَّى تَطْهُرَ، ثُمَّ تَحِيضَ، ثُمَّ تَطْهُرَ، ثُمَّ إِنْ شَاءَ أَمْسَكَ بَعْدُ، وَإِنْ شَاءَ طَلَّقَ قَبْلَ أَنْ يَمَسَّ، فَتِلْكَ الْعِدَّةُ الَّتِي أَمَرَ اللهُ أَنْ تُطَلَّقَ لَهَا النِّسَاءُ» (مُتَّفَقٌ عَلَيْهِ: رواه البخاري ومسلم). فجعلَ ﷺ عدمَ المسيسِ شرطًا لصحّةِ الطلاقِ الموافقِ للسنّةِ.",
+          "nl": "Ibn 'Oemar verstootte zijn vrouw terwijl zij menstrueerde, tijdens het leven van de Boodschapper van Allaah ﷺ. 'Oemar ibn al-Khattaab vroeg de Boodschapper van Allaah ﷺ hiernaar; hij zei: \"Beveel hem haar terug te nemen, haar te behouden totdat zij rein wordt, dan menstrueert, dan weer rein wordt; daarna kan hij haar behouden als hij wil, of haar verstoten voordat hij gemeenschap met haar heeft indien hij dat wil — dat is de periode die Allaah heeft aangewezen waarin vrouwen verstoten mogen worden.\" (overeengekomen overlevering: al-Boekhaarie en Moeslim). De Profeet ﷺ stelde het uitblijven van gemeenschap als voorwaarde voor een Soennah-conforme talaaq.",
+          "en": "Ibn 'Umar divorced his wife while she was menstruating, during the Prophet's ﷺ lifetime. 'Umar ibn al-Khattab asked the Messenger of Allaah ﷺ about it; he said, \"Order him to take her back, keep her until she becomes pure, then menstruates, then becomes pure again; then afterward he may keep her if he wishes, or divorce her before touching her if he wishes — that is the period Allaah appointed for divorcing women.\" (agreed upon: al-Bukhari and Muslim). The Prophet ﷺ made the absence of intercourse a condition for a Sunnah-conforming divorce."
+        }
+      },
+      {
+        "gender": "man",
         "when": [
           {
             "q": "stage",
             "value": "occurred"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "بعد كلِّ طلقةٍ يملك الزوجُ مراجعتَها، فإمَّا أن يُمسكها بمعروفٍ فيُحسن عشرتها، وإمَّا أن يُسرِّحها بإحسانٍ من غير ظلمٍ ولا انتقاص لحقها.",
-          "en": "After each revocable pronouncement of divorce, the husband must choose one of two honourable paths: keep her with kindness and good treatment, or release her with grace, without wronging her or withholding her rights.",
-          "nl": "Na elke herroepbare verstoting heeft de man de keuze uit twee eervolle wegen: haar met vriendelijkheid en goede behandeling behouden, of haar met respect laten gaan, zonder haar onrecht aan te doen of haar rechten te onthouden."
+          "ar": "الطلقةُ الأولى والثانيةُ طلاقٌ رجعيٌّ: يحقُّ لك أن تراجِعَ زوجتَك ما دامتْ في عدّتِها، دونَ عقدٍ جديدٍ أو مهرٍ، وهذا خاصٌّ بالطلقتينِ الأولى والثانيةِ فقط.",
+          "nl": "De eerste en tweede talaaq zijn herroepbaar (radj'i): u mag uw vrouw terugnemen zolang zij in haar iddah is, zonder nieuw huwelijkscontract of nieuwe bruidsgave. Dit geldt uitsluitend voor de eerste en tweede uitspraak.",
+          "en": "The first and second pronouncements are revocable (raj'i): you may take your wife back as long as she is in her iddah, without a new contract or dowry. This applies only to the first and second pronouncements."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿الطَّلَاقُ مَرَّتَانِ ۖ فَإِمْسَاكٌ بِمَعْرُوفٍ أَوْ تَسْرِيحٌ بِإِحْسَانٍ﴾ ]البقرة: 229[",
-          "en": "Allaah the Almighty says: \"Divorce is twice. Then, either keep [her] in an acceptable manner or release [her] with good treatment.\" (Surah Al-Baqarah 2:229)",
-          "nl": "Allaah de Almachtige zegt: \"De [herroepbare] echtscheiding is twee keer. Daarna is er ofwel behoud op behoorlijke wijze, ofwel het laten gaan met goedheid.\" (Soerat al-Baqarah 2:229)"
-        },
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَبُعُولَتُهُنَّ أَحَقُّ بِرَدِّهِنَّ فِى ذَٰلِكَ إِنْ أَرَادُوٓا۟ إِصْلَٰحًۭا ۚ وَلَهُنَّ مِثْلُ ٱلَّذِى عَلَيْهِنَّ بِٱلْمَعْرُوفِ﴾ [البقرة: ٢٢٨]. وَيَقُولُ تَعَالَى: ﴿ٱلطَّلَٰقُ مَرَّتَانِ ۖ فَإِمْسَاكٌۢ بِمَعْرُوفٍ أَوْ تَسْرِيحٌۢ بِإِحْسَٰنٍۢ﴾ [البقرة: ٢٢٩].",
+          "nl": "Allaah zegt: \"En hun echtgenoten hebben meer recht om hen in die periode terug te nemen, als zij verzoening beogen.\" (Soerat al-Baqarah 2:228), en Hij zegt: \"De (herroepbare) echtscheiding is tweemaal; dan is er behoud op behoorlijke wijze of vrijlating met goedheid.\" (Soerat al-Baqarah 2:229).",
+          "en": "Allaah says: \"And their husbands have more right to take them back in this [period] if they want reconciliation.\" (Surat al-Baqarah 2:228), and He says: \"Divorce is twice; then, either keep [her] in an acceptable manner or release [her] with good treatment.\" (Surat al-Baqarah 2:229)."
+        }
+      },
+      {
+        "gender": "man",
         "when": [
           {
             "q": "stage",
             "value": "occurred"
+          },
+          {
+            "q": "count",
+            "value": "third"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "لا يجوز إطالة أمد المراجعة أو التلاعب بها بقصد الإضرار بالمطلَّقة أو إجبارها على التنازل عن حقها؛ فمن فعل ذلك فقد ظلم نفسه قبل أن يظلمها.",
-          "en": "It is not permissible to draw out or manipulate a revocation with the intent of harming the divorced wife or forcing her to give up her rights. Whoever does so has wronged himself before wronging her.",
-          "nl": "Het is niet toegestaan om een herroeping te rekken of te misbruiken met de bedoeling de verstoten vrouw te schaden of haar te dwingen haar rechten op te geven. Wie dit doet, doet zichzelf onrecht aan nog voordat hij haar onrecht aandoet."
+          "ar": "هذه الطلقةُ الثالثةُ، وهي بينونةٌ كبرى: لا تحلُّ لك زوجتُك بعدَها حتى تنكحَ زوجًا غيرَك نكاحَ رغبةٍ حقيقيٍّ لا نكاحَ تحليلٍ. هذا أمرٌ عظيمُ الخطرِ، فاستوثِقْ من صحّةِ العدِّ (فقد يكونُ سبقَ خطأٌ في الحسابِ) واستشِرْ عالمًا موثوقًا قبلَ ترتيبِ أيِّ أثرٍ عليه.",
+          "nl": "Dit is de derde talaaq, en dat is een definitieve scheiding (bainoenah koebra): uw vrouw is daarna niet meer toegestaan voor u, totdat zij trouwt met een andere man in een oprecht huwelijk (geen schijnhuwelijk om haar weer voor u toegestaan te maken). Dit is uiterst ingrijpend — verifieer of de telling correct is (er kan eerder een telfout zijn gemaakt) en raadpleeg een betrouwbare geleerde voordat u hier verdere consequenties aan verbindt.",
+          "en": "This is the third pronouncement, and that is a final, major separation (bainoonah kubraa): your wife is no longer permissible for you afterward until she marries another man in a genuine marriage (not a sham marriage arranged to make her permissible for you again). This is extremely serious — verify that the count is accurate (an earlier miscount is possible) and consult a trustworthy scholar before acting on it further."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَلَا تُمْسِكُوهُنَّ ضِرَارًا لِّتَعْتَدُوا ۚ وَمَن يَفْعَلْ ذَٰلِكَ فَقَدْ ظَلَمَ نَفْسَهُ﴾ ]البقرة: 231[",
-          "en": "Allaah the Almighty says: \"And do not keep them, intending harm, to transgress [against them]. And whoever does that has certainly wronged himself.\" (Surah Al-Baqarah 2:231)",
-          "nl": "Allaah de Almachtige zegt: \"En houdt hen niet vast met de bedoeling hen te schaden en onrecht aan te doen. En wie dat doet, heeft zichzelf zeker onrecht aangedaan.\" (Soerat al-Baqarah 2:231)"
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿فَإِن طَلَّقَهَا فَلَا تَحِلُّ لَهُۥ مِنۢ بَعْدُ حَتَّىٰ تَنكِحَ زَوْجًا غَيْرَهُۥ﴾ [البقرة: ٢٣٠].",
+          "nl": "Allaah zegt: \"Als hij haar (voor de derde keer) verstoot, dan is zij daarna niet meer voor hem toegestaan, totdat zij met een andere man trouwt.\" (Soerat al-Baqarah 2:230).",
+          "en": "Allaah says: \"And if he divorces her (a third time), then she is not lawful to him afterward until she marries a husband other than him.\" (Surat al-Baqarah 2:230)."
+        }
+      },
+      {
+        "gender": "man",
+        "body": {
+          "ar": "أمسِكْ زوجتَك بمعروفٍ أو سرِّحْها بإحسانٍ، ولا تُمسِكْها إضرارًا بها لتعتدي عليها، وأحصِ عدّتَها ولا تُخرِجْها من بيتِها في الطلاقِ الرجعيِّ إلا أن تأتيَ بفاحشةٍ بيّنةٍ، ولا تجعلْ أولادَك وقودًا لخصامِك معها.",
+          "nl": "Behoud uw vrouw op behoorlijke wijze of laat haar met goedheid gaan; behoud haar niet om haar te schaden. Tel haar iddah nauwkeurig en zet haar tijdens een herroepbare talaaq niet uit haar huis, tenzij zij een duidelijke, vastgestelde overtreding begaat. Maak van uw kinderen geen wapen in het conflict met haar.",
+          "en": "Keep your wife in an acceptable manner or release her with good treatment; do not keep her to cause her harm. Count her iddah precisely, and during a revocable divorce do not remove her from her home, unless she commits a clear, established transgression. Do not turn your children into weapons in your conflict with her."
         },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿ٱلطَّلَٰقُ مَرَّتَانِ ۖ فَإِمْسَاكٌۢ بِمَعْرُوفٍ أَوْ تَسْرِيحٌۢ بِإِحْسَٰنٍۢ﴾ [البقرة: ٢٢٩]. وَيَقُولُ تَعَالَى: ﴿فَأَمْسِكُوهُنَّ بِمَعْرُوفٍ أَوْ سَرِّحُوهُنَّ بِمَعْرُوفٍۢ ۚ وَلَا تُمْسِكُوهُنَّ ضِرَارًۭا لِّتَعْتَدُوا۟﴾ [البقرة: ٢٣١]. وَيَقُولُ تَعَالَى: ﴿وَأَحْصُوا۟ ٱلْعِدَّةَ ۖ وَٱتَّقُوا۟ ٱللَّهَ رَبَّكُمْ ۖ لَا تُخْرِجُوهُنَّ مِنۢ بُيُوتِهِنَّ وَلَا يَخْرُجْنَ إِلَّآ أَن يَأْتِينَ بِفَٰحِشَةٍۢ مُّبَيِّنَةٍۢ﴾ [الطلاق: ١]. وَيَقُولُ تَعَالَى: ﴿لَا تُضَآرَّ وَٰلِدَةٌۢ بِوَلَدِهَا وَلَا مَوْلُودٌۭ لَّهُۥ بِوَلَدِهِۦ﴾ [البقرة: ٢٣٣].",
+          "nl": "Allaah zegt: \"Dan is er behoud op behoorlijke wijze of vrijlating met goedheid.\" (Soerat al-Baqarah 2:229); en Hij zegt: \"Houd hen op behoorlijke wijze, of laat hen op behoorlijke wijze gaan, en houd hen niet vast om te schaden, om onrecht te plegen.\" (Soerat al-Baqarah 2:231); en Hij zegt: \"En telt de iddah nauwkeurig, en vrees Allaah, jullie Heer. Zet hen niet uit hun huizen, en laat hen niet vertrekken, tenzij zij een duidelijk vastgestelde overtreding begaan.\" (Soerat at-Talaaq 65:1); en Hij zegt: \"Geen moeder mag benadeeld worden vanwege haar kind, en geen vader vanwege zijn kind.\" (Soerat al-Baqarah 2:233).",
+          "en": "Allaah says: \"Then, either keep [her] in an acceptable manner or release [her] with good treatment.\" (Surat al-Baqarah 2:229); and He says: \"So retain them in an acceptable manner or release them in an acceptable manner, and do not keep them, intending harm, to transgress [against them].\" (Surat al-Baqarah 2:231); and He says: \"And count the waiting period, and fear Allaah, your Lord. Do not turn them out of their houses, nor should they leave, unless they commit a clear immorality.\" (Surat at-Talaaq 65:1); and He says: \"No mother should be harmed through her child, and no father through his child.\" (Surat al-Baqarah 2:233)."
+        }
+      },
+      {
+        "gender": "woman",
+        "body": {
+          "ar": "عدّتُكِ إن كنتِ من ذواتِ الحيضِ ثلاثةُ قروءٍ (حيضاتٍ)، وإن كنتِ حاملًا فعدّتُكِ حتى تضعي حملَك. ولا يحلُّ لكِ أن تكتُمي ما خلقَ اللهُ في رحمِكِ من حملٍ أو حيضٍ، فلهذا الكتمانِ أثرٌ في حقوقِك وحقوقِ زوجِك.",
+          "nl": "Als u menstrueert, is uw iddah drie menstruatiecycli; als u zwanger bent, duurt uw iddah tot de bevalling. Het is u niet toegestaan te verzwijgen wat Allaah in uw baarmoeder heeft geschapen — zwangerschap of menstruatie — want dit verzwijgen raakt zowel uw rechten als die van uw (ex-)echtgenoot.",
+          "en": "If you menstruate, your iddah is three menstrual cycles; if you are pregnant, your iddah lasts until you give birth. You are not permitted to conceal what Allaah has created in your womb — pregnancy or menstruation — since concealing this affects both your rights and your husband's."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَٱلْمُطَلَّقَٰتُ يَتَرَبَّصْنَ بِأَنفُسِهِنَّ ثَلَٰثَةَ قُرُوٓءٍۢ ۚ وَلَا يَحِلُّ لَهُنَّ أَن يَكْتُمْنَ مَا خَلَقَ ٱللَّهُ فِىٓ أَرْحَامِهِنَّ﴾ [البقرة: ٢٢٨]. وَيَقُولُ تَعَالَى: ﴿وَأُو۟لَٰتُ ٱلْأَحْمَالِ أَجَلُهُنَّ أَن يَضَعْنَ حَمْلَهُنَّ﴾ [الطلاق: ٤].",
+          "nl": "Allaah zegt: \"En de verstoten vrouwen dienen te wachten met betrekking tot zichzelf voor drie menstruatiecycli. En het is hen niet toegestaan te verbergen wat Allaah in hun baarmoeders heeft geschapen, als zij in Allaah en de Laatste Dag geloven.\" (Soerat al-Baqarah 2:228), en Hij zegt: \"En voor de zwangere vrouwen is hun termijn totdat zij hun last afleggen (bevallen).\" (Soerat at-Talaaq 65:4).",
+          "en": "Allaah says: \"Divorced women remain in waiting for three menstrual cycles, and it is not lawful for them to conceal what Allaah has created in their wombs, if they believe in Allaah and the Last Day.\" (Surat al-Baqarah 2:228), and He says: \"And for those who are pregnant, their term is until they give birth.\" (Surat at-Talaaq 65:4)."
+        }
+      },
+      {
+        "gender": "woman",
+        "body": {
+          "ar": "لكِ البقاءُ في بيتِ الزوجيّةِ أثناءَ العدّةِ في الطلاقِ الرجعيِّ، ولا يجوزُ إخراجُكِ منه، ولكِ حقُّ السكنى والنفقةِ على زوجِكِ، وإن كنتِ حاملًا فنفقتُكِ حتى تضعي حملَك.",
+          "nl": "U mag tijdens uw iddah bij een herroepbare talaaq in de echtelijke woning blijven, en u mag daar niet uit worden gezet. U heeft recht op huisvesting en levensonderhoud van uw (ex-)echtgenoot; als u zwanger bent, geldt dit levensonderhoud tot aan de bevalling.",
+          "en": "During your iddah in a revocable divorce, you may remain in the marital home, and you may not be made to leave it. You have the right to housing and maintenance from your husband; if you are pregnant, this maintenance continues until you give birth."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿لَا تُخْرِجُوهُنَّ مِنۢ بُيُوتِهِنَّ وَلَا يَخْرُجْنَ إِلَّآ أَن يَأْتِينَ بِفَٰحِشَةٍۢ مُّبَيِّنَةٍۢ﴾ [الطلاق: ١]. وَيَقُولُ تَعَالَى: ﴿أَسْكِنُوهُنَّ مِنْ حَيْثُ سَكَنتُم مِّن وُجْدِكُمْ وَلَا تُضَآرُّوهُنَّ لِتُضَيِّقُوا۟ عَلَيْهِنَّ ۚ وَإِن كُنَّ أُو۟لَٰتِ حَمْلٍۢ فَأَنفِقُوا۟ عَلَيْهِنَّ حَتَّىٰ يَضَعْنَ حَمْلَهُنَّ﴾ [الطلاق: ٦].",
+          "nl": "Allaah zegt: \"Zet hen niet uit hun huizen, en laat hen niet vertrekken, tenzij zij een duidelijk vastgestelde overtreding begaan.\" (Soerat at-Talaaq 65:1), en Hij zegt: \"Laat hen wonen waar jullie wonen, naar jullie vermogen, en berokken hen geen schade om hen te benauwen. En als zij zwanger zijn, geef hun dan onderhoud totdat zij hun last afleggen.\" (Soerat at-Talaaq 65:6).",
+          "en": "Allaah says: \"Do not turn them out of their houses, nor should they leave, unless they commit a clear immorality.\" (Surat at-Talaaq 65:1), and He says: \"House them where you live within your means, and do not harm them to distress them. And if they are pregnant, spend on them until they give birth.\" (Surat at-Talaaq 65:6)."
+        }
+      },
+      {
+        "gender": "woman",
+        "body": {
+          "ar": "إن كانتْ هذه الطلقةُ الأولى أو الثانيةَ، فهو طلاقٌ رجعيٌّ: لزوجِكِ الحقُّ في مراجعتِكِ ما دمتِ في عدّتِك دونَ عقدٍ جديدٍ، فلا تمتنعي من قبولِ الإصلاحِ إن أرادَه، ولكِ عليه في المقابلِ حسنُ المعاملةِ.",
+          "nl": "Als dit de eerste of tweede talaaq is, is het een herroepbare scheiding (radj'i): uw echtgenoot heeft het recht om u terug te nemen zolang u in uw iddah bent, zonder nieuw huwelijkscontract. Verzet u niet tegen verzoening als hij dat oprecht wenst; in ruil heeft u recht op goede behandeling van hem.",
+          "en": "If this is the first or second pronouncement, it is a revocable divorce (raj'i): your husband has the right to take you back as long as you are in your iddah, without a new contract. Do not refuse reconciliation if he sincerely wants it; in return, you have the right to good treatment from him."
+        },
+        "daleel": {
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَبُعُولَتُهُنَّ أَحَقُّ بِرَدِّهِنَّ فِى ذَٰلِكَ إِنْ أَرَادُوٓا۟ إِصْلَٰحًۭا ۚ وَلَهُنَّ مِثْلُ ٱلَّذِى عَلَيْهِنَّ بِٱلْمَعْرُوفِ﴾ [البقرة: ٢٢٨].",
+          "nl": "Allaah zegt: \"En hun echtgenoten hebben meer recht om hen in die periode terug te nemen, als zij verzoening beogen. En voor hen (de vrouwen) geldt hetzelfde als wat van hen wordt gevraagd, op behoorlijke wijze.\" (Soerat al-Baqarah 2:228).",
+          "en": "Allaah says: \"And their husbands have more right to take them back in this [period] if they want reconciliation. And due to the wives is similar to what is expected of them, according to what is reasonable.\" (Surat al-Baqarah 2:228)."
+        }
+      },
+      {
+        "gender": "woman",
         "when": [
           {
-            "q": "stage",
-            "value": "occurred"
+            "q": "w_count",
+            "value": "third"
           }
-        ]
-      },
-      {
+        ],
         "body": {
-          "ar": "أثناء العدَّة، للزوج حقُّ مراجعتها إن أراد الإصلاح، وعليها ألا تكتم ما في رحمها من حملٍ أو حيضٍ مهما كانت نيّتها؛ فالصدقُ في هذا الأمر أمانةٌ توصل إلى الحق وتحفظ الأنساب.",
-          "en": "During the waiting period, the husband retains the right to take her back if he intends reconciliation, and she must not conceal what is in her womb — whether pregnancy or menstruation — regardless of her own wishes. Honesty here is a trust that protects rights and lineage.",
-          "nl": "Tijdens de wachtperiode behoudt de man het recht om haar terug te nemen als hij verzoening beoogt, en zij mag niet verbergen wat zich in haar baarmoeder bevindt — zwangerschap of menstruatie — ongeacht haar eigen wensen. Eerlijkheid hierin is een vertrouwensplicht die rechten en afstamming beschermt."
+          "ar": "هذه الطلقةُ الثالثةُ، وهي بينونةٌ كبرى: فلا رجعةَ لزوجِكِ عليكِ، ولا تحلّينَ له حتى تنكِحي زوجًا آخرَ نكاحَ رغبةٍ حقيقيٍّ لا نكاحَ تحليلٍ. استوثِقي من صحّةِ عدِّ الطلقاتِ (فقد يقعُ خطأٌ في الحسابِ) بسؤالِ عالمةٍ أو عالمٍ موثوقٍ عن تفاصيلِ حالِك.",
+          "nl": "Dit is de derde talaaq, en dat is een definitieve scheiding (bainoenah koebra): uw echtgenoot heeft geen recht meer om u terug te nemen, en u bent niet meer voor hem toegestaan totdat u met een andere man trouwt in een oprecht huwelijk (geen schijnhuwelijk). Verifieer of de telling van de talaaq's correct is (er kan een telfout zijn gemaakt) door de details van uw situatie aan een betrouwbare geleerde voor te leggen.",
+          "en": "This is the third pronouncement, and that is a final, major separation (bainoonah kubraa): your husband no longer has the right to take you back, and you are not permissible for him again until you marry another man in a genuine marriage (not a sham one). Verify that the count of pronouncements is accurate (a miscount is possible) by bringing the details of your situation to a trustworthy scholar."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَالْمُطَلَّقَاتُ يَتَرَبَّصْنَ بِأَنفُسِهِنَّ ثَلَاثَةَ قُرُوءٍ ۚ وَلَا يَحِلُّ لَهُنَّ أَن يَكْتُمْنَ مَا خَلَقَ اللَّهُ فِي أَرْحَامِهِنَّ إِن كُنَّ يُؤْمِنَّ بِاللَّهِ وَالْيَوْمِ الْآخِرِ ۚ وَبُعُولَتُهُنَّ أَحَقُّ بِرَدِّهِنَّ فِي ذَٰلِكَ إِنْ أَرَادُوا إِصْلَاحًا﴾ ]البقرة: 228[",
-          "en": "Allaah the Almighty says: \"Divorced women remain in waiting for three menstrual periods, and it is not lawful for them to conceal what Allaah has created in their wombs if they believe in Allaah and the Last Day. And their husbands have more right to take them back in this [period] if they want reconciliation.\" (Surah Al-Baqarah 2:228)",
-          "nl": "Allaah de Almachtige zegt: \"En de verstoten vrouwen wachten met zichzelf drie menstruatieperiodes, en het is hun niet toegestaan te verbergen wat Allaah in hun baarmoeders heeft geschapen, als zij in Allaah en de Laatste Dag geloven. En hun echtgenoten hebben meer recht om hen in deze periode terug te nemen, als zij verzoening wensen.\" (Soerat al-Baqarah 2:228)"
-        },
-        "when": [
-          {
-            "q": "stage",
-            "value": "occurred"
-          }
-        ]
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿فَإِن طَلَّقَهَا فَلَا تَحِلُّ لَهُۥ مِنۢ بَعْدُ حَتَّىٰ تَنكِحَ زَوْجًا غَيْرَهُۥ﴾ [البقرة: ٢٣٠].",
+          "nl": "Allaah zegt: \"Als hij haar (voor de derde keer) verstoot, dan is zij daarna niet meer voor hem toegestaan, totdat zij met een andere man trouwt.\" (Soerat al-Baqarah 2:230).",
+          "en": "Allaah says: \"And if he divorces her (a third time), then she is not lawful to him afterward until she marries a husband other than him.\" (Surat al-Baqarah 2:230)."
+        }
       },
       {
+        "gender": "woman",
         "body": {
-          "ar": "لا يجوز أن يكون الأولادُ وقودًا للخلاف بين الأبوين. حقُّهم في النفقة والرضاعة والحضانة باقٍ لا يسقط بالطلاق، ولا يجوز اتخاذُهم أداةً للضغط أو الإضرار بأحد الوالدين.",
-          "en": "Children must never become fuel for conflict between their parents. Their right to financial support, nursing, and custody does not lapse with divorce, and they must never be used as a tool of pressure or a means of harming either parent.",
-          "nl": "Kinderen mogen nooit brandstof worden voor een conflict tussen hun ouders. Hun recht op levensonderhoud, borstvoeding en voogdij vervalt niet door een echtscheiding, en zij mogen nooit gebruikt worden als drukmiddel of om een van de ouders te schaden."
+          "ar": "توكّلي على اللهِ واصبِري، فمعَ العسرِ يسرًا، ومَن يتّقِ اللهَ يجعلْ له مخرجًا ويرزقْه من حيثُ لا يحتسبُ. وراعي حقَّ أولادِك، ولا تجعليهم أداةَ خصامٍ بينَك وبينَ أبيهم.",
+          "nl": "Vertrouw op Allaah en wees geduldig — met de moeilijkheid komt verlichting, en wie Allaah vreest, voor hem maakt Hij een uitweg en voorziet hem op een wijze die hij niet had verwacht. Waak over de rechten van uw kinderen, en maak hen geen wapen in het conflict tussen u en hun vader.",
+          "en": "Place your trust in Allaah and be patient — with hardship comes ease, and whoever fears Allaah, He will make for him a way out and provide for him from where he does not expect. Safeguard your children's rights, and do not make them a weapon in the conflict between you and their father."
         },
         "daleel": {
-          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَالْوَالِدَاتُ يُرْضِعْنَ أَوْلَادَهُنَّ حَوْلَيْنِ كَامِلَيْنِ ۖ لِمَنْ أَرَادَ أَن يُتِمَّ الرَّضَاعَةَ ۚ وَعَلَى الْمَوْلُودِ لَهُ رِزْقُهُنَّ وَكِسْوَتُهُنَّ بِالْمَعْرُوفِ ۚ لَا تُكَلَّفُ نَفْسٌ إِلَّا وُسْعَهَا ۚ لَا تُضَارَّ وَالِدَةٌ بِوَلَدِهَا وَلَا مَوْلُودٌ لَّهُ بِوَلَدِهِ ۚ وَعَلَى الْوَارِثِ مِثْلُ ذَٰلِكَ﴾ ]البقرة: 233[",
-          "en": "Allaah the Almighty says: \"Mothers may nurse their children for two complete years, for whoever wishes to complete the nursing. Upon the father is their [mothers'] provision and clothing according to what is acceptable. No soul is charged except according to its capacity. No mother should be harmed through her child, nor should he to whom the child belongs [the father] be harmed through his child. And upon the [father's] heir is [a duty] like that.\" (Surah Al-Baqarah 2:233)",
-          "nl": "Allaah de Almachtige zegt: \"En de moeders zogen hun kinderen twee volle jaren, voor wie de zoging wil voltooien. En op degene aan wie het kind toebehoort [de vader] rust het levensonderhoud en de kleding van de moeders op behoorlijke wijze. Niemand wordt belast boven zijn vermogen. Geen moeder mag benadeeld worden vanwege haar kind, en ook degene aan wie het kind toebehoort niet vanwege zijn kind. En op de erfgenaam rust hetzelfde.\" (Soerat al-Baqarah 2:233)"
+          "ar": "يَقُولُ اللهُ تَعَالَى: ﴿وَمَن يَتَّقِ ٱللَّهَ يَجْعَل لَّهُۥ مَخْرَجًۭا وَيَرْزُقْهُ مِنْ حَيْثُ لَا يَحْتَسِبُ﴾ [الطلاق: ٢-٣]. وَيَقُولُ تَعَالَى: ﴿لَا تُضَآرَّ وَٰلِدَةٌۢ بِوَلَدِهَا وَلَا مَوْلُودٌۭ لَّهُۥ بِوَلَدِهِۦ﴾ [البقرة: ٢٣٣].",
+          "nl": "Allaah zegt: \"En wie Allaah vreest, voor hem maakt Hij een uitweg, en voorziet hem op een wijze die hij niet had verwacht.\" (Soerat at-Talaaq 65:2-3), en Hij zegt: \"Geen moeder mag benadeeld worden vanwege haar kind, en geen vader vanwege zijn kind.\" (Soerat al-Baqarah 2:233).",
+          "en": "Allaah says: \"And whoever fears Allaah, He will make for him a way out, and provide for him from where he does not expect.\" (Surat at-Talaaq 65:2-3), and He says: \"No mother should be harmed through her child, and no father through his child.\" (Surat al-Baqarah 2:233)."
         }
       }
     ]
