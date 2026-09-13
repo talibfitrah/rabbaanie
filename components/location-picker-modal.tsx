@@ -19,6 +19,18 @@ function tx(lang: Lang, nl: string, en: string, ar: string): string {
 // Default map center when the user has no saved prayer location: Makkah.
 const DEFAULT_CENTER = { lat: 21.4225, lng: 39.8262 };
 
+// Escape a value for safe embedding inside an inline <script>: neutralize a
+// </script> breakout and the JS line separators. preset.address can be
+// user-typed, so it must not be able to close the script tag.
+function jsEmbed(v: unknown): string {
+  return JSON.stringify(v)
+    .replace(/</g, "\\u003c")
+    .replace(/>/g, "\\u003e")
+    .replace(/&/g, "\\u0026")
+    .replace(/\u2028/g, "\\u2028")
+    .replace(/\u2029/g, "\\u2029");
+}
+
 function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: PickedLocation | null): string {
   const searchPlaceholder = tx(lang, "Zoek een plaats...", "Search a place...", "ابحث عن مكان...");
   const confirmLabel = tx(lang, "Deze locatie kiezen", "Choose this location", "اختيار هذا الموقع");
@@ -52,7 +64,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
   var seq = 0; // guards against out-of-order geocode responses (rapid taps/search)
   var revTimer = null; // pending debounced reverse-geocode from a map tap
   var marker = null;
-  var map = L.map('map').setView([${center.lat}, ${center.lng}], 11);
+  var map = L.map('map').setView([${Number(center.lat)}, ${Number(center.lng)}], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   function setMarker(lat, lng){
     if(marker){ marker.setLatLng([lat,lng]); } else { marker = L.marker([lat,lng]).addTo(map); }
@@ -109,7 +121,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
   document.getElementById('ok').addEventListener('click', function(){ if(sel){ post({ type:'pick', lat: sel.lat, lng: sel.lng, address: sel.address }); } });
-  ${preset ? `setMarker(${preset.lat}, ${preset.lng}); sel = ${JSON.stringify(preset)}; document.getElementById('addr').textContent = ${JSON.stringify(preset.address)}; document.getElementById('ok').className = 'on';` : ""}
+  ${preset ? `setMarker(${Number(preset.lat)}, ${Number(preset.lng)}); sel = ${jsEmbed(preset)}; document.getElementById('addr').textContent = ${jsEmbed(preset.address)}; document.getElementById('ok').className = 'on';` : ""}
 </script></body></html>`;
 }
 
