@@ -138,6 +138,7 @@ export function LocationPickerModal({
             userAgent="Rabbaanie/1 (Islamic family app; +https://rabbaanie.com)"
             javaScriptEnabled
             domStorageEnabled
+            startInLoadingState
             // Android needs mixed-content off but https everywhere here; keep defaults.
             onMessage={(e) => {
               try {
