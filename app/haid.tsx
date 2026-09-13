@@ -37,7 +37,7 @@ export default function HaidScreen() {
   const T = haidText(lang);
   const { state, loading } = useAppState();
   const { user, isAuthenticated } = useAuth();
-  const params = useLocalSearchParams<{ purityCheck?: string }>();
+  const params = useLocalSearchParams<{ purityCheck?: string; settings?: string }>();
   const isWoman = state.parentProfile.gender === "vrouw";
   const utils = trpc.useUtils();
 
@@ -97,7 +97,7 @@ export default function HaidScreen() {
   const today = isoToday();
   const [selected, setSelected] = useState(today);
   const [monthStart, setMonthStart] = useState(today.slice(0, 7) + "-01");
-  const [showSettings, setShowSettings] = useState(false);
+  const [showSettings, setShowSettings] = useState(params.settings === "1"); // family-events pregnancy entry lands on the «حامل منذ» field
   const [showKaffarahInfo, setShowKaffarahInfo] = useState(false); // decision 6: information on request, never shown by default
   const [openRulings, setOpenRulings] = useState<Set<number>>(new Set());
   const scrollRef = useRef<ScrollView>(null);

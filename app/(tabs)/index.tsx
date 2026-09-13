@@ -685,6 +685,13 @@ export default function AlgemeenScreen() {
           <Text style={s.actionLabel}>{tx(lang, "Afspraken", "Appointments", "المواعيد")}</Text>
         </Pressable>
 
+        <Pressable onPress={() => router.push("/family-events" as any)} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
+          <View style={[s.actionIcon, { backgroundColor: "#E0F2F1" }]}>
+            <MaterialIcons name="event-note" size={24} color="#00897B" />
+          </View>
+          <Text style={s.actionLabel}>{tx(lang, "Gebeurtenissen", "Events", "أحداث الأسرة")}</Text>
+        </Pressable>
+
         <Pressable onPress={() => router.push("/(tabs)/weekly")} style={({ pressed }) => [s.actionCard, pressed && { transform: [{ scale: 0.96 }] }]}>
           <View style={[s.actionIcon, { backgroundColor: "#E8F5E9" }]}>
             <MaterialIcons name="checklist" size={24} color="#1B4332" />
