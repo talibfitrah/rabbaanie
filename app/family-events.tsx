@@ -1,12 +1,15 @@
 // أحداث الأسرة — Family life-events hub (Daa3iyah 2966/2968). The user logs a
 // family event (with its date), and the app routes to the feature that handles
-// it: marriage → القَسْم, pregnancy → الحيض, birth → إضافة طفل, divorce → القَسْم.
+// it — see resolveAction(): birth → add-child; pregnancy → haid (woman) or the
+// family tab (husband); marriage/divorce → Settings (add/manage a wife) or the
+// family tab. Routing is gender-aware because the target screens self-gate.
 import { useState, useCallback } from "react";
 import { View, Text, ScrollView, Pressable, StyleSheet, TextInput, Modal, Alert } from "react-native";
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
+import { useAppState } from "@/lib/app-context";
 import { loadFamilyEvents, addFamilyEvent, removeFamilyEvent, type FamilyEvent, type FamilyEventType } from "@/lib/family-events";
 
 type Lang = "nl" | "en" | "ar";
@@ -17,23 +20,55 @@ function todayISO(): string {
   const d = new Date();
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
-const ISO_RE = /^\d{4}-\d{2}-\d{2}$/;
+function isRealDate(s: string): boolean {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(s)) return false;
+  const [y, m, d] = s.split("-").map(Number);
+  const dt = new Date(y, m - 1, d);
+  return dt.getFullYear() === y && dt.getMonth() === m - 1 && dt.getDate() === d;
+}
 
-type EventMeta = { key: FamilyEventType; icon: string; color: string; route: string; nl: string; en: string; ar: string; goAr: string };
+type EventMeta = { key: FamilyEventType; icon: string; color: string; nl: string; en: string; ar: string };
 const EVENT_TYPES: EventMeta[] = [
-  { key: "marriage", icon: "favorite", color: "#C4A35A", route: "/qasm", nl: "Huwelijk", en: "Marriage", ar: "زواج", goAr: "إلى القَسْم لإضافة الزوجة" },
-  { key: "pregnancy", icon: "spa", color: "#16A34A", route: "/haid?settings=1", nl: "Zwangerschap", en: "Pregnancy", ar: "حمل", goAr: "إلى متابعة الحمل" },
-  { key: "birth", icon: "child-friendly", color: "#2563EB", route: "/add-child", nl: "Geboorte", en: "Birth", ar: "ولادة", goAr: "إلى إضافة الطفل" },
-  { key: "divorce", icon: "link-off", color: "#C62828", route: "/qasm", nl: "Scheiding", en: "Divorce", ar: "طلاق", goAr: "إلى تحديث الحالة" },
+  { key: "marriage", icon: "favorite", color: "#C4A35A", nl: "Huwelijk", en: "Marriage", ar: "زواج" },
+  { key: "pregnancy", icon: "spa", color: "#16A34A", nl: "Zwangerschap", en: "Pregnancy", ar: "حمل" },
+  { key: "birth", icon: "child-friendly", color: "#2563EB", nl: "Geboorte", en: "Birth", ar: "ولادة" },
+  { key: "divorce", icon: "link-off", color: "#C62828", nl: "Scheiding", en: "Divorce", ar: "طلاق" },
 ];
 const META = (k: FamilyEventType): EventMeta => EVENT_TYPES.find((e) => e.key === k) ?? EVENT_TYPES[0];
 const typeLabel = (k: FamilyEventType, lang: Lang) => { const m = META(k); return tx(lang, m.nl, m.en, m.ar); };
+
+// Where each event routes after logging. The destination feature screens
+// self-gate and redirect (/qasm needs ≥2 wives; /haid is women-only), so route
+// by the user's own gender to a screen that is actually reachable for them —
+// never one that bounces straight back to the family tab. Add-wife lives in
+// Settings (man-only, moved off the family tab); per-wife cycle/pregnancy
+// tracking for a husband lives on the family tab.
+function resolveAction(k: FamilyEventType, isWoman: boolean): { route: string; hintAr: string } {
+  switch (k) {
+    case "birth":
+      return { route: "/add-child", hintAr: "إلى إضافة الطفل" };
+    case "pregnancy":
+      return isWoman
+        ? { route: "/haid?settings=1", hintAr: "إلى متابعة الحمل" }
+        : { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة لمتابعة حمل الزوجة" };
+    case "marriage":
+      return isWoman
+        ? { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة" }
+        : { route: "/(tabs)/settings", hintAr: "إلى الإعدادات لإضافة الزوجة وربطها" };
+    case "divorce":
+      return isWoman
+        ? { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة" }
+        : { route: "/(tabs)/settings", hintAr: "إلى الإعدادات لتحديث حال الزوجيّة" };
+  }
+}
 
 export default function FamilyEventsScreen() {
   const { language, isRTL, dig } = useI18n();
   const lang = language as Lang;
   const router = useRouter();
   const insets = useSafeAreaInsets();
+  const { state } = useAppState();
+  const isWoman = state.parentProfile?.gender === "vrouw"; // unset/man → husband routing (codebase's default-to-man convention)
 
   const [events, setEvents] = useState<FamilyEvent[]>([]);
   const [active, setActive] = useState<EventMeta | null>(null);
@@ -51,11 +86,11 @@ export default function FamilyEventsScreen() {
 
   async function confirmLog() {
     if (!active) return;
-    if (!ISO_RE.test(formDate.trim())) {
+    if (!isRealDate(formDate.trim())) {
       Alert.alert(tx(lang, "Ongeldige datum", "Invalid date", "تاريخ غير صالح"), tx(lang, "Gebruik JJJJ-MM-DD.", "Use YYYY-MM-DD.", "استخدم الصيغة سنة-شهر-يوم."));
       return;
     }
-    const route = active.route;
+    const { route } = resolveAction(active.key, isWoman);
     try {
       await addFamilyEvent({ type: active.key, dateISO: formDate.trim(), note: formNote.trim() || undefined });
     } catch {
@@ -103,7 +138,7 @@ export default function FamilyEventsScreen() {
             return (
               <View key={ev.id} style={[st.histRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <View style={[st.histDot, { backgroundColor: m.color }]}><MaterialIcons name={m.icon as any} size={16} color="#fff" /></View>
-                <Pressable style={{ flex: 1 }} onPress={() => router.push(m.route as any)}>
+                <Pressable style={{ flex: 1 }} onPress={() => router.push(resolveAction(ev.type, isWoman).route as any)}>
                   <Text style={st.histTitle}>{typeLabel(ev.type, lang)}</Text>
                   <Text style={st.histDate}>{dig(ev.dateISO)}{ev.note ? ` · ${ev.note}` : ""}</Text>
                 </Pressable>
@@ -130,7 +165,7 @@ export default function FamilyEventsScreen() {
             <Pressable onPress={confirmLog} style={({ pressed }) => [st.saveBtn, pressed && { opacity: 0.85 }]}>
               <Text style={st.saveBtnText}>{active ? tx(lang, "Opslaan en ga verder", "Save & continue", "سجّل وانتقل") : ""}</Text>
             </Pressable>
-            {active ? <Text style={st.goHint}>{tx(lang, "", "", active.goAr)}</Text> : null}
+            {active ? <Text style={st.goHint}>{tx(lang, "", "", resolveAction(active.key, isWoman).hintAr)}</Text> : null}
             <View style={{ height: insets.bottom + 12 }} />
           </View>
         </View>

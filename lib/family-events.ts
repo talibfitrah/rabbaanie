@@ -1,9 +1,10 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 
 // Family life-events log (Daa3iyah 2966/2968): the user records a family event
-// and the screen both logs it here and routes to the feature that handles it
-// (marriage → قسم, birth → add child, pregnancy → حيض/إنجاب, divorce → status).
-export type FamilyEventType = "marriage" | "divorce" | "pregnancy" | "birth" | "other";
+// and the screen (app/family-events.tsx) both logs it here and routes to the
+// feature that handles it (see resolveAction() there for the per-event target).
+export const FAMILY_EVENT_TYPES = ["marriage", "divorce", "pregnancy", "birth"] as const;
+export type FamilyEventType = (typeof FAMILY_EVENT_TYPES)[number];
 
 export interface FamilyEvent {
   id: string;
@@ -24,7 +25,9 @@ function serialize<T>(fn: () => Promise<T>): Promise<T> {
 }
 
 function isValid(e: any): e is FamilyEvent {
-  return e && typeof e.id === "string" && typeof e.type === "string" && typeof e.dateISO === "string";
+  // Validate `type` against the known set so a corrupt/stale blob with an
+  // unrecognized type is dropped rather than rendered as the wrong event.
+  return e && typeof e.id === "string" && (FAMILY_EVENT_TYPES as readonly string[]).includes(e.type) && typeof e.dateISO === "string";
 }
 
 async function readStrict(): Promise<FamilyEvent[]> {
@@ -41,7 +44,7 @@ async function readStrict(): Promise<FamilyEvent[]> {
 export async function loadFamilyEvents(): Promise<FamilyEvent[]> {
   try {
     // newest first
-    return (await readStrict()).sort((a, b) => (a.dateISO < b.dateISO ? 1 : -1));
+    return (await readStrict()).sort((a, b) => (a.dateISO < b.dateISO ? 1 : a.dateISO > b.dateISO ? -1 : 0));
   } catch {
     return [];
   }

@@ -97,7 +97,7 @@ export default function HaidScreen() {
   const today = isoToday();
   const [selected, setSelected] = useState(today);
   const [monthStart, setMonthStart] = useState(today.slice(0, 7) + "-01");
-  const [showSettings, setShowSettings] = useState(params.settings === "1"); // family-events pregnancy entry lands on the «حامل منذ» field
+  const [showSettings, setShowSettings] = useState(false);
   const [showKaffarahInfo, setShowKaffarahInfo] = useState(false); // decision 6: information on request, never shown by default
   const [openRulings, setOpenRulings] = useState<Set<number>>(new Set());
   const scrollRef = useRef<ScrollView>(null);
@@ -105,6 +105,11 @@ export default function HaidScreen() {
   // the header gear showed nothing until she scrolled all the way down. It now
   // renders right below the header, so jump the scroll position to match.
   useEffect(() => { if (showSettings) scrollRef.current?.scrollTo({ y: 0, animated: true }); }, [showSettings]);
+  // Deep-link from Family Events (pregnancy): open settings once the feature is
+  // enabled. Read reactively (not a useState initializer) so it survives
+  // expo-router's first-render param hydration, and gated on `enabled` so it
+  // also fires after the user taps «تفعيل» on the enable screen.
+  useEffect(() => { if (params.settings === "1" && settings.enabled) setShowSettings(true); }, [params.settings, settings.enabled]);
 
   // Explicit `today` (item E-2): `to` extends 45 days into the future for the
   // calendar/predictions display, but the unlogged-day extension must stop at
