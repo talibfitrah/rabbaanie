@@ -47,6 +47,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
 <div id="foot"><div id="addr">${tapHint}</div><button id="ok">${confirmLabel}</button></div>
 <script>
   var sel = null;
+  var seq = 0; // guards against out-of-order geocode responses (rapid taps/search)
   var marker = null;
   var map = L.map('map').setView([${center.lat}, ${center.lng}], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
@@ -55,16 +56,19 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   }
   function post(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
   function reverse(lat, lng){
+    var my = ++seq;
     document.getElementById('addr').textContent = '…';
     fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&accept-language=${lang}')
       .then(function(r){return r.json();})
       .then(function(d){
+        if(my !== seq) return; // a newer tap/search superseded this response
         var name = (d && d.display_name) ? d.display_name : (lat.toFixed(5)+', '+lng.toFixed(5));
         sel = { lat: lat, lng: lng, address: name };
         document.getElementById('addr').textContent = name;
         document.getElementById('ok').className = 'on';
       })
       .catch(function(){
+        if(my !== seq) return;
         sel = { lat: lat, lng: lng, address: lat.toFixed(5)+', '+lng.toFixed(5) };
         document.getElementById('addr').textContent = sel.address;
         document.getElementById('ok').className = 'on';
@@ -74,9 +78,11 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   function search(){
     var q = document.getElementById('q').value.trim();
     if(!q) return;
+    var my = ++seq;
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q='+encodeURIComponent(q))
       .then(function(r){return r.json();})
       .then(function(a){
+        if(my !== seq) return; // superseded by a later tap/search
         if(a && a.length){
           var lat = parseFloat(a[0].lat), lng = parseFloat(a[0].lon);
           map.setView([lat,lng], 15); setMarker(lat,lng);
@@ -121,7 +127,11 @@ export function LocationPickerModal({
         {visible ? (
           <WebView
             originWhitelist={["*"]}
-            source={{ html }}
+            // Real secure origin (not the default null/about:blank): avoids the
+            // RN-WebView gotcha where a null-origin document's fetch() to
+            // Nominatim can be rejected. We only use absolute URLs, so baseUrl
+            // affects the origin for security checks, not resource resolution.
+            source={{ html, baseUrl: "https://www.openstreetmap.org/" }}
             javaScriptEnabled
             domStorageEnabled
             // Android needs mixed-content off but https everywhere here; keep defaults.
