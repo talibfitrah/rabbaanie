@@ -1044,10 +1044,15 @@ export default function RoznamaScreen() {
                   {!formAllDay && (
                     <View style={{ flex: 1 }}>
                       <Text style={st.fieldLabel}>{tx(lang, "Tot", "End", "النهاية")}</Text>
-                      <Pressable onPress={pickEndTime} style={st.pickerField}>
+                      <Pressable onPress={pickEndTime} style={[st.pickerField, { flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center" }]}>
                         <Text style={[st.pickerFieldText, !formEndTime && { color: "#9CA3AF" }]}>
                           {formEndTime ? `${dig(String(formEndTime.getHours()).padStart(2, "0"))}:${dig(String(formEndTime.getMinutes()).padStart(2, "0"))}` : "—"}
                         </Text>
+                        {formEndTime ? (
+                          <Pressable onPress={() => setFormEndTime(null)} hitSlop={8}>
+                            <MaterialIcons name="close" size={16} color="#9CA3AF" />
+                          </Pressable>
+                        ) : null}
                       </Pressable>
                     </View>
                   )}
