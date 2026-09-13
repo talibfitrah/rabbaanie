@@ -10,6 +10,8 @@ export interface CalendarEvent {
   minute: number; // 0-59
   note?: string;
   reminderMinutesBefore: number | null; // null = no reminder
+  reminderIsCustom?: boolean; // true = a custom minutes-before the user set (not a preset chip) (2963)
+  location?: string; // appointment place, entered manually or looked up via maps (2963)
   travelCity?: string; // set only when the user overrides a Jumu'ah-time block by travelling (2929)
 }
 

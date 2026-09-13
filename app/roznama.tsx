@@ -3,7 +3,7 @@
 // and user appointments (calendar-events.ts + event-reminders.ts). Visual
 // language mirrors app/details/upcoming-days.tsx.
 import { useState, useEffect, useMemo, useCallback, useRef } from "react";
-import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert, KeyboardAvoidingView, Switch } from "react-native";
+import { View, Text, ScrollView, Pressable, StyleSheet, Platform, TextInput, Modal, Alert, KeyboardAvoidingView, Switch, Linking } from "react-native";
 import { useRouter, useLocalSearchParams, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import AsyncStorage from "@react-native-async-storage/async-storage";
@@ -174,6 +174,9 @@ const REMINDER_OPTIONS: { value: number | null; label: Record<Lang, string> }[] 
   { value: 30, label: { nl: "30 min", en: "30 min", ar: "٣٠ دقيقة" } },
   { value: 60, label: { nl: "60 min", en: "60 min", ar: "٦٠ دقيقة" } },
 ];
+// Non-null preset values — derived once so the "is this a custom value" check
+// stays in sync if a preset chip is added/removed (2963).
+const PRESET_REMINDERS = REMINDER_OPTIONS.map((o) => o.value).filter((v): v is number => v !== null);
 
 export default function RoznamaScreen() {
   const router = useRouter();
@@ -313,7 +316,8 @@ export default function RoznamaScreen() {
     });
   }, [selectedDate.getFullYear()]);
 
-  const rangeLabel = useMemo(() => {
+  // Gregorian range (now the SECONDARY label — 2963).
+  const rangeLabelGreg = useMemo(() => {
     if (viewMode === "year") return dig(selectedDate.getFullYear());
     if (viewMode === "month") return `${MONTH_NAMES[lang][selectedDate.getMonth()]} ${dig(selectedDate.getFullYear())}`;
     if (viewMode === "week") {
@@ -327,7 +331,26 @@ export default function RoznamaScreen() {
       return `${startLabel} - ${dig(end.getDate())} ${MONTH_NAMES[lang][end.getMonth()]} ${dig(end.getFullYear())}`;
     }
     return `${dig(selectedDate.getDate())} ${MONTH_NAMES[lang][selectedDate.getMonth()]} ${dig(selectedDate.getFullYear())}`;
-  }, [viewMode, selectedDate, weekDates, lang]);
+  }, [viewMode, selectedDate, weekDates, lang, numeralSystem]);
+
+  // Hijri range — now the PRIMARY label (2963). A Gregorian month/year spans two
+  // Hijri ones, so month/year use the Hijri date of the selected day (approx).
+  const rangeLabelHijri = useMemo(() => {
+    const suffix = lang === "ar" ? "هـ" : "AH";
+    const h = getIslamicDate(selectedDate, null);
+    const hName = (d: { monthName: string; monthNameAR: string }) => (lang === "ar" ? d.monthNameAR : d.monthName);
+    if (viewMode === "year") return `${dig(h.year)} ${suffix}`;
+    if (viewMode === "month") return `${hName(h)} ${dig(h.year)} ${suffix}`;
+    if (viewMode === "week") {
+      const hs = getIslamicDate(weekDates[0], null);
+      const he = getIslamicDate(weekDates[6], null);
+      const startLabel = hs.month === he.month && hs.year === he.year
+        ? dig(hs.day)
+        : `${dig(hs.day)} ${hName(hs)}${hs.year !== he.year ? ` ${dig(hs.year)}` : ""}`;
+      return `${startLabel} - ${dig(he.day)} ${hName(he)} ${dig(he.year)} ${suffix}`;
+    }
+    return formatHijriDate(h, lang, numeralSystem);
+  }, [viewMode, selectedDate, weekDates, lang, numeralSystem]);
 
   // ---- day detail data ----
   const prayerTimesForDay = useMemo(() => {
@@ -355,6 +378,8 @@ export default function RoznamaScreen() {
   const [formTime, setFormTime] = useState<Date>(new Date());
   const [formNote, setFormNote] = useState("");
   const [formReminder, setFormReminder] = useState<number | null>(null);
+  const [customReminder, setCustomReminder] = useState(false); // custom minutes-before (2963)
+  const [formLocation, setFormLocation] = useState(""); // appointment place (2963)
   // Revealed only when the user overrides a Jumu'ah-time block by travelling (2929).
   const [formTravelCity, setFormTravelCity] = useState("");
   const [showTravelCity, setShowTravelCity] = useState(false);
@@ -398,6 +423,8 @@ export default function RoznamaScreen() {
     setFormTime(new Date());
     setFormNote("");
     setFormReminder(null);
+    setCustomReminder(false);
+    setFormLocation("");
     setFormTravelCity("");
     setShowTravelCity(false);
     setShowDatePicker(false);
@@ -414,6 +441,8 @@ export default function RoznamaScreen() {
     setFormTime(time);
     setFormNote(ev.note ?? "");
     setFormReminder(ev.reminderMinutesBefore);
+    setCustomReminder(ev.reminderIsCustom ?? (ev.reminderMinutesBefore != null && !PRESET_REMINDERS.includes(ev.reminderMinutesBefore)));
+    setFormLocation(ev.location ?? "");
     setFormTravelCity(ev.travelCity ?? "");
     setShowTravelCity(!!ev.travelCity);
     setShowDatePicker(false);
@@ -478,6 +507,8 @@ export default function RoznamaScreen() {
         minute: formTime.getMinutes(),
         note: formNote.trim() || undefined,
         reminderMinutesBefore: formReminder,
+        reminderIsCustom: customReminder || undefined,
+        location: formLocation.trim() || undefined,
         travelCity: formTravelCity.trim() || undefined,
       };
       if (editingId) await updateEvent(editingId, data);
@@ -592,10 +623,11 @@ export default function RoznamaScreen() {
                   }}
                   style={[st.gridCell, isToday && st.gridCellToday]}
                 >
-                  <Text style={[st.gridCellGregorian, !inMonth && st.gridCellFaded, isToday && st.gridCellTodayText]}>
-                    {dig(cellDate.getDate())}
+                  {/* Hijri primary (big), Gregorian secondary (small) — 2963 */}
+                  <Text style={[st.gridCellPrimary, !inMonth && st.gridCellFaded, isToday && st.gridCellTodayText]}>
+                    {dig(hijriDay)}
                   </Text>
-                  <Text style={[st.gridCellHijri, !inMonth && st.gridCellFaded]}>{dig(hijriDay)}</Text>
+                  <Text style={[st.gridCellSecondary, !inMonth && st.gridCellFaded]}>{dig(cellDate.getDate())}</Text>
                   <View style={[st.dotRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                     {occasionDateSet.has(iso) && <View style={[st.dot, st.dotGold]} />}
                     {eventDateSet.has(iso) && <View style={[st.dot, st.dotBlue]} />}
@@ -684,8 +716,9 @@ export default function RoznamaScreen() {
       <View>
         <View style={st.dayHeaderBox}>
           <Text style={st.dayHeaderWeekday}>{weekdayName}</Text>
-          <Text style={st.dayHeaderGregorian}>{gregorianLabel}</Text>
-          <Text style={st.dayHeaderHijri}>{formatHijriDate(hijriForDay, lang, numeralSystem)}</Text>
+          {/* Hijri primary (big), Gregorian secondary (small) — 2963 */}
+          <Text style={st.dayHeaderPrimary}>{formatHijriDate(hijriForDay, lang, numeralSystem)}</Text>
+          <Text style={st.dayHeaderSecondary}>{gregorianLabel}</Text>
         </View>
 
         <View style={st.card}>
@@ -737,6 +770,15 @@ export default function RoznamaScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={st.apptTitle}>{ev.title}</Text>
                 {ev.note ? <Text style={st.apptNote}>{ev.note}</Text> : null}
+                {ev.location ? (
+                  <Pressable
+                    onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location!)}`).catch(() => {})}
+                    style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, marginTop: 2 }}
+                  >
+                    <MaterialIcons name="place" size={13} color="#1B4332" />
+                    <Text style={st.apptLocation}>{ev.location}</Text>
+                  </Pressable>
+                ) : null}
               </View>
               <Pressable onPress={() => openEditModal(ev)} style={({ pressed }) => [st.apptIconBtn, pressed && { opacity: 0.6 }]}>
                 <MaterialIcons name="edit" size={18} color="#6B7B72" />
@@ -915,6 +957,31 @@ export default function RoznamaScreen() {
                 maxLength={500}
               />
 
+              <Text style={st.fieldLabel}>{tx(lang, "Locatie (optioneel)", "Location (optional)", "الموقع (اختياري)")}</Text>
+              <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
+                <TextInput
+                  value={formLocation}
+                  onChangeText={setFormLocation}
+                  style={[st.textInput, { flex: 1, marginBottom: 0, textAlign: isRTL ? "right" : "left" }]}
+                  placeholder={tx(lang, "Plaats of adres...", "Place or address...", "المكان أو العنوان...")}
+                  placeholderTextColor="#9CA3AF"
+                  maxLength={120}
+                />
+                <Pressable
+                  onPress={() => {
+                    const q = formLocation.trim();
+                    const url = q
+                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
+                      : "https://www.google.com/maps";
+                    Linking.openURL(url).catch(() => {});
+                  }}
+                  style={({ pressed }) => [st.mapsBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
+                >
+                  <MaterialIcons name="map" size={18} color="#1B4332" />
+                  <Text style={st.mapsBtnText}>{tx(lang, "Kaart", "Map", "الخريطة")}</Text>
+                </Pressable>
+              </View>
+
               {showTravelCity && (
                 <>
                   <Text style={st.fieldLabel}>{tx(lang, "Stad (je reist tijdens Jumu'ah)", "City (travelling during Jumu'ah)", "المدينة (مسافر وقت الجمعة)")}</Text>
@@ -932,16 +999,39 @@ export default function RoznamaScreen() {
 
               <Text style={st.fieldLabel}>{tx(lang, "Herinnering", "Reminder", "التذكير")}</Text>
               <View style={[st.reminderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-                {REMINDER_OPTIONS.map((opt) => (
-                  <Pressable
-                    key={String(opt.value)}
-                    onPress={() => setFormReminder(opt.value)}
-                    style={[st.reminderChip, formReminder === opt.value && st.reminderChipActive]}
-                  >
-                    <Text style={[st.reminderChipText, formReminder === opt.value && st.reminderChipTextActive]}>{opt.label[lang]}</Text>
-                  </Pressable>
-                ))}
+                {REMINDER_OPTIONS.map((opt) => {
+                  const active = !customReminder && formReminder === opt.value;
+                  return (
+                    <Pressable
+                      key={String(opt.value)}
+                      onPress={() => { setCustomReminder(false); setFormReminder(opt.value); }}
+                      style={[st.reminderChip, active && st.reminderChipActive]}
+                    >
+                      <Text style={[st.reminderChipText, active && st.reminderChipTextActive]}>{opt.label[lang]}</Text>
+                    </Pressable>
+                  );
+                })}
+                {/* Custom minutes-before (2963) */}
+                <Pressable
+                  onPress={() => { setCustomReminder(true); setFormReminder((v) => (v == null || PRESET_REMINDERS.includes(v) ? 120 : v)); }}
+                  style={[st.reminderChip, customReminder && st.reminderChipActive]}
+                >
+                  <Text style={[st.reminderChipText, customReminder && st.reminderChipTextActive]}>{tx(lang, "Aangepast", "Custom", "مخصّص")}</Text>
+                </Pressable>
               </View>
+              {customReminder && (
+                <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "center", gap: 16, marginTop: 10 }}>
+                  <Pressable onPress={() => setFormReminder((v) => Math.max(5, (v ?? 120) - 5))} hitSlop={8} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
+                    <MaterialIcons name="remove" size={18} color="#1B4332" />
+                  </Pressable>
+                  <Text style={{ fontSize: 15, fontWeight: "700", color: "#1B4332", minWidth: 120, textAlign: "center" }}>
+                    {tx(lang, `${dig(formReminder ?? 120)} min ervoor`, `${dig(formReminder ?? 120)} min before`, `قبل بـ ${dig(formReminder ?? 120)} ${(formReminder ?? 120) <= 10 ? "دقائق" : "دقيقة"}`)}
+                  </Text>
+                  <Pressable onPress={() => setFormReminder((v) => Math.min(720, (v ?? 120) + 5))} hitSlop={8} style={({ pressed }) => [st.stepBtn, pressed && { opacity: 0.6 }]}>
+                    <MaterialIcons name="add" size={18} color="#1B4332" />
+                  </Pressable>
+                </View>
+              )}
 
             </ScrollView>
             {/* Pinned footer: the save/delete buttons stay visible in any
@@ -992,7 +1082,7 @@ export default function RoznamaScreen() {
         <Pressable onPress={() => router.back()} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={28} color="#1B4332" />
         </Pressable>
-        <Text style={st.topTitle}>{tx(lang, "Roznama", "Almanac", "روزنامة")}</Text>
+        <Text style={st.topTitle}>{tx(lang, "Kalender", "Calendar", "التقويم")}</Text>
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
           <Pressable onPress={goToday} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
             <MaterialIcons name="today" size={22} color="#C4A35A" />
@@ -1015,7 +1105,10 @@ export default function RoznamaScreen() {
         <Pressable onPress={() => shift(-1)} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-right" : "chevron-left"} size={22} color="#1B4332" />
         </Pressable>
-        <Text style={st.navLabel}>{rangeLabel}</Text>
+        <View style={{ alignItems: "center", flex: 1 }}>
+          <Text style={st.navLabel}>{rangeLabelHijri}</Text>
+          <Text style={st.navLabelGreg}>{rangeLabelGreg}</Text>
+        </View>
         <Pressable onPress={() => shift(1)} style={({ pressed }) => [st.iconBtn, pressed && { opacity: 0.5 }]}>
           <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={22} color="#1B4332" />
         </Pressable>
@@ -1033,7 +1126,7 @@ export default function RoznamaScreen() {
         <View style={st.modalOverlay}>
           <View style={st.modalContent}>
             <View style={[st.modalHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-              <Text style={st.modalTitle}>{tx(lang, "Roznama-instellingen", "Roznama settings", "إعدادات الروزنامة")}</Text>
+              <Text style={st.modalTitle}>{tx(lang, "Kalenderinstellingen", "Calendar settings", "إعدادات التقويم")}</Text>
               <Pressable onPress={() => setSettingsVisible(false)}>
                 <MaterialIcons name="close" size={24} color="#6B7B72" />
               </Pressable>
@@ -1129,15 +1222,16 @@ const st = StyleSheet.create({
   segmentTextActive: { color: "#FFFFFF" },
 
   navRow: { alignItems: "center", justifyContent: "space-between", paddingHorizontal: 24, paddingVertical: 10 },
-  navLabel: { fontSize: 14, fontWeight: "700", color: "#1F2937" },
+  navLabel: { fontSize: 15, fontWeight: "700", color: "#1B4332" },
+  navLabelGreg: { fontSize: 11, fontWeight: "600", color: "#9CA3AF", marginTop: 1 },
 
   weekdayRow: { marginBottom: 4 },
   weekdayLabel: { width: `${100 / 7}%`, textAlign: "center", fontSize: 11, fontWeight: "700", color: "#6B7B72" },
   gridCell: { width: `${100 / 7}%`, aspectRatio: 0.85, alignItems: "center", justifyContent: "center", paddingVertical: 4 },
   gridCellToday: { backgroundColor: "#C4A35A20", borderRadius: 10 },
-  gridCellGregorian: { fontSize: 15, fontWeight: "700", color: "#1F2937" },
+  gridCellPrimary: { fontSize: 15, fontWeight: "700", color: "#1F2937" },
   gridCellTodayText: { color: "#1B4332" },
-  gridCellHijri: { fontSize: 9, color: "#9CA3AF", marginTop: 1 },
+  gridCellSecondary: { fontSize: 9, color: "#9CA3AF", marginTop: 1 },
   gridCellFaded: { opacity: 0.35 },
   dotRow: { gap: 3, marginTop: 3, height: 6 },
   dot: { width: 5, height: 5, borderRadius: 2.5 },
@@ -1153,8 +1247,8 @@ const st = StyleSheet.create({
 
   dayHeaderBox: { alignItems: "center", paddingVertical: 16 },
   dayHeaderWeekday: { fontSize: 18, fontWeight: "800", color: "#1B4332" },
-  dayHeaderGregorian: { fontSize: 13, color: "#374151", marginTop: 2 },
-  dayHeaderHijri: { fontSize: 12, color: "#C4A35A", fontWeight: "600", marginTop: 2 },
+  dayHeaderPrimary: { fontSize: 19, fontWeight: "700", color: "#1B4332", marginTop: 3 },
+  dayHeaderSecondary: { fontSize: 12, color: "#9CA3AF", marginTop: 2 },
 
   card: { backgroundColor: "#FFFDF8", borderRadius: 14, borderWidth: 1, borderColor: "#E8ECE9", padding: 14, marginBottom: 12 },
   cardFadila: { borderColor: "#C4A35A50" },
@@ -1185,6 +1279,7 @@ const st = StyleSheet.create({
   apptTime: { fontSize: 13, fontWeight: "700", color: "#1B4332", fontVariant: ["tabular-nums"] },
   apptTitle: { fontSize: 13, fontWeight: "700", color: "#1F2937" },
   apptNote: { fontSize: 11, color: "#6B7B72", marginTop: 2 },
+  apptLocation: { fontSize: 11, color: "#1B4332", fontWeight: "600", textDecorationLine: "underline" },
   apptIconBtn: { padding: 4 },
 
   yearGrid: { flexWrap: "wrap", justifyContent: "space-between" },
@@ -1209,6 +1304,9 @@ const st = StyleSheet.create({
   reminderRow: { flexWrap: "wrap", gap: 8 },
   reminderChip: { paddingHorizontal: 12, paddingVertical: 7, borderRadius: 16, backgroundColor: "#F3F4F6" },
   reminderChipActive: { backgroundColor: "#1B4332" },
+  mapsBtn: { alignItems: "center", gap: 4, paddingHorizontal: 12, paddingVertical: 10, borderRadius: 10, backgroundColor: "#1B433212", borderWidth: 1, borderColor: "#1B433230" },
+  mapsBtnText: { fontSize: 13, fontWeight: "600", color: "#1B4332" },
+  stepBtn: { width: 34, height: 34, borderRadius: 17, backgroundColor: "#1B433215", alignItems: "center", justifyContent: "center" },
   reminderChipText: { fontSize: 12, fontWeight: "600", color: "#374151" },
   reminderChipTextActive: { color: "#FFFFFF" },
   saveBtn: { backgroundColor: "#1B4332", borderRadius: 12, paddingVertical: 14, alignItems: "center" },
