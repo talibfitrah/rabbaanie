@@ -23,6 +23,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   const searchPlaceholder = tx(lang, "Zoek een plaats...", "Search a place...", "ابحث عن مكان...");
   const confirmLabel = tx(lang, "Deze locatie kiezen", "Choose this location", "اختيار هذا الموقع");
   const tapHint = tx(lang, "Tik op de kaart of zoek hierboven", "Tap the map or search above", "انقر على الخريطة أو ابحث أعلاه");
+  const noResults = tx(lang, "Niets gevonden", "No results", "لا نتائج");
   const dir = lang === "ar" ? "rtl" : "ltr";
   // Embedded JS uses quotes + concatenation (no backticks) to stay inside this
   // template literal. Nominatim usage policy: low-volume personal use, 1 req/s.
@@ -74,7 +75,14 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
         document.getElementById('ok').className = 'on';
       });
   }
-  map.on('click', function(e){ setMarker(e.latlng.lat, e.latlng.lng); reverse(e.latlng.lat, e.latlng.lng); });
+  var revTimer = null;
+  map.on('click', function(e){
+    var la = e.latlng.lat, lo = e.latlng.lng;
+    setMarker(la, lo);
+    document.getElementById('addr').textContent = '…';
+    if(revTimer) clearTimeout(revTimer);
+    revTimer = setTimeout(function(){ reverse(la, lo); }, 350); // debounce rapid taps (OSM usage policy)
+  });
   function search(){
     var q = document.getElementById('q').value.trim();
     if(!q) return;
@@ -89,8 +97,10 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
           sel = { lat: lat, lng: lng, address: a[0].display_name };
           document.getElementById('addr').textContent = a[0].display_name;
           document.getElementById('ok').className = 'on';
+        } else {
+          document.getElementById('addr').textContent = '${noResults}';
         }
-      }).catch(function(){});
+      }).catch(function(){ if(my === seq){ document.getElementById('addr').textContent = '${noResults}'; } });
   }
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
