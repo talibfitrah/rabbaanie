@@ -37,6 +37,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
   const tapHint = tx(lang, "Tik op de kaart of zoek hierboven", "Tap the map or search above", "انقر على الخريطة أو ابحث أعلاه");
   const noResults = tx(lang, "Niets gevonden", "No results", "لا نتائج");
   const searchError = tx(lang, "Zoeken mislukt", "Search failed", "تعذّر البحث");
+  const mapError = tx(lang, "Kaart niet beschikbaar (offline?)", "Map unavailable (offline?)", "الخريطة غير متاحة (بلا إنترنت؟)");
   const dir = lang === "ar" ? "rtl" : "ltr";
   // Embedded JS uses quotes + concatenation (no backticks) to stay inside this
   // template literal. Nominatim usage policy: low-volume personal use, 1 req/s.
@@ -60,6 +61,9 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
 <div id="map"></div>
 <div id="foot"><div id="addr">${tapHint}</div><button id="ok">${confirmLabel}</button></div>
 <script>
+  // If Leaflet failed to load (CDN unreachable/offline), L.map() below throws —
+  // surface a message instead of a silently-broken blank map.
+  window.onerror = function(){ try{ document.getElementById('addr').textContent = ${jsEmbed(mapError)}; }catch(e){} return true; };
   var sel = null;
   var seq = 0; // guards against out-of-order geocode responses (rapid taps/search)
   var revTimer = null; // pending debounced reverse-geocode from a map tap
@@ -104,10 +108,11 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
     if(revTimer) clearTimeout(revTimer); // cancel a pending tap-reverse so it can't override this search
     var my = ++seq;
     searching = true;
+    var guard = setTimeout(function(){ searching = false; }, 8000); // never lock out permanently if the fetch hangs
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q='+encodeURIComponent(q))
       .then(function(r){return r.json();})
       .then(function(a){
-        searching = false;
+        clearTimeout(guard); searching = false;
         if(my !== seq) return; // superseded by a later tap/search
         if(a && a.length){
           var lat = parseFloat(a[0].lat), lng = parseFloat(a[0].lon);
@@ -117,9 +122,10 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
           document.getElementById('ok').className = 'on';
         } else {
           sel = null; document.getElementById('ok').className = ''; // no match — don't let a stale pick be confirmed
+          if(marker){ map.removeLayer(marker); marker = null; } // drop the now-invalid pin
           document.getElementById('addr').textContent = ${jsEmbed(noResults)};
         }
-      }).catch(function(){ searching = false; if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = ${jsEmbed(searchError)}; } });
+      }).catch(function(){ clearTimeout(guard); searching = false; if(my === seq){ sel = null; document.getElementById('ok').className = ''; if(marker){ map.removeLayer(marker); marker = null; } document.getElementById('addr').textContent = ${jsEmbed(searchError)}; } });
   }
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
