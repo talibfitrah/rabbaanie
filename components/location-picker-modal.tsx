@@ -1,0 +1,150 @@
+// In-app location picker (Daa3iyah 2972): the appointment location was view-only
+// (a button that opened Google Maps to LOOK). This lets the user actually PICK a
+// spot — search or tap the map → reverse-geocoded address → fills the field.
+// Uses a WebView + Leaflet + OpenStreetMap (tiles + Nominatim geocoding): no
+// native maps module and no API key. A native WebView has no artifact-style CSP,
+// so the CDN/tile/geocode requests below are allowed.
+import { useMemo } from "react";
+import { View, Text, Pressable, Modal, StyleSheet, Platform } from "react-native";
+import { WebView } from "react-native-webview";
+import MaterialIcons from "@expo/vector-icons/MaterialIcons";
+
+export type PickedLocation = { address: string; lat: number; lng: number };
+
+type Lang = "nl" | "en" | "ar";
+function tx(lang: Lang, nl: string, en: string, ar: string): string {
+  return lang === "ar" ? ar : lang === "en" ? en : nl;
+}
+
+// Default map center when the user has no saved prayer location: Makkah.
+const DEFAULT_CENTER = { lat: 21.4225, lng: 39.8262 };
+
+function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
+  const searchPlaceholder = tx(lang, "Zoek een plaats...", "Search a place...", "ابحث عن مكان...");
+  const confirmLabel = tx(lang, "Deze locatie kiezen", "Choose this location", "اختيار هذا الموقع");
+  const tapHint = tx(lang, "Tik op de kaart of zoek hierboven", "Tap the map or search above", "انقر على الخريطة أو ابحث أعلاه");
+  const dir = lang === "ar" ? "rtl" : "ltr";
+  // Embedded JS uses quotes + concatenation (no backticks) to stay inside this
+  // template literal. Nominatim usage policy: low-volume personal use, 1 req/s.
+  return `<!doctype html><html dir="${dir}"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' https://unpkg.com; style-src 'unsafe-inline' https://unpkg.com; img-src https://unpkg.com https://a.tile.openstreetmap.org https://b.tile.openstreetmap.org https://c.tile.openstreetmap.org data:; connect-src https://nominatim.openstreetmap.org">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="anonymous"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin="anonymous"></script>
+<style>
+  html,body{margin:0;padding:0;height:100%;font-family:system-ui,-apple-system,sans-serif}
+  #map{position:absolute;top:52px;bottom:64px;left:0;right:0}
+  #bar{position:absolute;top:0;left:0;right:0;height:52px;display:flex;gap:6px;padding:8px;box-sizing:border-box;background:#fff;border-bottom:1px solid #e5e7eb}
+  #q{flex:1;border:1px solid #d1d5db;border-radius:8px;padding:8px;font-size:15px}
+  #go{border:none;background:#1B4332;color:#fff;border-radius:8px;padding:0 14px;font-size:14px}
+  #foot{position:absolute;bottom:0;left:0;right:0;min-height:64px;box-sizing:border-box;padding:8px 12px;background:#fff;border-top:1px solid #e5e7eb}
+  #addr{font-size:13px;color:#374151;margin-bottom:6px;min-height:16px}
+  #ok{width:100%;border:none;background:#1B4332;color:#fff;border-radius:10px;padding:12px;font-size:15px;font-weight:700;opacity:.5}
+  #ok.on{opacity:1}
+</style></head><body>
+<div id="bar"><input id="q" placeholder="${searchPlaceholder}"/><button id="go">🔍</button></div>
+<div id="map"></div>
+<div id="foot"><div id="addr">${tapHint}</div><button id="ok">${confirmLabel}</button></div>
+<script>
+  var sel = null;
+  var marker = null;
+  var map = L.map('map').setView([${center.lat}, ${center.lng}], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  function setMarker(lat, lng){
+    if(marker){ marker.setLatLng([lat,lng]); } else { marker = L.marker([lat,lng]).addTo(map); }
+  }
+  function post(o){ if(window.ReactNativeWebView){ window.ReactNativeWebView.postMessage(JSON.stringify(o)); } }
+  function reverse(lat, lng){
+    document.getElementById('addr').textContent = '…';
+    fetch('https://nominatim.openstreetmap.org/reverse?format=json&lat='+lat+'&lon='+lng+'&accept-language=${lang}')
+      .then(function(r){return r.json();})
+      .then(function(d){
+        var name = (d && d.display_name) ? d.display_name : (lat.toFixed(5)+', '+lng.toFixed(5));
+        sel = { lat: lat, lng: lng, address: name };
+        document.getElementById('addr').textContent = name;
+        document.getElementById('ok').className = 'on';
+      })
+      .catch(function(){
+        sel = { lat: lat, lng: lng, address: lat.toFixed(5)+', '+lng.toFixed(5) };
+        document.getElementById('addr').textContent = sel.address;
+        document.getElementById('ok').className = 'on';
+      });
+  }
+  map.on('click', function(e){ setMarker(e.latlng.lat, e.latlng.lng); reverse(e.latlng.lat, e.latlng.lng); });
+  function search(){
+    var q = document.getElementById('q').value.trim();
+    if(!q) return;
+    fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q='+encodeURIComponent(q))
+      .then(function(r){return r.json();})
+      .then(function(a){
+        if(a && a.length){
+          var lat = parseFloat(a[0].lat), lng = parseFloat(a[0].lon);
+          map.setView([lat,lng], 15); setMarker(lat,lng);
+          sel = { lat: lat, lng: lng, address: a[0].display_name };
+          document.getElementById('addr').textContent = a[0].display_name;
+          document.getElementById('ok').className = 'on';
+        }
+      }).catch(function(){});
+  }
+  document.getElementById('go').addEventListener('click', search);
+  document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
+  document.getElementById('ok').addEventListener('click', function(){ if(sel){ post({ type:'pick', lat: sel.lat, lng: sel.lng, address: sel.address }); } });
+</script></body></html>`;
+}
+
+export function LocationPickerModal({
+  visible,
+  lang,
+  isRTL,
+  initialCenter,
+  onPick,
+  onClose,
+}: {
+  visible: boolean;
+  lang: Lang;
+  isRTL: boolean;
+  initialCenter?: { lat: number; lng: number } | null;
+  onPick: (r: PickedLocation) => void;
+  onClose: () => void;
+}) {
+  const center = initialCenter ?? DEFAULT_CENTER;
+  // Rebuild the HTML only when the inputs that shape it change.
+  const html = useMemo(() => buildHtml(lang, center), [lang, center.lat, center.lng]);
+
+  return (
+    <Modal visible={visible} animationType="slide" onRequestClose={onClose} supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
+      <View style={st.root}>
+        <View style={[st.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Text style={st.title}>{tx(lang, "Kies locatie", "Pick location", "تحديد الموقع")}</Text>
+          <Pressable onPress={onClose} hitSlop={10}><MaterialIcons name="close" size={24} color="#1B4332" /></Pressable>
+        </View>
+        {visible ? (
+          <WebView
+            originWhitelist={["*"]}
+            source={{ html }}
+            javaScriptEnabled
+            domStorageEnabled
+            // Android needs mixed-content off but https everywhere here; keep defaults.
+            onMessage={(e) => {
+              try {
+                const msg = JSON.parse(e.nativeEvent.data);
+                if (msg && msg.type === "pick" && typeof msg.lat === "number" && typeof msg.lng === "number" && typeof msg.address === "string") {
+                  onPick({ address: msg.address, lat: msg.lat, lng: msg.lng });
+                }
+              } catch {
+                // ignore malformed messages
+              }
+            }}
+            style={{ flex: 1 }}
+          />
+        ) : null}
+      </View>
+    </Modal>
+  );
+}
+
+const st = StyleSheet.create({
+  root: { flex: 1, backgroundColor: "#fff" },
+  header: { height: 52, alignItems: "center", justifyContent: "space-between", paddingHorizontal: 16, borderBottomWidth: 1, borderBottomColor: "#E8ECE9", paddingTop: Platform.OS === "ios" ? 8 : 0 },
+  title: { fontSize: 17, fontWeight: "800", color: "#1B4332" },
+});

@@ -33,6 +33,7 @@ import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calen
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent } from "@/lib/calendar-events";
 import { rescheduleEventReminders } from "@/lib/event-reminders";
 import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels, ensureExactAlarmAllowed, openAlarmPermission } from "@/lib/calendar-alarm";
+import { LocationPickerModal } from "@/components/location-picker-modal";
 
 // Same defensive require() as components/date-picker.tsx: the native module
 // has no web implementation, so guard it there and fall back to text inputs.
@@ -380,6 +381,7 @@ export default function RoznamaScreen() {
   const [formReminder, setFormReminder] = useState<number | null>(null);
   const [customReminder, setCustomReminder] = useState(false); // custom minutes-before (2963)
   const [formLocation, setFormLocation] = useState(""); // appointment place (2963)
+  const [showLocationPicker, setShowLocationPicker] = useState(false); // map picker (2972)
   // Revealed only when the user overrides a Jumu'ah-time block by travelling (2929).
   const [formTravelCity, setFormTravelCity] = useState("");
   const [showTravelCity, setShowTravelCity] = useState(false);
@@ -844,6 +846,7 @@ export default function RoznamaScreen() {
 
   function renderModal() {
     return (
+      <>
       <Modal
         visible={modalVisible}
         transparent
@@ -968,17 +971,11 @@ export default function RoznamaScreen() {
                   maxLength={120}
                 />
                 <Pressable
-                  onPress={() => {
-                    const q = formLocation.trim();
-                    const url = q
-                      ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`
-                      : "https://www.google.com/maps";
-                    Linking.openURL(url).catch(() => {});
-                  }}
+                  onPress={() => setShowLocationPicker(true)}
                   style={({ pressed }) => [st.mapsBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
                 >
-                  <MaterialIcons name="map" size={18} color="#1B4332" />
-                  <Text style={st.mapsBtnText}>{tx(lang, "Kaart", "Map", "الخريطة")}</Text>
+                  <MaterialIcons name="add-location-alt" size={18} color="#1B4332" />
+                  <Text style={st.mapsBtnText}>{tx(lang, "Kies", "Pick", "تحديد")}</Text>
                 </Pressable>
               </View>
 
@@ -1066,6 +1063,15 @@ export default function RoznamaScreen() {
         </View>
         </KeyboardAvoidingView>
       </Modal>
+      <LocationPickerModal
+        visible={showLocationPicker}
+        lang={lang}
+        isRTL={isRTL}
+        initialCenter={savedLocation ? { lat: savedLocation.lat, lng: savedLocation.lng } : null}
+        onPick={(r) => { setFormLocation(r.address); setShowLocationPicker(false); }}
+        onClose={() => setShowLocationPicker(false)}
+      />
+      </>
     );
   }
 
