@@ -40,6 +40,15 @@ describe("family-event-advice content", () => {
         }
       }
 
+      // question `when` clauses (asked only after an earlier answer) must also
+      // reference a real question/option (validated after all ids are known).
+      for (const q of cfg.questions) {
+        for (const c of q.when ?? []) {
+          expect(qids.has(c.q), `${t} question ${q.id} when references ${c.q}`).toBe(true);
+          expect(optVals[c.q]?.has(c.value), `${t} question ${q.id} when references option ${c.q}/${c.value}`).toBe(true);
+        }
+      }
+
       expect(Array.isArray(cfg.advice) && cfg.advice.length > 0).toBe(true);
       for (const a of cfg.advice) {
         expect(tri(a.body), `${t} advice body`).toBe(true);

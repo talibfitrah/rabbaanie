@@ -42,7 +42,6 @@ export default function FamilyEventAdviceScreen() {
   const config = type ? EVENT_ADVICE[type] : undefined;
 
   const [answers, setAnswers] = useState<Record<string, string>>({});
-  const [qIndex, setQIndex] = useState(0);
 
   // No advice content for this event (not yet reviewed/published) → go straight
   // to the feature, preserving the pre-2975 behavior. Wait for gender to hydrate
@@ -60,13 +59,17 @@ export default function FamilyEventAdviceScreen() {
   }
 
   const viewerGender: ViewerGender = isWoman ? "woman" : "man";
-  const questions = questionsForGender(config, viewerGender);
-  const onQuestions = qIndex < questions.length;
+  // Ask only the questions that apply to this viewer AND whose `when` matches the
+  // answers so far (e.g. divorce wording/state only after stage=occurred), one at
+  // a time: the next applicable question not yet answered.
+  const applicable = questionsForGender(config, viewerGender).filter(
+    (q) => !q.when || q.when.every((c) => answers[c.q] === c.value),
+  );
+  const current = applicable.find((q) => !(q.id in answers));
   const items = adviceForAnswers(config, answers, viewerGender);
 
   function answer(qid: string, value: string) {
     setAnswers((a) => ({ ...a, [qid]: value }));
-    setQIndex((i) => i + 1);
   }
 
   return (
@@ -81,25 +84,21 @@ export default function FamilyEventAdviceScreen() {
 
       <ScrollView contentContainerStyle={{ padding: 16, paddingBottom: insets.bottom + 40 }} showsVerticalScrollIndicator={false}>
         <Text style={[st.intro, { textAlign: isRTL ? "right" : "left" }]}>{tr(config.intro, lang)}</Text>
-        {onQuestions ? (
+        {current ? (
           <View>
-            {questions[qIndex] ? (
-              <>
-                <Text style={[st.question, { textAlign: isRTL ? "right" : "left" }]}>{tr(questions[qIndex].text, lang)}</Text>
-                {questions[qIndex].options.map((o) => (
-                  <Pressable key={o.value} onPress={() => answer(questions[qIndex].id, o.value)} style={({ pressed }) => [st.option, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}>
-                    <MaterialIcons name="radio-button-unchecked" size={20} color="#1B4332" />
-                    <Text style={st.optionText}>{tr(o.label, lang)}</Text>
-                  </Pressable>
-                ))}
-                <Text style={st.progress}>{`${qIndex + 1} / ${questions.length}`}</Text>
-              </>
-            ) : null}
+            <Text style={[st.question, { textAlign: isRTL ? "right" : "left" }]}>{tr(current.text, lang)}</Text>
+            {current.options.map((o) => (
+              <Pressable key={o.value} onPress={() => answer(current.id, o.value)} style={({ pressed }) => [st.option, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.85 }]}>
+                <MaterialIcons name="radio-button-unchecked" size={20} color="#1B4332" />
+                <Text style={st.optionText}>{tr(o.label, lang)}</Text>
+              </Pressable>
+            ))}
+            <Text style={st.progress}>{`${Object.keys(answers).length + 1} / ${applicable.length}`}</Text>
           </View>
         ) : (
           <View>
-            {questions.length > 0 ? (
-              <Pressable onPress={() => { setAnswers({}); setQIndex(0); }} style={({ pressed }) => [st.revise, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.6 }]}>
+            {applicable.length > 0 ? (
+              <Pressable onPress={() => setAnswers({})} style={({ pressed }) => [st.revise, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.6 }]}>
                 <MaterialIcons name="refresh" size={16} color="#6B7B72" />
                 <Text style={st.reviseText}>{tr({ nl: "Vragen opnieuw", en: "Answer again", ar: "إعادة الأسئلة" }, lang)}</Text>
               </Pressable>

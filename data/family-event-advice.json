@@ -965,6 +965,12 @@
               "en": "The third"
             }
           }
+        ],
+        "when": [
+          {
+            "q": "stage",
+            "value": "occurred"
+          }
         ]
       },
       {
@@ -991,6 +997,12 @@
               "nl": "Indirecte bewoording (kinaayah), zoals: \"ga terug naar je familie\", \"ga naar je ouders\"",
               "en": "Indirect wording (kinaayah), such as: \"go back to your family,\" \"go to your parents\""
             }
+          }
+        ],
+        "when": [
+          {
+            "q": "stage",
+            "value": "occurred"
           }
         ]
       },
@@ -1034,6 +1046,12 @@
               "nl": "Zwanger",
               "en": "Pregnant"
             }
+          }
+        ],
+        "when": [
+          {
+            "q": "stage",
+            "value": "occurred"
           }
         ]
       },

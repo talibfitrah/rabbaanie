@@ -16,6 +16,7 @@ export interface AdviceQuestion {
   text: Trilingual;
   options: { value: string; label: Trilingual }[];
   gender?: ViewerGender;
+  when?: { q: string; value: string }[]; // only ask this if earlier answers match (e.g. divorce wording only if it occurred)
 }
 
 // One piece of advice. `daleel` carries the proof (verse/hadith/athar) in full.
