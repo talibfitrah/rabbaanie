@@ -48,6 +48,9 @@ describe("family-event-advice content", () => {
         for (const c of q.when ?? []) {
           expect(qids.has(c.q), `${t} question ${q.id} when references ${c.q}`).toBe(true);
           expect(optVals[c.q]?.has(c.value), `${t} question ${q.id} when references option ${c.q}/${c.value}`).toBe(true);
+          if (q.gender && qGender[c.q]) {
+            expect(qGender[c.q], `${t} question ${q.id}(${q.gender}) depends on ${qGender[c.q]}-only question ${c.q}`).toBe(q.gender);
+          }
         }
       }
 
