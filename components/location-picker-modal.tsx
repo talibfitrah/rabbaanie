@@ -126,12 +126,16 @@ export function LocationPickerModal({
         </View>
         {visible ? (
           <WebView
-            originWhitelist={["*"]}
+            // Only our own injected page (baseUrl origin) ever loads as a
+            // navigation — the HTML has no links, so no other origin is needed.
+            originWhitelist={["https://www.openstreetmap.org"]}
             // Real secure origin (not the default null/about:blank): avoids the
             // RN-WebView gotcha where a null-origin document's fetch() to
             // Nominatim can be rejected. We only use absolute URLs, so baseUrl
             // affects the origin for security checks, not resource resolution.
             source={{ html, baseUrl: "https://www.openstreetmap.org/" }}
+            // Identify the app to the OSM/Nominatim usage policy.
+            userAgent="Rabbaanie/1 (Islamic family app; +https://rabbaanie.com)"
             javaScriptEnabled
             domStorageEnabled
             // Android needs mixed-content off but https everywhere here; keep defaults.

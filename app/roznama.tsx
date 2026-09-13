@@ -382,6 +382,8 @@ export default function RoznamaScreen() {
   const [customReminder, setCustomReminder] = useState(false); // custom minutes-before (2963)
   const [formLocation, setFormLocation] = useState(""); // appointment place (2963)
   const [showLocationPicker, setShowLocationPicker] = useState(false); // map picker (2972)
+  const [formLat, setFormLat] = useState<number | null>(null); // exact picked coords (2972)
+  const [formLng, setFormLng] = useState<number | null>(null);
   // Revealed only when the user overrides a Jumu'ah-time block by travelling (2929).
   const [formTravelCity, setFormTravelCity] = useState("");
   const [showTravelCity, setShowTravelCity] = useState(false);
@@ -427,6 +429,8 @@ export default function RoznamaScreen() {
     setFormReminder(null);
     setCustomReminder(false);
     setFormLocation("");
+    setFormLat(null);
+    setFormLng(null);
     setFormTravelCity("");
     setShowTravelCity(false);
     setShowDatePicker(false);
@@ -445,6 +449,8 @@ export default function RoznamaScreen() {
     setFormReminder(ev.reminderMinutesBefore);
     setCustomReminder(ev.reminderIsCustom ?? (ev.reminderMinutesBefore != null && !PRESET_REMINDERS.includes(ev.reminderMinutesBefore)));
     setFormLocation(ev.location ?? "");
+    setFormLat(ev.lat ?? null);
+    setFormLng(ev.lng ?? null);
     setFormTravelCity(ev.travelCity ?? "");
     setShowTravelCity(!!ev.travelCity);
     setShowDatePicker(false);
@@ -511,6 +517,8 @@ export default function RoznamaScreen() {
         reminderMinutesBefore: formReminder,
         reminderIsCustom: customReminder || undefined,
         location: formLocation.trim() || undefined,
+        lat: formLat ?? undefined,
+        lng: formLng ?? undefined,
         travelCity: formTravelCity.trim() || undefined,
       };
       if (editingId) await updateEvent(editingId, data);
@@ -774,7 +782,11 @@ export default function RoznamaScreen() {
                 {ev.note ? <Text style={st.apptNote}>{ev.note}</Text> : null}
                 {ev.location ? (
                   <Pressable
-                    onPress={() => Linking.openURL(`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location!)}`).catch(() => {})}
+                    onPress={() => Linking.openURL(
+                      ev.lat != null && ev.lng != null
+                        ? `https://www.google.com/maps/search/?api=1&query=${ev.lat},${ev.lng}` // exact picked pin
+                        : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(ev.location!)}`
+                    ).catch(() => {})}
                     style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 4, marginTop: 2 }}
                   >
                     <MaterialIcons name="place" size={13} color="#1B4332" />
@@ -967,7 +979,7 @@ export default function RoznamaScreen() {
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 8 }}>
                 <TextInput
                   value={formLocation}
-                  onChangeText={setFormLocation}
+                  onChangeText={(t) => { setFormLocation(t); setFormLat(null); setFormLng(null); }}
                   style={[st.textInput, { flex: 1, marginBottom: 0, textAlign: isRTL ? "right" : "left" }]}
                   placeholder={tx(lang, "Plaats of adres...", "Place or address...", "المكان أو العنوان...")}
                   placeholderTextColor="#9CA3AF"
@@ -1081,7 +1093,7 @@ export default function RoznamaScreen() {
         lang={lang}
         isRTL={isRTL}
         initialCenter={savedLocation ? { lat: savedLocation.lat, lng: savedLocation.lng } : null}
-        onPick={(r) => { setFormLocation(r.address); setShowLocationPicker(false); }}
+        onPick={(r) => { setFormLocation(r.address); setFormLat(r.lat); setFormLng(r.lng); setShowLocationPicker(false); }}
         onClose={() => setShowLocationPicker(false)}
       />
       </>
