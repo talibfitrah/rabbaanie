@@ -7,20 +7,26 @@ import type { FamilyEventType } from "@/lib/family-events";
 import adviceData from "@/data/family-event-advice.json";
 
 export type Trilingual = { nl: string; en: string; ar: string };
+export type ViewerGender = "man" | "woman";
 
-// A clarifying question with a small set of answer options.
+// A clarifying question with a small set of answer options. `gender` restricts
+// the question to that viewer (husband vs wife); absent = shown to both.
 export interface AdviceQuestion {
   id: string;
   text: Trilingual;
   options: { value: string; label: Trilingual }[];
+  gender?: ViewerGender;
 }
 
 // One piece of advice. `daleel` carries the proof (verse/hadith/athar) in full.
 // `when` gates the item to specific answers; omit it for advice shown always.
+// `gender` restricts the item to that viewer (marriage/divorce advice differs
+// for husband vs wife, Daa3iyah 2975/2980); absent = shown to both.
 export interface AdviceItem {
   body: Trilingual;
   daleel?: Trilingual;
   when?: { q: string; value: string }[];
+  gender?: ViewerGender;
 }
 
 export interface EventAdviceConfig {
@@ -50,11 +56,18 @@ export function routeForEvent(k: FamilyEventType, isWoman: boolean): string {
   return "/(tabs)/family"; // unreachable for valid input; safe fallback if called untyped
 }
 
-// Returns the advice items that apply given the user's answers: an item with no
-// `when` always applies; one with `when` applies only if every clause matches.
-export function adviceForAnswers(config: EventAdviceConfig, answers: Record<string, string>): AdviceItem[] {
+// Questions to ask this viewer: gender-neutral ones plus those for their gender.
+export function questionsForGender(config: EventAdviceConfig, viewerGender: ViewerGender): AdviceQuestion[] {
+  return config.questions.filter((q) => !q.gender || q.gender === viewerGender);
+}
+
+// Advice items that apply given the viewer's gender and answers: an item shows
+// when its `gender` (if any) matches the viewer AND its `when` (if any) matches
+// every answered clause. No `gender`/`when` → always applies.
+export function adviceForAnswers(config: EventAdviceConfig, answers: Record<string, string>, viewerGender: ViewerGender): AdviceItem[] {
   return config.advice.filter((item) =>
-    !item.when || item.when.every((c) => answers[c.q] === c.value),
+    (!item.gender || item.gender === viewerGender) &&
+    (!item.when || item.when.every((c) => answers[c.q] === c.value)),
   );
 }
 

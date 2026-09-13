@@ -29,6 +29,7 @@ describe("family-event-advice content", () => {
       for (const q of cfg.questions) {
         expect(typeof q.id).toBe("string");
         qids.add(q.id);
+        if (q.gender !== undefined) expect(["man", "woman"], `${t} question ${q.id} gender`).toContain(q.gender);
         expect(tri(q.text), `${t} question ${q.id} text`).toBe(true);
         expect(Array.isArray(q.options) && q.options.length > 0).toBe(true);
         optVals[q.id] = new Set();
@@ -42,6 +43,7 @@ describe("family-event-advice content", () => {
       expect(Array.isArray(cfg.advice) && cfg.advice.length > 0).toBe(true);
       for (const a of cfg.advice) {
         expect(tri(a.body), `${t} advice body`).toBe(true);
+        if (a.gender !== undefined) expect(["man", "woman"], `${t} advice gender`).toContain(a.gender);
         if (a.daleel !== undefined) expect(tri(a.daleel), `${t} advice daleel`).toBe(true);
         if (a.when !== undefined) {
           expect(Array.isArray(a.when)).toBe(true);

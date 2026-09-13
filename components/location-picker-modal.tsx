@@ -6,6 +6,7 @@
 // so the CDN/tile/geocode requests below are allowed.
 import { useMemo } from "react";
 import { View, Text, Pressable, Modal, StyleSheet, Platform } from "react-native";
+import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { WebView } from "react-native-webview";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
@@ -154,6 +155,7 @@ export function LocationPickerModal({
   onPick: (r: PickedLocation) => void;
   onClose: () => void;
 }) {
+  const insets = useSafeAreaInsets();
   const preset = initialSelection ?? null;
   const center = preset ?? initialCenter ?? DEFAULT_CENTER;
   // Rebuild the HTML only when the inputs that shape it change.
@@ -164,7 +166,9 @@ export function LocationPickerModal({
 
   return (
     <Modal visible={visible} animationType="slide" onRequestClose={onClose} supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
-      <View style={st.root}>
+      {/* Inset for the status bar (top) and the system nav bar (bottom) so the
+          WebView's own confirm button isn't hidden behind the nav bar. (2988) */}
+      <View style={[st.root, { paddingTop: insets.top, paddingBottom: insets.bottom }]}>
         <View style={[st.header, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
           <Text style={st.title}>{tx(lang, "Kies locatie", "Pick location", "تحديد الموقع")}</Text>
           <Pressable onPress={onClose} hitSlop={10}><MaterialIcons name="close" size={24} color="#1B4332" /></Pressable>

@@ -11,7 +11,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import { FAMILY_EVENT_TYPES, type FamilyEventType } from "@/lib/family-events";
-import { EVENT_ADVICE, routeForEvent, adviceForAnswers, type Trilingual } from "@/lib/family-event-advice";
+import { EVENT_ADVICE, routeForEvent, adviceForAnswers, questionsForGender, type Trilingual, type ViewerGender } from "@/lib/family-event-advice";
 
 type Lang = "nl" | "en" | "ar";
 function tr(v: Trilingual, lang: Lang): string {
@@ -59,9 +59,10 @@ export default function FamilyEventAdviceScreen() {
     return <View style={[st.root, { paddingTop: insets.top, justifyContent: "center" }]}><ActivityIndicator /></View>;
   }
 
-  const questions = config.questions;
+  const viewerGender: ViewerGender = isWoman ? "woman" : "man";
+  const questions = questionsForGender(config, viewerGender);
   const onQuestions = qIndex < questions.length;
-  const items = adviceForAnswers(config, answers);
+  const items = adviceForAnswers(config, answers, viewerGender);
 
   function answer(qid: string, value: string) {
     setAnswers((a) => ({ ...a, [qid]: value }));
