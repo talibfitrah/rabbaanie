@@ -1,11 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import rawData from "@/data/family-event-advice.json";
 
 // Guards data/family-event-advice.json (consumed via a double-cast in
 // lib/family-event-advice.ts, which erases compile-time shape checks). A content
 // edit that drops a required field, or a `when` clause that points at a
 // non-existent question/option, fails here instead of silently at runtime.
-const data: Record<string, any> = JSON.parse(readFileSync("data/family-event-advice.json", "utf-8"));
+const data = rawData as Record<string, any>;
 
 const TYPES = ["marriage", "pregnancy", "birth", "divorce"];
 const LANGS = ["nl", "en", "ar"];
