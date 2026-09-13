@@ -47,7 +47,9 @@ export default function FamilyEventAdviceScreen() {
   // first so the route is correct.
   useEffect(() => {
     if (loading) return;
-    if (!type) { router.back(); return; }
+    // replace (not back): a direct deep-link with a bad/absent type has no back
+    // stack, so router.back() would no-op and leave a permanent spinner.
+    if (!type) { router.replace("/family-events" as any); return; }
     if (!config) router.replace(routeForEvent(type, isWoman) as any);
   }, [loading, type, config, isWoman, router]);
 
