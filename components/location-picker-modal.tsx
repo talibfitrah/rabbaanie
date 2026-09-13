@@ -63,6 +63,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
   var sel = null;
   var seq = 0; // guards against out-of-order geocode responses (rapid taps/search)
   var revTimer = null; // pending debounced reverse-geocode from a map tap
+  var searching = false; // in-flight guard so repeated submits don't stack requests
   var marker = null;
   var map = L.map('map').setView([${Number(center.lat)}, ${Number(center.lng)}], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
@@ -99,12 +100,14 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
   });
   function search(){
     var q = document.getElementById('q').value.trim();
-    if(!q) return;
+    if(!q || searching) return; // ignore a submit while one is already in flight (OSM usage policy)
     if(revTimer) clearTimeout(revTimer); // cancel a pending tap-reverse so it can't override this search
     var my = ++seq;
+    searching = true;
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q='+encodeURIComponent(q))
       .then(function(r){return r.json();})
       .then(function(a){
+        searching = false;
         if(my !== seq) return; // superseded by a later tap/search
         if(a && a.length){
           var lat = parseFloat(a[0].lat), lng = parseFloat(a[0].lon);
@@ -114,9 +117,9 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }, preset: Pic
           document.getElementById('ok').className = 'on';
         } else {
           sel = null; document.getElementById('ok').className = ''; // no match — don't let a stale pick be confirmed
-          document.getElementById('addr').textContent = '${noResults}';
+          document.getElementById('addr').textContent = ${jsEmbed(noResults)};
         }
-      }).catch(function(){ if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = '${searchError}'; } });
+      }).catch(function(){ searching = false; if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = ${jsEmbed(searchError)}; } });
   }
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });
