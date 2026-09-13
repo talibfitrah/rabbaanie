@@ -37,22 +37,23 @@ const typeLabel = (k: FamilyEventType, lang: Lang) => { const m = META(k); retur
 // never one that bounces straight back to the family tab. Add-wife lives in
 // Settings (man-only, moved off the family tab); per-wife cycle/pregnancy
 // tracking for a husband lives on the family tab.
-function resolveAction(k: FamilyEventType, isWoman: boolean): { route: string; hintAr: string } {
+function resolveAction(k: FamilyEventType, isWoman: boolean, lang: Lang): { route: string; hint: string } {
+  const toFamily = { route: "/(tabs)/family", hint: tx(lang, "Naar het gezin", "To the family tab", "إلى صفحة الأسرة") };
   switch (k) {
     case "birth":
-      return { route: "/add-child", hintAr: "إلى إضافة الطفل" };
+      return { route: "/add-child", hint: tx(lang, "Naar kind toevoegen", "To add a child", "إلى إضافة الطفل") };
     case "pregnancy":
       return isWoman
-        ? { route: "/haid?settings=1", hintAr: "إلى متابعة الحمل" }
-        : { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة لمتابعة حمل الزوجة" };
+        ? { route: "/haid?settings=1", hint: tx(lang, "Naar zwangerschap bijhouden", "To pregnancy tracking", "إلى متابعة الحمل") }
+        : { route: "/(tabs)/family", hint: tx(lang, "Naar het gezin voor de zwangerschap van de echtgenote", "To the family tab for the wife's pregnancy", "إلى صفحة الأسرة لمتابعة حمل الزوجة") };
     case "marriage":
       return isWoman
-        ? { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة" }
-        : { route: "/(tabs)/settings", hintAr: "إلى الإعدادات لإضافة الزوجة وربطها" };
+        ? toFamily
+        : { route: "/(tabs)/settings", hint: tx(lang, "Naar instellingen om een echtgenote te koppelen", "To settings to add/link a wife", "إلى الإعدادات لإضافة الزوجة وربطها") };
     case "divorce":
       return isWoman
-        ? { route: "/(tabs)/family", hintAr: "إلى صفحة الأسرة" }
-        : { route: "/(tabs)/settings", hintAr: "إلى الإعدادات لتحديث حال الزوجيّة" };
+        ? toFamily
+        : { route: "/(tabs)/settings", hint: tx(lang, "Naar instellingen om de status bij te werken", "To settings to update the status", "إلى الإعدادات لتحديث حال الزوجيّة") };
   }
 }
 
@@ -82,7 +83,7 @@ export default function FamilyEventsScreen() {
     if (!active) return;
     // formDate is always a valid ISO: initialized to today and only ever set by
     // the constrained <DatePicker>, so no date-format guard is needed here.
-    const { route } = resolveAction(active.key, isWoman);
+    const { route } = resolveAction(active.key, isWoman, lang);
     try {
       await addFamilyEvent({ type: active.key, dateISO: formDate.trim(), note: formNote.trim() || undefined });
     } catch {
@@ -134,7 +135,7 @@ export default function FamilyEventsScreen() {
             return (
               <View key={ev.id} style={[st.histRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                 <View style={[st.histDot, { backgroundColor: m.color }]}><MaterialIcons name={m.icon as any} size={16} color="#fff" /></View>
-                <Pressable style={{ flex: 1 }} onPress={() => router.push(resolveAction(ev.type, isWoman).route as any)}>
+                <Pressable style={{ flex: 1 }} onPress={() => router.push(resolveAction(ev.type, isWoman, lang).route as any)}>
                   <Text style={st.histTitle}>{typeLabel(ev.type, lang)}</Text>
                   <Text style={st.histDate}>{dig(ev.dateISO)}{ev.note ? ` · ${ev.note}` : ""}</Text>
                 </Pressable>
@@ -161,7 +162,7 @@ export default function FamilyEventsScreen() {
             <Pressable onPress={confirmLog} style={({ pressed }) => [st.saveBtn, pressed && { opacity: 0.85 }]}>
               <Text style={st.saveBtnText}>{active ? tx(lang, "Opslaan en ga verder", "Save & continue", "سجّل وانتقل") : ""}</Text>
             </Pressable>
-            {active ? <Text style={st.goHint}>{tx(lang, "", "", resolveAction(active.key, isWoman).hintAr)}</Text> : null}
+            {active ? <Text style={st.goHint}>{resolveAction(active.key, isWoman, lang).hint}</Text> : null}
             <View style={{ height: insets.bottom + 12 }} />
           </View>
         </View>
