@@ -25,10 +25,12 @@ describe("family-event-advice content", () => {
 
       expect(Array.isArray(cfg.questions)).toBe(true);
       const qids = new Set<string>();
+      const qGender: Record<string, string | undefined> = {};
       const optVals: Record<string, Set<string>> = {};
       for (const q of cfg.questions) {
         expect(typeof q.id).toBe("string");
         qids.add(q.id);
+        qGender[q.id] = q.gender;
         if (q.gender !== undefined) expect(["man", "woman"], `${t} question ${q.id} gender`).toContain(q.gender);
         expect(tri(q.text), `${t} question ${q.id} text`).toBe(true);
         expect(Array.isArray(q.options) && q.options.length > 0).toBe(true);
@@ -59,6 +61,12 @@ describe("family-event-advice content", () => {
           for (const c of a.when) {
             expect(qids.has(c.q), `${t} when references question ${c.q}`).toBe(true);
             expect(optVals[c.q]?.has(c.value), `${t} when references option ${c.q}/${c.value}`).toBe(true);
+            // a gendered advice item must not depend on a question its viewer
+            // never sees (that would make it dead), so the referenced question's
+            // gender must be neutral or match the item's gender.
+            if (a.gender && qGender[c.q]) {
+              expect(qGender[c.q], `${t} advice(${a.gender}) when references ${qGender[c.q]}-only question ${c.q}`).toBe(a.gender);
+            }
           }
         }
       }
