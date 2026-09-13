@@ -49,6 +49,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
 <script>
   var sel = null;
   var seq = 0; // guards against out-of-order geocode responses (rapid taps/search)
+  var revTimer = null; // pending debounced reverse-geocode from a map tap
   var marker = null;
   var map = L.map('map').setView([${center.lat}, ${center.lng}], 11);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
@@ -75,7 +76,6 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
         document.getElementById('ok').className = 'on';
       });
   }
-  var revTimer = null;
   map.on('click', function(e){
     var la = e.latlng.lat, lo = e.latlng.lng;
     setMarker(la, lo);
@@ -86,6 +86,7 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
   function search(){
     var q = document.getElementById('q').value.trim();
     if(!q) return;
+    if(revTimer) clearTimeout(revTimer); // cancel a pending tap-reverse so it can't override this search
     var my = ++seq;
     fetch('https://nominatim.openstreetmap.org/search?format=json&limit=1&accept-language=${lang}&q='+encodeURIComponent(q))
       .then(function(r){return r.json();})
@@ -98,9 +99,10 @@ function buildHtml(lang: Lang, center: { lat: number; lng: number }): string {
           document.getElementById('addr').textContent = a[0].display_name;
           document.getElementById('ok').className = 'on';
         } else {
+          sel = null; document.getElementById('ok').className = ''; // no match — don't let a stale pick be confirmed
           document.getElementById('addr').textContent = '${noResults}';
         }
-      }).catch(function(){ if(my === seq){ document.getElementById('addr').textContent = '${noResults}'; } });
+      }).catch(function(){ if(my === seq){ sel = null; document.getElementById('ok').className = ''; document.getElementById('addr').textContent = '${noResults}'; } });
   }
   document.getElementById('go').addEventListener('click', search);
   document.getElementById('q').addEventListener('keydown', function(e){ if(e.key==='Enter'){ e.preventDefault(); search(); } });

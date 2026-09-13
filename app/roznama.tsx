@@ -1092,7 +1092,11 @@ export default function RoznamaScreen() {
         visible={showLocationPicker}
         lang={lang}
         isRTL={isRTL}
-        initialCenter={savedLocation ? { lat: savedLocation.lat, lng: savedLocation.lng } : null}
+        initialCenter={
+          formLat != null && formLng != null
+            ? { lat: formLat, lng: formLng } // re-center on the event's own pin when editing
+            : savedLocation ? { lat: savedLocation.lat, lng: savedLocation.lng } : null
+        }
         onPick={(r) => { setFormLocation(r.address); setFormLat(r.lat); setFormLng(r.lng); setShowLocationPicker(false); }}
         onClose={() => setShowLocationPicker(false)}
       />
