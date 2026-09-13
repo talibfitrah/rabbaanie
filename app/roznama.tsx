@@ -493,6 +493,15 @@ export default function RoznamaScreen() {
       );
       return;
     }
+    // End time, when set, must be after the start time (2982).
+    if (!formAllDay && formEndTime &&
+        formEndTime.getHours() * 60 + formEndTime.getMinutes() <= formTime.getHours() * 60 + formTime.getMinutes()) {
+      Alert.alert(
+        tx(lang, "Ongeldige eindtijd", "Invalid end time", "وقت النهاية غير صالح"),
+        tx(lang, "De eindtijd moet na de starttijd liggen.", "The end time must be after the start time.", "يجب أن يكون وقت النهاية بعد وقت البداية."),
+      );
+      return;
+    }
     // Prayer-time awareness (2929): warn when the appointment lands in a daily
     // prayer window, and BLOCK Friday Dhuhr (Jumu'ah) unless the user says they
     // will be in another city — then ask for that city. Native two-button Alert
@@ -535,8 +544,10 @@ export default function RoznamaScreen() {
       const data = {
         title: formTitle.trim(),
         dateISO: dateToISO(savedDate),
-        hour: formTime.getHours(),
-        minute: formTime.getMinutes(),
+        // All-day entries carry a fixed 09:00 anchor (not the arbitrary
+        // modal-open time) so any reminder fires at a sensible morning hour.
+        hour: formAllDay ? 9 : formTime.getHours(),
+        minute: formAllDay ? 0 : formTime.getMinutes(),
         note: formNote.trim() || undefined,
         reminderMinutesBefore: formReminder,
         reminderIsCustom: customReminder || undefined,

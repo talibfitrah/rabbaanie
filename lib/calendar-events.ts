@@ -128,7 +128,11 @@ export async function eventsForDate(dateISO: string): Promise<CalendarEvent[]> {
   const list = await loadEvents();
   return list
     .filter((e) => e.dateISO === dateISO)
-    .sort((a, b) => a.hour * 60 + a.minute - (b.hour * 60 + b.minute));
+    .sort((a, b) => {
+      // All-day entries group at the top; the rest sort by start time.
+      if (!!a.allDay !== !!b.allDay) return a.allDay ? -1 : 1;
+      return a.hour * 60 + a.minute - (b.hour * 60 + b.minute);
+    });
 }
 
 // ============ REMINDER HELPERS (shared by event-reminders.ts + calendar-alarm.ts) ============
