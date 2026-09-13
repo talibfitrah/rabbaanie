@@ -1,0 +1,27 @@
+app/roznama.tsx
+  s_132c73e77515ad::t_124a4519870c76 1066-1074
+  s_132c73e77515ad::t_7f84ea78708655 36
+  s_132c73e77515ad::t_260b482273fbbf 384
+  s_132c73e77515ad::t_c93678129d5984 974,977-978
+  s_132c73e77515ad::t_875fc4b3d0c45c 849
+components/location-picker-modal.tsx
+  s_132c73e77515ad::t_5811bd3e7b3780 1-30,34-150
+  s_132c73e77515ad::t_8c826421fee8a9 32-33
+  s_132c73e77515ad::t_ed23ed0ec9912d 31
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b8ba487331a221b0a62d302961d40bb032defa6e",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
