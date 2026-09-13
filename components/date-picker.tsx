@@ -26,6 +26,14 @@ if (Platform.OS !== "web") {
   }
 }
 
+// The native picker hands back a Date at LOCAL midnight for the chosen day.
+// toISOString() would shift that to UTC, storing the previous day for any user
+// east of UTC (e.g. GMT+2 picking the 13th → "…-12"). Build the ISO string from
+// local parts so the stored day is the day the user actually tapped.
+function toLocalISODate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function DatePicker({ value, onChange, placeholder, label, maxDate, minDate }: DatePickerProps) {
   const { isRTL } = useI18n();
   const colors = useColors();
@@ -81,8 +89,7 @@ export function DatePicker({ value, onChange, placeholder, label, maxDate, minDa
             onChange={(event: any, selectedDate?: Date) => {
               setShowPicker(false);
               if (event.type === "set" && selectedDate) {
-                const iso = selectedDate.toISOString().split("T")[0];
-                onChange(iso);
+                onChange(toLocalISODate(selectedDate));
               }
             }}
           />
@@ -125,8 +132,7 @@ export function DatePicker({ value, onChange, placeholder, label, maxDate, minDa
                   minimumDate={minDate || new Date(1950, 0, 1)}
                   onChange={(event: any, selectedDate?: Date) => {
                     if (selectedDate) {
-                      const iso = selectedDate.toISOString().split("T")[0];
-                      onChange(iso);
+                      onChange(toLocalISODate(selectedDate));
                     }
                   }}
                 />
