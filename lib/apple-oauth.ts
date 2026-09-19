@@ -22,7 +22,7 @@ const KNOWN_APPLE_EXCHANGE_ERRORS = new Set([
   "invalid_apple_token",
   "apple_signin_unavailable",
   "database_unavailable",
-  "no_account",
+  "account_creation_failed",
   "admin_2fa_required",
 ]);
 
@@ -34,13 +34,15 @@ const KNOWN_APPLE_EXCHANGE_ERRORS = new Set([
  *
  * Returns null when the user backs out of the Apple sheet.
  *
- * Sign-in ONLY: the server returns 403 no_account for an unknown identity and
- * never mints an account from Apple, so the request carries just
- * `{ identityToken }` — no createAccount flag exists to send. It still returns
- * the same result union as completeNativeGoogleSignIn, so app/login.tsx reuses
- * the Google result handling unchanged.
+ * One button signs in AND signs up: the server creates the account for an
+ * unknown identity (App Review rejected 1.13.0 for asking such a user for an
+ * email Apple had already supplied). The name is not in the token and Apple
+ * provides it only on the first authorisation, so it rides along in the body
+ * and comes back as `name` for onboarding to prefill rather than re-ask.
  */
-export async function completeNativeAppleSignIn(): Promise<NativeGoogleSignInResult | null> {
+export async function completeNativeAppleSignIn(
+  options: { language?: string } = {},
+): Promise<NativeGoogleSignInResult | null> {
   let credential: AppleAuthentication.AppleAuthenticationCredential;
   try {
     credential = await AppleAuthentication.signInAsync({
@@ -61,13 +63,24 @@ export async function completeNativeAppleSignIn(): Promise<NativeGoogleSignInRes
   const identityToken = credential.identityToken;
   if (!identityToken) throw new AppleSignInError("missing_apple_identity_token");
 
+  // ponytail: Apple hands the name over ONCE. If the exchange below fails, a
+  // retry has none — the account is named from the email and onboarding asks.
+  // Cache it in SecureStore until a 2xx if that turns out to matter.
+  const firstName = credential.fullName?.givenName?.trim() ?? "";
+  const lastName = credential.fullName?.familyName?.trim() ?? "";
+  const fullName = `${firstName} ${lastName}`.trim();
+
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), APPLE_SIGN_IN_TIMEOUT_MS);
   try {
     const response = await publicFetch("/auth/apple/native", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ identityToken }),
+      body: JSON.stringify({
+        identityToken,
+        ...(fullName ? { fullName } : {}),
+        language: options.language,
+      }),
       signal: controller.signal,
     });
     const data = await response.json().catch(() => ({}));
@@ -104,6 +117,7 @@ export async function completeNativeAppleSignIn(): Promise<NativeGoogleSignInRes
       kind: "session",
       sessionToken: data.sessionToken,
       created: data.created === true,
+      ...(fullName ? { name: { firstName, lastName } } : {}),
     };
   } finally {
     clearTimeout(timeout);

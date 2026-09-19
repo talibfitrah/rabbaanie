@@ -63,6 +63,14 @@ export default function OnboardingScreen() {
   });
   const [firstName, setFirstName] = useState(state.parentProfile.firstName || "");
   const [lastName, setLastName] = useState(state.parentProfile.lastName || "");
+  // Sign in with Apple prefills the name (app/login.tsx), but AuthGate can mount
+  // this screen before that write lands and useState only reads at mount. Adopt
+  // a name that arrives later, never over something the user has typed.
+  useEffect(() => {
+    if (hasInteracted.current) return;
+    setFirstName((v) => v || state.parentProfile.firstName || "");
+    setLastName((v) => v || state.parentProfile.lastName || "");
+  }, [state.parentProfile.firstName, state.parentProfile.lastName]);
   const [birthDate, setBirthDate] = useState(state.parentProfile.birthDate || "");
   const [country, setCountry] = useState(state.parentProfile.country || "");
   // Start in free-text mode when the stored country is not one the list knows,

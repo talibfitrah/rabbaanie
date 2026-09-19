@@ -67,8 +67,8 @@ const AppContext = createContext<AppContextType | undefined>(undefined);
  * profile.save), which can differ from what was just sent — e.g. a stale
  * local value falls back to the authoritative server-side value there.
  * Returns the effective gender when it differs from what was sent, or
- * undefined when there's nothing to reconcile: either they already match, or
- * the response didn't parse into the expected tRPC envelope.
+ * undefined when there's nothing to reconcile: they already match, the server
+ * sent no real gender, or the response didn't parse into the tRPC envelope.
  */
 export function reconcileEffectiveGender(
   sentGender: string,
@@ -76,7 +76,12 @@ export function reconcileEffectiveGender(
 ): string | undefined {
   const result = (body as any)?.result?.data?.json;
   if (!result || typeof result !== "object") return undefined;
-  const effective = typeof result.gender === "string" ? result.gender : "";
+  // Only a real gender reconciles. Production's profile.save answers
+  // { success: true } with no gender at all; reading that as "" blanked the
+  // local value after every save. The server never deliberately clears a
+  // gender, so an absent/empty one carries no instruction.
+  const effective = result.gender;
+  if (effective !== "man" && effective !== "vrouw") return undefined;
   return effective !== sentGender ? effective : undefined;
 }
 

@@ -95,7 +95,7 @@ export default function LoginScreen() {
   const router = useRouter();
   const { completeTokenSignIn } = useAuthContext();
   const { t, language } = useI18n();
-  const { rehydrateFromServer, resetState } = useAppState();
+  const { rehydrateFromServer, resetState, updateParentProfile } = useAppState();
   // Set when the server says this Google identity has no account, so the screen
   // can offer to create one instead of leaving the user at a dead end.
   const [offerGoogleSignup, setOfferGoogleSignup] = useState(false);
@@ -367,7 +367,7 @@ export default function LoginScreen() {
     setError("");
     setLoading(true);
     try {
-      const result = await completeNativeAppleSignIn();
+      const result = await completeNativeAppleSignIn({ language });
       if (!result) return;
       if (result.kind === "twoFactor") {
         setTwoFactorChallenge(result.challengeToken);
@@ -382,26 +382,15 @@ export default function LoginScreen() {
       // Keyed on what the SERVER did, never on `createAccount` — see the same
       // note in handleGoogleAuth for why resetting on the request flag wipes a
       // real profile.
-      if (result.created) await resetState();
-      else await rehydrateFromServer();
+      if (result.created) {
+        await resetState();
+        // Apple already gave us the name — prefill onboarding, never re-ask.
+        if (result.name) await updateParentProfile(result.name);
+      } else await rehydrateFromServer();
       router.replace("/(tabs)");
     } catch (err: any) {
       console.error("[Login] Apple login error:", err, err?.cause);
       const denied = err instanceof AppleSignInError ? err.reason : null;
-      if (denied === "no_account") {
-        // Sign in with Apple is sign-in only — the server matches an existing
-        // account BY EMAIL and never creates one. A Hide My Email user signs in
-        // with a private relay address that matches nothing, so "create with
-        // your email" would be wrong for them; name the real routes instead.
-        setError(
-          tx(
-            "Geen Rabbaanie-account gevonden voor deze Apple-aanmelding. Gebruikt u Verberg mijn e-mailadres of een ander adres? Log dan in met dat e-mailadres of met Google — of maak hieronder een account aan met uw e-mailadres.",
-            "No Rabbaanie account matches this Apple sign-in. If you use Hide My Email or a different address, sign in with that email or with Google instead — or create an account with your email below.",
-            "لا يوجد حساب ربّانيّ مطابق لتسجيل الدخول عبر Apple. إن كنت تستخدم «إخفاء بريدي» أو بريدًا آخر، فسجّل الدخول بذلك البريد أو عبر Google — أو أنشئ حسابًا ببريدك أدناه.",
-          ),
-        );
-        return;
-      }
       if (denied === "admin_2fa_required") {
         setError(
           tx(
