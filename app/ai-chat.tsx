@@ -61,6 +61,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
 import { trpc } from "@/lib/trpc";
 import type { PartnerListEntry } from "@/lib/partner-types";
+import { useAuth } from "@/hooks/use-auth";
 import { calculateAgeInWeeks } from "@/lib/store";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -278,7 +279,8 @@ function AIChatScreenInner() {
   const { state: appState, saveActionPlan: saveActionPlanToContext } = useAppState();
   // All confirmed spouses — not a single parentProfile.partnerName — so a
   // polygynous user sees every wife to consult about, not just the first (3010).
-  const partnersQuery = trpc.links.listPartners.useQuery(undefined, { staleTime: 60_000 });
+  const { isAuthenticated } = useAuth();
+  const partnersQuery = trpc.links.listPartners.useQuery(undefined, { enabled: isAuthenticated, staleTime: 60_000 });
   const confirmedPartners: PartnerListEntry[] = (partnersQuery.data ?? []).filter((p) => p.confirmed && !!p.name);
   const children = appState.children || [];
 
