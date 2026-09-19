@@ -59,6 +59,8 @@ const MAX_ATTACHMENT_DATA_URL_LENGTH = 4_000_000;
 import * as DocumentPicker from "expo-document-picker";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
+import { trpc } from "@/lib/trpc";
+import type { PartnerListEntry } from "@/lib/partner-types";
 import { calculateAgeInWeeks } from "@/lib/store";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
@@ -274,6 +276,10 @@ function AIChatScreenInner() {
 
   // Use app context for children (authoritative source)
   const { state: appState, saveActionPlan: saveActionPlanToContext } = useAppState();
+  // All confirmed spouses — not a single parentProfile.partnerName — so a
+  // polygynous user sees every wife to consult about, not just the first (3010).
+  const partnersQuery = trpc.links.listPartners.useQuery(undefined, { staleTime: 60_000 });
+  const confirmedPartners: PartnerListEntry[] = (partnersQuery.data ?? []).filter((p) => p.confirmed && !!p.name);
   const children = appState.children || [];
 
   // Compute child age from birthDate
@@ -1383,6 +1389,12 @@ function AIChatScreenInner() {
 
   const suggestions = consultationType === "spouse" ? spouseSuggestions : consultationType === "general" ? generalSuggestions : childSuggestions;
 
+  // Spouse label by the VIEWER's gender. NB: the app stores gender as "man"/"vrouw"
+  // (not "male"), so the old `gender === "male"` check always fell through to
+  // "husband" — fixed here (3010).
+  const isMaleViewer = appState.parentProfile?.gender === "man" || appState.parentProfile?.gender === "male"; // codebase has both values
+  const spouseLabel = language === "ar" ? (isMaleViewer ? "زوجتي" : "زوجي") : language === "en" ? (isMaleViewer ? "My wife" : "My husband") : (isMaleViewer ? "Mijn vrouw" : "Mijn man");
+
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
       <KeyboardAvoidingView
@@ -1635,8 +1647,32 @@ function AIChatScreenInner() {
                 );
               })}
 
-              {/* Option: Spouse/Partner */}
-              {appState.parentProfile?.partnerName && (
+              {/* Spouse(s): one card per confirmed wife/husband. Was a single
+                  parentProfile.partnerName, so a polygynous user saw only the
+                  first wife (3010). Falls back to the stored partnerName, then a
+                  generic prompt. */}
+              {confirmedPartners.length > 0 ? (
+                confirmedPartners.map((p) => (
+                  <View key={p.id} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
+                    <Pressable
+                      onPress={() => {
+                        setConsultationType("spouse");
+                        setSelectedChild({ id: "spouse", name: p.name || "", age: "adult" });
+                        setChildSelectionPhase("ready");
+                      }}
+                      style={({ pressed }) => [styles.suggestionChip, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50", flex: 1 }, pressed && { opacity: 0.7 }]}
+                    >
+                      <Text style={[styles.suggestionText, { color: "#2E7D32", fontWeight: "600" }]}>💑 {p.name} ({spouseLabel})</Text>
+                    </Pressable>
+                    <Pressable
+                      onPress={() => { setHistoryFilter(p.name || null); loadConversationHistory(); setShowHistory(true); }}
+                      style={({ pressed }) => [{ width: 32, height: 32, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: "center" as const, justifyContent: "center" as const, opacity: pressed ? 0.6 : 1 }]}
+                    >
+                      <IconSymbol name="clock.fill" size={16} color={colors.muted} />
+                    </Pressable>
+                  </View>
+                ))
+              ) : appState.parentProfile?.partnerName ? (
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
                   <Pressable
                     onPress={() => {
@@ -1644,15 +1680,9 @@ function AIChatScreenInner() {
                       setSelectedChild({ id: "spouse", name: appState.parentProfile?.partnerName || "", age: "adult" });
                       setChildSelectionPhase("ready");
                     }}
-                    style={({ pressed }) => [
-                      styles.suggestionChip,
-                      { backgroundColor: "#E8F5E9", borderColor: "#4CAF50", flex: 1 },
-                      pressed && { opacity: 0.7 },
-                    ]}
+                    style={({ pressed }) => [styles.suggestionChip, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50", flex: 1 }, pressed && { opacity: 0.7 }]}
                   >
-                    <Text style={[styles.suggestionText, { color: "#2E7D32", fontWeight: "600" }]}>
-                      💑 {appState.parentProfile?.partnerName} ({language === "ar" ? (appState.parentProfile?.gender === "male" ? "زوجتي" : "زوجي") : language === "en" ? (appState.parentProfile?.gender === "male" ? "My wife" : "My husband") : (appState.parentProfile?.gender === "male" ? "Mijn vrouw" : "Mijn man")})
-                    </Text>
+                    <Text style={[styles.suggestionText, { color: "#2E7D32", fontWeight: "600" }]}>💑 {appState.parentProfile?.partnerName} ({spouseLabel})</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => { setHistoryFilter(appState.parentProfile?.partnerName || null); loadConversationHistory(); setShowHistory(true); }}
@@ -1661,10 +1691,7 @@ function AIChatScreenInner() {
                     <IconSymbol name="clock.fill" size={16} color={colors.muted} />
                   </Pressable>
                 </View>
-              )}
-
-              {/* Option: Spouse (if no partner name saved) */}
-              {!appState.parentProfile?.partnerName && (
+              ) : (
                 <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, width: "100%" }}>
                   <Pressable
                     onPress={() => {
@@ -1672,15 +1699,9 @@ function AIChatScreenInner() {
                       setSelectedChild({ id: "spouse", name: language === "ar" ? "الزوج/الزوجة" : "Partner", age: "adult" });
                       setChildSelectionPhase("ready");
                     }}
-                    style={({ pressed }) => [
-                      styles.suggestionChip,
-                      { backgroundColor: "#E8F5E9", borderColor: "#4CAF50", flex: 1 },
-                      pressed && { opacity: 0.7 },
-                    ]}
+                    style={({ pressed }) => [styles.suggestionChip, { backgroundColor: "#E8F5E9", borderColor: "#4CAF50", flex: 1 }, pressed && { opacity: 0.7 }]}
                   >
-                    <Text style={[styles.suggestionText, { color: "#2E7D32", fontWeight: "600" }]}>
-                      💑 {language === "ar" ? (appState.parentProfile?.gender === "male" ? "زوجتي" : "زوجي") : language === "en" ? (appState.parentProfile?.gender === "male" ? "My wife" : "My husband") : (appState.parentProfile?.gender === "male" ? "Mijn vrouw" : "Mijn man")}
-                    </Text>
+                    <Text style={[styles.suggestionText, { color: "#2E7D32", fontWeight: "600" }]}>💑 {spouseLabel}</Text>
                   </Pressable>
                   <Pressable
                     onPress={() => { setHistoryFilter(null); loadConversationHistory(); setShowHistory(true); }}
