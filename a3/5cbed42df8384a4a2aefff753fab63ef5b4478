@@ -1,0 +1,48 @@
+app/roznama.tsx
+  s_132c73e77515ad::t_e3912394eb7219 20,24-30
+  s_132c73e77515ad::t_be59e56eabeca6 58-73,77-81,83-89
+  s_132c73e77515ad::t_284c5353e51a37 375-380
+  s_132c73e77515ad::t_fa5fdd6685dc79 924
+  s_132c73e77515ad::t_7aeb9abf860dd0 401-402
+  s_132c73e77515ad::t_3dd3e0c922b943 447-448
+  s_132c73e77515ad::t_2e3d594908f206 914-923,925-928
+  s_132c73e77515ad::t_875e9c8647c9d5 358-360
+  s_132c73e77515ad::t_3291bfb5490068 435-446,449-470,481
+  s_132c73e77515ad::t_fb1c8e2e4252f8 1037
+  s_132c73e77515ad::t_fd7ed3a27b46a0 1072-1079,1081-1084,1086-1093,1095-1098,1100-1103
+  s_132c73e77515ad::t_dc2d13af6f76e7 1080,1085
+  s_132c73e77515ad::t_ed1ac714b8e4f3 1105
+  s_132c73e77515ad::t_e89c6bdf3cb6e8 74-76,82
+  s_132c73e77515ad::t_2a1d335cc142ed 6
+  s_132c73e77515ad::t_bcd71f2caddd7e 369-374
+  s_132c73e77515ad::t_0eaca1cdc5babf 417-418
+  s_132c73e77515ad::t_7c7fec864b4216 1094,1099
+lib/prayer-conflict.ts
+  s_132c73e77515ad::t_c60b977757d3ec 1-39,46-48,61-96,102-111,116-123
+  s_132c73e77515ad::t_2c64a59a72f608 97-101,112-115
+  s_132c73e77515ad::t_d2d635b04c9762 40-45,49-60
+package.json
+  s_132c73e77515ad::t_155678bdeaddce 18
+lib/calendar-events.ts
+  s_132c73e77515ad::t_8d363a2367751f 13
+tests/prayer-conflict.test.ts
+  s_132c73e77515ad::t_d13118f2b6c167 98-107
+  s_132c73e77515ad::t_dad7751a66db77 72-84
+  s_132c73e77515ad::t_544f2a3240231b 1-71,85-97,108
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "a35cbed42df8384a4a2aefff753fab63ef5b4478",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

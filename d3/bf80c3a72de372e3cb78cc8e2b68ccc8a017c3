@@ -1,0 +1,38 @@
+app/onboarding/parent-profile.tsx
+  s_132c73e77515ad::t_23d6951c1dc6ca 806
+  s_132c73e77515ad::t_779013852e26c0 37
+  s_132c73e77515ad::t_11e14e961c2e5a 659
+  s_132c73e77515ad::t_fe170fc8697ae4 47-56,61-66
+  s_132c73e77515ad::t_57ff9c1f2c4837 402
+  s_132c73e77515ad::t_39076bcb030bc0 320-323
+  s_132c73e77515ad::t_d046493b4b5680 554
+  s_132c73e77515ad::t_a84cd3625191af 568
+  s_132c73e77515ad::t_605386da9cd2ef 632
+  s_132c73e77515ad::t_75aff121808bf1 310
+  s_132c73e77515ad::t_2fa09f69ebf33a 478
+  s_132c73e77515ad::t_8544951bd3f071 582
+  s_132c73e77515ad::t_6424f850400401 542
+  s_132c73e77515ad::t_2ef2ae94021d50 297
+  s_132c73e77515ad::t_06f9e5744426a9 107
+tests/onboarding-wizard-skips-known.test.ts
+  s_132c73e77515ad::t_3f980de49477c2 70-74
+  s_132c73e77515ad::t_d612b659e86fa8 6-10,14,39-40,75-78,85-86,89-91
+  s_132c73e77515ad::t_7bf803be37496e 11-13,15-18,21-33,35-38,41-44,46-69,79-84,87-88,93-96
+  s_132c73e77515ad::t_e0269267611758 92,97-135
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "d3bf80c3a72de372e3cb78cc8e2b68ccc8a017c3",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

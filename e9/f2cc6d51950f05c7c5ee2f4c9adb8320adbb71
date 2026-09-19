@@ -1,0 +1,27 @@
+app/haid.tsx
+  s_132c73e77515ad::t_db7833a8d13781 100
+  s_132c73e77515ad::t_d36113b37dfd14 40
+app/(tabs)/index.tsx
+  s_132c73e77515ad::t_e3de2b839404f8 688-694
+app/family-events.tsx
+  s_132c73e77515ad::t_254ff74916506a 25
+  s_132c73e77515ad::t_1d271ca4455bf5 1-24,26-167
+lib/family-events.ts
+  s_132c73e77515ad::t_77f3c40e02cea3 1-64
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e9f2cc6d51950f05c7c5ee2f4c9adb8320adbb71",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

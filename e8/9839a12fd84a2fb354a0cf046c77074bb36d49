@@ -1,0 +1,43 @@
+app/(tabs)/family.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 22,933
+app/details/upcoming-days.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 7,93
+widgets/widgetTaskHandler.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 73,83-84
+tests/family-calendar-scripture.test.ts
+  s_132c73e77515ad::t_f7d8cdbec83036 58
+app/(tabs)/index.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 9,283
+app/details/tips-today.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 8,221
+app/(tabs)/prayer-times.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 17,187-188,232
+app/_layout.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 780,806
+tests/hijri-date-format.test.ts
+  s_132c73e77515ad::t_e2b73520ba6966 1-23
+lib/prayer-data.ts
+  s_132c73e77515ad::t_b63c33f3d8d1aa 702-721
+app/weather.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 10,40
+lib/widget-background-task.ts
+  s_132c73e77515ad::t_b63c33f3d8d1aa 19,36,39,144,157-158
+components/date-time-header.tsx
+  s_132c73e77515ad::t_b63c33f3d8d1aa 6,75-76
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e89839a12fd84a2fb354a0cf046c77074bb36d49",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

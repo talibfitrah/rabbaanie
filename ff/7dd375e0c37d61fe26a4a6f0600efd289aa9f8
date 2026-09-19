@@ -1,0 +1,42 @@
+app/admin/article-generator.tsx
+  s_e456a2d7fb85d6::t_75d16dd8ff3bf6 5-6,80-89,92-96,108,111,117,141,157-158,162,164,169,183,189-190,197-199,201-203,211-213,215-217,225-227,229-231,239-241,243-245,253-255,257-259,267-268,272,274,278,282,286,292-293,299,301,307,312,321,340,342,345,352,362,366
+  s_e456a2d7fb85d6::t_5447f14deb4a72 205,219,233,247,261
+  s_e456a2d7fb85d6::t_fe35d0239358af 17-20,22-39,41-49,51-61,63-71,73-79
+app/admin/email.tsx
+  s_e456a2d7fb85d6::t_9ba0efec3c2bed 187,195
+  s_e456a2d7fb85d6::t_5517f0dbac9ee0 189,197
+  s_e456a2d7fb85d6::t_81805c8df1d993 191,199
+app/admin/feedback.tsx
+  s_e456a2d7fb85d6::t_6b24cb391258df 31
+  s_e456a2d7fb85d6::t_4eec43ab94e8b0 16
+app/admin/subscriptions.tsx
+  s_e456a2d7fb85d6::t_1d43ef2642c890 63
+app/admin/broadcast.tsx
+  s_e456a2d7fb85d6::t_3ceeed33bd836f 349-352
+  s_e456a2d7fb85d6::t_399fd12918dd18 361
+app/admin/content-editor.tsx
+  s_e456a2d7fb85d6::t_a9e3bde0168c26 16,23,29-43,45-58,126,133-135,137,150,158,172,174-175,177-179,181,190,192-193,195-197,199,208,210-211,213-215,217,226,229,236,253,256,266,289,292,300,320,343
+  s_e456a2d7fb85d6::t_fb8e8ef4ae7a45 329
+  s_e456a2d7fb85d6::t_28e3696caefeac 152-155
+  s_e456a2d7fb85d6::t_d1023429885a94 44
+app/admin/newsletter-editor.tsx
+  s_e456a2d7fb85d6::t_e7da4bb002c37a 16,23,29-43,97,127,129-132,135,143-145,147-149,151-152,161,164,171,188,191,201,224-225,227,230,233,238-239,246,262,288,300,304
+app/admin/site-analytics.tsx
+  s_e456a2d7fb85d6::t_2ec4cd9be18967 131
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "ff7dd375e0c37d61fe26a4a6f0600efd289aa9f8",
+  "prompts": {},
+  "sessions": {
+    "s_e456a2d7fb85d6": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "4fc49d51-f973-4d51-b2fe-a5ed12f94d1d",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}

@@ -1,0 +1,20 @@
+app/_layout.tsx
+  s_132c73e77515ad::t_ac42d4cb5d8db0 152,157-163
+  s_132c73e77515ad::t_4a2c7dc98dc05d 626
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "28806b424771b48bbbbae03a5103dd899e450e09",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
