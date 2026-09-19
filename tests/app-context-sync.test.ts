@@ -92,6 +92,19 @@ describe("reconcileEffectiveGender (parses profile.save's tRPC response)", () =>
     expect(reconcileEffectiveGender("", body)).toBeUndefined();
   });
 
+  // The shape production actually sends (rabbaanie-api profile.save, verified
+  // on the VM 2026-09-19): no gender field at all. Reading that as "" wiped the
+  // local gender ~2s after every save, which failed isProfileComplete and threw
+  // the user out of the profile wizard into /onboarding, forever.
+  it("never blanks a local gender when the server response carries none", () => {
+    const body = { result: { data: { json: { success: true } } } };
+    expect(reconcileEffectiveGender("man", body)).toBeUndefined();
+    const nullBody = { result: { data: { json: { success: true, gender: null } } } };
+    expect(reconcileEffectiveGender("vrouw", nullBody)).toBeUndefined();
+    const emptyBody = { result: { data: { json: { success: true, gender: "" } } } };
+    expect(reconcileEffectiveGender("vrouw", emptyBody)).toBeUndefined();
+  });
+
   it("returns undefined for a response that doesn't match the expected tRPC envelope", () => {
     expect(reconcileEffectiveGender("man", null)).toBeUndefined();
     expect(reconcileEffectiveGender("man", {})).toBeUndefined();

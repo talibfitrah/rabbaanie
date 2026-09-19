@@ -88,6 +88,8 @@ export type NativeGoogleSignInResult =
   | {
       kind: "session";
       sessionToken: string;
+      /** Apple only (lib/apple-oauth.ts): the name from the Apple sheet. */
+      name?: { firstName: string; lastName: string };
       /**
        * Whether the SERVER created the account on this call — never what the
        * caller asked for. signIn() re-opens the account picker every time, so a
