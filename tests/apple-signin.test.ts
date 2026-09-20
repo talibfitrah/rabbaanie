@@ -55,30 +55,50 @@ describe("native Sign in with Apple", () => {
     });
   });
 
-  it("sends only the signed Apple identity token to the production API", async () => {
+  // App Review 4.0 (1.13.0 rejected 2026-09-16): the server now signs an unknown
+  // Apple identity UP, so the device must hand over the name — it is not in the
+  // token, and Apple only ever provides it on the first authorisation.
+  it("sends the identity token with the name Apple provided and the language", async () => {
     mocks.signInAsync.mockResolvedValue({
       identityToken: "signed-apple-identity-token",
+      fullName: { givenName: "Test", familyName: "Person" },
     });
     const fetchMock = vi.fn().mockResolvedValue({
       ok: true,
-      json: vi.fn().mockResolvedValue({ sessionToken: "verified-session" }),
+      json: vi.fn().mockResolvedValue({ sessionToken: "verified-session", created: true }),
     });
     vi.stubGlobal("fetch", fetchMock);
 
-    await expect(completeNativeAppleSignIn()).resolves.toEqual({
+    await expect(completeNativeAppleSignIn({ language: "en" })).resolves.toEqual({
       kind: "session",
       sessionToken: "verified-session",
-      // A plain sign-in never creates — false regardless of what the server
-      // sends. The body assertion below pins it to exactly {identityToken}.
-      created: false,
+      created: true,
+      // Handed back so onboarding can prefill instead of re-asking.
+      name: { firstName: "Test", lastName: "Person" },
     });
     expect(fetchMock).toHaveBeenCalledWith(
       "https://api.rabbaanie.com/auth/apple/native",
       expect.objectContaining({
         method: "POST",
-        body: JSON.stringify({ identityToken: "signed-apple-identity-token" }),
+        body: JSON.stringify({
+          identityToken: "signed-apple-identity-token",
+          fullName: "Test Person",
+          language: "en",
+        }),
       }),
     );
+    vi.unstubAllGlobals();
+  });
+
+  it("a repeat authorisation (Apple sends no name) still signs in, with no name", async () => {
+    mocks.signInAsync.mockResolvedValue({ identityToken: "signed", fullName: null });
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({ sessionToken: "s" }),
+    }));
+    await expect(completeNativeAppleSignIn()).resolves.toEqual({
+      kind: "session", sessionToken: "s", created: false,
+    });
     vi.unstubAllGlobals();
   });
 
@@ -117,13 +137,13 @@ describe("native Sign in with Apple", () => {
       "fetch",
       vi.fn().mockResolvedValue({
         ok: false,
-        status: 403,
-        json: vi.fn().mockResolvedValue({ error: "no_account" }),
+        status: 503,
+        json: vi.fn().mockResolvedValue({ error: "database_unavailable" }),
       }),
     );
 
     await expect(completeNativeAppleSignIn()).rejects.toMatchObject({
-      reason: "no_account",
+      reason: "database_unavailable",
     } satisfies Partial<AppleSignInError>);
     vi.unstubAllGlobals();
   });
@@ -181,14 +201,16 @@ describe("Apple sign-in button visibility", () => {
     expect(login).toContain("handleAppleAuth");
   });
 
-  it("renders no Apple sign-up affordance", () => {
-    // Sign in with Apple is sign-in only: the server returns 403 no_account and
-    // never creates an account, so a SIGN_UP button is a guaranteed dead end.
-    // Only the SIGN_IN button may render, and no createAccount path may survive.
+  it("one Apple button does both, and never sends the user off to type an email", () => {
+    // The SIGN_IN button signs an unknown identity up server-side, so there is
+    // no separate SIGN_UP affordance — and no_account, the dead end App Review
+    // rejected, must have no handler left to render.
     const login = readFileSync("app/login.tsx", "utf8");
     expect(login).toContain("AppleAuthenticationButtonType.SIGN_IN");
     expect(login).not.toContain("SIGN_UP");
-    expect(login).not.toContain("offerAppleSignup");
+    const appleHandler = login.slice(login.indexOf("const handleAppleAuth"), login.indexOf("const handleResend"));
+    expect(appleHandler).toContain("completeNativeAppleSignIn");
+    expect(appleHandler).not.toContain("no_account");
   });
 });
 
@@ -217,11 +239,11 @@ describe("Apple sign-in native entitlement config", () => {
 });
 
 describe("Apple sign-in server contract", () => {
-  // The server half is built to the same contract in this repo's
-  // server/web-auth.ts, next to /auth/google/native. These pin the route,
-  // Apple's JWS verification, and the no-account denial so the client's result
-  // mapping cannot silently drift from what the endpoint returns.
-  it("verifies Apple's signed token server-side and denies unknown accounts", () => {
+  // Pins the route and Apple's JWS verification in this repo's server mirror.
+  // What an unknown identity gets is deliberately NOT pinned here: production
+  // (rabbaanie-api, a separate repo — see CLAUDE.md) signs it up, and that is
+  // tested there in tests/apple-signin.test.ts. This mirror runs nowhere.
+  it("verifies Apple's signed token server-side", () => {
     const server = readFileSync("server/web-auth.ts", "utf8");
     const serverFlat = server.replace(/\s+/g, " ");
     expect(server).toContain('app.post("/auth/apple/native"');
@@ -234,6 +256,5 @@ describe("Apple sign-in server contract", () => {
     expect(serverFlat).toContain("audience: APPLE_BUNDLE_ID");
     // And the algorithm is pinned, closing the alg-confusion / "none" hole.
     expect(serverFlat).toContain('algorithms: ["RS256"]');
-    expect(server).toContain("no_account");
   });
 });
