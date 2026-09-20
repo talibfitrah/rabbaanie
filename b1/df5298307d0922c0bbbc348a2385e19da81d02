@@ -1,0 +1,22 @@
+app/(tabs)/concepts.tsx
+  s_132c73e77515ad::t_f1191b89b8b5c7 1784
+  s_132c73e77515ad::t_1a5a5d7617c9e9 1224
+  s_132c73e77515ad::t_4ea302f3f0ca11 1977
+  s_132c73e77515ad::t_e1f4e9307b8cb8 17
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "b1df5298307d0922c0bbbc348a2385e19da81d02",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
