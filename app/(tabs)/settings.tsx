@@ -862,6 +862,17 @@ export default function SettingsScreen() {
         lastUpdated: new Date().toISOString(),
       });
       setGpsError("");
+      // Also persist to @prayer_location — the key home + prayer times read (and which,
+      // unlike locationSettings, is never overwritten by server sync). Without this a
+      // refresh updated only the settings field while prayer times/home kept the old
+      // city. Same city/country we just wrote above, so the two stores stay identical.
+      // Guarded on its own: a notification-reschedule failure inside savePrayerLocation
+      // must NOT fall through to the catch below, whose fallback would write the stale
+      // prayerLocation back over the city we just set (silent split-brain).
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Amsterdam";
+        await savePrayerLocation({ country, city, lat: pos.coords.latitude, lng: pos.coords.longitude, tz });
+      } catch (_) {}
     } catch (err: any) {
       // Final fallback: use prayer location if available
       if (prayerLocation && prayerLocation.lat && prayerLocation.lng) {
@@ -885,7 +896,7 @@ export default function SettingsScreen() {
       setGpsLoading(false);
       setGpsStep("");
     }
-  }, [gpsLoading, updateLocationSettings]);
+  }, [gpsLoading, updateLocationSettings, savePrayerLocation]);
 
   // Bekende steden voor herkenning (Nederland, België, Duitsland, etc.)
   const KNOWN_CITIES: Record<string, { country: string; lat: number; lng: number }> = {
@@ -1048,6 +1059,18 @@ export default function SettingsScreen() {
       });
       setShowManualInput(false);
       setGpsError("");
+      // Keep @prayer_location in sync so home + prayer times use the chosen city and it
+      // survives restart (same gap the GPS refresh path had). Guarded like that path so a
+      // notification-reschedule failure can't leave the form stuck open / reject unhandled.
+      try {
+        await savePrayerLocation({
+          country: match.country,
+          city: displayName,
+          lat: match.lat,
+          lng: match.lng,
+          tz: COUNTRIES[match.country]?.tz || Intl.DateTimeFormat().resolvedOptions().timeZone || "Europe/Amsterdam",
+        });
+      } catch (_) {}
     } else {
       // Stad niet herkend - toon suggesties
       const suggestions = Object.keys(KNOWN_CITIES)
@@ -1064,7 +1087,7 @@ export default function SettingsScreen() {
           : `We konden "${manualCityInput.trim()}" niet vinden. Probeer de volledige stadsnaam in te voeren.\n\nVoorbeelden: Amsterdam, Rotterdam, Den Haag, Brussel, Casablanca, Parijs...${suggestions ? `\n\nMogelijke steden: ${suggestions}` : ""}`
       );
     }
-  }, [manualCityInput, updateLocationSettings]);
+  }, [manualCityInput, updateLocationSettings, savePrayerLocation]);
 
   const handleReminderToggle = useCallback(() => {
     updateReminderSettings({ enabled: !reminder.enabled });
@@ -1188,7 +1211,15 @@ export default function SettingsScreen() {
           showsVerticalScrollIndicator={false}
           renderItem={({ item }) => (
             <Pressable
-              onPress={() => savePrayerLocation({ country: prayerSelectedCountry, city: item.name, lat: item.lat, lng: item.lng, tz: countryData.tz })}
+              onPress={() => {
+                // Fire-and-forget with .catch: a notification-reschedule/persist failure
+                // must not surface as an unhandled rejection (matches the GPS/manual guards).
+                savePrayerLocation({ country: prayerSelectedCountry, city: item.name, lat: item.lat, lng: item.lng, tz: countryData.tz }).catch(() => {});
+                // Keep locationSettings (server-synced city + advice screens) in step
+                // with the prayer location this picker sets — same pairing the GPS/manual
+                // handlers do; without it this path leaves locationSettings on the old city.
+                updateLocationSettings({ gpsEnabled: true, city: item.name, country: prayerSelectedCountry, latitude: item.lat, longitude: item.lng, lastUpdated: new Date().toISOString() }).catch(() => {});
+              }}
               style={({ pressed }) => [{
                 backgroundColor: pressed ? colors.primary + "15" : colors.surface,
                 borderRadius: 12, padding: 16, marginBottom: 8,
