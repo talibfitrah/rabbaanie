@@ -14,6 +14,7 @@ import {
   Animated as RNAnimated,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
+import { useBottomTabBarHeight } from "@react-navigation/bottom-tabs";
 import { useI18n } from "@/lib/i18n";
 import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -1220,6 +1221,7 @@ export default function QuranScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const insets = useSafeAreaInsets();
+  const tabBarHeight = useBottomTabBarHeight(); // this screen is edge-to-edge; reserve room so the mushaf's bottom ayahs aren't hidden behind the tab bar (3018)
   const colors = useColors();
 
   // State
@@ -1779,7 +1781,7 @@ export default function QuranScreen() {
         <View
           style={[
             st.scienceBox,
-            { backgroundColor: nightMode ? "#1A1A2E" : "#FAFDF7" },
+            { backgroundColor: nightMode ? "#1A1A2E" : "#FAFDF7", paddingBottom: insets.bottom },
           ]}
         >
           {/* Drag handle */}
@@ -1972,7 +1974,7 @@ export default function QuranScreen() {
     <View
       style={[
         st.container,
-        { backgroundColor: bgColor, paddingTop: insets.top },
+        { backgroundColor: bgColor, paddingTop: insets.top, paddingBottom: tabBarHeight },
       ]}
     >
       {/* Top toolbar */}
