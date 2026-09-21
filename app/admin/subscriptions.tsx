@@ -23,6 +23,14 @@ export default function AdminSubscriptionsScreen() {
   const insets = useSafeAreaInsets();
   const align = isRTL ? "right" : "left";
   const admin = (trpc as any).admin;
+  // Subscription tiers (match app/subscribe.tsx). Lets the owner change a
+  // subscriber's level — including a permanent one — from the app, not only the
+  // website dashboard (Daa3iyah 3033).
+  const TIERS: { key: string; label: string }[] = [
+    { key: "ghars", label: L3("غَرْس", "Ghars", "Ghars") },
+    { key: "namaa", label: L3("نَماء", "Namaa", "Namaa") },
+    { key: "ithmaar", label: L3("إثمار", "Ithmaar", "Ithmaar") },
+  ];
 
   const [tab, setTab] = useState<"info" | "subs" | "coupons">("info");
   const [search, setSearch] = useState("");
@@ -43,6 +51,10 @@ export default function AdminSubscriptionsScreen() {
   const setSub = admin.setSubscription.useMutation({
     onSuccess: refetchAll,
     onError: (e: any) => Alert.alert(L3("تعذّر التعديل", "Wijzigen mislukt", "Update failed"), e?.message || ""),
+  });
+  const setTier = admin.setSubscriptionTier.useMutation({
+    onSuccess: refetchAll,
+    onError: (e: any) => Alert.alert(L3("تعذّر تغيير المستوى", "Niveau wijzigen mislukt", "Tier change failed"), e?.message || ""),
   });
   const createCoupon = admin.createCoupon.useMutation({ onSuccess: refetchAll });
   const toggleCoupon = admin.setCouponActive.useMutation({ onSuccess: refetchAll });
@@ -109,6 +121,19 @@ export default function AdminSubscriptionsScreen() {
       [
         { text: L3("إلغاء", "Annuleren", "Cancel"), style: "cancel" },
         { text: L3("ضبط", "Instellen", "Set"), onPress: () => setSub.mutate({ userId, days: 365 }) },
+      ],
+    );
+  }
+  // Tier-ONLY change via setSubscriptionTier (stamps the tier on the existing
+  // subscription row) — never touches expiry, so changing a permanent or a
+  // part-year subscriber's level gives away/removes no paid time.
+  function confirmSetTier(subscriptionId: number, label: string, tier: { key: string; label: string }) {
+    Alert.alert(
+      L3("تغيير المستوى", "Niveau wijzigen", "Change tier"),
+      L3(`تغيير مستوى اشتراك ${label} إلى «${tier.label}»؟`, `Het abonnementsniveau van ${label} wijzigen naar "${tier.label}"?`, `Change ${label}'s subscription tier to "${tier.label}"?`),
+      [
+        { text: L3("إلغاء", "Annuleren", "Cancel"), style: "cancel" },
+        { text: L3("تغيير", "Wijzigen", "Change"), onPress: () => setTier.mutate({ subscriptionId, tier: tier.key }) },
       ],
     );
   }
@@ -252,6 +277,22 @@ export default function AdminSubscriptionsScreen() {
                         {u.email ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.email}</Text> : null}
                         {u.phone ? <Text style={{ fontSize: 12, color: colors.muted, textAlign: align, marginTop: 2 }}>{u.phone}</Text> : null}
                         {isSpecial && u.expiresAt ? <Text style={{ fontSize: 12, color: colors.primary, fontWeight: "700", textAlign: align, marginTop: 4 }}>{formatSubscriptionRemaining(u.expiresAt, language)}</Text> : null}
+                        {isSpecial ? (
+                          <View style={{ marginTop: 8 }}>
+                            <Text style={{ fontSize: 11, color: colors.muted, textAlign: align, marginBottom: 5 }}>{L3("مستوى الاشتراك", "Abonnementsniveau", "Subscription tier")}</Text>
+                            <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 6, flexWrap: "wrap" }}>
+                              {TIERS.map((tr) => {
+                                const activeTier = u.tier === tr.key;
+                                return (
+                                  <TouchableOpacity key={tr.key} onPress={() => u.subscriptionId && confirmSetTier(u.subscriptionId, displayName, tr)} disabled={setTier.isPending || activeTier || !u.subscriptionId}
+                                    style={{ backgroundColor: activeTier ? colors.primary : colors.background, borderWidth: 1, borderColor: activeTier ? colors.primary : colors.border, borderRadius: 8, paddingVertical: 6, paddingHorizontal: 13, opacity: !activeTier && setTier.isPending ? 0.5 : 1 }}>
+                                    <Text style={{ color: activeTier ? "#fff" : colors.foreground, fontWeight: "700", fontSize: 12 }}>{tr.label}</Text>
+                                  </TouchableOpacity>
+                                );
+                              })}
+                            </View>
+                          </View>
+                        ) : null}
                         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", marginTop: 10, gap: 8, flexWrap: "wrap" }}>
                           {!isSpecial ? (
                             <>
