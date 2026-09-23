@@ -1,5 +1,5 @@
-import { useState, useEffect, useCallback } from "react";
-import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, ScrollView } from "react-native";
+import { useState, useEffect, useCallback, useMemo } from "react";
+import { View, Text, FlatList, Pressable, StyleSheet, ActivityIndicator, ScrollView, TextInput } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/lib/i18n";
@@ -82,6 +82,33 @@ function getTranslitForContext(contextCode: string, sortIndex: number): string |
   return dhikr?.translit || undefined;
 }
 
+// ---- Search over the dhikr text only (msg 3050) ----
+// Flat index of every dhikr across all categories, built once from the bundled local data
+// (lib/adhkar-data). Coverage boundary: the category drill-down fetches /api/adhkar from the
+// server; both derive from the same corpus, so search covers the full local set — any
+// server-only additions wouldn't appear until added to the bundled data. `normText` is the
+// search-normalized Arabic, precomputed here (not recomputed on every keystroke).
+const ALL_DHIKR_FLAT = ADHKAR_CATEGORIES.flatMap((cat) =>
+  cat.adhkar.map((d) => ({ dhikr: d, normText: normAr(d.text), catId: cat.id, cTitle: cat.title, cTitleNL: cat.titleNL, cTitleEN: cat.titleEN })),
+);
+// Strip harakaat, tatweel, ayah/quote brackets, and digits, and fold alef/hamza/taa-marbuta
+// variants — so a plain-typed query matches fully-vocalized dhikr text.
+function normAr(s: string): string {
+  // Strip harakaat/marks + tatweel, then keep only letters + whitespace, then fold
+  // alef/hamza/taa variants — so a plain-typed query matches fully-vocalized dhikr text.
+  // Plain \u ranges (Hermes-safe), no \p{} escapes.
+  return (s || "")
+    .replace(/[\u0610-\u061A\u064B-\u065F\u0670\u06D6-\u06ED\u0640]/g, "")
+    .replace(/[\u00AB\u00BB\uFD3E\uFD3F\[\]().,\u060C\u061B:?!\u0660-\u0669\u06F0-\u06F9\d]/g, " ")
+    .replace(/[\u0623\u0625\u0622\u0671]/g, "\u0627")
+    .replace(/\u0649/g, "\u064A")
+    .replace(/\u0624/g, "\u0648")
+    .replace(/\u0626/g, "\u064A")
+    .replace(/\u0629/g, "\u0647")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
 type TabMode = "adhkar" | "quran" | "all_categories";
 
 export default function DhikriScreen() {
@@ -94,6 +121,29 @@ export default function DhikriScreen() {
   const [adhkarList, setAdhkarList] = useState<AdhkarItem[]>([]);
   const [loading, setLoading] = useState(false);
   const [expandedId, setExpandedId] = useState<number | null>(null);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchExpandedId, setSearchExpandedId] = useState<string | null>(null);
+
+  // Search matches ONLY the dhikr itself — its Arabic text (tashkeel-insensitive),
+  // translit, and translation — never the category/reward/how-to metadata.
+  const searchResults = useMemo(() => {
+    const q = searchQuery.trim();
+    if (!q) return [];
+    const nq = normAr(q);
+    const lq = q.toLowerCase();
+    // Latin (translit/translation) matching only in nl/en — where the card shows translit —
+    // and never for a punctuation-only query (which would otherwise match every translit).
+    const lqOk = lang !== "ar" && /[a-z0-9]/.test(lq);
+    return ALL_DHIKR_FLAT.filter(({ dhikr, normText }) => {
+      if (nq && normText.includes(nq)) return true;
+      if (lqOk) {
+        if (dhikr.translit && dhikr.translit.toLowerCase().includes(lq)) return true;
+        if (dhikr.textNL && dhikr.textNL.toLowerCase().includes(lq)) return true;
+        if (dhikr.textEN && dhikr.textEN.toLowerCase().includes(lq)) return true;
+      }
+      return false;
+    });
+  }, [searchQuery, lang]);
 
   // Determine current time-based adhkar
   const currentHour = new Date().getHours();
@@ -448,6 +498,54 @@ export default function DhikriScreen() {
     </View>
   );
 
+  const renderSearchItem = ({ item }: { item: (typeof ALL_DHIKR_FLAT)[number] }) => {
+    const { dhikr } = item;
+    const isExpanded = searchExpandedId === dhikr.id;
+    const translation = lang === "nl" ? dhikr.textNL : lang === "en" ? dhikr.textEN : "";
+    const reward = (lang === "nl" ? dhikr.rewardNL : lang === "en" ? dhikr.rewardEN : dhikr.reward) || dhikr.reward;
+    const catName = lang === "nl" ? item.cTitleNL : lang === "en" ? item.cTitleEN : item.cTitle;
+    return (
+      <Pressable onPress={() => setSearchExpandedId(isExpanded ? null : dhikr.id)} style={({ pressed }) => [styles.adhkarCard, pressed && { opacity: 0.95 }]}>
+        <Text style={styles.adhkarArabic}>{dhikr.text}</Text>
+        {lang !== "ar" && dhikr.translit ? <Text style={styles.translitText}>{dhikr.translit}</Text> : null}
+        {translation ? <Text style={styles.adhkarTranslation}>{translation}</Text> : null}
+        {dhikr.count > 1 && (
+          <View style={[styles.repBadge, isRTL ? { right: 8 } : { left: 8 }]}>
+            <Text style={styles.repText}>{dhikr.count}x</Text>
+          </View>
+        )}
+        <View style={[styles.searchCatRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <MaterialIcons name="label" size={12} color="#9CA3AF" />
+          <Text style={styles.searchCatText}>{catName || item.cTitle}</Text>
+        </View>
+        {isExpanded && reward ? (
+          <View style={styles.expandedSection}>
+            <Text style={styles.detailLabel}>{tx(lang, "Beloning & verdienste", "Reward & merit", "الفضل والأجر")}</Text>
+            <Text style={styles.detailTextAr}>{reward}</Text>
+          </View>
+        ) : null}
+      </Pressable>
+    );
+  };
+
+  const renderSearchResults = () => (
+    <View style={{ flex: 1 }}>
+      <Text style={styles.searchCount}>
+        {searchResults.length > 0
+          ? tx(lang, `${searchResults.length} resultaten`, `${searchResults.length} results`, `${searchResults.length} نتيجة`)
+          : tx(lang, "Geen adhkaar gevonden", "No adhkaar found", "لا توجد أذكار مطابقة")}
+      </Text>
+      <FlatList
+        data={searchResults}
+        keyExtractor={(item) => item.dhikr.id}
+        renderItem={renderSearchItem}
+        keyboardShouldPersistTaps="handled"
+        contentContainerStyle={{ paddingBottom: 100, paddingHorizontal: 16 }}
+        showsVerticalScrollIndicator={false}
+      />
+    </View>
+  );
+
   return (
     <ScreenContainer>
       {/* Header */}
@@ -458,8 +556,32 @@ export default function DhikriScreen() {
         </Text>
       </View>
 
+      {/* Search — over the dhikr text only */}
+      <View style={[styles.searchBar, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <MaterialIcons name="search" size={20} color="#6B7280" />
+        <TextInput
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          placeholder={tx(lang, "Zoek in de adhkaar…", "Search the adhkaar…", "ابحث في الأذكار…")}
+          placeholderTextColor="#9CA3AF"
+          style={[styles.searchInput, { textAlign: isRTL ? "right" : "left" }]}
+          returnKeyType="search"
+        />
+        {searchQuery.length > 0 ? (
+          <Pressable onPress={() => setSearchQuery("")} hitSlop={10}>
+            <MaterialIcons name="close" size={20} color="#6B7280" />
+          </Pressable>
+        ) : null}
+      </View>
+
       {/* Content */}
-      {selectedContext ? renderAdhkarList() : tabMode === "all_categories" ? renderAllCategories() : renderSectionsGrid()}
+      {searchQuery.trim()
+        ? renderSearchResults()
+        : selectedContext
+        ? renderAdhkarList()
+        : tabMode === "all_categories"
+        ? renderAllCategories()
+        : renderSectionsGrid()}
     </ScreenContainer>
   );
 }
@@ -481,6 +603,42 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#6B7280",
     marginTop: 2,
+  },
+  searchBar: {
+    alignItems: "center",
+    gap: 8,
+    marginHorizontal: 16,
+    marginTop: 12,
+    marginBottom: 4,
+    paddingHorizontal: 12,
+    paddingVertical: 9,
+    borderRadius: 12,
+    backgroundColor: "#F3F4F6",
+    borderWidth: 1,
+    borderColor: "#E5E7EB",
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 15,
+    color: "#1B4332",
+    padding: 0,
+  },
+  searchCount: {
+    fontSize: 12,
+    color: "#6B7280",
+    paddingHorizontal: 20,
+    paddingTop: 8,
+    paddingBottom: 6,
+  },
+  searchCatRow: {
+    alignItems: "center",
+    gap: 4,
+    marginTop: 10,
+  },
+  searchCatText: {
+    fontSize: 11,
+    fontWeight: "600",
+    color: "#9CA3AF",
   },
   sectionsContainer: {
     padding: 16,
