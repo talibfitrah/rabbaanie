@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
-import { addDays, classify, predict, cyclePhases, cycleCountdowns, openBleedRun, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
+import { addDays, diffDays, classify, predict, cyclePhases, cycleCountdowns, openBleedRun, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
 import { haidText, phaseColors } from "@/lib/haid-text";
 
 type Lang = "nl" | "en" | "ar";
@@ -53,7 +53,7 @@ export function HaidFamilyCard() {
     const p = predict(days, settings, today);
     const ph = cyclePhases(days, settings, today);
     const hasLogToday = days.some((d) => d.date === today);
-    const openRun = openBleedRun(days, today);
+    const openRun = openBleedRun(days, settings, today);
     // Same shared helper as /haid: nextHaidDays (negative = late), fertileDays (null
     // while late or un-personalized). ph is null while pregnant/in nifas → both null.
     const { nextHaidDays, fertileDays } = cycleCountdowns(ph, p, today);
@@ -66,10 +66,11 @@ export function HaidFamilyCard() {
       cycleDay: ph && ph.personalized ? ph.cycleDay : null,
       phase: ph,
       countdownText,
-      // Exactly the /haid screen's needsConfirm rule (openBleedRun) so the two never
-      // disagree. showStart (new period) only when NO run is open — otherwise a tap
-      // would split the run — and only in a real cycle (ph != null, so not pregnant/nifas).
-      showConfirm: openRun != null,
+      // Exactly the /haid screen's rule: confirm only when the last blood is within
+      // 2 days (logging today stays contiguous — no split, no backfill). showStart
+      // (new period) only when NO run is open — a tap otherwise splits it — and only
+      // in a real cycle (ph != null, so not pregnant/nifas).
+      showConfirm: openRun != null && diffDays(openRun.lastBlood, today) <= 2,
       showStart: openRun == null && ph != null && !hasLogToday,
     };
   }, [q.data, cycleData, today, lang]);
@@ -88,14 +89,6 @@ export function HaidFamilyCard() {
   if (!isAuthenticated || !isWoman) return null;
 
   const logToday = (flow: Flow) => { if (!upsertDay.isPending) upsertDay.mutate({ date: today, flow, color: null, ghusl: false }); };
-  // "Still bleeding? → yes": fill EVERY unlogged day from the last logged blood
-  // through today, so a single today-only log ≥3 days later can't split the run
-  // (which would flip the gap days to tuhr and skew learnHabit). Same as /haid.
-  const confirmStillBleeding = () => {
-    if (upsertDay.isPending) return;
-    const lastBlood = cycleData?.days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
-    for (let d = lastBlood ? addDays(lastBlood, 1) : today; d <= today; d = addDays(d, 1)) upsertDay.mutate({ date: d, flow: "blood", color: null, ghusl: false });
-  };
 
   const cardStyle = { flexDirection: (isRTL ? "row-reverse" : "row") as "row" | "row-reverse", alignItems: "center" as const, gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border };
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
@@ -145,7 +138,7 @@ export function HaidFamilyCard() {
       {view.showConfirm ? (
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 10 }}>
           <Text style={[{ flex: 1, fontSize: 12, color: colors.muted }, align]}>{T.log.stillBleeding}</Text>
-          <Pressable onPress={confirmStillBleeding} style={{ backgroundColor: colors.error, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, opacity: upsertDay.isPending ? 0.6 : 1 }}>
+          <Pressable onPress={() => logToday("blood")} style={{ backgroundColor: colors.error, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, opacity: upsertDay.isPending ? 0.6 : 1 }}>
             <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>{T.log.yesStill}</Text>
           </Pressable>
           <Pressable onPress={() => logToday("dry")} style={{ borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, opacity: upsertDay.isPending ? 0.6 : 1 }}>

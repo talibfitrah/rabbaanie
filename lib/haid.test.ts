@@ -371,16 +371,19 @@ describe("isAssumedBleedDay — shared assumed-continuation predicate", () => {
 });
 
 describe("openBleedRun — the 'still bleeding?' open-run predicate", () => {
-  it("open while the last blood day has no dry/spotting after it, within the doctor window", () => {
-    expect(openBleedRun(blood(["2026-08-01", "2026-08-02"]), "2026-08-05")).toEqual({ lastBlood: "2026-08-02" });
+  it("open while the last blood day has no dry/spotting after it, within habit+grace", () => {
+    expect(openBleedRun(blood(["2026-08-01", "2026-08-02"]), S(), "2026-08-05")).toEqual({ lastBlood: "2026-08-02" });
   });
   it("closed once a dry day is logged after the last blood day", () => {
     const days: CycleDay[] = [...blood(["2026-08-01"]), { date: "2026-08-03", flow: "dry" }];
-    expect(openBleedRun(days, "2026-08-05")).toBeNull();
+    expect(openBleedRun(days, S(), "2026-08-05")).toBeNull();
   });
-  it("null when today is already logged, or the run is implausibly old (> doctor window)", () => {
-    expect(openBleedRun(blood(["2026-08-01"]), "2026-08-01")).toBeNull(); // today == lastBlood
-    expect(openBleedRun(blood(["2026-08-01"]), "2026-09-01")).toBeNull(); // 31 days — no longer "forgot to log"
+  it("closes past habit+grace, so a short cycle's next-period day is NOT joined to the old run", () => {
+    expect(openBleedRun(blood(span("2026-08-01", 5)), S({ habitLength: 5 }), "2026-08-06")).not.toBeNull(); // day after → still open
+    expect(openBleedRun(blood(span("2026-08-01", 5)), S({ habitLength: 5 }), "2026-08-20")).toBeNull();     // ~2 weeks later (next period) → closed
+  });
+  it("null when today is already logged (today == lastBlood)", () => {
+    expect(openBleedRun(blood(["2026-08-01"]), S(), "2026-08-01")).toBeNull();
   });
 });
 
