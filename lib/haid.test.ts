@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, FERTILE_BEFORE, FERTILE_AFTER, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
-import { cyclePhases, upcomingFertile, cycleCountdowns, isAssumedBleedDay, ageYears, ageBand } from "./haid";
+import { cyclePhases, upcomingFertile, cycleCountdowns, isAssumedBleedDay, openBleedRun, ageYears, ageBand } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
 const blood = (dates: string[], color?: "black" | "red"): CycleDay[] => dates.map((date) => ({ date, flow: "blood", color }));
@@ -367,6 +367,20 @@ describe("isAssumedBleedDay — shared assumed-continuation predicate", () => {
   });
   it("false when nothing has been logged (no last blood day to extend from)", () => {
     expect(isAssumedBleedDay("nifas", "2026-08-10", [])).toBe(false);
+  });
+});
+
+describe("openBleedRun — the 'still bleeding?' open-run predicate", () => {
+  it("open while the last blood day has no dry/spotting after it, within the doctor window", () => {
+    expect(openBleedRun(blood(["2026-08-01", "2026-08-02"]), "2026-08-05")).toEqual({ lastBlood: "2026-08-02" });
+  });
+  it("closed once a dry day is logged after the last blood day", () => {
+    const days: CycleDay[] = [...blood(["2026-08-01"]), { date: "2026-08-03", flow: "dry" }];
+    expect(openBleedRun(days, "2026-08-05")).toBeNull();
+  });
+  it("null when today is already logged, or the run is implausibly old (> doctor window)", () => {
+    expect(openBleedRun(blood(["2026-08-01"]), "2026-08-01")).toBeNull(); // today == lastBlood
+    expect(openBleedRun(blood(["2026-08-01"]), "2026-09-01")).toBeNull(); // 31 days — no longer "forgot to log"
   });
 });
 

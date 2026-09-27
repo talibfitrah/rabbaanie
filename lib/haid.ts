@@ -425,16 +425,32 @@ export function cycleCountdowns(phases: CyclePhases | null, prediction: Predicti
 }
 
 /**
- * True when `date`'s excused/bleeding status is an ASSUMED continuation (item E-2):
- * a haid/nifas/istihada day with no logged entry, falling AFTER the last logged
- * blood day. Shared by the screen and the family card so their "still bleeding?"
- * confirm and the assumed-day calendar mark use one rule (never a merged mid-run gap).
+ * True when `date`'s status is an ASSUMED continuation (item E-2): a haid/nifas/
+ * istihada day with no logged entry, falling AFTER the last logged blood day. Used
+ * for the assumed-day calendar mark (never a one-day gap merged inside a run).
  */
 export function isAssumedBleedDay(status: DayStatus | undefined, date: string, days: CycleDay[]): boolean {
   if (status !== "haid" && status !== "nifas" && status !== "istihada") return false;
   if (days.some((d) => d.date === date)) return false;
   const lastBlood = days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
   return lastBlood != null && date > lastBlood;
+}
+
+/**
+ * The last logged blood day when the run is still OPEN — she may be bleeding but
+ * hasn't logged today: a blood day exists, nothing (dry/spotting) is logged after
+ * it, and today is after it yet within SEE_DOCTOR_AFTER_DAYS (past that it is no
+ * longer a "forgot to log" case). Drives the "still bleeding?" confirm on BOTH
+ * surfaces, and — because it stays open past the habit cap — suppresses the
+ * "bleeding started today" button while a run is open, so a single tap can never
+ * split the run into a new period (which would flip the gap days' rulings).
+ */
+export function openBleedRun(days: CycleDay[], today: string): { lastBlood: string } | null {
+  const lastBlood = days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
+  if (!lastBlood || today <= lastBlood) return null;
+  if (days.some((d) => d.date > lastBlood && (d.flow === "dry" || d.flow === "spotting"))) return null; // explicitly closed
+  if (diffDays(lastBlood, today) > SEE_DOCTOR_AFTER_DAYS) return null; // too long to still be "forgot to log"
+  return { lastBlood };
 }
 
 /** Exact age in years (increments on the birthday, no /365.25 drift); null with no birthdate or a future one. */

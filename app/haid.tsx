@@ -9,8 +9,8 @@ import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { getIslamicDate } from "@/lib/prayer-data";
-import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, cycleCountdowns, isAssumedBleedDay, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
-import { haidText } from "@/lib/haid-text";
+import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, cycleCountdowns, isAssumedBleedDay, openBleedRun, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
+import { haidText, phaseColors } from "@/lib/haid-text";
 import { HAID_RULINGS } from "@/lib/haid-rulings";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
 import { DatePicker } from "@/components/date-picker";
@@ -137,10 +137,11 @@ export default function HaidScreen() {
   const isAssumedDay = (d: string) => isAssumedBleedDay(byDate.get(d)?.status, d, days);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const phases = useMemo(() => cyclePhases(days, settings, today), [days, settings, today]);
-  // Same predicate as C3's isAssumedDay, applied to today: classify() is
-  // already the source of truth for whether an open run is being assumed,
-  // correctly bounded by the habit/nifas cap — no separate unbounded check.
-  const needsConfirm = isAssumedDay(today);
+  // "Still bleeding?" while the run is OPEN (last blood not yet closed by a dry/
+  // spotting log, within the doctor-advice window) — shared with the family card via
+  // openBleedRun. Stays open past the habit cap, so she can confirm bleeding that has
+  // become istihada rather than being offered a run-splitting "new period".
+  const needsConfirm = !!openBleedRun(days, today);
   // An out-of-classify-window date (grid navigated far past/future) has no
   // entry — show a neutral pure day for THAT date, not today's rulings.
   const selectedCls = byDate.get(selected) ?? { date: selected, status: "tuhr" as const, ghuslDue: false, advisories: [] };
@@ -177,6 +178,14 @@ export default function HaidScreen() {
   // Overview accuracy nudge always targets TODAY specifically (not `selected` —
   // she may be browsing a past month while the nudge is about right now).
   const logToday = (flow: Flow) => upsertDay.mutate({ date: today, flow, color: null, ghusl: false });
+  // "Still bleeding? → yes": log blood for EVERY unlogged day from the last logged
+  // blood through today, so the run stays contiguous. A single today-only blood log
+  // ≥3 days after the last would start a NEW run (bloodRuns joins ≤2-day gaps),
+  // flipping the gap days to tuhr (prayer wrongly due) and skewing learnHabit.
+  const confirmStillBleeding = () => {
+    const lastBlood = days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
+    for (let d = lastBlood ? addDays(lastBlood, 1) : today; d <= today; d = addDays(d, 1)) upsertDay.mutate({ date: d, flow: "blood", color: null, ghusl: false });
+  };
 
   if (!isAuthenticated || !isWoman) return null;
   if (q.isLoading) return <View style={{ flex: 1, justifyContent: "center" }}><ActivityIndicator /></View>;
@@ -204,7 +213,7 @@ export default function HaidScreen() {
         <Pressable onPress={() => setShowSettings((v) => !v)} hitSlop={10}><MaterialIcons name="settings" size={22} color={colors.muted} /></Pressable>
       </View>
 
-      <CycleOverview phases={phases} prediction={prediction} needsConfirm={needsConfirm} colors={colors} lang={lang} T={T} onLogToday={logToday} />
+      <CycleOverview phases={phases} prediction={prediction} needsConfirm={needsConfirm} colors={colors} lang={lang} T={T} onLogToday={logToday} onConfirmStill={confirmStillBleeding} />
 
       {showSettings && (
         <View style={{ marginBottom: 12 }}>
@@ -395,7 +404,7 @@ function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisab
  * card. His "تقسيم الأيّام بين الحيضتين بنِسَبِها" is the flex-proportional bar
  * below: no chart library, each phase is just a `flex: phase.days` View.
  */
-function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLogToday }: {
+function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLogToday, onConfirmStill }: {
   phases: ReturnType<typeof cyclePhases>;
   prediction: ReturnType<typeof predict>;
   needsConfirm: boolean;
@@ -403,6 +412,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
   lang: Lang;
   T: ReturnType<typeof haidText>;
   onLogToday: (flow: Flow) => void;
+  onConfirmStill: () => void;
 }) {
   const { isRTL, dig } = useI18n();
   const { state } = useAppState();
@@ -419,7 +429,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
   // her CHILD's delivery date (the nifas anchor in classify()).
   const band = ageBand(ageYears(state.parentProfile.birthDate || null, today));
 
-  const PHASE_COLOR: Record<CyclePhaseKey, string> = { menses: colors.error, follicular: colors.muted + "55", fertile: colors.success, luteal: colors.primary + "55" };
+  const PHASE_COLOR = phaseColors(colors);
 
   return (
     <>
@@ -428,7 +438,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
           <Text style={[{ color: colors.foreground, fontSize: 15, fontWeight: "700", marginBottom: 4 }, align]}>{T.log.stillBleeding}</Text>
           <Text style={[{ color: colors.muted, fontSize: 12, marginBottom: 10 }, align]}>{T.log.confirmHint}</Text>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8 }}>
-            <Pressable onPress={() => onLogToday("blood")} style={{ flex: 1, backgroundColor: colors.error, paddingVertical: 10, borderRadius: 8, alignItems: "center" }}>
+            <Pressable onPress={onConfirmStill} style={{ flex: 1, backgroundColor: colors.error, paddingVertical: 10, borderRadius: 8, alignItems: "center" }}>
               <Text style={{ color: "#FFF", fontWeight: "700" }}>{T.log.yesStill}</Text>
             </Pressable>
             <Pressable onPress={() => onLogToday("dry")} style={{ flex: 1, borderWidth: 1, borderColor: colors.border, paddingVertical: 10, borderRadius: 8, alignItems: "center" }}>
