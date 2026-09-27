@@ -690,6 +690,31 @@ export function childrenSharedWithCoParent(
 }
 
 /**
+ * The children the current viewer actually parents, for PERSONALIZED advice
+ * (quick tips, daily plan, deeds, questions). The father parents the whole
+ * household; a wife parents only her own — children she mothers (motherId ==
+ * her own user id) or an unattributed child she self-added (no motherId).
+ *
+ * Root cause this guards: in a polygynous household the co-parent sync merges
+ * the husband's whole household into every wife's `state.children`, so a
+ * childless second wife's advice was generated about the FIRST wife's children
+ * (each carries motherId = the first wife's id). Filtering to her own leaves
+ * her with none, so her advice becomes general instead of about children who
+ * are not hers. `gender` is parentProfile.gender ("man" = father → all).
+ * A missing viewer id falls open (returns all) rather than wrongly emptying a
+ * real mother's list.
+ */
+export function ownChildrenForViewer(
+  children: ChildProfile[],
+  viewerGender: string | undefined,
+  viewerUserId: number | null | undefined,
+): ChildProfile[] {
+  const kids = children ?? [];
+  if (viewerGender === "man" || viewerUserId == null) return kids;
+  return kids.filter((c) => c.motherId == null || c.motherId === viewerUserId);
+}
+
+/**
  * Child-nasab relationship label — distinct from messages.tsx's
  * getRelationshipLabel, which collapses biological_father/stepfather (and
  * biological_mother/stepmother) into one generic "Father"/"Mother" label for

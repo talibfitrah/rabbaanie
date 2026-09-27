@@ -38,6 +38,8 @@ import {
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { PremiumGate } from "@/components/premium-notice";
+import { useAuthContext } from "@/lib/auth-context";
+import { ownChildrenForViewer } from "@/lib/store";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -494,6 +496,14 @@ function PersonalAdviceScreenInner() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
+  const { user } = useAuthContext();
+  // Personalized advice must only cover the CHILDREN THE VIEWER PARENTS — a
+  // childless co-wife's synced household must not generate advice about the
+  // husband's children by another wife (see ownChildrenForViewer).
+  const myChildren = useMemo(
+    () => ownChildrenForViewer(state.children, (state.parentProfile as any)?.gender, user?.id),
+    [state.children, (state.parentProfile as any)?.gender, user?.id],
+  );
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
   const [llmSections, setLlmSections] = useState<Array<{
@@ -611,13 +621,13 @@ function PersonalAdviceScreenInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parentProfile: state.parentProfile,
-          childrenCount: state.children?.length || 0,
-          childrenAges: (state.children || []).map((c: any) => {
+          childrenCount: myChildren.length,
+          childrenAges: myChildren.map((c: any) => {
             if (!c.birthDate)
               return tx(lang, "onbekend", "unknown", "غير معروف");
             return `${c.name}: ${calculateExactAge(c.birthDate, lang)}`;
           }),
-          childrenNames: (state.children || []).map((c: any) => c.name || ""),
+          childrenNames: myChildren.map((c: any) => c.name || ""),
           location:
             state.locationSettings?.city ||
             (state.parentProfile as any)?.city ||
@@ -635,7 +645,7 @@ function PersonalAdviceScreenInner() {
             ) || null,
           recentCheckins: checkinsLast7Days(state.dailyCheckins),
           unresolvedIssues,
-          childrenEnvironments: (state.children || []).map((c: any) => {
+          childrenEnvironments: myChildren.map((c: any) => {
             const env = (state.environments || []).find(
               (e: any) => e.childId === c.id,
             );
@@ -756,8 +766,8 @@ function PersonalAdviceScreenInner() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parentProfile: state.parentProfile,
-          childrenCount: state.children.length,
-          childrenAges: state.children.map((c) => {
+          childrenCount: myChildren.length,
+          childrenAges: myChildren.map((c) => {
             if (!c.birthDate)
               return tx(lang, "onbekend", "unknown", "غير معروف");
             return `${c.name}: ${calculateExactAge(c.birthDate, lang)}`;
@@ -779,7 +789,7 @@ function PersonalAdviceScreenInner() {
               (c) => c.date === now.toISOString().slice(0, 10),
             ) || null,
           recentCheckins: checkinsLast7Days(state.dailyCheckins),
-          childrenEnvironments: state.children.map((c) => ({
+          childrenEnvironments: myChildren.map((c) => ({
             childName: c.name,
             education: (c as any).education || "",
             friends: (c as any).friends || "",

@@ -35,6 +35,8 @@ import {
   showAdviceWidget,
 } from "@/lib/daily-advice-notification";
 import { ReportAiContent } from "@/components/report-ai-content";
+import { useAuthContext } from "@/lib/auth-context";
+import { ownChildrenForViewer } from "@/lib/store";
 import { useSubscription } from "@/hooks/use-subscription";
 
 import { authedFetch } from "@/lib/authed-fetch";
@@ -490,6 +492,7 @@ export default function PersonalAdviceScreen() {
   const { language, isRTL } = useI18n();
   const lang = language as Lang;
   const { state } = useAppState();
+  const { user } = useAuthContext();
   const { subscribed } = useSubscription();
 
   const [llmAdvice, setLlmAdvice] = useState<string | null>(null);
@@ -885,13 +888,14 @@ export default function PersonalAdviceScreen() {
                 : month >= 8 && month <= 10
                   ? "Herfst"
                   : "Winter";
+      const myChildren = ownChildrenForViewer(state.children, (state.parentProfile as any)?.gender, user?.id);
       const response = await authedFetch(`/api/advice/general`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           parentProfile: state.parentProfile,
-          childrenCount: state.children.length,
-          childrenAges: state.children.map((c) => {
+          childrenCount: myChildren.length,
+          childrenAges: myChildren.map((c) => {
             if (!c.birthDate)
               return tx(lang, "onbekend", "unknown", "غير معروف");
             return `${c.name}: ${calculateExactAge(c.birthDate, lang)}`;
@@ -912,7 +916,7 @@ export default function PersonalAdviceScreen() {
               (c) => c.date === now.toISOString().slice(0, 10),
             ) || null,
           recentCheckins: checkinsLast7Days(state.dailyCheckins),
-          childrenEnvironments: state.children.map((c) => ({
+          childrenEnvironments: myChildren.map((c) => ({
             childName: c.name,
             education: (c as any).education || "",
             friends: (c as any).friends || "",
