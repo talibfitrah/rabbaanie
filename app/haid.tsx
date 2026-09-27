@@ -9,7 +9,7 @@ import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { getIslamicDate } from "@/lib/prayer-data";
-import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, cycleCountdowns, isAssumedBleedDay, openBleedRun, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
+import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, cycleCountdowns, isAssumedBleedDay, openBleedRun, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type DayStatus, type Flow } from "@/lib/haid";
 import { haidText, phaseColors } from "@/lib/haid-text";
 import { HAID_RULINGS } from "@/lib/haid-rulings";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
@@ -478,14 +478,18 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
         </View>
       )}
 
-      <View style={card}>
-        <Text style={[{ color: colors.foreground, fontSize: 15, fontWeight: "700", marginBottom: 6 }, align]}>{T.medical.title}</Text>
-        {band ? (
-          <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{dig(T.medical[band])}</Text>
-        ) : (
-          <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{T.medical.addBirthDate}</Text>
-        )}
-      </View>
+      {/* Age medical info applies to a normal cycle only — hidden (like the
+          breakdown) while pregnant/in nifas, where cyclePhases returns null. */}
+      {phases && (
+        <View style={card}>
+          <Text style={[{ color: colors.foreground, fontSize: 15, fontWeight: "700", marginBottom: 6 }, align]}>{T.medical.title}</Text>
+          {band ? (
+            <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{dig(T.medical[band])}</Text>
+          ) : (
+            <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{T.medical.addBirthDate}</Text>
+          )}
+        </View>
+      )}
     </>
   );
 }

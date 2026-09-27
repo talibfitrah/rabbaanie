@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
-import { addDays, diffDays, classify, predict, cyclePhases, cycleCountdowns, openBleedRun, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
+import { addDays, diffDays, classify, predict, cyclePhases, cycleCountdowns, openBleedRun, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type Flow } from "@/lib/haid";
 import { haidText, phaseColors } from "@/lib/haid-text";
 
 type Lang = "nl" | "en" | "ar";
@@ -89,14 +89,15 @@ export function HaidFamilyCard() {
   if (!isAuthenticated || !isWoman) return null;
 
   const logToday = (flow: Flow) => { if (!upsertDay.isPending) upsertDay.mutate({ date: today, flow, color: null, ghusl: false }); };
-  // Starting a period flips today to haid and pauses the prayer alarms, so this
-  // one — unlike the "still bleeding? yes/stopped" prompt, which is already a
-  // two-way choice — asks first, on a card that is itself a tap-to-open target.
+  // Logging blood here flips today's status and can pause the prayer alarms, so this
+  // one — unlike the "still bleeding? yes/stopped" prompt, which is already a two-way
+  // choice — asks first, on a card that is itself a tap-to-open target. The message
+  // describes the ACTION only; classify() decides the ruling (it may be istihada).
   const startBleeding = () => {
     if (upsertDay.isPending) return;
     Alert.alert(
       tx(lang, "Bloeding registreren?", "Log bleeding?", "تسجيل نزول الدم؟"),
-      tx(lang, "Vandaag als eerste dag van de menstruatie registreren? U bent dan vrijgesteld van het gebed.", "Log today as the first day of menstruation? You will then be excused from prayer.", "تسجيلُ اليوم أوّلَ أيّام الحيض؟ تُصبِحين حينئذٍ معفاةً من الصلاة."),
+      tx(lang, "Vandaag als bloedingsdag registreren? U kunt dit daarna aanpassen.", "Log today as a day of bleeding? You can change it afterwards.", "تسجيلُ اليوم يومَ نزولِ دمٍ؟ يمكنكِ تعديلُه بعد ذلك."),
       [{ text: tx(lang, "Annuleren", "Cancel", "إلغاء") }, { text: tx(lang, "Ja", "Yes", "نعم"), onPress: () => logToday("blood") }],
     );
   };

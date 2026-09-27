@@ -335,7 +335,7 @@ export function predict(days: CycleDay[], settings: CycleSettings, today: string
 
 export type CyclePhaseKey = "menses" | "follicular" | "fertile" | "luteal";
 export interface CyclePhase { key: CyclePhaseKey; startDay: number; endDay: number; days: number; pct: number; from: string; to: string }
-export interface CyclePhases { cycleStart: string; cycleLength: number; cycleDay: number; todayKey: CyclePhaseKey; phases: CyclePhase[]; personalized: boolean }
+export interface CyclePhases { cycleStart: string; cycleLength: number; cycleDay: number; phases: CyclePhase[]; personalized: boolean }
 
 const clampInt = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi);
 
@@ -386,12 +386,10 @@ export function cyclePhases(days: CycleDay[], settings: CycleSettings, today: st
     from: addDays(cycleStart, startDay - 1), to: addDays(cycleStart, endDay - 1),
   }));
   // Uncapped upper bound: past the cycle length means the period is LATE, so the
-  // UI shows "day 30 / N days late" rather than snapping back to day 1. The marker
-  // (and todayKey) cap at the last day so they stay on the bar.
+  // UI shows "day 30 / N days late" rather than snapping back to day 1. The bar
+  // marker caps at the last day (Math.min in the UI) so it stays on the bar.
   const cycleDay = Math.max(1, idx(today));
-  const markerDay = Math.min(cycleDay, cycleLength);
-  const todayKey = phases.find((ph) => markerDay >= ph.startDay && markerDay <= ph.endDay)!.key; // always found: see contiguity note above
-  return { cycleStart, cycleLength, cycleDay, todayKey, phases, personalized };
+  return { cycleStart, cycleLength, cycleDay, phases, personalized };
 }
 
 /**
