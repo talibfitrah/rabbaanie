@@ -437,8 +437,8 @@ export function isAssumedBleedDay(status: DayStatus | undefined, date: string, d
 export const OPEN_BLEED_GRACE_DAYS = 3; // days past the habit a bleed may still be "the same period" (late-noticed prolonged bleed)
 /**
  * The last logged blood day when the run is still OPEN — she may be bleeding but
- * hasn't logged today: a blood day exists, nothing (dry/spotting) is logged after
- * it, and today is within `habit + OPEN_BLEED_GRACE_DAYS` of that day. Past that a
+ * hasn't logged today: a blood day exists, no "stopped" (dry) is logged after it,
+ * and today is within `habit + OPEN_BLEED_GRACE_DAYS` of that day. Past that a
  * bleed today is a NEW period, not a forgotten log, so the caller offers "started"
  * instead of confirming — never a backfill across the pure interval of a short
  * cycle. While open it also suppresses "started", so a tap can't split the run.
@@ -446,7 +446,7 @@ export const OPEN_BLEED_GRACE_DAYS = 3; // days past the habit a bleed may still
 export function openBleedRun(days: CycleDay[], settings: CycleSettings, today: string): { lastBlood: string } | null {
   const lastBlood = days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
   if (!lastBlood || today <= lastBlood) return null;
-  if (days.some((d) => d.date > lastBlood && (d.flow === "dry" || d.flow === "spotting"))) return null; // explicitly closed
+  if (days.some((d) => d.date > lastBlood && d.flow === "dry")) return null; // closed only by an explicit "stopped" (dry); spotting doesn't close it — bloodRuns joins blood across a spotting day
   const habit = settings.habitLength ?? learnHabit(days, settings) ?? DEFAULT_HAID_DAYS;
   if (diffDays(lastBlood, today) > habit + OPEN_BLEED_GRACE_DAYS) return null;
   return { lastBlood };

@@ -374,9 +374,11 @@ describe("openBleedRun — the 'still bleeding?' open-run predicate", () => {
   it("open while the last blood day has no dry/spotting after it, within habit+grace", () => {
     expect(openBleedRun(blood(["2026-08-01", "2026-08-02"]), S(), "2026-08-05")).toEqual({ lastBlood: "2026-08-02" });
   });
-  it("closed once a dry day is logged after the last blood day", () => {
-    const days: CycleDay[] = [...blood(["2026-08-01"]), { date: "2026-08-03", flow: "dry" }];
-    expect(openBleedRun(days, S(), "2026-08-05")).toBeNull();
+  it("closed by a dry (stopped) log after the last blood, but NOT by a spotting day", () => {
+    const dryAfter: CycleDay[] = [...blood(["2026-08-01"]), { date: "2026-08-03", flow: "dry" }];
+    expect(openBleedRun(dryAfter, S(), "2026-08-05")).toBeNull();
+    const spottingAfter: CycleDay[] = [...blood(["2026-08-01"]), { date: "2026-08-02", flow: "spotting" }];
+    expect(openBleedRun(spottingAfter, S(), "2026-08-04")).not.toBeNull(); // spotting doesn't close — bloodRuns joins blood across it
   });
   it("closes past habit+grace, so a short cycle's next-period day is NOT joined to the old run", () => {
     expect(openBleedRun(blood(span("2026-08-01", 5)), S({ habitLength: 5 }), "2026-08-06")).not.toBeNull(); // day after → still open
