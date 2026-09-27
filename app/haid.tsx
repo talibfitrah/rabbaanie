@@ -9,7 +9,7 @@ import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { getIslamicDate } from "@/lib/prayer-data";
-import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, upcomingFertile, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
+import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, upcomingFertile, isAssumedBleedDay, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
 import { HAID_RULINGS } from "@/lib/haid-rulings";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
@@ -131,18 +131,10 @@ export default function HaidScreen() {
   // the real today, not assume blood through not-yet-lived future days.
   const classified = useMemo(() => classify(days, settings, addDays(today, -400), addDays(today, 45), today), [days, settings, today]);
   const byDate = useMemo(() => new Map(classified.map((c) => [c.date, c])), [classified]);
-  const lastBloodDate = useMemo(() => {
-    const bl = days.filter((x) => x.flow === "blood").map((x) => x.date);
-    return bl.length ? bl.reduce((a, b) => (a > b ? a : b)) : null;
-  }, [days]);
-  // C3: an entry-less haid/nifas/istihada day AFTER the last logged blood day is
-  // classify()'s item E-2 extension — an ongoing run assumed to continue. The
-  // `> lastBloodDate` bound excludes a one-day gap merged INSIDE a run (decision
-  // 4): that day also has no entry, but it is bounded by logged blood, not assumed.
-  const isAssumedDay = (d: string) => {
-    const c = byDate.get(d);
-    return !!c && (c.status === "haid" || c.status === "nifas" || c.status === "istihada") && !days.some((x) => x.date === d) && lastBloodDate != null && d > lastBloodDate;
-  };
+  // C3: shared with the family card via isAssumedBleedDay — an entry-less
+  // haid/nifas/istihada day after the last logged blood day is classify()'s item
+  // E-2 assumed continuation (not a one-day gap merged inside a run).
+  const isAssumedDay = (d: string) => isAssumedBleedDay(byDate.get(d)?.status, d, days);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const phases = useMemo(() => cyclePhases(days, settings, today), [days, settings, today]);
   // Same predicate as C3's isAssumedDay, applied to today: classify() is
@@ -449,8 +441,8 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
         <View style={card}>
           <Text style={[{ color: colors.foreground, fontSize: 16, fontWeight: "700", marginBottom: 2 }, align]}>{T.overview.breakdownTitle}</Text>
           {phases.personalized && <Text style={[{ color: colors.foreground, fontSize: 13, marginBottom: 8 }, align]}>{dig(T.overview.cycleDay(phases.cycleDay))}</Text>}
-          {prediction.nextStart && (
-            <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(diffDays(today, prediction.nextStart)))}</Text>
+          {phases.personalized && (
+            <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(diffDays(today, addDays(phases.cycleStart, phases.cycleLength))))}</Text>
           )}
           {fertile && (
             <>
@@ -466,7 +458,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
               <View
                 style={[
                   { position: "absolute", top: -3, width: 2, height: 20, backgroundColor: colors.foreground },
-                  isRTL ? { right: `${((phases.cycleDay - 0.5) / phases.cycleLength) * 100}%` } : { left: `${((phases.cycleDay - 0.5) / phases.cycleLength) * 100}%` },
+                  isRTL ? { right: `${((Math.min(phases.cycleDay, phases.cycleLength) - 0.5) / phases.cycleLength) * 100}%` } : { left: `${((Math.min(phases.cycleDay, phases.cycleLength) - 0.5) / phases.cycleLength) * 100}%` },
                 ]}
               />
             )}
@@ -485,7 +477,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
       <View style={card}>
         <Text style={[{ color: colors.foreground, fontSize: 15, fontWeight: "700", marginBottom: 6 }, align]}>{T.medical.title}</Text>
         {band ? (
-          <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{T.medical[band]}</Text>
+          <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{dig(T.medical[band])}</Text>
         ) : (
           <Text style={[{ color: colors.muted, fontSize: 12, lineHeight: 20 }, align]}>{T.medical.addBirthDate}</Text>
         )}

@@ -296,7 +296,7 @@ export function rulingsFor(day: Pick<ClassifiedDay, "status" | "ghuslDue">): Rul
   }
 }
 
-export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string }
+export interface Prediction { habit?: number; cycleLength: number; nextStart?: string; ovulation?: string; fertile?: [string, string]; expectedPurity?: string; lastStart?: string }
 
 export function predict(days: CycleDay[], settings: CycleSettings, today: string): Prediction {
   const runs = extendedRuns(days, settings, today).filter((r) => r.start <= today); // bug 5: a future-dated log hasn't happened yet — ignore it entirely
@@ -321,6 +321,7 @@ export function predict(days: CycleDay[], settings: CycleSettings, today: string
   }
   const last = normal[normal.length - 1];
   if (last) {
+    p.lastStart = last.start; // the ACTUAL last period start — cyclePhases anchors on this so a late period counts up (day 30) instead of resetting to day 2
     let next = addDays(last.start, cycleLength);
     while (next < today) next = addDays(next, cycleLength);
     p.nextStart = next;
@@ -341,23 +342,18 @@ const clampInt = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo)
 /**
  * Divides the CURRENT cycle into menses/follicular/fertile/luteal by proportion
  * (حساب لا حكم شرعي — purely descriptive, never used by classify/rulingsFor).
- * null while pregnant (caller omits the breakdown card then). With no logged
- * history yet, anchors a generic `cycleLength`-day template at today
- * (personalized: false) so she still sees a typical breakdown before logging.
+ * null while pregnant or in nifas (caller omits the breakdown then — a cycle
+ * doesn't apply). Anchored on the ACTUAL last period start, so cycleDay counts
+ * up through a late period (day 30) instead of resetting. With no logged history
+ * it shows a generic template at today (personalized: false).
  */
 export function cyclePhases(days: CycleDay[], settings: CycleSettings, today: string): CyclePhases | null {
-  if (isPregnant(settings, today)) return null;
+  if (isPregnant(settings, today) || nifasDayOf(settings, today) !== null) return null;
   const p = predict(days, settings, today);
   const cycleLength = p.cycleLength;
   const habit = p.habit ?? DEFAULT_HAID_DAYS;
-  const personalized = !!p.nextStart;
-  // Anchor the displayed cycle so `today` always lands inside it. Normally the
-  // current cycle began one length before the next period; but on the exact day
-  // the next period is due (predict rolls nextStart to == today), that day is
-  // day 1 of the NEW cycle, so anchor there instead — otherwise cycleDay would
-  // clamp to the last day and the bar would say "luteal / day 28" right next to
-  // "period expected today".
-  const cycleStart = p.nextStart ? (today < p.nextStart ? addDays(p.nextStart, -cycleLength) : p.nextStart) : today;
+  const personalized = !!p.lastStart;
+  const cycleStart = p.lastStart ?? today;
   // Ovulation/fertile derived from THIS cycle's start (not predict's fertile,
   // which is tied to the old nextStart) so the window always lands inside the
   // displayed cycle — identical to predict()'s formula in the normal case.
@@ -385,8 +381,12 @@ export function cyclePhases(days: CycleDay[], settings: CycleSettings, today: st
     pct: Math.round(((endDay - startDay + 1) / cycleLength) * 100),
     from: addDays(cycleStart, startDay - 1), to: addDays(cycleStart, endDay - 1),
   }));
-  const cycleDay = clampInt(idx(today), 1, cycleLength);
-  const todayKey = phases.find((ph) => cycleDay >= ph.startDay && cycleDay <= ph.endDay)!.key; // always found: see contiguity note above
+  // Uncapped upper bound: past the cycle length means the period is LATE, so the
+  // UI shows "day 30 / N days late" rather than snapping back to day 1. The marker
+  // (and todayKey) cap at the last day so they stay on the bar.
+  const cycleDay = Math.max(1, idx(today));
+  const markerDay = Math.min(cycleDay, cycleLength);
+  const todayKey = phases.find((ph) => markerDay >= ph.startDay && markerDay <= ph.endDay)!.key; // always found: see contiguity note above
   return { cycleStart, cycleLength, cycleDay, todayKey, phases, personalized };
 }
 
@@ -404,11 +404,28 @@ export function upcomingFertile(prediction: Prediction, today: string): { start:
   return { start, end, active: today >= start && today <= end };
 }
 
-/** Floor age in years from a birthdate; null with no birthdate or one in the future. */
+/**
+ * True when `date`'s excused/bleeding status is an ASSUMED continuation (item E-2):
+ * a haid/nifas/istihada day with no logged entry, falling AFTER the last logged
+ * blood day. Shared by the screen and the family card so their "still bleeding?"
+ * confirm and the assumed-day calendar mark use one rule (never a merged mid-run gap).
+ */
+export function isAssumedBleedDay(status: DayStatus | undefined, date: string, days: CycleDay[]): boolean {
+  if (status !== "haid" && status !== "nifas" && status !== "istihada") return false;
+  if (days.some((d) => d.date === date)) return false;
+  const lastBlood = days.filter((d) => d.flow === "blood").map((d) => d.date).sort().pop();
+  return lastBlood != null && date > lastBlood;
+}
+
+/** Exact age in years (increments on the birthday, no /365.25 drift); null with no birthdate or a future one. */
 export function ageYears(birthDate: string | null | undefined, today: string): number | null {
   if (!birthDate) return null;
-  const days = diffDays(birthDate, today);
-  return days < 0 ? null : Math.floor(days / 365.25);
+  const [by, bm, bd] = birthDate.split("-").map(Number);
+  const [ty, tm, td] = today.split("-").map(Number);
+  if ([by, bm, bd, ty, tm, td].some((n) => !Number.isFinite(n))) return null;
+  let age = ty - by;
+  if (tm < bm || (tm === bm && td < bd)) age -= 1; // birthday not yet reached this year
+  return age < 0 ? null : age;
 }
 
 export type AgeBand = "teen" | "prime" | "declining" | "perimenopause";

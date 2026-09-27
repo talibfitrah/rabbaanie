@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, FERTILE_BEFORE, FERTILE_AFTER, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
-import { cyclePhases, upcomingFertile, ageYears, ageBand } from "./haid";
+import { cyclePhases, upcomingFertile, isAssumedBleedDay, ageYears, ageBand } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
 const blood = (dates: string[], color?: "black" | "red"): CycleDay[] => dates.map((date) => ({ date, flow: "blood", color }));
@@ -343,10 +343,30 @@ describe("cyclePhases — proportional phase breakdown (حساب لا حكم ش�
     expect(cp.phases.reduce((sum, p) => sum + p.days, 0)).toBeLessThanOrEqual(cp.cycleLength);
     expect(cp.phases.reduce((sum, p) => sum + p.pct, 0)).toBeLessThanOrEqual(100);
   });
-  it("on the exact day the next period is due, today is day 1 / menses of the new cycle, not the last luteal day", () => {
+  it("on the exact due day the counter keeps counting (day 29, expected today), not reset to day 1", () => {
     const cp = cyclePhases(blood(span("2026-08-01", 5)), S({ cycleLength: 28, habitLength: 5 }), "2026-08-29")!; // 08-01 + 28 = due 08-29
-    expect(cp.cycleDay).toBe(1);
-    expect(cp.todayKey).toBe("menses");
+    expect(cp.cycleDay).toBe(29);
+    expect(diffDays("2026-08-29", addDays(cp.cycleStart, cp.cycleLength))).toBe(0); // countdown reads "expected today"
+  });
+  it("a late period keeps counting (day 31 / two days late), not resetting to day 2", () => {
+    const cp = cyclePhases(blood(span("2026-08-01", 5)), S({ cycleLength: 28, habitLength: 5 }), "2026-08-31")!; // two days past due
+    expect(cp.cycleDay).toBe(31);
+    expect(diffDays("2026-08-31", addDays(cp.cycleStart, cp.cycleLength))).toBe(-2); // countdown reads "2 days late"
+  });
+  it("returns null during nifas — a cycle does not apply after birth", () => {
+    expect(cyclePhases(blood(["2026-08-02"]), S({ birthDate: "2026-08-01" }), "2026-08-10")).toBeNull();
+  });
+});
+
+describe("isAssumedBleedDay — shared assumed-continuation predicate", () => {
+  it("true for an entry-less bleeding day after the last logged blood; false for a logged day or a non-bleeding status", () => {
+    const days = blood(["2026-08-01", "2026-08-02"]);
+    expect(isAssumedBleedDay("haid", "2026-08-03", days)).toBe(true);
+    expect(isAssumedBleedDay("haid", "2026-08-02", days)).toBe(false); // logged
+    expect(isAssumedBleedDay("tuhr", "2026-08-03", days)).toBe(false); // not bleeding
+  });
+  it("false when nothing has been logged (no last blood day to extend from)", () => {
+    expect(isAssumedBleedDay("nifas", "2026-08-10", [])).toBe(false);
   });
 });
 
@@ -367,8 +387,9 @@ describe("upcomingFertile — the countdown-safe fertile window", () => {
 });
 
 describe("ageYears / ageBand — medical-only age context, no fiqh weight", () => {
-  it("ageYears floors the age and is null with no birthdate or a birthdate in the future", () => {
-    expect(ageYears("2000-08-05", "2026-08-05")).toBe(25); // 9496 days / 365.25 floors to 25, one short of the 26th calendar birthday
+  it("ageYears is exact on the birthday (no off-by-one), and null with no/future birthdate", () => {
+    expect(ageYears("2000-08-05", "2026-08-05")).toBe(26); // 26th birthday reached today
+    expect(ageYears("2000-08-05", "2026-08-04")).toBe(25); // the day before → still 25
     expect(ageYears(null, "2026-08-05")).toBeNull();
     expect(ageYears("2027-01-01", "2026-08-05")).toBeNull();
   });

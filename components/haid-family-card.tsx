@@ -7,9 +7,8 @@ import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
-import { addDays, diffDays, classify, predict, cyclePhases, upcomingFertile, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
+import { addDays, diffDays, classify, predict, cyclePhases, upcomingFertile, isAssumedBleedDay, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
-import { syncHaidNotifications } from "@/lib/haid-notifications";
 
 type Lang = "nl" | "en" | "ar";
 const tx = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
@@ -50,34 +49,40 @@ export function HaidFamilyCard() {
     const ph = cyclePhases(days, settings, today);
     const isOpenRunToday = todayCls.status === "haid" || todayCls.status === "nifas" || todayCls.status === "istihada";
     const hasLogToday = days.some((d) => d.date === today);
-    const fert = upcomingFertile(p, today); // rolled forward — never "now" in the luteal phase
-    const daysToHaid = p.nextStart ? diffDays(today, p.nextStart) : null;
-    const daysToFertile = fert ? diffDays(today, fert.start) : null;
+    // ph is null while pregnant/in nifas → no cycle day, phases, countdowns or log
+    // prompts (a cycle doesn't apply then). Countdown anchors on the actual last
+    // period so a late period counts up instead of resetting.
+    const nextHaidDays = ph?.personalized ? diffDays(today, addDays(ph.cycleStart, ph.cycleLength)) : null;
+    const fert = ph != null ? upcomingFertile(p, today) : null; // rolled forward — never "now" in luteal
+    const fertileDays = fert ? diffDays(today, fert.start) : null;
     const countdownText =
-      daysToHaid != null && (daysToFertile == null || daysToHaid <= daysToFertile) ? T.overview.nextHaid(daysToHaid) :
-      daysToFertile != null ? T.overview.fertileIn(daysToFertile) : null;
+      nextHaidDays != null && (fertileDays == null || nextHaidDays <= fertileDays) ? T.overview.nextHaid(nextHaidDays) :
+      fertileDays != null ? T.overview.fertileIn(fertileDays) : null;
     return {
       enabled: true as const,
       status: todayCls.status,
-      cycleDay: ph?.cycleDay ?? null,
+      cycleDay: ph && ph.personalized ? ph.cycleDay : null,
       phase: ph,
       countdownText,
-      // Bounded by classify()'s own habit/nifas cap (isOpenRunToday), not just
-      // "some blood day was ever logged" — otherwise this would nag forever
-      // after the very first period, on every day nothing was explicitly logged.
-      showConfirm: isOpenRunToday && !hasLogToday,
-      showStart: !hasLogToday && !isOpenRunToday,
+      // Same rule as the /haid screen (isAssumedBleedDay): only when today is an
+      // assumed continuation after the last logged blood day, and never while
+      // pregnant/in nifas (ph null) — so no stray "log blood" prompt appears then.
+      showConfirm: ph != null && isAssumedBleedDay(todayCls.status, today, days),
+      showStart: ph != null && !hasLogToday && !isOpenRunToday,
     };
   }, [q.data, today, lang]);
 
   // Logging from this card must resync prayer alarms + haid notifications, the
   // same as /haid and the diagnostic card — otherwise alarms stay wrong until she
   // opens /haid. Runs on every q.data change, including after a log invalidates.
+  // haid-notifications is imported dynamically so its expo-notifications chain
+  // stays out of family.tsx's static graph (which a source test imports).
   useEffect(() => {
     if (!q.data?.enabled || !user?.id) return;
+    const uid = user.id;
     const d: CycleDay[] = q.data.days.map((x) => ({ date: x.date, flow: x.flow as Flow, color: x.color as CycleDay["color"], ghusl: x.ghusl }));
     const s: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
-    syncHaidNotifications({ userId: user.id, days: d, settings: s, language: lang }).catch(() => {});
+    import("@/lib/haid-notifications").then((m) => m.syncHaidNotifications({ userId: uid, days: d, settings: s, language: lang })).catch(() => {});
   }, [q.data, user?.id, lang]);
 
   if (!isAuthenticated || !isWoman) return null;
