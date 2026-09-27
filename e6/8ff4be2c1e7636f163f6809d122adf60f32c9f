@@ -1,0 +1,72 @@
+tests/haid-screen.test.ts
+  s_132c73e77515ad::t_aa4bcd7fba545f 35-41
+  s_132c73e77515ad::t_efdb7bafc952ce 74-77
+  s_132c73e77515ad::t_356994352bdbda 44-55
+lib/haid.test.ts
+  s_132c73e77515ad::t_ec3f9bbedce511 371
+  s_132c73e77515ad::t_c19eeab0f5e618 2
+  s_132c73e77515ad::t_a1fa2005f793c6 4
+  s_132c73e77515ad::t_98ea56a649e919 308-339,367-370,372-384
+  s_132c73e77515ad::t_c905d302d69144 340-345
+  s_132c73e77515ad::t_add395519ceaf4 346-366
+app/(tabs)/family.tsx
+  s_132c73e77515ad::t_2436642cbfd24e 41
+  s_132c73e77515ad::t_513a6b081b7d29 3282-3284
+lib/haid-text.ts
+  s_132c73e77515ad::t_0f3078c7cbdb15 72
+  s_132c73e77515ad::t_26783257161a1a 85
+  s_132c73e77515ad::t_2f3297d1f47cfe 67
+  s_132c73e77515ad::t_70d220bb7c97c8 4-7
+  s_132c73e77515ad::t_078ff67aaee455 65-66,69-71,73-84,86-90
+  s_132c73e77515ad::t_a38b8fea231f27 68
+lib/haid.ts
+  s_132c73e77515ad::t_5a488e31335a4b 344,354-365
+  s_132c73e77515ad::t_3647de944d1c56 333-343,345-353,366,373-377,380-392,407-423
+  s_132c73e77515ad::t_1eddb20e7aac36 393-406
+  s_132c73e77515ad::t_23adfb89b42bc8 367-372,378-379
+app/haid.tsx
+  s_132c73e77515ad::t_3ae92446b1a7a2 370-378
+  s_132c73e77515ad::t_565219b3bd9a6e 475
+  s_132c73e77515ad::t_c6aadff2e629a8 403,411-414
+  s_132c73e77515ad::t_c4587140ec8036 61,71,73-74,76-81
+  s_132c73e77515ad::t_8cf40a960fc5ec 279,282,290-301
+  s_132c73e77515ad::t_65acacae9874d0 438,440,442,444
+  s_132c73e77515ad::t_fde1aabe48456c 144-147
+  s_132c73e77515ad::t_a26369d9e147f1 181-183
+  s_132c73e77515ad::t_88225ecf5f9d49 237-242
+  s_132c73e77515ad::t_e751f4faba038e 462
+  s_132c73e77515ad::t_949b4b8c562f96 407-409
+  s_132c73e77515ad::t_0610155a0ee97b 211-212
+  s_132c73e77515ad::t_65c1b654919701 143
+  s_132c73e77515ad::t_4275590641a8c2 134-141
+  s_132c73e77515ad::t_4438e426d9bf87 16
+  s_132c73e77515ad::t_b0f4a7fec35df5 12
+  s_132c73e77515ad::t_64d9c38f84973c 387-402,404-406,410,415-437,439,441,443,445-461,463-474,476-480
+components/haid-family-card.tsx
+  s_132c73e77515ad::t_358a2e3bf9f6cb 2
+  s_132c73e77515ad::t_c9acf427cd866f 27
+  s_132c73e77515ad::t_cb1d8ef27cd4a7 1,3-9,11-26,28-34,39-51,55-63,68-84,92-105,107,109-136
+  s_132c73e77515ad::t_d6c22f1958c959 10
+  s_132c73e77515ad::t_e457e641c41f56 53
+  s_132c73e77515ad::t_43eba59b03d39c 64-67
+  s_132c73e77515ad::t_94752577a557d9 85-91
+  s_132c73e77515ad::t_d7e693a5235d08 35-38
+  s_132c73e77515ad::t_b0dbbd0129f62e 106,108
+  s_132c73e77515ad::t_b85e03a9774e04 52,54
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "e68ff4be2c1e7636f163f6809d122adf60f32c9f",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
