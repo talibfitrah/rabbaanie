@@ -39,8 +39,9 @@ export function DatePicker({ value, onChange, placeholder, label, maxDate, minDa
   const colors = useColors();
   const [showPicker, setShowPicker] = useState(false);
 
-  // Parse current value
-  const currentDate = value ? new Date(value) : new Date();
+  // Parse current value as LOCAL midnight — `new Date("YYYY-MM-DD")` is UTC, which
+  // is the previous calendar day west of UTC, so the picker would open a day early.
+  const currentDate = value ? new Date(`${value}T00:00:00`) : new Date();
   const displayText = value
     ? formatDate(value)
     : placeholder || "YYYY-MM-DD";

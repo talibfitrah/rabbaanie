@@ -137,6 +137,10 @@ export default function HaidScreen() {
   const isAssumedDay = (d: string) => isAssumedBleedDay(byDate.get(d)?.status, d, days);
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const phases = useMemo(() => cyclePhases(days, settings, today), [days, settings, today]);
+  // When the period is late, predict() has rolled nextStart/fertile a full cycle
+  // ahead. The overview already says "N days late", so hide those cycle-ahead
+  // predictions (and the fertile calendar dots) below to avoid contradicting it.
+  const { isLate } = cycleCountdowns(phases, prediction, today);
   // "Still bleeding?" only when the last logged blood is within 2 days: bloodRuns
   // joins ≤2-day gaps, so logging TODAY keeps the run contiguous — no split, no
   // backfill across pure days. A larger gap is corrected with the per-date editor
@@ -280,7 +284,7 @@ export default function HaidScreen() {
               <Pressable key={d} onPress={() => setSelected(d)} style={{ width: "14.28%", aspectRatio: 1, alignItems: "center", justifyContent: "center" }}>
                 <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: bg === "transparent" ? undefined : bg + "33", borderWidth: isSel ? 2 : d === today ? 1 : assumed ? 1 : 0, borderColor: colors.primary, borderStyle: assumed ? "dashed" : "solid", opacity: assumed ? 0.7 : 1, alignItems: "center", justifyContent: "center" }}>
                   <Text style={{ color: colors.foreground, fontSize: 12 }}>{Number(d.slice(8))}</Text>
-                  {d > today && prediction.fertile && d >= prediction.fertile[0] && d <= prediction.fertile[1] && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: "#16A34A", position: "absolute", bottom: 3 }} />}
+                  {!isLate && d > today && prediction.fertile && d >= prediction.fertile[0] && d <= prediction.fertile[1] && <View style={{ width: 4, height: 4, borderRadius: 2, backgroundColor: "#16A34A", position: "absolute", bottom: 3 }} />}
                 </View>
               </Pressable>
             );
@@ -304,9 +308,9 @@ export default function HaidScreen() {
       <View style={card}>
         {label(tx(lang, "Verwachtingen", "Predictions", "التقديرات"))}
         {prediction.expectedPurity && label(tx(lang, "Verwachte reinheid: ", "Expected purity: ", "الطهر المتوقَّع: ") + prediction.expectedPurity)}
-        {prediction.nextStart && label(tx(lang, "Volgende menstruatie: ", "Next period: ", "الحيضة القادمة: ") + prediction.nextStart)}
-        {prediction.fertile && label(tx(lang, "Vruchtbare dagen: ", "Fertile days: ", "أيام الخصوبة: ") + `${prediction.fertile[0]} — ${prediction.fertile[1]}`)}
-        <Text style={[{ color: colors.muted, fontSize: 12 }, align]}>⚠ {T.fertileWarning}</Text>
+        {!isLate && prediction.nextStart && label(tx(lang, "Volgende menstruatie: ", "Next period: ", "الحيضة القادمة: ") + prediction.nextStart)}
+        {!isLate && prediction.fertile && label(tx(lang, "Vruchtbare dagen: ", "Fertile days: ", "أيام الخصوبة: ") + `${prediction.fertile[0]} — ${prediction.fertile[1]}`)}
+        {!isLate && prediction.fertile && <Text style={[{ color: colors.muted, fontSize: 12 }, align]}>⚠ {T.fertileWarning}</Text>}
         {ramadan && label(tx(lang, "In te halen Ramadaan-dagen: ", "Ramadaan days to make up: ", "أيام قضاء رمضان: ") + `${ramadan.days} (${ramadan.year})`)}
         <Pressable onPress={() => router.push("/(tabs)/dhikri" as any)}><Text style={[{ color: colors.primary, marginTop: 6 }, align]}>{tx(lang, "Adhkaar voor de menstruerende vrouw →", "Adhkaar for the menstruating woman →", "أذكار الحائض والنفساء ←")}</Text></Pressable>
       </View>
