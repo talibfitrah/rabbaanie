@@ -7,7 +7,7 @@ import { useI18n } from "@/lib/i18n";
 import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
-import { addDays, diffDays, classify, predict, cyclePhases, upcomingFertile, isAssumedBleedDay, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
+import { addDays, classify, predict, cyclePhases, cycleCountdowns, isAssumedBleedDay, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
 
 type Lang = "nl" | "en" | "ar";
@@ -54,13 +54,9 @@ export function HaidFamilyCard() {
     const ph = cyclePhases(days, settings, today);
     const isOpenRunToday = todayCls.status === "haid" || todayCls.status === "nifas" || todayCls.status === "istihada";
     const hasLogToday = days.some((d) => d.date === today);
-    // ph is null while pregnant/in nifas → no cycle day, phases or countdowns. The
-    // countdown anchors on the actual last period so a late period counts up; the
-    // fertile countdown is dropped while late (it would point a cycle ahead of "N late").
-    const nextHaidDays = ph?.personalized ? diffDays(today, addDays(ph.cycleStart, ph.cycleLength)) : null;
-    const isLate = nextHaidDays != null && nextHaidDays < 0;
-    const fert = ph != null && !isLate ? upcomingFertile(p, today) : null;
-    const fertileDays = fert ? diffDays(today, fert.start) : null;
+    // Same shared helper as /haid: nextHaidDays (negative = late), fertileDays (null
+    // while late or un-personalized). ph is null while pregnant/in nifas → both null.
+    const { nextHaidDays, fertileDays } = cycleCountdowns(ph, p, today);
     const countdownText =
       nextHaidDays != null && (fertileDays == null || nextHaidDays <= fertileDays) ? T.overview.nextHaid(nextHaidDays) :
       fertileDays != null ? T.overview.fertileIn(fertileDays) : null;

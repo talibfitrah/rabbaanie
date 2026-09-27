@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, FERTILE_BEFORE, FERTILE_AFTER, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
-import { cyclePhases, upcomingFertile, isAssumedBleedDay, ageYears, ageBand } from "./haid";
+import { cyclePhases, upcomingFertile, cycleCountdowns, isAssumedBleedDay, ageYears, ageBand } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
 const blood = (dates: string[], color?: "black" | "red"): CycleDay[] => dates.map((date) => ({ date, flow: "blood", color }));
@@ -367,6 +367,32 @@ describe("isAssumedBleedDay — shared assumed-continuation predicate", () => {
   });
   it("false when nothing has been logged (no last blood day to extend from)", () => {
     expect(isAssumedBleedDay("nifas", "2026-08-10", [])).toBe(false);
+  });
+});
+
+describe("cycleCountdowns — shared overview countdowns (screen ↔ card parity)", () => {
+  const cd = (today: string, extra: Partial<CycleSettings> = {}) => {
+    const days = blood(span("2026-08-01", 5));
+    const s = S({ cycleLength: 28, habitLength: 5, ...extra });
+    return cycleCountdowns(cyclePhases(days, s, today), predict(days, s, today), today);
+  };
+  it("normal cycle: next-period countdown positive, not late", () => {
+    const c = cd("2026-08-10");
+    expect(c.isLate).toBe(false);
+    expect(c.nextHaidDays!).toBeGreaterThan(0);
+  });
+  it("late: isLate true and the fertile countdown is suppressed", () => {
+    const c = cd("2026-08-31"); // two days past due
+    expect(c.isLate).toBe(true);
+    expect(c.fertileDays).toBeNull();
+  });
+  it("stale/amenorrhea (last period > 2 cycles old): every countdown is null", () => {
+    const days = blood(span("2026-01-01", 5));
+    const s = S({ cycleLength: 28, habitLength: 5 });
+    const today = "2026-06-01"; // ~5 months later
+    const c = cycleCountdowns(cyclePhases(days, s, today), predict(days, s, today), today);
+    expect(c.nextHaidDays).toBeNull();
+    expect(c.fertileDays).toBeNull();
   });
 });
 

@@ -408,6 +408,22 @@ export function upcomingFertile(prediction: Prediction, today: string): { start:
   return { start, end, active: today >= start && today <= end };
 }
 
+export interface CycleCountdowns { nextHaidDays: number | null; isLate: boolean; fertileDays: number | null }
+/**
+ * The overview countdowns, computed once so the screen and the family card can
+ * never disagree. All null unless the cycle is `personalized` (a real recent
+ * period). `nextHaidDays` is days to the next period (negative = late).
+ * `fertileDays` is days to the next fertile window — suppressed while late (it
+ * would point a cycle ahead and contradict "N days late") and while un-personalized
+ * (stale/amenorrhea/no history), where predict()'s window is meaningless.
+ */
+export function cycleCountdowns(phases: CyclePhases | null, prediction: Prediction, today: string): CycleCountdowns {
+  const nextHaidDays = phases?.personalized ? diffDays(today, addDays(phases.cycleStart, phases.cycleLength)) : null;
+  const isLate = nextHaidDays != null && nextHaidDays < 0;
+  const fert = phases?.personalized && !isLate ? upcomingFertile(prediction, today) : null;
+  return { nextHaidDays, isLate, fertileDays: fert ? diffDays(today, fert.start) : null };
+}
+
 /**
  * True when `date`'s excused/bleeding status is an ASSUMED continuation (item E-2):
  * a haid/nifas/istihada day with no logged entry, falling AFTER the last logged

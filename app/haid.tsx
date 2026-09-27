@@ -9,7 +9,7 @@ import { useAppState } from "@/lib/app-context";
 import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { getIslamicDate } from "@/lib/prayer-data";
-import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, upcomingFertile, isAssumedBleedDay, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
+import { addDays, classify, diffDays, isExcusedToday, isoToday, predict, ramadanQadaaDays, rulingsFor, cyclePhases, cycleCountdowns, isAssumedBleedDay, ageYears, ageBand, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type DayStatus, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
 import { HAID_RULINGS } from "@/lib/haid-rulings";
 import { syncHaidNotifications } from "@/lib/haid-notifications";
@@ -409,14 +409,10 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
   const card = { backgroundColor: colors.surface, borderRadius: 12, padding: 14, marginBottom: 12, borderWidth: 1, borderColor: colors.border } as const;
   const today = isoToday();
-  // The NEXT fertile window (rolled forward past a completed one) — never shows
-  // "fertile now" during the luteal phase; see upcomingFertile in lib/haid.ts.
-  const fertile = upcomingFertile(prediction, today);
-  // Days until the next period (negative = late). During a late period predict()'s
-  // fertile window points a cycle ahead and would contradict "N days late", so the
-  // fertile countdown is suppressed then (isLate).
-  const nextHaidDays = phases?.personalized ? diffDays(today, addDays(phases.cycleStart, phases.cycleLength)) : null;
-  const isLate = nextHaidDays != null && nextHaidDays < 0;
+  // Overview countdowns via the shared helper so this screen and the family card
+  // can't drift: nextHaidDays (negative = late), fertileDays (null while late or
+  // un-personalized). See cycleCountdowns in lib/haid.ts.
+  const { nextHaidDays, fertileDays } = cycleCountdowns(phases, prediction, today);
 
   // HER OWN date of birth for the age card comes from her profile (already
   // collected — and required — at onboarding). NOT settings.birthDate: that is
@@ -449,9 +445,9 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
           {phases.personalized && nextHaidDays != null && (
             <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(nextHaidDays))}</Text>
           )}
-          {fertile && !isLate && (
+          {fertileDays != null && (
             <>
-              <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.fertileIn(diffDays(today, fertile.start)))}</Text>
+              <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.fertileIn(fertileDays))}</Text>
               <Text style={[{ color: colors.muted, fontSize: 11, marginBottom: 8 }, align]}>⚠ {T.fertileWarning}</Text>
             </>
           )}

@@ -67,7 +67,7 @@ export function haidText(l: Lang) {
       nextHaid: (n: number) => t(l,
         n < 0 ? `Menstruatie ${-n} ${-n === 1 ? "dag" : "dagen"} te laat` : n === 0 ? `Menstruatie verwacht vandaag` : n === 1 ? `Volgende menstruatie morgen` : `Volgende menstruatie over ${n} dagen`,
         n < 0 ? `Menstruation ${-n} ${-n === 1 ? "day" : "days"} late` : n === 0 ? `Menstruation expected today` : n === 1 ? `Next menstruation tomorrow` : `Next menstruation in ${n} days`,
-        n < 0 ? `الحيض متأخِّرٌ ${arDays(-n)}` : n === 0 ? `الحيض متوقَّع اليوم` : n === 1 ? `الحيض القادم غدًا` : `الحيض القادم بعد ${arDays(n)}`),
+        n < 0 ? `الحيض متأخِّرٌ ${-n === 1 ? "يومًا" : arDays(-n)}` : n === 0 ? `الحيض متوقَّع اليوم` : n === 1 ? `الحيض القادم غدًا` : `الحيض القادم بعد ${arDays(n)}`),
       fertileIn: (n: number) => t(l, n <= 0 ? `Je bent nu in je vruchtbare dagen` : n === 1 ? `Vruchtbare dagen vanaf morgen` : `Vruchtbare dagen over ${n} dagen`, n <= 0 ? `You are in your fertile days now` : n === 1 ? `Fertile days from tomorrow` : `Fertile days in ${n} days`, n <= 0 ? `أنتِ في أيّام الخصوبة الآن` : n === 1 ? `أيّام الخصوبة تبدأ غدًا` : `أيّام الخصوبة بعد ${arDays(n)}`),
       breakdownTitle: t(l, `Je cyclus`, `Your cycle`, `دورتكِ`),
       personalizedNote: t(l, `Wordt nauwkeuriger naarmate je meer registreert.`, `Gets more accurate as you log more.`, `تزداد دقّةً كلّما سجّلتِ أكثر.`),
