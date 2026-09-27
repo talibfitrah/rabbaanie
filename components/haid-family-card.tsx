@@ -89,6 +89,17 @@ export function HaidFamilyCard() {
   if (!isAuthenticated || !isWoman) return null;
 
   const logToday = (flow: Flow) => { if (!upsertDay.isPending) upsertDay.mutate({ date: today, flow, color: null, ghusl: false }); };
+  // Starting a period flips today to haid and pauses the prayer alarms, so this
+  // one — unlike the "still bleeding? yes/stopped" prompt, which is already a
+  // two-way choice — asks first, on a card that is itself a tap-to-open target.
+  const startBleeding = () => {
+    if (upsertDay.isPending) return;
+    Alert.alert(
+      tx(lang, "Bloeding registreren?", "Log bleeding?", "تسجيل نزول الدم؟"),
+      tx(lang, "Vandaag als eerste dag van de menstruatie registreren? U bent dan vrijgesteld van het gebed.", "Log today as the first day of menstruation? You will then be excused from prayer.", "تسجيلُ اليوم أوّلَ أيّام الحيض؟ تُصبِحين حينئذٍ معفاةً من الصلاة."),
+      [{ text: tx(lang, "Annuleren", "Cancel", "إلغاء") }, { text: tx(lang, "Ja", "Yes", "نعم"), onPress: () => logToday("blood") }],
+    );
+  };
 
   const cardStyle = { flexDirection: (isRTL ? "row-reverse" : "row") as "row" | "row-reverse", alignItems: "center" as const, gap: 10, backgroundColor: colors.surface, borderRadius: 14, padding: 14, marginBottom: 10, borderWidth: 1, borderColor: colors.border };
   const align = { textAlign: isRTL ? ("right" as const) : ("left" as const) };
@@ -146,7 +157,7 @@ export function HaidFamilyCard() {
           </Pressable>
         </View>
       ) : view.showStart ? (
-        <Pressable onPress={() => logToday("blood")} style={{ marginTop: 10, backgroundColor: colors.error, paddingVertical: 8, borderRadius: 8, alignItems: "center", opacity: upsertDay.isPending ? 0.6 : 1 }}>
+        <Pressable onPress={startBleeding} style={{ marginTop: 10, backgroundColor: colors.error, paddingVertical: 8, borderRadius: 8, alignItems: "center", opacity: upsertDay.isPending ? 0.6 : 1 }}>
           <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 12 }}>{T.log.startedToday}</Text>
         </Pressable>
       ) : null}
