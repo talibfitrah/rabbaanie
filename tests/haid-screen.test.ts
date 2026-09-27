@@ -32,19 +32,27 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
     expect(src).toContain('log(days.find((d) => d.date === selected)?.flow || "dry", { ghusl: true })');
   });
 
-  it("the invalid-date alert passes a real title and message, not a single bare string", () => {
-    expect(src).toMatch(/Alert\.alert\(tx\(lang, "[^"]+", "[^"]+", "[^"]+"\), tx\(lang, "[^"]+", "[^"]+", "[^"]+"\)\)/);
+  // Superseded by the haid overhaul (APK 1.56.0): pregnantSince/birthDate/
+  // miscarriageDate now use the native DatePicker (see next test), which
+  // cannot produce an invalid calendar date in the first place — there is
+  // nothing left for a free-text invalid-date alert to catch.
+  it("no free-text invalid-date alert remains for the settings date fields", () => {
+    expect(src).not.toContain("isValidDate");
+    expect(src).not.toMatch(/Ongeldige datum|Invalid date|تاريخ غير صالح/);
   });
 
-  it("every mutation gets an onError handler alongside its onSuccess", () => {
-    // Not "onSuccess: invalidate" specifically — disable's onSuccess (C9) is
-    // a custom function that calls invalidate() plus syncHaidNotifications,
-    // not the bare shorthand the other three use. The invariant is that
-    // every mutation with a success handler also has this error handler.
-    const successCount = (src.match(/onSuccess: /g) || []).length;
-    const errorCount = (src.match(/onError: onMutationError/g) || []).length;
-    expect(successCount).toBe(4); // upsertDay, deleteDay, saveSettings, disable
-    expect(errorCount).toBe(4);
+  it("every cycle mutation has an onError handler and refreshes on completion", () => {
+    // The invariant, not the exact handler shape: no mutation may fail
+    // silently, and each must refresh the cache when it settles. Counts are
+    // tied to the actual number of useMutation calls so this self-adjusts.
+    // upsertDay is optimistic — its refresh is onSettled and its onError also
+    // rolls back — so a refresh is onSuccess OR onSettled, and any onError counts.
+    const mutations = (src.match(/\.useMutation\(/g) || []).length;
+    const errorHandlers = (src.match(/onError:/g) || []).length;
+    const refreshers = (src.match(/onSuccess:|onSettled:/g) || []).length;
+    expect(mutations).toBeGreaterThanOrEqual(4);
+    expect(errorHandlers).toBe(mutations); // every mutation handles errors
+    expect(refreshers).toBe(mutations);    // every mutation refreshes on completion
   });
 
   it("the Save button reflects a pending save", () => {
@@ -63,8 +71,10 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
     expect(src).toContain('prevCls?.status === "haid" || prevCls?.status === "nifas"');
   });
 
-  it("date fields are validated with a real calendar round-trip, not just the regex shape", () => {
-    expect(src).toContain('new Date(`${s}T00:00:00Z`).toISOString().slice(0, 10) === s');
+  it("pregnant-since / birth-date / miscarriage-date use the native DatePicker, not free-text YYYY-MM-DD", () => {
+    expect(src).toContain('<DatePicker label={tx(lang, "Zwanger sinds", "Pregnant since", "حامل منذ")} value={pregnant} onChange={setPregnant} maxDate={new Date()} />');
+    expect(src).toContain('<DatePicker label={tx(lang, "Bevallingsdatum", "Birth date", "تاريخ الولادة")} value={birth} onChange={setBirth} maxDate={new Date()} />');
+    expect(src).toContain('<DatePicker label={tx(lang, "Miskraam op", "Miscarriage on", "تاريخ الإسقاط")} value={misc} onChange={setMisc} maxDate={new Date()} />');
   });
 });
 

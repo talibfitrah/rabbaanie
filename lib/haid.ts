@@ -330,6 +330,97 @@ export function predict(days: CycleDay[], settings: CycleSettings, today: string
   return p;
 }
 
+// ── Medical/حساب zone below: descriptive cycle context (no فقه weight). ──────
+
+export type CyclePhaseKey = "menses" | "follicular" | "fertile" | "luteal";
+export interface CyclePhase { key: CyclePhaseKey; startDay: number; endDay: number; days: number; pct: number; from: string; to: string }
+export interface CyclePhases { cycleStart: string; cycleLength: number; cycleDay: number; todayKey: CyclePhaseKey; phases: CyclePhase[]; personalized: boolean }
+
+const clampInt = (n: number, lo: number, hi: number) => Math.min(Math.max(n, lo), hi);
+
+/**
+ * Divides the CURRENT cycle into menses/follicular/fertile/luteal by proportion
+ * (حساب لا حكم شرعي — purely descriptive, never used by classify/rulingsFor).
+ * null while pregnant (caller omits the breakdown card then). With no logged
+ * history yet, anchors a generic `cycleLength`-day template at today
+ * (personalized: false) so she still sees a typical breakdown before logging.
+ */
+export function cyclePhases(days: CycleDay[], settings: CycleSettings, today: string): CyclePhases | null {
+  if (isPregnant(settings, today)) return null;
+  const p = predict(days, settings, today);
+  const cycleLength = p.cycleLength;
+  const habit = p.habit ?? DEFAULT_HAID_DAYS;
+  const personalized = !!p.nextStart;
+  // Anchor the displayed cycle so `today` always lands inside it. Normally the
+  // current cycle began one length before the next period; but on the exact day
+  // the next period is due (predict rolls nextStart to == today), that day is
+  // day 1 of the NEW cycle, so anchor there instead — otherwise cycleDay would
+  // clamp to the last day and the bar would say "luteal / day 28" right next to
+  // "period expected today".
+  const cycleStart = p.nextStart ? (today < p.nextStart ? addDays(p.nextStart, -cycleLength) : p.nextStart) : today;
+  // Ovulation/fertile derived from THIS cycle's start (not predict's fertile,
+  // which is tied to the old nextStart) so the window always lands inside the
+  // displayed cycle — identical to predict()'s formula in the normal case.
+  const ov = addDays(cycleStart, cycleLength - LUTEAL_DAYS);
+  const fertile: [string, string] = [addDays(ov, -FERTILE_BEFORE), addDays(ov, FERTILE_AFTER)];
+  const idx = (date: string) => diffDays(cycleStart, date) + 1;
+  // Cap menses at the cycle length: a manually-set habit longer than the cycle
+  // (e.g. habit 30, cycle 28) must not spill past 100% or overlap fertile. The
+  // cycleLength+1 upper bound lets fs land "past the end" so the later phases
+  // collapse to empty (dropped below) instead of overlapping the full menses.
+  const mensesEnd = clampInt(habit, 0, cycleLength);
+  const fs = clampInt(idx(fertile[0]), mensesEnd + 1, cycleLength + 1);
+  const fe = clampInt(idx(fertile[1]), fs, cycleLength);
+  // Contiguous by construction — each range starts at the previous one's end+1 —
+  // so they jointly span 1..cycleLength with no gap/overlap even after an empty
+  // one (e.g. a short cycle collapsing follicular) is dropped below.
+  const ranges: [CyclePhaseKey, number, number][] = [
+    ["menses", 1, mensesEnd],
+    ["follicular", mensesEnd + 1, fs - 1],
+    ["fertile", fs, fe],
+    ["luteal", fe + 1, cycleLength],
+  ];
+  const phases = ranges.filter(([, start, end]) => end >= start).map(([key, startDay, endDay]) => ({
+    key, startDay, endDay, days: endDay - startDay + 1,
+    pct: Math.round(((endDay - startDay + 1) / cycleLength) * 100),
+    from: addDays(cycleStart, startDay - 1), to: addDays(cycleStart, endDay - 1),
+  }));
+  const cycleDay = clampInt(idx(today), 1, cycleLength);
+  const todayKey = phases.find((ph) => cycleDay >= ph.startDay && cycleDay <= ph.endDay)!.key; // always found: see contiguity note above
+  return { cycleStart, cycleLength, cycleDay, todayKey, phases, personalized };
+}
+
+/**
+ * The next fertile window at/after `today`: predict()'s window rolled forward by
+ * whole cycles until it has not already passed, plus whether today falls inside
+ * it. This is what a countdown must use — predict().fertile alone is the window
+ * before the NEXT period, which is in the PAST during the luteal phase, so a raw
+ * `diffDays(today, fertile[0])` there goes negative and reads as "fertile now".
+ */
+export function upcomingFertile(prediction: Prediction, today: string): { start: string; end: string; active: boolean } | null {
+  if (!prediction.fertile) return null;
+  let [start, end] = prediction.fertile;
+  while (today > end) { start = addDays(start, prediction.cycleLength); end = addDays(end, prediction.cycleLength); }
+  return { start, end, active: today >= start && today <= end };
+}
+
+/** Floor age in years from a birthdate; null with no birthdate or one in the future. */
+export function ageYears(birthDate: string | null | undefined, today: string): number | null {
+  if (!birthDate) return null;
+  const days = diffDays(birthDate, today);
+  return days < 0 ? null : Math.floor(days / 365.25);
+}
+
+export type AgeBand = "teen" | "prime" | "declining" | "perimenopause";
+/** Purely informational age context for the medical card — no فقه weight. */
+export function ageBand(age: number | null): AgeBand | null {
+  if (age == null) return null;
+  if (age <= 19) return "teen";
+  if (age <= 34) return "prime";
+  if (age <= 44) return "declining";
+  return "perimenopause";
+}
+
 export function ramadanQadaaDays(classified: ClassifiedDay[], hijriOf: (date: string) => { month: number; year: number }): { year: number; days: number } | null {
   const perYear = new Map<number, number>();
   for (const d of classified) {

@@ -1,6 +1,10 @@
 import type { Advisory, DayStatus, Flow, NoteKey, PermittedKey, Rulings } from "./haid";
 type Lang = "nl" | "en" | "ar";
 const t = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
+// Arabic number–noun agreement for a day count (1–99, the only range cycles hit):
+// 1 → يوم, 2 → يومين (dual), 3–10 → «N أيّام», 11+ → «N يومًا» (tamyiiz). The digit
+// glyphs are converted to the user's numeral system by dig() at the call site.
+const arDays = (n: number) => (n === 1 ? "يوم" : n === 2 ? "يومين" : n <= 10 ? `${n} أيّام` : `${n} يومًا`);
 
 export function haidText(l: Lang) {
   return {
@@ -58,5 +62,31 @@ export function haidText(l: Lang) {
       "The husband linked to your account sees all of this data. Enabling gives that permission; disabling deletes the data.",
       "زوجكِ المرتبط بحسابكِ يرى هذه البيانات كلها. بتفعيل الميزة تأذنين بذلك، وإيقافها يحذف البيانات."),
     fertileWarning: t(l, "Schatting op basis van eerdere cycli — niet betrouwbaar om zwangerschap te voorkomen.", "An estimate from previous cycles — not reliable for preventing pregnancy.", "تقدير مبني على الدورات السابقة، ولا يُعتمد عليه لمنع الحمل."),
+    overview: {
+      cycleDay: (n: number) => t(l, `Dag ${n} van je cyclus`, `Day ${n} of your cycle`, `اليوم ${n} من الدورة`),
+      nextHaid: (n: number) => t(l, n <= 0 ? `Menstruatie verwacht vandaag` : n === 1 ? `Volgende menstruatie morgen` : `Volgende menstruatie over ${n} dagen`, n <= 0 ? `Menstruation expected today` : n === 1 ? `Next menstruation tomorrow` : `Next menstruation in ${n} days`, n <= 0 ? `الحيض متوقَّع اليوم` : n === 1 ? `الحيض القادم غدًا` : `الحيض القادم بعد ${arDays(n)}`),
+      fertileIn: (n: number) => t(l, n <= 0 ? `Je bent nu in je vruchtbare dagen` : n === 1 ? `Vruchtbare dagen vanaf morgen` : `Vruchtbare dagen over ${n} dagen`, n <= 0 ? `You are in your fertile days now` : n === 1 ? `Fertile days from tomorrow` : `Fertile days in ${n} days`, n <= 0 ? `أنتِ في أيّام الخصوبة الآن` : n === 1 ? `أيّام الخصوبة تبدأ غدًا` : `أيّام الخصوبة بعد ${arDays(n)}`),
+      breakdownTitle: t(l, `Je cyclus`, `Your cycle`, `دورتكِ`),
+      personalizedNote: t(l, `Wordt nauwkeuriger naarmate je meer registreert.`, `Gets more accurate as you log more.`, `تزداد دقّةً كلّما سجّلتِ أكثر.`),
+      phase: { menses: t(l, `Menstruatie`, `Menstruation`, `الحيض`), follicular: t(l, `Reinheid (voor eisprong)`, `Purity (before ovulation)`, `طُهر (قبل الإباضة)`), fertile: t(l, `Vruchtbare dagen`, `Fertile days`, `أيّام الخصوبة`), luteal: t(l, `Reinheid (na eisprong)`, `Purity (after ovulation)`, `طُهر (بعد الإباضة)`) } satisfies Record<string, string>,
+      pctDays: (pct: number, d: number) => t(l, `${pct}% · ${d} ${d === 1 ? "dag" : "dagen"}`, `${pct}% · ${d} ${d === 1 ? "day" : "days"}`, `${pct}٪ · ${arDays(d)}`),
+    },
+    log: {
+      startedToday: t(l, `Bloeding gestart vandaag`, `Bleeding started today`, `بدأ الدم اليوم`),
+      stillBleeding: t(l, `Nog steeds bloeding?`, `Still bleeding?`, `هل ما زال الدم؟`),
+      yesStill: t(l, `Ja, nog steeds`, `Yes, still`, `نعم، ما زال`),
+      stopped: t(l, `Gestopt`, `Stopped`, `انقطع`),
+      confirmHint: t(l, `Bevestig zodat je status kloppt.`, `Confirm so your status is accurate.`, `أكّدي لتظهر حالتكِ بدقّة.`),
+      loggedLegend: t(l, `Geregistreerd`, `Logged`, `مسجَّل`),
+      assumedLegend: t(l, `Aangenomen (nog niet bevestigd)`, `Assumed (not yet confirmed)`, `محسوب (لم يُؤكَّد)`),
+    },
+    medical: {
+      title: t(l, `Medische informatie (geen religieus oordeel)`, `Medical information (not a religious ruling)`, `معلومات طبّيّة (لا حكم شرعيّ)`),
+      addBirthDate: t(l, `Vul je geboortedatum in je profiel in voor informatie die bij je leeftijd past.`, `Add your date of birth in your profile to see information suited to your age.`, `أضيفي تاريخ ميلادكِ في ملفّكِ الشخصيّ لعرض معلوماتٍ تناسب سنَّكِ.`),
+      teen: t(l, `In de eerste jaren na je eerste menstruatie kan de cyclus onregelmatig zijn; dat is meestal normaal. Blijf registreren zodat de app jouw eigen patroon leert kennen.`, `In the first years after your first period the cycle can be irregular; this is usually normal. Keep logging so the app learns your own pattern.`, `في السنوات الأولى بعد بلوغكِ قد تكون الدورة غير منتظمة، وهذا طبيعيّ غالبًا. واظبي على التسجيل حتى يتعرّف التطبيق على نمطكِ الخاصّ.`),
+      prime: t(l, `Op deze leeftijd is de cyclus meestal regelmatig (21 tot 35 dagen, gemiddeld ongeveer 28). De vruchtbare dagen zijn de zes dagen die eindigen op de eisprong; dan is de kans op zwangerschap het grootst.`, `At this age the cycle is usually regular (21 to 35 days, on average about 28). The fertile days are the six days ending at ovulation, when the chance of conception is highest.`, `غالبًا تكون الدورة منتظمة في هذه السنّ (بين ٢١ و٣٥ يومًا، ومتوسّطها نحو ٢٨). أيّام الخصوبة هي الأيّام الستّة المنتهية بيوم الإباضة، وفيها أعلى القدرة على الحمل.`),
+      declining: t(l, `De cyclus kan nog regelmatig zijn, maar de vruchtbaarheid neemt geleidelijk af, vooral na je 35e, en de cyclus kan iets korter worden. Wil je zwanger worden en lukt dat na verloop van tijd niet, raadpleeg dan een arts.`, `The cycle may still be regular, but fertility gradually declines, especially after 35, and cycles may shorten slightly. If you wish to conceive and it does not happen after some time, consult a doctor.`, `قد تظلّ الدورة منتظمة، لكنّ القدرة على الحمل تتناقص تدريجيًّا لا سيّما بعد الخامسة والثلاثين، وقد تقصُر الدورة قليلًا. إن رغبتِ في الحمل ولم يتيسّر بعد مدّة فاستشيري الطبيب.`),
+      perimenopause: t(l, `Naarmate de overgang nadert kan de cyclus onregelmatig worden: langer, korter of soms overgeslagen, en de vruchtbaarheid neemt af zonder helemaal te verdwijnen. De menopauze is bereikt na twaalf maanden zonder menstruatie. (De regels rond de overgang vind je in het gedeelte met de bepalingen.)`, `As menopause approaches the cycle may become irregular: longer, shorter, or sometimes skipped, and fertility declines without fully disappearing. Menopause is reached after twelve consecutive months without a period. (The rulings on menopause are in the rulings section.)`, `مع اقتراب سنّ اليأس قد تصبح الدورة غير منتظمة: تطول أو تقصُر أو تنقطع أحيانًا، وتقلّ القدرة على الحمل دون أن تنعدم تمامًا، وبلوغُه يكون بانقطاع الحيض سنةً كاملة. (وأحكام سنّ اليأس تجدينها في قسم الأحكام.)`),
+    },
   };
 }

@@ -1,6 +1,7 @@
 import { describe, it, expect } from "vitest";
-import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, type CycleDay, type CycleSettings } from "./haid";
+import { addDays, diffDays, bloodRuns, classify, learnHabit, learnCycleLength, DEFAULT_SETTINGS, DEFAULT_CYCLE_LENGTH, FERTILE_BEFORE, FERTILE_AFTER, type CycleDay, type CycleSettings } from "./haid";
 import { rulingsFor, predict, ramadanQadaaDays, isExcusedToday, excusedState } from "./haid";
+import { cyclePhases, upcomingFertile, ageYears, ageBand } from "./haid";
 
 const S = (p: Partial<CycleSettings> = {}): CycleSettings => ({ ...DEFAULT_SETTINGS, enabled: true, ...p });
 const blood = (dates: string[], color?: "black" | "red"): CycleDay[] => dates.map((date) => ({ date, flow: "blood", color }));
@@ -302,5 +303,82 @@ describe("ramadan + excused state (decision 14)", () => {
     expect(isExcusedToday(cls, "2026-09-02")).toBe(true);
     expect(excusedState(cls, predict(days, S({ habitLength: 7 }), "2026-09-02"), "2026-09-02")).toEqual({ excused: true, until: "2026-09-07" });
     expect(excusedState(cls, predict(days, S(), "2026-09-02"), "2026-08-15")).toEqual({ excused: false });
+  });
+});
+
+describe("cyclePhases — proportional phase breakdown (حساب لا حكم شرعي, medical only)", () => {
+  it("regular 28-day history: 4 phases, menses days = learned habit, fertile length = FERTILE_BEFORE+FERTILE_AFTER+1, pcts sum to ~100", () => {
+    const history = [...blood(span("2026-06-01", 5)), ...blood(span("2026-06-29", 5)), ...blood(span("2026-07-27", 5))];
+    const cp = cyclePhases(history, S(), "2026-08-01")!;
+    expect(cp.personalized).toBe(true);
+    expect(cp.cycleLength).toBe(28);
+    expect(cp.phases).toHaveLength(4);
+    expect(cp.phases.find((p) => p.key === "menses")!.days).toBe(5); // learned habit
+    expect(cp.phases.find((p) => p.key === "fertile")!.days).toBe(FERTILE_BEFORE + FERTILE_AFTER + 1);
+    expect(cp.phases.reduce((sum, p) => sum + p.pct, 0)).toBeCloseTo(100, 0);
+  });
+  it("short 21-day cycle: fertile is clamped so it never starts at or before the habit day; phases still cover 1..21 with no gap/overlap", () => {
+    const cp = cyclePhases(blood(span("2026-08-01", 7)), S({ cycleLength: 21, habitLength: 7 }), "2026-08-05")!;
+    expect(cp.cycleLength).toBe(21);
+    const fertile = cp.phases.find((p) => p.key === "fertile")!;
+    expect(fertile.startDay).toBeGreaterThan(7); // never starts ≤ habit (7)
+    const sorted = [...cp.phases].sort((a, b) => a.startDay - b.startDay);
+    expect(sorted[0].startDay).toBe(1);
+    expect(sorted[sorted.length - 1].endDay).toBe(21);
+    for (let i = 1; i < sorted.length; i++) expect(sorted[i].startDay).toBe(sorted[i - 1].endDay + 1);
+  });
+  it("pregnant → null (caller shows the pregnancy state instead)", () => {
+    expect(cyclePhases(blood(["2026-08-01"]), S({ pregnantSince: "2026-01-01" }), "2026-08-05")).toBeNull();
+  });
+  it("no history → generic un-personalized template: default 28-day length, cycleDay 1, still 4 phases", () => {
+    const cp = cyclePhases([], S(), "2026-08-05")!;
+    expect(cp.personalized).toBe(false);
+    expect(cp.cycleLength).toBe(DEFAULT_CYCLE_LENGTH);
+    expect(cp.phases).toHaveLength(4);
+    expect(cp.cycleDay).toBe(1);
+  });
+  it("manual habit longer than the cycle (habit 30 > cycle 28): no phase spills past the cycle and pcts never exceed 100", () => {
+    const cp = cyclePhases(blood(span("2026-07-04", 7)), S({ habitLength: 30, cycleLength: 28 }), "2026-08-01")!;
+    expect(cp.phases.every((p) => p.startDay >= 1 && p.endDay <= cp.cycleLength)).toBe(true);
+    expect(cp.phases.reduce((sum, p) => sum + p.days, 0)).toBeLessThanOrEqual(cp.cycleLength);
+    expect(cp.phases.reduce((sum, p) => sum + p.pct, 0)).toBeLessThanOrEqual(100);
+  });
+  it("on the exact day the next period is due, today is day 1 / menses of the new cycle, not the last luteal day", () => {
+    const cp = cyclePhases(blood(span("2026-08-01", 5)), S({ cycleLength: 28, habitLength: 5 }), "2026-08-29")!; // 08-01 + 28 = due 08-29
+    expect(cp.cycleDay).toBe(1);
+    expect(cp.todayKey).toBe("menses");
+  });
+});
+
+describe("upcomingFertile — the countdown-safe fertile window", () => {
+  it("rolls a window that already passed forward, so the luteal phase never reads as 'fertile now'", () => {
+    const p = predict(blood(span("2026-08-01", 5)), S({ cycleLength: 28, habitLength: 5 }), "2026-08-24");
+    const f = upcomingFertile(p, "2026-08-24")!;
+    expect(f.active).toBe(false);
+    expect(f.start > "2026-08-24").toBe(true); // upcoming, not the past window
+  });
+  it("reports active while today is inside the window", () => {
+    const p = predict(blood(span("2026-08-01", 5)), S({ cycleLength: 28, habitLength: 5 }), "2026-08-12");
+    expect(upcomingFertile(p, "2026-08-12")!.active).toBe(true);
+  });
+  it("is null when no window can be predicted (no history)", () => {
+    expect(upcomingFertile(predict([], S(), "2026-08-12"), "2026-08-12")).toBeNull();
+  });
+});
+
+describe("ageYears / ageBand — medical-only age context, no fiqh weight", () => {
+  it("ageYears floors the age and is null with no birthdate or a birthdate in the future", () => {
+    expect(ageYears("2000-08-05", "2026-08-05")).toBe(25); // 9496 days / 365.25 floors to 25, one short of the 26th calendar birthday
+    expect(ageYears(null, "2026-08-05")).toBeNull();
+    expect(ageYears("2027-01-01", "2026-08-05")).toBeNull();
+  });
+  it("ageBand maps the four ranges and passes null through", () => {
+    expect(ageBand(19)).toBe("teen");
+    expect(ageBand(20)).toBe("prime");
+    expect(ageBand(34)).toBe("prime");
+    expect(ageBand(35)).toBe("declining");
+    expect(ageBand(44)).toBe("declining");
+    expect(ageBand(45)).toBe("perimenopause");
+    expect(ageBand(null)).toBeNull();
   });
 });
