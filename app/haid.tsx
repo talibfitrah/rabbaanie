@@ -412,6 +412,11 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
   // The NEXT fertile window (rolled forward past a completed one) — never shows
   // "fertile now" during the luteal phase; see upcomingFertile in lib/haid.ts.
   const fertile = upcomingFertile(prediction, today);
+  // Days until the next period (negative = late). During a late period predict()'s
+  // fertile window points a cycle ahead and would contradict "N days late", so the
+  // fertile countdown is suppressed then (isLate).
+  const nextHaidDays = phases?.personalized ? diffDays(today, addDays(phases.cycleStart, phases.cycleLength)) : null;
+  const isLate = nextHaidDays != null && nextHaidDays < 0;
 
   // HER OWN date of birth for the age card comes from her profile (already
   // collected — and required — at onboarding). NOT settings.birthDate: that is
@@ -441,10 +446,10 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
         <View style={card}>
           <Text style={[{ color: colors.foreground, fontSize: 16, fontWeight: "700", marginBottom: 2 }, align]}>{T.overview.breakdownTitle}</Text>
           {phases.personalized && <Text style={[{ color: colors.foreground, fontSize: 13, marginBottom: 8 }, align]}>{dig(T.overview.cycleDay(phases.cycleDay))}</Text>}
-          {phases.personalized && (
-            <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(diffDays(today, addDays(phases.cycleStart, phases.cycleLength))))}</Text>
+          {phases.personalized && nextHaidDays != null && (
+            <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(nextHaidDays))}</Text>
           )}
-          {fertile && (
+          {fertile && !isLate && (
             <>
               <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.fertileIn(diffDays(today, fertile.start)))}</Text>
               <Text style={[{ color: colors.muted, fontSize: 11, marginBottom: 8 }, align]}>⚠ {T.fertileWarning}</Text>

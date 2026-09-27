@@ -37,23 +37,29 @@ export function HaidFamilyCard() {
     onError: (e: { message: string }) => Alert.alert(tx(lang, "Er ging iets mis", "Something went wrong", "حدث خطأ ما"), e.message),
   });
   const today = isoToday();
+  // Map q.data → engine types ONCE; shared by the view memo and the notify effect.
+  const cycleData = useMemo(() => {
+    if (!q.data?.enabled) return null;
+    const days: CycleDay[] = q.data.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
+    const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
+    return { days, settings };
+  }, [q.data]);
 
   const view = useMemo(() => {
     if (!q.data) return null;
-    if (!q.data.enabled) return { enabled: false as const };
-    const days: CycleDay[] = q.data.days.map((d) => ({ date: d.date, flow: d.flow as Flow, color: d.color as CycleDay["color"], ghusl: d.ghusl }));
-    const settings: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
-    const cls = classify(days, settings, addDays(today, -60), today, today);
-    const todayCls = cls[cls.length - 1];
+    if (!cycleData) return { enabled: false as const };
+    const { days, settings } = cycleData;
+    const todayCls = classify(days, settings, addDays(today, -60), today, today).slice(-1)[0];
     const p = predict(days, settings, today);
     const ph = cyclePhases(days, settings, today);
     const isOpenRunToday = todayCls.status === "haid" || todayCls.status === "nifas" || todayCls.status === "istihada";
     const hasLogToday = days.some((d) => d.date === today);
-    // ph is null while pregnant/in nifas → no cycle day, phases, countdowns or log
-    // prompts (a cycle doesn't apply then). Countdown anchors on the actual last
-    // period so a late period counts up instead of resetting.
+    // ph is null while pregnant/in nifas → no cycle day, phases or countdowns. The
+    // countdown anchors on the actual last period so a late period counts up; the
+    // fertile countdown is dropped while late (it would point a cycle ahead of "N late").
     const nextHaidDays = ph?.personalized ? diffDays(today, addDays(ph.cycleStart, ph.cycleLength)) : null;
-    const fert = ph != null ? upcomingFertile(p, today) : null; // rolled forward — never "now" in luteal
+    const isLate = nextHaidDays != null && nextHaidDays < 0;
+    const fert = ph != null && !isLate ? upcomingFertile(p, today) : null;
     const fertileDays = fert ? diffDays(today, fert.start) : null;
     const countdownText =
       nextHaidDays != null && (fertileDays == null || nextHaidDays <= fertileDays) ? T.overview.nextHaid(nextHaidDays) :
@@ -64,13 +70,13 @@ export function HaidFamilyCard() {
       cycleDay: ph && ph.personalized ? ph.cycleDay : null,
       phase: ph,
       countdownText,
-      // Same rule as the /haid screen (isAssumedBleedDay): only when today is an
-      // assumed continuation after the last logged blood day, and never while
-      // pregnant/in nifas (ph null) — so no stray "log blood" prompt appears then.
-      showConfirm: ph != null && isAssumedBleedDay(todayCls.status, today, days),
+      // Exactly the /haid screen's needsConfirm rule (isAssumedBleedDay) — nifas
+      // included — so the two surfaces never disagree. showStart is gated to a real
+      // cycle (ph != null) so no "start period" button appears while pregnant/in nifas.
+      showConfirm: isAssumedBleedDay(todayCls.status, today, days),
       showStart: ph != null && !hasLogToday && !isOpenRunToday,
     };
-  }, [q.data, today, lang]);
+  }, [q.data, cycleData, today, lang]);
 
   // Logging from this card must resync prayer alarms + haid notifications, the
   // same as /haid and the diagnostic card — otherwise alarms stay wrong until she
@@ -78,12 +84,10 @@ export function HaidFamilyCard() {
   // haid-notifications is imported dynamically so its expo-notifications chain
   // stays out of family.tsx's static graph (which a source test imports).
   useEffect(() => {
-    if (!q.data?.enabled || !user?.id) return;
+    if (!cycleData || !user?.id) return;
     const uid = user.id;
-    const d: CycleDay[] = q.data.days.map((x) => ({ date: x.date, flow: x.flow as Flow, color: x.color as CycleDay["color"], ghusl: x.ghusl }));
-    const s: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
-    import("@/lib/haid-notifications").then((m) => m.syncHaidNotifications({ userId: uid, days: d, settings: s, language: lang })).catch(() => {});
-  }, [q.data, user?.id, lang]);
+    import("@/lib/haid-notifications").then((m) => m.syncHaidNotifications({ userId: uid, days: cycleData.days, settings: cycleData.settings, language: lang })).catch(() => {});
+  }, [cycleData, user?.id, lang]);
 
   if (!isAuthenticated || !isWoman) return null;
 
@@ -135,15 +139,15 @@ export function HaidFamilyCard() {
       {view.showConfirm ? (
         <View style={{ flexDirection: isRTL ? "row-reverse" : "row", gap: 8, marginTop: 10 }}>
           <Text style={[{ flex: 1, fontSize: 12, color: colors.muted }, align]}>{T.log.stillBleeding}</Text>
-          <Pressable onPress={() => upsertDay.mutate({ date: today, flow: "blood", color: null, ghusl: false })} style={{ backgroundColor: colors.error, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 }}>
+          <Pressable disabled={upsertDay.isPending} onPress={() => upsertDay.mutate({ date: today, flow: "blood", color: null, ghusl: false })} style={{ backgroundColor: colors.error, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, opacity: upsertDay.isPending ? 0.6 : 1 }}>
             <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 11 }}>{T.log.yesStill}</Text>
           </Pressable>
-          <Pressable onPress={() => upsertDay.mutate({ date: today, flow: "dry", color: null, ghusl: false })} style={{ borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8 }}>
+          <Pressable disabled={upsertDay.isPending} onPress={() => upsertDay.mutate({ date: today, flow: "dry", color: null, ghusl: false })} style={{ borderWidth: 1, borderColor: colors.border, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 8, opacity: upsertDay.isPending ? 0.6 : 1 }}>
             <Text style={{ color: colors.foreground, fontWeight: "700", fontSize: 11 }}>{T.log.stopped}</Text>
           </Pressable>
         </View>
       ) : view.showStart ? (
-        <Pressable onPress={() => upsertDay.mutate({ date: today, flow: "blood", color: null, ghusl: false })} style={{ marginTop: 10, backgroundColor: colors.error, paddingVertical: 8, borderRadius: 8, alignItems: "center" }}>
+        <Pressable disabled={upsertDay.isPending} onPress={() => upsertDay.mutate({ date: today, flow: "blood", color: null, ghusl: false })} style={{ marginTop: 10, backgroundColor: colors.error, paddingVertical: 8, borderRadius: 8, alignItems: "center", opacity: upsertDay.isPending ? 0.6 : 1 }}>
           <Text style={{ color: "#FFF", fontWeight: "700", fontSize: 12 }}>{T.log.startedToday}</Text>
         </Pressable>
       ) : null}

@@ -352,8 +352,12 @@ export function cyclePhases(days: CycleDay[], settings: CycleSettings, today: st
   const p = predict(days, settings, today);
   const cycleLength = p.cycleLength;
   const habit = p.habit ?? DEFAULT_HAID_DAYS;
-  const personalized = !!p.lastStart;
-  const cycleStart = p.lastStart ?? today;
+  // A period more than a full extra cycle overdue is no longer "late" — it's
+  // amenorrhea, breastfeeding, or simply stopped logging. Past that, drop the real
+  // anchor and show the generic template instead of "day 400 / 370 days late".
+  const stale = p.lastStart != null && diffDays(p.lastStart, today) > 2 * cycleLength;
+  const personalized = !!p.lastStart && !stale;
+  const cycleStart = personalized ? p.lastStart! : today;
   // Ovulation/fertile derived from THIS cycle's start (not predict's fertile,
   // which is tied to the old nextStart) so the window always lands inside the
   // displayed cycle — identical to predict()'s formula in the normal case.
