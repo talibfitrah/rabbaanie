@@ -71,10 +71,15 @@ describe("app/haid.tsx (item F: screen fixes)", () => {
     expect(src).toContain('prevCls?.status === "haid" || prevCls?.status === "nifas"');
   });
 
-  it("pregnant-since / birth-date / miscarriage-date use the native DatePicker, not free-text YYYY-MM-DD", () => {
-    expect(src).toContain('<DatePicker label={tx(lang, "Zwanger sinds", "Pregnant since", "حامل منذ")} value={pregnant} onChange={setPregnant} maxDate={new Date()} />');
-    expect(src).toContain('<DatePicker label={tx(lang, "Bevallingsdatum", "Birth date", "تاريخ الولادة")} value={birth} onChange={setBirth} maxDate={new Date()} />');
-    expect(src).toContain('<DatePicker label={tx(lang, "Miskraam op", "Miscarriage on", "تاريخ الإسقاط")} value={misc} onChange={setMisc} maxDate={new Date()} />');
+  it("pregnant-since / birth-date / miscarriage-date use the clearable DatePicker helper, not free-text", () => {
+    // The invariant, not exact JSX: the three settings dates flow through the
+    // shared dateField helper (DatePicker bounded to today + a clear control),
+    // and the old free-text YYYY-MM-DD entry is gone. Robust to prop reordering.
+    expect(src).not.toContain('"YYYY-MM-DD"');       // no free-text date entry
+    expect(src).toContain("maxDate={new Date()}");   // future dates blocked
+    expect(src).toMatch(/const dateField =[\s\S]*?<DatePicker[\s\S]*?maxDate=\{new Date\(\)\}/);
+    for (const setter of ["setPregnant", "setBirth", "setMisc"])
+      expect(src).toMatch(new RegExp(`dateField\\([\\s\\S]*?${setter}\\)`));
   });
 });
 

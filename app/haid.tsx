@@ -131,13 +131,17 @@ export default function HaidScreen() {
   // the real today, not assume blood through not-yet-lived future days.
   const classified = useMemo(() => classify(days, settings, addDays(today, -400), addDays(today, 45), today), [days, settings, today]);
   const byDate = useMemo(() => new Map(classified.map((c) => [c.date, c])), [classified]);
-  // C3: a haid/nifas/istihada status with no CycleDay entry for that date can
-  // only come from classify()'s item E-2 extension (an ongoing run assumed to
-  // continue) — every other path into that status requires a run day, which
-  // requires either an explicit entry or that same extension.
+  const lastBloodDate = useMemo(() => {
+    const bl = days.filter((x) => x.flow === "blood").map((x) => x.date);
+    return bl.length ? bl.reduce((a, b) => (a > b ? a : b)) : null;
+  }, [days]);
+  // C3: an entry-less haid/nifas/istihada day AFTER the last logged blood day is
+  // classify()'s item E-2 extension — an ongoing run assumed to continue. The
+  // `> lastBloodDate` bound excludes a one-day gap merged INSIDE a run (decision
+  // 4): that day also has no entry, but it is bounded by logged blood, not assumed.
   const isAssumedDay = (d: string) => {
     const c = byDate.get(d);
-    return !!c && (c.status === "haid" || c.status === "nifas" || c.status === "istihada") && !days.some((x) => x.date === d);
+    return !!c && (c.status === "haid" || c.status === "nifas" || c.status === "istihada") && !days.some((x) => x.date === d) && lastBloodDate != null && d > lastBloodDate;
   };
   const prediction = useMemo(() => predict(days, settings, today), [days, settings, today]);
   const phases = useMemo(() => cyclePhases(days, settings, today), [days, settings, today]);
@@ -360,6 +364,21 @@ function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisab
       <TextInput value={value} onChangeText={set} placeholder={placeholder} placeholderTextColor={colors.muted} style={[{ borderWidth: 1, borderColor: colors.border, borderRadius: 8, padding: 8, color: colors.foreground }, align]} />
     </View>
   );
+  // Native DatePicker + an explicit clear: the picker can't emit an empty value,
+  // so without this a mistaken "Pregnant since" could never be un-set — trapping
+  // every later period as istihada (prayer wrongly shown obligatory on haid days).
+  const dateField = (labelText: string, value: string, set: (v: string) => void) => (
+    <View style={{ marginBottom: 8, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "flex-end", gap: 8 }}>
+      <View style={{ flex: 1 }}>
+        <DatePicker label={labelText} value={value} onChange={set} maxDate={new Date()} />
+      </View>
+      {value !== "" && (
+        <Pressable onPress={() => set("")} hitSlop={8} style={{ paddingVertical: 8, paddingHorizontal: 6 }}>
+          <Text style={{ color: colors.error, fontSize: 12, fontWeight: "700" }}>{tx(lang, "Wissen", "Clear", "مسح")}</Text>
+        </Pressable>
+      )}
+    </View>
+  );
   const save = () => {
     onSave({ habitLength: num(habit), cycleLength: num(cycle), pregnantSince: pregnant || null, birthDate: birth || null, miscarriageDate: misc || null, gestationDays: num(gest), contraception: contra, ghuslReminder: ghuslRem });
   };
@@ -367,15 +386,9 @@ function SettingsCard({ settings, lang, colors, align, isSaving, onSave, onDisab
     <View style={{ backgroundColor: colors.surface, borderRadius: 12, padding: 14, borderWidth: 1, borderColor: colors.border }}>
       {field(tx(lang, "Gewoonte (dagen menstruatie; leeg = automatisch)", "Habit (menses days; empty = learned)", "العادة (أيام الحيض؛ فارغ = تلقائي)"), habit, setHabit, "7")}
       {field(tx(lang, "Cycluslengte (dagen; leeg = automatisch)", "Cycle length (days; empty = learned)", "طول الدورة (أيام؛ فارغ = تلقائي)"), cycle, setCycle, "28")}
-      <View style={{ marginBottom: 8 }}>
-        <DatePicker label={tx(lang, "Zwanger sinds", "Pregnant since", "حامل منذ")} value={pregnant} onChange={setPregnant} maxDate={new Date()} />
-      </View>
-      <View style={{ marginBottom: 8 }}>
-        <DatePicker label={tx(lang, "Bevallingsdatum", "Birth date", "تاريخ الولادة")} value={birth} onChange={setBirth} maxDate={new Date()} />
-      </View>
-      <View style={{ marginBottom: 8 }}>
-        <DatePicker label={tx(lang, "Miskraam op", "Miscarriage on", "تاريخ الإسقاط")} value={misc} onChange={setMisc} maxDate={new Date()} />
-      </View>
+      {dateField(tx(lang, "Zwanger sinds", "Pregnant since", "حامل منذ"), pregnant, setPregnant)}
+      {dateField(tx(lang, "Bevallingsdatum", "Birth date", "تاريخ الولادة"), birth, setBirth)}
+      {dateField(tx(lang, "Miskraam op", "Miscarriage on", "تاريخ الإسقاط"), misc, setMisc)}
       {field(tx(lang, "Zwangerschapsduur bij miskraam (dagen)", "Gestation at miscarriage (days)", "عمر الحمل عند الإسقاط (أيام)"), gest, setGest, "120")}
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 8 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Anticonceptie", "Contraception", "موانع الحمل")}</Text><Switch value={contra} onValueChange={setContra} /></View>
       <View style={{ flexDirection: isRTL ? "row-reverse" : "row", justifyContent: "space-between", alignItems: "center", marginBottom: 12 }}><Text style={{ color: colors.foreground }}>{tx(lang, "Herinnering aan ghusl", "Ghusl reminder", "تذكير بالغسل")}</Text><Switch value={ghuslRem} onValueChange={setGhuslRem} /></View>
@@ -435,7 +448,7 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
       {phases && (
         <View style={card}>
           <Text style={[{ color: colors.foreground, fontSize: 16, fontWeight: "700", marginBottom: 2 }, align]}>{T.overview.breakdownTitle}</Text>
-          <Text style={[{ color: colors.foreground, fontSize: 13, marginBottom: 8 }, align]}>{dig(T.overview.cycleDay(phases.cycleDay))}</Text>
+          {phases.personalized && <Text style={[{ color: colors.foreground, fontSize: 13, marginBottom: 8 }, align]}>{dig(T.overview.cycleDay(phases.cycleDay))}</Text>}
           {prediction.nextStart && (
             <Text style={[{ color: colors.foreground, fontSize: 12 }, align]}>{dig(T.overview.nextHaid(diffDays(today, prediction.nextStart)))}</Text>
           )}
@@ -449,12 +462,14 @@ function CycleOverview({ phases, prediction, needsConfirm, colors, lang, T, onLo
             <View style={{ flexDirection: isRTL ? "row-reverse" : "row", height: 14, borderRadius: 7, overflow: "hidden" }}>
               {phases.phases.map((ph) => <View key={ph.key} style={{ flex: ph.days, backgroundColor: PHASE_COLOR[ph.key] }} />)}
             </View>
-            <View
-              style={[
-                { position: "absolute", top: -3, width: 2, height: 20, backgroundColor: colors.foreground },
-                isRTL ? { right: `${(phases.cycleDay / phases.cycleLength) * 100}%` } : { left: `${(phases.cycleDay / phases.cycleLength) * 100}%` },
-              ]}
-            />
+            {phases.personalized && (
+              <View
+                style={[
+                  { position: "absolute", top: -3, width: 2, height: 20, backgroundColor: colors.foreground },
+                  isRTL ? { right: `${((phases.cycleDay - 0.5) / phases.cycleLength) * 100}%` } : { left: `${((phases.cycleDay - 0.5) / phases.cycleLength) * 100}%` },
+                ]}
+              />
+            )}
           </View>
           {phases.phases.map((ph) => (
             <View key={ph.key} style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, marginTop: 3 }}>

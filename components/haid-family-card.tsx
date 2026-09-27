@@ -1,4 +1,4 @@
-import { useMemo } from "react";
+import { useEffect, useMemo } from "react";
 import { View, Text, Pressable, ActivityIndicator, Alert } from "react-native";
 import { useRouter } from "expo-router";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
@@ -9,6 +9,7 @@ import { useAuth } from "@/hooks/use-auth";
 import { trpc } from "@/lib/trpc";
 import { addDays, diffDays, classify, predict, cyclePhases, upcomingFertile, isoToday, DEFAULT_SETTINGS, type CycleDay, type CycleSettings, type CyclePhaseKey, type Flow } from "@/lib/haid";
 import { haidText } from "@/lib/haid-text";
+import { syncHaidNotifications } from "@/lib/haid-notifications";
 
 type Lang = "nl" | "en" | "ar";
 const tx = (l: Lang, nl: string, en: string, ar: string) => (l === "ar" ? ar : l === "en" ? en : nl);
@@ -68,6 +69,16 @@ export function HaidFamilyCard() {
       showStart: !hasLogToday && !isOpenRunToday,
     };
   }, [q.data, today, lang]);
+
+  // Logging from this card must resync prayer alarms + haid notifications, the
+  // same as /haid and the diagnostic card — otherwise alarms stay wrong until she
+  // opens /haid. Runs on every q.data change, including after a log invalidates.
+  useEffect(() => {
+    if (!q.data?.enabled || !user?.id) return;
+    const d: CycleDay[] = q.data.days.map((x) => ({ date: x.date, flow: x.flow as Flow, color: x.color as CycleDay["color"], ghusl: x.ghusl }));
+    const s: CycleSettings = { ...DEFAULT_SETTINGS, ...(q.data.settings ?? {}), enabled: true };
+    syncHaidNotifications({ userId: user.id, days: d, settings: s, language: lang }).catch(() => {});
+  }, [q.data, user?.id, lang]);
 
   if (!isAuthenticated || !isWoman) return null;
 

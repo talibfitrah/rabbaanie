@@ -76,7 +76,7 @@ export function haidText(l: Lang) {
       stillBleeding: t(l, `Nog steeds bloeding?`, `Still bleeding?`, `هل ما زال الدم؟`),
       yesStill: t(l, `Ja, nog steeds`, `Yes, still`, `نعم، ما زال`),
       stopped: t(l, `Gestopt`, `Stopped`, `انقطع`),
-      confirmHint: t(l, `Bevestig zodat je status kloppt.`, `Confirm so your status is accurate.`, `أكّدي لتظهر حالتكِ بدقّة.`),
+      confirmHint: t(l, `Bevestig zodat je status klopt.`, `Confirm so your status is accurate.`, `أكّدي لتظهر حالتكِ بدقّة.`),
       loggedLegend: t(l, `Geregistreerd`, `Logged`, `مسجَّل`),
       assumedLegend: t(l, `Aangenomen (nog niet bevestigd)`, `Assumed (not yet confirmed)`, `محسوب (لم يُؤكَّد)`),
     },
