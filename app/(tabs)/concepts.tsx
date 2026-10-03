@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
   View,
   Text,
@@ -19,7 +19,18 @@ import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
+import PagerView from "react-native-pager-view";
+import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
+import {
+  getJuzForPage,
+  getEighthOfJuzForPage,
+  getRubMarksForPage,
+  getSajdasForPage,
+  PAGE_TO_JUZ,
+  type RubStart,
+  type SajdaVerse,
+} from "@/lib/quran-page-index";
 
 import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
@@ -27,6 +38,10 @@ const TOTAL_PAGES = 604;
 const STORAGE_KEY = "quran_last_page";
 const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs/v1/woff2";
 const API_BASE = "https://api.quran.com/api/v4";
+const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
+// Sliding window of pages kept mounted around the current one (perf — see
+// generateMushafHTML call site in QuranScreen).
+const WINDOW_RADIUS = 2;
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -982,21 +997,36 @@ function getSurahForPage(page: number): Surah {
   return SURAH_LIST[0];
 }
 
-function getJuzForPage(page: number): number {
-  return Math.min(30, Math.ceil(page / 20.13));
-}
-
 // Generate HTML for WebView rendering with quran.com CDN fonts
 function generateMushafHTML(
   pageNum: number,
   words: PageWord[],
   nightMode: boolean,
   fontSize: number,
+  rubMarks: RubStart[] = [],
+  sajdas: SajdaVerse[] = [],
+  fontDataUri?: string,
 ): string {
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const borderColor = nightMode ? "#C4A35A" : "#1B4332";
-  const fontUrl = `${FONT_CDN}/p${pageNum}.woff2`;
+  // Cached base64 font (see loadMushafPage/getCachedFontUri below) wins once a
+  // page has been opened before; first-ever view falls back to the CDN exactly
+  // as before.
+  const fontUrl = fontDataUri || `${FONT_CDN}/p${pageNum}.woff2`;
+
+  // Rub' al-hizb (۞) and sajda (۩) marks: the QCF v1 glyph stream has
+  // no pseudo-word for either (verified against the API's own code_v1 data for
+  // known boundary verses), so they are overlaid here, keyed by verse_key —
+  // the word spans' own class/content below is untouched either way.
+  const rubVerseKeys = new Set(rubMarks.map((r) => r.verseKey));
+  const sajdaKindByVerse = new Map(sajdas.map((s) => [s.verseKey, s.kind]));
+  const firstWordOfVerse = new Map<string, PageWord>();
+  const lastWordOfVerse = new Map<string, PageWord>();
+  for (const w of words) {
+    if (!firstWordOfVerse.has(w.verse_key)) firstWordOfVerse.set(w.verse_key, w);
+    lastWordOfVerse.set(w.verse_key, w);
+  }
 
   // Group words by line
   const lines: { [key: number]: PageWord[] } = {};
@@ -1060,9 +1090,15 @@ function generateMushafHTML(
     const lineWords = lines[ln];
     const wordsHTML = lineWords
       .map((w) => {
-        const cls = w.char_type_name === "end" ? "end-marker" : "word";
         const vk = w.verse_key || "";
-        return `<span class="${cls}" data-vk="${vk}">${w.code_v1}</span>`;
+        const cls = [w.char_type_name === "end" ? "end-marker" : "word"];
+        const isSajda = sajdaKindByVerse.has(vk);
+        if (isSajda) cls.push("sajda-line");
+        const isRubStart = rubVerseKeys.has(vk) && firstWordOfVerse.get(vk) === w;
+        const isSajdaEnd = isSajda && lastWordOfVerse.get(vk) === w;
+        const rubPrefix = isRubStart ? `<span class="rub-mark">۞</span>` : "";
+        const sajdaSuffix = isSajdaEnd ? `<span class="sajda-mark">۩</span>` : "";
+        return `${rubPrefix}<span class="${cls.join(" ")}" data-vk="${vk}">${w.code_v1}</span>${sajdaSuffix}`;
       })
       .join("");
     linesHTML += `<div class="line">${wordsHTML}</div>\n`;
@@ -1086,6 +1122,9 @@ html, body {
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
+  /* Let a horizontal drag pass through to the native page-turn (PagerView);
+     only claim vertical panning here. */
+  touch-action: pan-y;
 }
 .page-container {
   display: flex;
@@ -1156,6 +1195,18 @@ html, body {
 .end-marker {
   color: ${nightMode ? "#C4A35A" : "#2D6A4F"};
 }
+.rub-mark, .sajda-mark {
+  color: ${borderColor};
+  font-size: ${Math.round(fontSize * 0.75)}px;
+  margin: 0 2px;
+  display: inline-block;
+}
+.sajda-line {
+  text-decoration: overline;
+  text-decoration-color: ${borderColor};
+  text-decoration-thickness: 1.5px;
+  text-underline-offset: 2px;
+}
 .loading {
   display: flex;
   align-items: center;
@@ -1202,32 +1253,183 @@ document.addEventListener('touchend', function() {
 document.addEventListener('touchmove', function() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 });
-// Detect swipe
-var startX = 0;
-document.addEventListener('touchstart', function(e) { startX = e.touches[0].clientX; });
-document.addEventListener('touchend', function(e) {
-  var dx = e.changedTouches[0].clientX - startX;
-  if (Math.abs(dx) > 60) {
-    window.ReactNativeWebView.postMessage(JSON.stringify({type:'swipe', direction: dx > 0 ? 'right' : 'left'}));
-  }
-});
 </script>
 </body>
 </html>`;
 }
 
+// ---- Per-page data + font caching (section D) ----------------------------
+// expo-file-system/legacy, matching this repo's existing usage (hooks/use-updates.ts).
+const PAGE_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-pages/`;
+const FONT_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-fonts/`;
+
+async function ensureDirExists(dir: string) {
+  try {
+    const info = await FileSystem.getInfoAsync(dir);
+    if (!info.exists) await FileSystem.makeDirectoryAsync(dir, { intermediates: true });
+  } catch {
+    // best-effort — a failed mkdir just means the next write also fails and
+    // falls back to network-only behavior
+  }
+}
+
+function parseByPageVerses(verses: any[]): { words: PageWord[]; ayahs: PageAyah[] } {
+  const words: PageWord[] = [];
+  const ayahs: PageAyah[] = [];
+  for (const v of verses) {
+    const parts = v.verse_key.split(":");
+    const surahNum = parseInt(parts[0]);
+    const ayahNum = parseInt(parts[1]);
+    const surah = SURAH_LIST.find((s) => s.number === surahNum);
+
+    ayahs.push({
+      number: v.id || 0,
+      numberInSurah: ayahNum,
+      text:
+        v.text_uthmani ||
+        v.words?.map((w: any) => w.text_uthmani || "").join(" ") ||
+        "",
+      surahNumber: surahNum,
+      surahName: surah?.name || "",
+    });
+
+    for (const w of v.words || []) {
+      words.push({
+        code_v1: w.code_v1 || "",
+        text_uthmani: w.text_uthmani || "",
+        line_number: w.line_number || 0,
+        char_type_name: w.char_type_name || "word",
+        verse_key: v.verse_key,
+      });
+    }
+  }
+  return { words, ayahs };
+}
+
+/** Cache-or-fetch one page's word/ayah data. Same quran.com shape + the same
+ * alquran.cloud fallback as before Phase 1 — only the on-device cache check
+ * (read-through) and cache write (fire-and-forget, non-blocking) are new. */
+async function loadPageWordsAndAyahs(
+  page: number,
+): Promise<{ words: PageWord[]; ayahs: PageAyah[] }> {
+  const cachePath = FileSystem.cacheDirectory ? `${PAGE_CACHE_DIR}p${page}.json` : null;
+  if (cachePath) {
+    try {
+      const info = await FileSystem.getInfoAsync(cachePath);
+      if (info.exists) {
+        const text = await FileSystem.readAsStringAsync(cachePath);
+        return parseByPageVerses(JSON.parse(text));
+      }
+    } catch {
+      // corrupt/unreadable cache entry — fall through to network
+    }
+  }
+  try {
+    const res = await fetch(
+      `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
+    );
+    const data = await res.json();
+    if (data.verses) {
+      if (cachePath) {
+        ensureDirExists(PAGE_CACHE_DIR)
+          .then(() => FileSystem.writeAsStringAsync(cachePath, JSON.stringify(data.verses)))
+          .catch(() => {});
+      }
+      return parseByPageVerses(data.verses);
+    }
+  } catch {
+    // fall through to the alquran.cloud fallback below
+  }
+  try {
+    const res2 = await fetch(`https://api.alquran.cloud/v1/page/${page}/quran-uthmani`);
+    const data2 = await res2.json();
+    if (data2.code === 200) {
+      const ayahs: PageAyah[] = data2.data.ayahs.map((a: any) => ({
+        number: a.number,
+        numberInSurah: a.numberInSurah,
+        text: a.text,
+        surahNumber: a.surah.number,
+        surahName: a.surah.name,
+      }));
+      return { words: [], ayahs };
+    }
+  } catch {
+    // ignore — caller gets the empty-page fallback below
+  }
+  return { words: [], ayahs: [] };
+}
+
+/** Read-only cache check — never downloads. Keeps a currently-mounted page's
+ * HTML from changing out from under the reader (which would reload/flash the
+ * WebView); a cold miss is warmed in the background for the NEXT visit via
+ * warmFontCache instead. */
+async function getCachedFontUri(page: number): Promise<string | undefined> {
+  if (!FileSystem.cacheDirectory) return undefined;
+  try {
+    const path = `${FONT_CACHE_DIR}p${page}.woff2`;
+    const info = await FileSystem.getInfoAsync(path);
+    if (!info.exists) return undefined;
+    const base64 = await FileSystem.readAsStringAsync(path, { encoding: "base64" });
+    return `data:font/woff2;base64,${base64}`;
+  } catch {
+    return undefined;
+  }
+}
+
+/** Fire-and-forget: download this page's QCF font to disk for next time.
+ * Never touches React state, so it cannot reload a page the user is reading.
+ * ATOMIC: downloads to a unique temp file and only moves it into place on a
+ * clean 200. A killed/partial/failed download leaves only the temp (which is
+ * deleted), never a truncated p{page}.woff2 — a truncated font would make the
+ * QCF @font-face silently fail and render the Qur'an as tofu/garbled boxes,
+ * trusted forever (getCachedFontUri only checks existence, not integrity). */
+function warmFontCache(page: number) {
+  if (!FileSystem.cacheDirectory) return;
+  const path = `${FONT_CACHE_DIR}p${page}.woff2`;
+  const tmp = `${path}.${Math.random().toString(36).slice(2)}.tmp`;
+  ensureDirExists(FONT_CACHE_DIR)
+    .then(() => FileSystem.getInfoAsync(path))
+    .then(async (info) => {
+      if (info.exists) return;
+      const res = await FileSystem.downloadAsync(`${FONT_CDN}/p${page}.woff2`, tmp);
+      if (res.status === 200) await FileSystem.moveAsync({ from: tmp, to: path });
+      else await FileSystem.deleteAsync(tmp, { idempotent: true });
+    })
+    .catch(() => {
+      FileSystem.deleteAsync(tmp, { idempotent: true }).catch(() => {});
+    });
+}
+
+/** Single entry point the component calls per window page: cached data if
+ * present, else network (+ store); cached font if present, else the plain CDN
+ * URL for this view while a copy downloads in the background for next time. */
+async function loadMushafPage(
+  page: number,
+): Promise<{ words: PageWord[]; ayahs: PageAyah[]; fontUri?: string }> {
+  const [{ words, ayahs }, fontUri] = await Promise.all([
+    loadPageWordsAndAyahs(page),
+    getCachedFontUri(page),
+  ]);
+  if (!fontUri) warmFontCache(page);
+  return { words, ayahs, fontUri };
+}
+
 export default function QuranScreen() {
-  const { language, isRTL } = useI18n();
+  const { language, isRTL, dig } = useI18n();
   const lang = language as Lang;
   const insets = useSafeAreaInsets();
   const colors = useColors();
 
   // State
   const [currentPage, setCurrentPage] = useState(1);
-  const [pageWords, setPageWords] = useState<PageWord[]>([]);
-  const [pageAyahs, setPageAyahs] = useState<PageAyah[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Per-page word/ayah/font data, keyed by page number — populated lazily as
+  // pages enter the sliding window (section C/D). Replaces the old single
+  // pageWords/pageAyahs/loading state, which only ever held the current page.
+  const [pageCache, setPageCache] = useState<
+    Record<number, { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string }>
+  >({});
   const [showIndex, setShowIndex] = useState(false);
+  const [indexTab, setIndexTab] = useState<"surah" | "juz">("surah");
   const [showSettings, setShowSettings] = useState(false);
   const [showToolbar, setShowToolbar] = useState(true);
   const [fontSize, setFontSize] = useState(28);
@@ -1243,7 +1445,7 @@ export default function QuranScreen() {
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
 
-  const webViewRef = useRef<any>(null);
+  const pagerRef = useRef<PagerView>(null);
 
   // Load saved page on mount
   useEffect(() => {
@@ -1260,104 +1462,55 @@ export default function QuranScreen() {
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
   }, [currentPage]);
 
-  // Fetch page data from quran.com API
+  // Sliding window of mounted pages: current page ± WINDOW_RADIUS, clamped to
+  // [1, TOTAL_PAGES]. Only these get a real WebView (section C perf
+  // requirement); PagerView's children array IS this window.
+  const windowPages = useMemo(() => {
+    const pages: number[] = [];
+    for (let p = currentPage - WINDOW_RADIUS; p <= currentPage + WINDOW_RADIUS; p++) {
+      if (p >= 1 && p <= TOTAL_PAGES) pages.push(p);
+    }
+    return pages;
+  }, [currentPage]);
+
+  // Load (cache-or-network) any window page not already in memory this session.
   useEffect(() => {
     let cancelled = false;
-    setLoading(true);
-
-    const fetchPage = async () => {
-      try {
-        const res = await fetch(
-          `${API_BASE}/verses/by_page/${currentPage}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
-        );
-        const data = await res.json();
-        if (cancelled) return;
-
-        if (data.verses) {
-          const words: PageWord[] = [];
-          const ayahs: PageAyah[] = [];
-
-          for (const v of data.verses) {
-            const parts = v.verse_key.split(":");
-            const surahNum = parseInt(parts[0]);
-            const ayahNum = parseInt(parts[1]);
-            const surah = SURAH_LIST.find((s) => s.number === surahNum);
-
-            ayahs.push({
-              number: v.id || 0,
-              numberInSurah: ayahNum,
-              text:
-                v.text_uthmani ||
-                v.words?.map((w: any) => w.text_uthmani || "").join(" ") ||
-                "",
-              surahNumber: surahNum,
-              surahName: surah?.name || "",
-            });
-
-            for (const w of v.words || []) {
-              words.push({
-                code_v1: w.code_v1 || "",
-                text_uthmani: w.text_uthmani || "",
-                line_number: w.line_number || 0,
-                char_type_name: w.char_type_name || "word",
-                verse_key: v.verse_key,
-              });
-            }
-          }
-
-          setPageWords(words);
-          setPageAyahs(ayahs);
-        }
-        setLoading(false);
-      } catch (err) {
-        if (!cancelled) {
-          // Fallback to alquran.cloud API
-          try {
-            const res2 = await fetch(
-              `https://api.alquran.cloud/v1/page/${currentPage}/quran-uthmani`,
-            );
-            const data2 = await res2.json();
-            if (cancelled) return;
-            if (data2.code === 200) {
-              const ayahs: PageAyah[] = data2.data.ayahs.map((a: any) => ({
-                number: a.number,
-                numberInSurah: a.numberInSurah,
-                text: a.text,
-                surahNumber: a.surah.number,
-                surahName: a.surah.name,
-              }));
-              setPageAyahs(ayahs);
-              setPageWords([]); // No CDN font data available
-            }
-          } catch {
-            // ignore
-          }
-          setLoading(false);
-        }
-      }
-    };
-
-    fetchPage();
+    for (const p of windowPages) {
+      if (pageCache[p]) continue;
+      // ponytail: no in-flight de-dupe — a rapid back-and-forth swipe can fire
+      // this twice for the same page before the first resolves; the functional
+      // update below just drops the second result, so it's wasted work, not a
+      // bug. Add an in-flight Set if that ever shows up as real jank.
+      loadMushafPage(p).then((bundle) => {
+        if (!cancelled) setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+      });
+    }
     return () => {
       cancelled = true;
     };
-  }, [currentPage]);
+  }, [windowPages]);
 
-  // Handle WebView messages
-  const handleWebViewMessage = (event: any) => {
+  // Keep the native pager silently aligned on currentPage whenever the window
+  // re-centers — a swipe settle (position already matches, no-op) or an
+  // index/juz jump (same page, new slot index). setPageWithoutAnimation is
+  // invisible here because the target slot already shows this same page.
+  useEffect(() => {
+    const idx = windowPages.indexOf(currentPage);
+    if (idx >= 0) pagerRef.current?.setPageWithoutAnimation(idx);
+  }, [currentPage, windowPages]);
+
+  // Handle WebView messages. Page-turning is no longer detected here — the
+  // PagerView owns the swipe gesture now (section C) — so each slot just
+  // reports taps/longpresses against its OWN ayahs list.
+  const handleWebViewMessage = (event: any, ayahs: PageAyah[]) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
-      if (msg.type === "swipe") {
-        if (msg.direction === "right") {
-          setCurrentPage((p) => Math.min(TOTAL_PAGES, p + 1));
-        } else {
-          setCurrentPage((p) => Math.max(1, p - 1));
-        }
-      } else if (msg.type === "longpress" && msg.verseKey) {
+      if (msg.type === "longpress" && msg.verseKey) {
         const parts = msg.verseKey.split(":");
         const surahNum = parseInt(parts[0]);
         const ayahNum = parseInt(parts[1]);
-        const ayah = pageAyahs.find(
+        const ayah = ayahs.find(
           (a) => a.surahNumber === surahNum && a.numberInSurah === ayahNum,
         );
         if (ayah) {
@@ -1507,15 +1660,21 @@ export default function QuranScreen() {
 
   const currentSurah = getSurahForPage(currentPage);
   const currentJuz = getJuzForPage(currentPage);
+  const currentEighth = getEighthOfJuzForPage(currentPage);
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
 
-  // Render page content using WebView with CDN fonts
-  const renderPageContent = () => {
-    if (loading) {
+  // Render ONE window slot (section C): a page not yet loaded shows the
+  // existing loading state; a loaded page with CDN words renders via WebView
+  // (markers added per section B); a loaded page with no word data falls back
+  // to plain text, exactly as before Phase 1.
+  const renderPageSlot = (page: number) => {
+    const bundle = pageCache[page];
+
+    if (!bundle) {
       return (
-        <View style={st.loadingContainer}>
+        <View key={String(page)} style={[st.loadingContainer, { backgroundColor: bgColor }]}>
           <ActivityIndicator
             size="large"
             color={nightMode ? "#C4A35A" : "#1B4332"}
@@ -1533,34 +1692,39 @@ export default function QuranScreen() {
     }
 
     // If we have CDN font words, use WebView for high-quality rendering
-    if (pageWords.length > 0) {
+    if (bundle.words.length > 0) {
       const html = generateMushafHTML(
-        currentPage,
-        pageWords,
+        page,
+        bundle.words,
         nightMode,
         fontSize,
+        getRubMarksForPage(page),
+        getSajdasForPage(page),
+        bundle.fontUri,
       );
       return (
-        <WebView
-          ref={webViewRef}
-          source={{ html }}
-          style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
-          scrollEnabled={false}
-          onMessage={handleWebViewMessage}
-          javaScriptEnabled={true}
-          originWhitelist={["*"]}
-          allowsInlineMediaPlayback={true}
-          mixedContentMode="always"
-          scalesPageToFit={true}
-          showsVerticalScrollIndicator={false}
-          showsHorizontalScrollIndicator={false}
-        />
+        <View key={String(page)} style={{ flex: 1 }}>
+          <WebView
+            source={{ html }}
+            style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
+            scrollEnabled={false}
+            onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
+            javaScriptEnabled={true}
+            originWhitelist={["*"]}
+            allowsInlineMediaPlayback={true}
+            mixedContentMode="always"
+            scalesPageToFit={true}
+            showsVerticalScrollIndicator={false}
+            showsHorizontalScrollIndicator={false}
+          />
+        </View>
       );
     }
 
     // Fallback: render with text (when API fails)
     return (
       <ScrollView
+        key={String(page)}
         style={{ flex: 1, backgroundColor: bgColor }}
         contentContainerStyle={{
           paddingHorizontal: 12,
@@ -1574,7 +1738,7 @@ export default function QuranScreen() {
             { borderColor: nightMode ? "#C4A35A30" : "#D4AF3720" },
           ]}
         >
-          {pageAyahs.map((ayah) => (
+          {bundle.ayahs.map((ayah) => (
             <Pressable
               key={ayah.number}
               onLongPress={() => handleAyahLongPress(ayah)}
@@ -1616,6 +1780,36 @@ export default function QuranScreen() {
             <MaterialIcons name="close" size={24} color="#FFFFFF" />
           </Pressable>
         </View>
+        <View
+          style={[
+            st.scienceTabsRow,
+            { flexDirection: isRTL ? "row-reverse" : "row" },
+            { borderBottomColor: nightMode ? "#333" : "#E8EDE9" },
+          ]}
+        >
+          {(["surah", "juz"] as const).map((tab) => (
+            <Pressable
+              key={tab}
+              onPress={() => setIndexTab(tab)}
+              style={[st.scienceTabItem, indexTab === tab && st.scienceTabItemActive]}
+            >
+              <Text
+                style={[
+                  st.scienceTabItemText,
+                  indexTab === tab && st.scienceTabItemTextActive,
+                  {
+                    color: indexTab === tab ? "#1B4332" : nightMode ? "#888" : "#6B7B72",
+                  },
+                ]}
+              >
+                {tab === "surah"
+                  ? tx(lang, "Soera's", "Surahs", "السور")
+                  : tx(lang, "Juz'", "Juz", "الأجزاء")}
+              </Text>
+            </Pressable>
+          ))}
+        </View>
+        {indexTab === "surah" ? (
         <FlatList
           data={SURAH_LIST}
           keyExtractor={(item) => String(item.number)}
@@ -1698,6 +1892,58 @@ export default function QuranScreen() {
             </Pressable>
           )}
         />
+        ) : (
+          <FlatList
+            data={JUZ_NUMBERS}
+            keyExtractor={(item) => String(item)}
+            contentContainerStyle={{ paddingBottom: 40 }}
+            renderItem={({ item }) => (
+              <Pressable
+                onPress={() => {
+                  const startPage = PAGE_TO_JUZ.indexOf(item);
+                  if (startPage > 0) setCurrentPage(startPage);
+                  setShowIndex(false);
+                }}
+                style={({ pressed }) => [
+                  st.indexItem,
+                  { flexDirection: isRTL ? "row-reverse" : "row" },
+                  pressed && {
+                    backgroundColor: nightMode ? "#2A2A4A" : "#F0F7F4",
+                  },
+                ]}
+              >
+                <View
+                  style={[
+                    st.indexNumber,
+                    { backgroundColor: nightMode ? "#2A2A4A" : "#E8F5EC" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      st.indexNumberText,
+                      { color: nightMode ? "#C4A35A" : "#1B4332" },
+                    ]}
+                  >
+                    {dig(item)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1, marginHorizontal: 12 }}>
+                  <Text style={[st.indexName, { color: textColor }]}>
+                    {tx(lang, "Juz", "Juz", "الجزء")} {dig(item)}
+                  </Text>
+                </View>
+                <Text
+                  style={[
+                    st.indexPage,
+                    { color: nightMode ? "#888" : "#6B7B72" },
+                  ]}
+                >
+                  {tx(lang, "p.", "p.", "ص.")} {dig(PAGE_TO_JUZ.indexOf(item))}
+                </Text>
+              </Pressable>
+            )}
+          />
+        )}
       </View>
     </Modal>
   );
@@ -1994,8 +2240,11 @@ export default function QuranScreen() {
             <View style={st.pageInfo}>
               <Text style={st.pageInfoSurah}>{currentSurah.name}</Text>
               <Text style={st.pageInfoPage}>
-                {tx(lang, "Pagina", "Page", "صفحة")} {currentPage} /{" "}
-                {TOTAL_PAGES} - {tx(lang, "Juz", "Juz", "جزء")} {currentJuz}
+                {tx(lang, "Pagina", "Page", "صفحة")} {dig(currentPage)} /{" "}
+                {dig(TOTAL_PAGES)}
+              </Text>
+              <Text style={st.pageInfoJuz}>
+                {tx(lang, "Juz", "Juz", "الجزء")} {dig(currentJuz)} · {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(currentEighth)}/{dig(8)}
               </Text>
             </View>
             <Pressable
@@ -2014,8 +2263,23 @@ export default function QuranScreen() {
         </View>
       )}
 
-      {/* Page content */}
-      <View style={{ flex: 1 }}>{renderPageContent()}</View>
+      {/* Page content — RTL page-turning strip (section C). layoutDirection
+          must be explicit: this app keeps native RTL off globally (lib/i18n.tsx),
+          and PagerView falls back to I18nManager.isRTL (always false here) when
+          the prop is omitted, which would reverse the swipe direction. */}
+      <PagerView
+        ref={pagerRef}
+        style={{ flex: 1 }}
+        layoutDirection="rtl"
+        initialPage={Math.max(0, windowPages.indexOf(currentPage))}
+        offscreenPageLimit={WINDOW_RADIUS}
+        onPageSelected={(e: any) => {
+          const selected = windowPages[e.nativeEvent.position];
+          if (selected && selected !== currentPage) setCurrentPage(selected);
+        }}
+      >
+        {windowPages.map((p) => renderPageSlot(p))}
+      </PagerView>
 
       {/* Modals */}
       {renderIndex()}
@@ -2053,6 +2317,7 @@ const st = StyleSheet.create({
   pageInfo: { alignItems: "center" },
   pageInfoSurah: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   pageInfoPage: { color: "#C4E0D4", fontSize: 10, marginTop: 2 },
+  pageInfoJuz: { color: "#C4E0D4", fontSize: 9, marginTop: 1 },
 
   // Mushaf text (fallback)
   mushafText: { textAlign: "justify", writingDirection: "rtl" },
