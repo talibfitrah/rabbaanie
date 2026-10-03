@@ -27,7 +27,7 @@ import {
   getEighthOfJuzForPage,
   getRubMarksForPage,
   getSajdasForPage,
-  PAGE_TO_JUZ,
+  getJuzStartPage,
   type RubStart,
   type SajdaVerse,
 } from "@/lib/quran-page-index";
@@ -42,6 +42,10 @@ const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
 // Sliding window of pages kept mounted around the current one (perf — see
 // generateMushafHTML call site in QuranScreen).
 const WINDOW_RADIUS = 2;
+// pageCache (data + base64 font per page) is pruned to this radius around
+// currentPage — window + a small buffer — so visited-then-left-behind pages
+// don't accumulate in memory for the rest of the session.
+const CACHE_PRUNE_RADIUS = 6;
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -1020,7 +1024,7 @@ function generateMushafHTML(
   // known boundary verses), so they are overlaid here, keyed by verse_key —
   // the word spans' own class/content below is untouched either way.
   const rubVerseKeys = new Set(rubMarks.map((r) => r.verseKey));
-  const sajdaKindByVerse = new Map(sajdas.map((s) => [s.verseKey, s.kind]));
+  const sajdaVerseKeys = new Set(sajdas.map((s) => s.verseKey));
   const firstWordOfVerse = new Map<string, PageWord>();
   const lastWordOfVerse = new Map<string, PageWord>();
   for (const w of words) {
@@ -1092,7 +1096,7 @@ function generateMushafHTML(
       .map((w) => {
         const vk = w.verse_key || "";
         const cls = [w.char_type_name === "end" ? "end-marker" : "word"];
-        const isSajda = sajdaKindByVerse.has(vk);
+        const isSajda = sajdaVerseKeys.has(vk);
         if (isSajda) cls.push("sajda-line");
         const isRubStart = rubVerseKeys.has(vk) && firstWordOfVerse.get(vk) === w;
         const isSajdaEnd = isSajda && lastWordOfVerse.get(vk) === w;
@@ -1196,10 +1200,16 @@ html, body {
   color: ${nightMode ? "#C4A35A" : "#2D6A4F"};
 }
 .rub-mark, .sajda-mark {
+  /* Zero-width so these glyphs can never add to a .line's rendered width and
+     clip/shift real Qur'an words — .line is white-space:nowrap inside
+     overflow:hidden, sized exactly to the QCF page font. The glyph paints out
+     of its own 0-width box via overflow:visible; no horizontal margin, since
+     margin pushes layout width even when content width is 0. */
+  display: inline-block;
+  width: 0;
+  overflow: visible;
   color: ${borderColor};
   font-size: ${Math.round(fontSize * 0.75)}px;
-  margin: 0 2px;
-  display: inline-block;
 }
 .sajda-line {
   text-decoration: overline;
@@ -1446,6 +1456,13 @@ export default function QuranScreen() {
   const [scienceLoading, setScienceLoading] = useState(false);
 
   const pagerRef = useRef<PagerView>(null);
+  // True while a programmatic page move (index/juz jump, AsyncStorage restore,
+  // or the window re-centre below) is in flight — replacing all 5 windowed
+  // children makes the pager recompute its current item and can fire a
+  // spurious onPageSelected for a neighbouring page before that move's own
+  // setPageWithoutAnimation effect has run. onPageSelected ignores events
+  // while this is true so only a genuine user swipe ever changes currentPage.
+  const programmaticMove = useRef(false);
 
   // Load saved page on mount
   useEffect(() => {
@@ -1475,7 +1492,6 @@ export default function QuranScreen() {
 
   // Load (cache-or-network) any window page not already in memory this session.
   useEffect(() => {
-    let cancelled = false;
     for (const p of windowPages) {
       if (pageCache[p]) continue;
       // ponytail: no in-flight de-dupe — a rapid back-and-forth swipe can fire
@@ -1483,13 +1499,35 @@ export default function QuranScreen() {
       // update below just drops the second result, so it's wasted work, not a
       // bug. Add an in-flight Set if that ever shows up as real jank.
       loadMushafPage(p).then((bundle) => {
-        if (!cancelled) setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+        // Cache any load that produced content — QCF words, OR the plain-text
+        // alquran.cloud fallback (words:[], ayahs:[...]) so the fallback actually
+        // renders instead of a perpetual spinner. A TOTAL failure (both empty) is
+        // NOT cached, so it retries next visit instead of freezing blank. A
+        // fallback page is re-tried for QCF once it's pruned out of the window and
+        // revisited. Written unconditionally so a completed fetch is never thrown
+        // away and re-requested.
+        if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
+          setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+        }
       });
     }
-    return () => {
-      cancelled = true;
-    };
   }, [windowPages]);
+
+  // Prune pageCache to pages near currentPage (window + buffer) so each
+  // visited page's cached data — including its base64 font — doesn't stay in
+  // memory for the rest of the session.
+  useEffect(() => {
+    setPageCache((prev) => {
+      let changed = false;
+      const next: typeof prev = {};
+      for (const key in prev) {
+        const p = Number(key);
+        if (Math.abs(p - currentPage) <= CACHE_PRUNE_RADIUS) next[p] = prev[p];
+        else changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [currentPage]);
 
   // Keep the native pager silently aligned on currentPage whenever the window
   // re-centers — a swipe settle (position already matches, no-op) or an
@@ -1497,7 +1535,17 @@ export default function QuranScreen() {
   // invisible here because the target slot already shows this same page.
   useEffect(() => {
     const idx = windowPages.indexOf(currentPage);
-    if (idx >= 0) pagerRef.current?.setPageWithoutAnimation(idx);
+    if (idx < 0) return;
+    programmaticMove.current = true;
+    pagerRef.current?.setPageWithoutAnimation(idx);
+    // Safety net: if the native pager was already sitting at `idx` (e.g. a
+    // jump back to the page it's already showing), setPageWithoutAnimation is
+    // a true no-op and onPageSelected never fires to clear the flag itself —
+    // without this it would stay stuck and swallow the next real swipe.
+    const t = setTimeout(() => {
+      programmaticMove.current = false;
+    }, 0);
+    return () => clearTimeout(t);
   }, [currentPage, windowPages]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
@@ -1900,8 +1948,7 @@ export default function QuranScreen() {
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => {
-                  const startPage = PAGE_TO_JUZ.indexOf(item);
-                  if (startPage > 0) setCurrentPage(startPage);
+                  setCurrentPage(getJuzStartPage(item));
                   setShowIndex(false);
                 }}
                 style={({ pressed }) => [
@@ -1938,7 +1985,7 @@ export default function QuranScreen() {
                     { color: nightMode ? "#888" : "#6B7B72" },
                   ]}
                 >
-                  {tx(lang, "p.", "p.", "ص.")} {dig(PAGE_TO_JUZ.indexOf(item))}
+                  {tx(lang, "p.", "p.", "ص.")} {dig(getJuzStartPage(item))}
                 </Text>
               </Pressable>
             )}
@@ -2274,6 +2321,10 @@ export default function QuranScreen() {
         initialPage={Math.max(0, windowPages.indexOf(currentPage))}
         offscreenPageLimit={WINDOW_RADIUS}
         onPageSelected={(e: any) => {
+          if (programmaticMove.current) {
+            programmaticMove.current = false;
+            return;
+          }
           const selected = windowPages[e.nativeEvent.position];
           if (selected && selected !== currentPage) setCurrentPage(selected);
         }}

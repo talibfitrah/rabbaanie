@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { PAGE_TO_JUZ, PAGE_TO_EIGHTH, RUB_STARTS, SAJDAS } from "./quran-page-index";
+import { PAGE_TO_JUZ, PAGE_TO_EIGHTH, RUB_STARTS, SAJDAS, getJuzStartPage } from "./quran-page-index";
 
 const TOTAL_PAGES = 604;
 
@@ -62,21 +62,26 @@ describe("quran-page-index — RUB_STARTS", () => {
 });
 
 describe("quran-page-index — SAJDAS", () => {
-  it("has exactly 15 sajda verses, each a valid verse key with a kind", () => {
+  it("has exactly 15 sajda verses, each a valid verse key", () => {
     expect(SAJDAS.length).toBe(15);
     const seen = new Set<string>();
     for (const s of SAJDAS) {
       expect(s.verseKey).toMatch(/^\d+:\d+$/);
-      expect(["recommended", "obligatory"]).toContain(s.kind);
       expect(s.page).toBeGreaterThanOrEqual(1);
       expect(s.page).toBeLessThanOrEqual(TOTAL_PAGES);
       seen.add(s.verseKey);
     }
     expect(seen.size).toBe(15); // no duplicates
   });
+});
 
-  it("classifies Surah Sad's prostration (38:24) as recommended (sajdat ash-shukr, not tilawah)", () => {
-    const sad = SAJDAS.find((s) => s.verseKey === "38:24");
-    expect(sad?.kind).toBe("recommended");
+describe("quran-page-index — getJuzStartPage", () => {
+  it("returns the page each juz actually starts on (its first rub), not the page PAGE_TO_JUZ first tags with it", () => {
+    expect(getJuzStartPage(1)).toBe(1);
+    expect(getJuzStartPage(4)).toBe(62);
+    expect(getJuzStartPage(7)).toBe(121);
+    expect(getJuzStartPage(11)).toBe(201);
+    expect(getJuzStartPage(26)).toBe(502);
+    expect(getJuzStartPage(30)).toBe(582);
   });
 });
