@@ -1014,6 +1014,10 @@ function generateMushafHTML(
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const borderColor = nightMode ? "#C4A35A" : "#1B4332";
+  // Side gutter reserved for ۞/۩ marks, OUTSIDE the QCF text run (see
+  // .page-frame/.line/.rub-mark below) — scales with fontSize so the glyph
+  // always fits with room to spare.
+  const markGutter = Math.round(fontSize * 0.85);
   // Cached base64 font (see loadMushafPage/getCachedFontUri below) wins once a
   // page has been opened before; first-ever view falls back to the CDN exactly
   // as before.
@@ -1092,20 +1096,29 @@ function generateMushafHTML(
     prevLine = ln;
 
     const lineWords = lines[ln];
+    // Marks are no longer inline siblings of a specific word (that's what let
+    // them overlap/clip neighbouring text): a rub'/sajda boundary only marks
+    // which LINE it falls on, and is rendered once per line in the side
+    // gutter (see .rub-mark/.sajda-mark below) — not glued to the exact word.
+    let lineHasRub = false;
+    let lineHasSajda = false;
     const wordsHTML = lineWords
       .map((w) => {
         const vk = w.verse_key || "";
         const cls = [w.char_type_name === "end" ? "end-marker" : "word"];
         const isSajda = sajdaVerseKeys.has(vk);
+        // Whole-verse overline, not just the triggering word: quran.com's
+        // per-page word data has no trigger-word index for sajdat at-tilawah,
+        // only the verse it falls in.
         if (isSajda) cls.push("sajda-line");
-        const isRubStart = rubVerseKeys.has(vk) && firstWordOfVerse.get(vk) === w;
-        const isSajdaEnd = isSajda && lastWordOfVerse.get(vk) === w;
-        const rubPrefix = isRubStart ? `<span class="rub-mark">۞</span>` : "";
-        const sajdaSuffix = isSajdaEnd ? `<span class="sajda-mark">۩</span>` : "";
-        return `${rubPrefix}<span class="${cls.join(" ")}" data-vk="${vk}">${w.code_v1}</span>${sajdaSuffix}`;
+        if (rubVerseKeys.has(vk) && firstWordOfVerse.get(vk) === w) lineHasRub = true;
+        if (isSajda && lastWordOfVerse.get(vk) === w) lineHasSajda = true;
+        return `<span class="${cls.join(" ")}" data-vk="${vk}">${w.code_v1}</span>`;
       })
       .join("");
-    linesHTML += `<div class="line">${wordsHTML}</div>\n`;
+    const rubMarkHTML = lineHasRub ? `<span class="rub-mark">۞</span>` : "";
+    const sajdaMarkHTML = lineHasSajda ? `<span class="sajda-mark">۩</span>` : "";
+    linesHTML += `<div class="line">${wordsHTML}${rubMarkHTML}${sajdaMarkHTML}</div>\n`;
   }
 
   return `<!DOCTYPE html>
@@ -1142,7 +1155,10 @@ html, body {
 .page-frame {
   border: 2px solid ${borderColor};
   border-radius: 6px;
-  padding: 8px 4px;
+  /* Extra side padding reserves the ۞/۩ gutter; .line cancels it with an
+     equal negative margin so the QCF text's own width/position don't change
+     by a pixel — only .rub-mark/.sajda-mark actually sit in this space. */
+  padding: 8px ${4 + markGutter}px;
   width: 100%;
   height: calc(100vh - 24px);
   display: flex;
@@ -1165,7 +1181,12 @@ html, body {
   color: ${textColor};
   text-align: center;
   direction: rtl;
+  position: relative;
   width: 100%;
+  /* Cancels .page-frame's added gutter padding so this box's rendered width
+     and centered position are pixel-identical to before that padding grew —
+     the QCF font is sized for exactly that width. */
+  margin: 0 -${markGutter}px;
   white-space: nowrap;
   letter-spacing: 0;
   word-spacing: -2px;
@@ -1200,16 +1221,24 @@ html, body {
   color: ${nightMode ? "#C4A35A" : "#2D6A4F"};
 }
 .rub-mark, .sajda-mark {
-  /* Zero-width so these glyphs can never add to a .line's rendered width and
-     clip/shift real Qur'an words — .line is white-space:nowrap inside
-     overflow:hidden, sized exactly to the QCF page font. The glyph paints out
-     of its own 0-width box via overflow:visible; no horizontal margin, since
-     margin pushes layout width even when content width is 0. */
-  display: inline-block;
-  width: 0;
-  overflow: visible;
+  /* Positioned OUTSIDE the QCF text run entirely (in .page-frame's reserved
+     side padding, via .line's negative margin above) so they can never clip
+     or overlap a Qur'an word — not inline content, so they add zero width
+     and sit in their own box regardless of neighbouring glyphs. One per LINE
+     (not per word), vertically centred on it. Exact offset is device-tunable;
+     the gutter (markGutter) is sized with slack on both sides. */
+  position: absolute;
+  top: 50%;
+  transform: translateY(-50%);
   color: ${borderColor};
   font-size: ${Math.round(fontSize * 0.75)}px;
+  line-height: 1;
+}
+.rub-mark {
+  right: -${Math.round(markGutter * 0.55)}px;
+}
+.sajda-mark {
+  left: -${Math.round(markGutter * 0.55)}px;
 }
 .sajda-line {
   text-decoration: overline;
@@ -1261,6 +1290,15 @@ document.addEventListener('touchend', function() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 });
 document.addEventListener('touchmove', function() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+});
+// PagerView owns the swipe gesture now, so a swipe delivers touchcancel (not
+// touchend/touchmove) to this WebView — without clearing the timer here too,
+// the 600ms long-press still fires mid-swipe and opens the tafsir modal.
+document.addEventListener('touchcancel', function() {
+  if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
+});
+document.addEventListener('pointercancel', function() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 });
 </script>
@@ -1438,6 +1476,10 @@ export default function QuranScreen() {
   const [pageCache, setPageCache] = useState<
     Record<number, { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string }>
   >({});
+  // Pages where both the QCF and alquran.cloud fallback failed (offline,
+  // etc.) — never cached (see the load effect below), so renderPageSlot shows
+  // a retry button for these instead of an endless spinner.
+  const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
   const [showIndex, setShowIndex] = useState(false);
   const [indexTab, setIndexTab] = useState<"surah" | "juz">("surah");
   const [showSettings, setShowSettings] = useState(false);
@@ -1490,7 +1532,38 @@ export default function QuranScreen() {
     return pages;
   }, [currentPage]);
 
-  // Load (cache-or-network) any window page not already in memory this session.
+  // What index the native pager is actually showing right now — updated by
+  // every onPageSelected (real swipe or a programmatic move's own echo) and
+  // compared against in the re-centre effect below, so a re-centre that
+  // wouldn't change the native index is skipped entirely (nothing to absorb)
+  // instead of racing a timeout against an event that may never arrive.
+  // Matches PagerView's own initialPage={windowPages.indexOf(currentPage)}.
+  const nativePagerIndex = useRef(Math.max(0, windowPages.indexOf(currentPage)));
+
+  // Load (cache-or-network) one page: caches any load that produced content —
+  // QCF words, OR the plain-text alquran.cloud fallback (words:[], ayahs:[...])
+  // — so the fallback actually renders instead of a perpetual spinner. A TOTAL
+  // failure (both empty) is tracked in failedPages instead — renderPageSlot
+  // shows a retry button for it rather than caching a blank — so the window
+  // effect below or a manual retry tap can try again. Written unconditionally
+  // so a completed fetch is never thrown away and re-requested.
+  const retryPage = useCallback((p: number) => {
+    loadMushafPage(p).then((bundle) => {
+      if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
+        setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+        setFailedPages((prev) => {
+          if (!prev.has(p)) return prev;
+          const next = new Set(prev);
+          next.delete(p);
+          return next;
+        });
+      } else {
+        setFailedPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
+      }
+    });
+  }, []);
+
+  // Load any window page not already in memory this session.
   useEffect(() => {
     for (const p of windowPages) {
       if (pageCache[p]) continue;
@@ -1498,20 +1571,9 @@ export default function QuranScreen() {
       // this twice for the same page before the first resolves; the functional
       // update below just drops the second result, so it's wasted work, not a
       // bug. Add an in-flight Set if that ever shows up as real jank.
-      loadMushafPage(p).then((bundle) => {
-        // Cache any load that produced content — QCF words, OR the plain-text
-        // alquran.cloud fallback (words:[], ayahs:[...]) so the fallback actually
-        // renders instead of a perpetual spinner. A TOTAL failure (both empty) is
-        // NOT cached, so it retries next visit instead of freezing blank. A
-        // fallback page is re-tried for QCF once it's pruned out of the window and
-        // revisited. Written unconditionally so a completed fetch is never thrown
-        // away and re-requested.
-        if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
-          setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
-        }
-      });
+      retryPage(p);
     }
-  }, [windowPages]);
+  }, [windowPages, retryPage]);
 
   // Prune pageCache to pages near currentPage (window + buffer) so each
   // visited page's cached data — including its base64 font — doesn't stay in
@@ -1530,22 +1592,19 @@ export default function QuranScreen() {
   }, [currentPage]);
 
   // Keep the native pager silently aligned on currentPage whenever the window
-  // re-centers — a swipe settle (position already matches, no-op) or an
-  // index/juz jump (same page, new slot index). setPageWithoutAnimation is
-  // invisible here because the target slot already shows this same page.
+  // re-centers — a swipe settle (position already matches) or an index/juz
+  // jump (same page, new slot index). If the target index is already what the
+  // native pager is showing, replacing the windowed children is enough on its
+  // own (React swaps the WebView/View at that index; the pager's own "current
+  // index" doesn't need to move, so there's nothing for it to echo back) —
+  // skip the call entirely rather than racing a timeout against an
+  // onPageSelected that would never arrive for a true no-op move.
   useEffect(() => {
     const idx = windowPages.indexOf(currentPage);
-    if (idx < 0) return;
+    if (idx < 0 || idx === nativePagerIndex.current) return;
     programmaticMove.current = true;
+    nativePagerIndex.current = idx;
     pagerRef.current?.setPageWithoutAnimation(idx);
-    // Safety net: if the native pager was already sitting at `idx` (e.g. a
-    // jump back to the page it's already showing), setPageWithoutAnimation is
-    // a true no-op and onPageSelected never fires to clear the flag itself —
-    // without this it would stay stuck and swallow the next real swipe.
-    const t = setTimeout(() => {
-      programmaticMove.current = false;
-    }, 0);
-    return () => clearTimeout(t);
   }, [currentPage, windowPages]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
@@ -1713,28 +1772,56 @@ export default function QuranScreen() {
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
 
-  // Render ONE window slot (section C): a page not yet loaded shows the
-  // existing loading state; a loaded page with CDN words renders via WebView
-  // (markers added per section B); a loaded page with no word data falls back
-  // to plain text, exactly as before Phase 1.
+  // Render ONE window slot (section C): a page not yet loaded shows a loading
+  // spinner, a page that truly failed shows a retry button, a loaded page
+  // with CDN words renders via WebView (markers added per section B), and a
+  // loaded page with no word data falls back to plain text. Every branch
+  // returns a single plain View sized width/height:'100%' (not flex:1) with
+  // collapsable={false} as PagerView's direct child — react-native-pager-view
+  // requires this (a bare ScrollView or a flex:1 child can report the wrong
+  // size to the native pager).
   const renderPageSlot = (page: number) => {
     const bundle = pageCache[page];
 
     if (!bundle) {
+      if (failedPages.has(page)) {
+        return (
+          <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+            <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
+              <Text style={{ color: textColor, fontSize: 14, textAlign: "center" }}>
+                {tx(lang, "Laden mislukt", "Failed to load", "تعذر تحميل الصفحة")}
+              </Text>
+              <Pressable
+                onPress={() => retryPage(page)}
+                style={({ pressed }) => [
+                  { marginTop: 12, backgroundColor: headerBg, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                  {tx(lang, "Opnieuw proberen", "Retry", "إعادة المحاولة")}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        );
+      }
       return (
-        <View key={String(page)} style={[st.loadingContainer, { backgroundColor: bgColor }]}>
-          <ActivityIndicator
-            size="large"
-            color={nightMode ? "#C4A35A" : "#1B4332"}
-          />
-          <Text style={{ color: textColor, marginTop: 12, fontSize: 14 }}>
-            {tx(
-              lang,
-              "Pagina laden...",
-              "Loading page...",
-              "جاري تحميل الصفحة...",
-            )}
-          </Text>
+        <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+          <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
+            <ActivityIndicator
+              size="large"
+              color={nightMode ? "#C4A35A" : "#1B4332"}
+            />
+            <Text style={{ color: textColor, marginTop: 12, fontSize: 14 }}>
+              {tx(
+                lang,
+                "Pagina laden...",
+                "Loading page...",
+                "جاري تحميل الصفحة...",
+              )}
+            </Text>
+          </View>
         </View>
       );
     }
@@ -1751,7 +1838,7 @@ export default function QuranScreen() {
         bundle.fontUri,
       );
       return (
-        <View key={String(page)} style={{ flex: 1 }}>
+        <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
           <WebView
             source={{ html }}
             style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
@@ -1771,39 +1858,40 @@ export default function QuranScreen() {
 
     // Fallback: render with text (when API fails)
     return (
-      <ScrollView
-        key={String(page)}
-        style={{ flex: 1, backgroundColor: bgColor }}
-        contentContainerStyle={{
-          paddingHorizontal: 12,
-          paddingVertical: 16,
-          paddingBottom: insets.bottom + 20,
-        }}
-      >
-        <View
-          style={[
-            st.pageFrame,
-            { borderColor: nightMode ? "#C4A35A30" : "#D4AF3720" },
-          ]}
+      <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+        <ScrollView
+          style={{ flex: 1, backgroundColor: bgColor }}
+          contentContainerStyle={{
+            paddingHorizontal: 12,
+            paddingVertical: 16,
+            paddingBottom: insets.bottom + 20,
+          }}
         >
-          {bundle.ayahs.map((ayah) => (
-            <Pressable
-              key={ayah.number}
-              onLongPress={() => handleAyahLongPress(ayah)}
-            >
-              <Text
-                style={[
-                  st.mushafText,
-                  { color: textColor, fontSize, lineHeight: fontSize * 2.2 },
-                ]}
+          <View
+            style={[
+              st.pageFrame,
+              { borderColor: nightMode ? "#C4A35A30" : "#D4AF3720" },
+            ]}
+          >
+            {bundle.ayahs.map((ayah) => (
+              <Pressable
+                key={ayah.number}
+                onLongPress={() => handleAyahLongPress(ayah)}
               >
-                {ayah.text} {"\u06DD"}
-                {String(ayah.numberInSurah)}{" "}
-              </Text>
-            </Pressable>
-          ))}
-        </View>
-      </ScrollView>
+                <Text
+                  style={[
+                    st.mushafText,
+                    { color: textColor, fontSize, lineHeight: fontSize * 2.2 },
+                  ]}
+                >
+                  {ayah.text} {"\u06DD"}
+                  {String(ayah.numberInSurah)}{" "}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </ScrollView>
+      </View>
     );
   };
 
@@ -2321,6 +2409,7 @@ export default function QuranScreen() {
         initialPage={Math.max(0, windowPages.indexOf(currentPage))}
         offscreenPageLimit={WINDOW_RADIUS}
         onPageSelected={(e: any) => {
+          nativePagerIndex.current = e.nativeEvent.position;
           if (programmaticMove.current) {
             programmaticMove.current = false;
             return;
