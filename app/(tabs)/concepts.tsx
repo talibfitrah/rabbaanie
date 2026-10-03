@@ -28,7 +28,6 @@ import {
   getRubMarksForPage,
   getSajdasForPage,
   getJuzStartPage,
-  type RubStart,
   type SajdaVerse,
 } from "@/lib/quran-page-index";
 
@@ -46,6 +45,15 @@ const WINDOW_RADIUS = 2;
 // currentPage — window + a small buffer — so visited-then-left-behind pages
 // don't accumulate in memory for the rest of the session.
 const CACHE_PRUNE_RADIUS = 6;
+
+/** Index `page` will sit at within the windowed-pages array THAT page centers
+ * (i.e. `computeWindowPages(page).indexOf(page)`, without building the array)
+ * — always WINDOW_RADIUS except near the book's very start, where clamping
+ * to page 1 shifts it down. Used to jump straight to the right PagerView
+ * index on a remount, instead of discovering it from the (stale) old window. */
+function windowIndexFor(page: number): number {
+  return page - Math.max(1, page - WINDOW_RADIUS);
+}
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -1007,34 +1015,26 @@ function generateMushafHTML(
   words: PageWord[],
   nightMode: boolean,
   fontSize: number,
-  rubMarks: RubStart[] = [],
   sajdas: SajdaVerse[] = [],
   fontDataUri?: string,
 ): string {
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const borderColor = nightMode ? "#C4A35A" : "#1B4332";
-  // Side gutter reserved for ۞/۩ marks, OUTSIDE the QCF text run (see
-  // .page-frame/.line/.rub-mark below) — scales with fontSize so the glyph
-  // always fits with room to spare.
-  const markGutter = Math.round(fontSize * 0.85);
   // Cached base64 font (see loadMushafPage/getCachedFontUri below) wins once a
   // page has been opened before; first-ever view falls back to the CDN exactly
   // as before.
   const fontUrl = fontDataUri || `${FONT_CDN}/p${pageNum}.woff2`;
 
-  // Rub' al-hizb (۞) and sajda (۩) marks: the QCF v1 glyph stream has
-  // no pseudo-word for either (verified against the API's own code_v1 data for
-  // known boundary verses), so they are overlaid here, keyed by verse_key —
-  // the word spans' own class/content below is untouched either way.
-  const rubVerseKeys = new Set(rubMarks.map((r) => r.verseKey));
+  // The QCF line fills the full page width — there is no room beside the text
+  // for an inline ۞ (a gutter shrinks the line and clips it; zero-width marks
+  // still visually overlap the neighbouring glyph). An exact in-page ۞ at the
+  // rub' position (like the Madinah print) would need image-based pages; the
+  // font-based approximation here shows ۞/۩ in the page HEADER instead (see
+  // the toolbar's juz/eighth line in QuranScreen) — rubMarks isn't used for
+  // in-page placement any more. The sajda overline below is still per-word
+  // (text-decoration adds no width, so it's safe in the text run).
   const sajdaVerseKeys = new Set(sajdas.map((s) => s.verseKey));
-  const firstWordOfVerse = new Map<string, PageWord>();
-  const lastWordOfVerse = new Map<string, PageWord>();
-  for (const w of words) {
-    if (!firstWordOfVerse.has(w.verse_key)) firstWordOfVerse.set(w.verse_key, w);
-    lastWordOfVerse.set(w.verse_key, w);
-  }
 
   // Group words by line
   const lines: { [key: number]: PageWord[] } = {};
@@ -1096,29 +1096,19 @@ function generateMushafHTML(
     prevLine = ln;
 
     const lineWords = lines[ln];
-    // Marks are no longer inline siblings of a specific word (that's what let
-    // them overlap/clip neighbouring text): a rub'/sajda boundary only marks
-    // which LINE it falls on, and is rendered once per line in the side
-    // gutter (see .rub-mark/.sajda-mark below) — not glued to the exact word.
-    let lineHasRub = false;
-    let lineHasSajda = false;
     const wordsHTML = lineWords
       .map((w) => {
         const vk = w.verse_key || "";
         const cls = [w.char_type_name === "end" ? "end-marker" : "word"];
-        const isSajda = sajdaVerseKeys.has(vk);
-        // Whole-verse overline, not just the triggering word: quran.com's
-        // per-page word data has no trigger-word index for sajdat at-tilawah,
-        // only the verse it falls in.
-        if (isSajda) cls.push("sajda-line");
-        if (rubVerseKeys.has(vk) && firstWordOfVerse.get(vk) === w) lineHasRub = true;
-        if (isSajda && lastWordOfVerse.get(vk) === w) lineHasSajda = true;
+        // Whole-verse overline, not just a trigger word: quran.com's per-page
+        // word data has no trigger-word index for sajdat at-tilawah, only the
+        // verse it falls in. text-decoration adds no width, so this is safe
+        // inside the full-width nowrap line (unlike a glyph span — see above).
+        if (sajdaVerseKeys.has(vk)) cls.push("sajda-line");
         return `<span class="${cls.join(" ")}" data-vk="${vk}">${w.code_v1}</span>`;
       })
       .join("");
-    const rubMarkHTML = lineHasRub ? `<span class="rub-mark">۞</span>` : "";
-    const sajdaMarkHTML = lineHasSajda ? `<span class="sajda-mark">۩</span>` : "";
-    linesHTML += `<div class="line">${wordsHTML}${rubMarkHTML}${sajdaMarkHTML}</div>\n`;
+    linesHTML += `<div class="line">${wordsHTML}</div>\n`;
   }
 
   return `<!DOCTYPE html>
@@ -1155,10 +1145,7 @@ html, body {
 .page-frame {
   border: 2px solid ${borderColor};
   border-radius: 6px;
-  /* Extra side padding reserves the ۞/۩ gutter; .line cancels it with an
-     equal negative margin so the QCF text's own width/position don't change
-     by a pixel — only .rub-mark/.sajda-mark actually sit in this space. */
-  padding: 8px ${4 + markGutter}px;
+  padding: 8px 4px;
   width: 100%;
   height: calc(100vh - 24px);
   display: flex;
@@ -1181,12 +1168,7 @@ html, body {
   color: ${textColor};
   text-align: center;
   direction: rtl;
-  position: relative;
   width: 100%;
-  /* Cancels .page-frame's added gutter padding so this box's rendered width
-     and centered position are pixel-identical to before that padding grew —
-     the QCF font is sized for exactly that width. */
-  margin: 0 -${markGutter}px;
   white-space: nowrap;
   letter-spacing: 0;
   word-spacing: -2px;
@@ -1219,26 +1201,6 @@ html, body {
 }
 .end-marker {
   color: ${nightMode ? "#C4A35A" : "#2D6A4F"};
-}
-.rub-mark, .sajda-mark {
-  /* Positioned OUTSIDE the QCF text run entirely (in .page-frame's reserved
-     side padding, via .line's negative margin above) so they can never clip
-     or overlap a Qur'an word — not inline content, so they add zero width
-     and sit in their own box regardless of neighbouring glyphs. One per LINE
-     (not per word), vertically centred on it. Exact offset is device-tunable;
-     the gutter (markGutter) is sized with slack on both sides. */
-  position: absolute;
-  top: 50%;
-  transform: translateY(-50%);
-  color: ${borderColor};
-  font-size: ${Math.round(fontSize * 0.75)}px;
-  line-height: 1;
-}
-.rub-mark {
-  right: -${Math.round(markGutter * 0.55)}px;
-}
-.sajda-mark {
-  left: -${Math.round(markGutter * 0.55)}px;
 }
 .sajda-line {
   text-decoration: overline;
@@ -1304,6 +1266,57 @@ document.addEventListener('pointercancel', function() {
 </script>
 </body>
 </html>`;
+}
+
+// Renders one window slot's WebView. generateMushafHTML rebuilds a full HTML
+// string (incl. the page's base64 font) for all 5 windowed pages — expensive
+// enough that doing it on every QuranScreen render (e.g. a toolbar toggle)
+// regenerates all 5 for nothing. useMemo needs a real component (a plain
+// function called in a .map() can't use hooks), keyed on exactly what
+// generateMushafHTML's output depends on — a toolbar/settings re-render with
+// the same page/bundle/nightMode/fontSize reuses the cached html untouched.
+function MushafPageView({
+  page,
+  bundle,
+  nightMode,
+  fontSize,
+  bgColor,
+  onMessage,
+}: {
+  page: number;
+  bundle: { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string };
+  nightMode: boolean;
+  fontSize: number;
+  bgColor: string;
+  onMessage: (e: any) => void;
+}) {
+  const html = useMemo(
+    () =>
+      generateMushafHTML(
+        page,
+        bundle.words,
+        nightMode,
+        fontSize,
+        getSajdasForPage(page),
+        bundle.fontUri,
+      ),
+    [page, bundle, nightMode, fontSize],
+  );
+  return (
+    <WebView
+      source={{ html }}
+      style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
+      scrollEnabled={false}
+      onMessage={onMessage}
+      javaScriptEnabled={true}
+      originWhitelist={["*"]}
+      allowsInlineMediaPlayback={true}
+      mixedContentMode="always"
+      scalesPageToFit={true}
+      showsVerticalScrollIndicator={false}
+      showsHorizontalScrollIndicator={false}
+    />
+  );
 }
 
 // ---- Per-page data + font caching (section D) ----------------------------
@@ -1470,6 +1483,11 @@ export default function QuranScreen() {
 
   // State
   const [currentPage, setCurrentPage] = useState(1);
+  // Bumped on every PROGRAMMATIC jump (index/juz tap, AsyncStorage restore) —
+  // part of PagerView's key below, so a jump remounts it fresh at the target
+  // instead of racing ViewPager2's child-replacement against the old
+  // instance's re-centre. A real swipe never bumps this (see jumpToPage).
+  const [jumpCounter, setJumpCounter] = useState(0);
   // Per-page word/ayah/font data, keyed by page number — populated lazily as
   // pages enter the sliding window (section C/D). Replaces the old single
   // pageWords/pageAyahs/loading state, which only ever held the current page.
@@ -1506,16 +1524,6 @@ export default function QuranScreen() {
   // while this is true so only a genuine user swipe ever changes currentPage.
   const programmaticMove = useRef(false);
 
-  // Load saved page on mount
-  useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
-      if (val) {
-        const p = parseInt(val, 10);
-        if (p >= 1 && p <= TOTAL_PAGES) setCurrentPage(p);
-      }
-    });
-  }, []);
-
   // Save current page
   useEffect(() => {
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
@@ -1539,6 +1547,29 @@ export default function QuranScreen() {
   // instead of racing a timeout against an event that may never arrive.
   // Matches PagerView's own initialPage={windowPages.indexOf(currentPage)}.
   const nativePagerIndex = useRef(Math.max(0, windowPages.indexOf(currentPage)));
+
+  // Every PROGRAMMATIC page move (index/juz tap, AsyncStorage restore) goes
+  // through here: bumping jumpCounter remounts PagerView (see its key prop)
+  // fresh at the target page, which sidesteps the child-replacement race
+  // entirely instead of trying to out-race it from the old instance. Also
+  // pre-syncs nativePagerIndex to the fresh mount's own initialPage, so the
+  // swipe re-centre effect (unchanged, still keyed off that ref) can't later
+  // mistake the new instance's starting position for a stale one.
+  const jumpToPage = useCallback((page: number) => {
+    nativePagerIndex.current = windowIndexFor(page);
+    setCurrentPage(page);
+    setJumpCounter((c) => c + 1);
+  }, []);
+
+  // Load saved page on mount
+  useEffect(() => {
+    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
+      if (val) {
+        const p = parseInt(val, 10);
+        if (p >= 1 && p <= TOTAL_PAGES) jumpToPage(p);
+      }
+    });
+  }, [jumpToPage]);
 
   // Load (cache-or-network) one page: caches any load that produced content —
   // QCF words, OR the plain-text alquran.cloud fallback (words:[], ayahs:[...])
@@ -1768,6 +1799,11 @@ export default function QuranScreen() {
   const currentSurah = getSurahForPage(currentPage);
   const currentJuz = getJuzForPage(currentPage);
   const currentEighth = getEighthOfJuzForPage(currentPage);
+  // Header-only ۞/۩ indicators (see generateMushafHTML's comment on why they
+  // aren't placed in the page itself): empty on nearly every page (240 rubs /
+  // 15 sajdas over 604 pages), so these are tiny no-op filters most renders.
+  const currentRubMarks = getRubMarksForPage(currentPage);
+  const currentSajdas = getSajdasForPage(currentPage);
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
@@ -1828,29 +1864,15 @@ export default function QuranScreen() {
 
     // If we have CDN font words, use WebView for high-quality rendering
     if (bundle.words.length > 0) {
-      const html = generateMushafHTML(
-        page,
-        bundle.words,
-        nightMode,
-        fontSize,
-        getRubMarksForPage(page),
-        getSajdasForPage(page),
-        bundle.fontUri,
-      );
       return (
         <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
-          <WebView
-            source={{ html }}
-            style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
-            scrollEnabled={false}
+          <MushafPageView
+            page={page}
+            bundle={bundle}
+            nightMode={nightMode}
+            fontSize={fontSize}
+            bgColor={bgColor}
             onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
-            javaScriptEnabled={true}
-            originWhitelist={["*"]}
-            allowsInlineMediaPlayback={true}
-            mixedContentMode="always"
-            scalesPageToFit={true}
-            showsVerticalScrollIndicator={false}
-            showsHorizontalScrollIndicator={false}
           />
         </View>
       );
@@ -1953,7 +1975,7 @@ export default function QuranScreen() {
           renderItem={({ item }) => (
             <Pressable
               onPress={() => {
-                setCurrentPage(item.startPage);
+                jumpToPage(item.startPage);
                 setShowIndex(false);
               }}
               onLongPress={() => {
@@ -2036,7 +2058,7 @@ export default function QuranScreen() {
             renderItem={({ item }) => (
               <Pressable
                 onPress={() => {
-                  setCurrentPage(getJuzStartPage(item));
+                  jumpToPage(getJuzStartPage(item));
                   setShowIndex(false);
                 }}
                 style={({ pressed }) => [
@@ -2381,6 +2403,22 @@ export default function QuranScreen() {
               <Text style={st.pageInfoJuz}>
                 {tx(lang, "Juz", "Juz", "الجزء")} {dig(currentJuz)} · {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(currentEighth)}/{dig(8)}
               </Text>
+              {/* Header indicators, not in-page (see generateMushafHTML): a
+                  full-width QCF line has no room beside the text for a glyph
+                  without clipping or overlapping a Qur'an word. */}
+              {currentRubMarks.length > 0 && (
+                <Text style={st.pageInfoJuz}>
+                  {"۞ "}
+                  {tx(lang, "Hizb", "Hizb", "الحزب")} {dig(currentRubMarks[0].hizb)} ·{" "}
+                  {tx(lang, "kwart", "quarter", "الربع")}
+                </Text>
+              )}
+              {currentSajdas.length > 0 && (
+                <Text style={st.pageInfoJuz}>
+                  {"۩ "}
+                  {tx(lang, "Sajda", "Sajda", "سجدة")}
+                </Text>
+              )}
             </View>
             <Pressable
               onPress={() => setShowSettings(true)}
@@ -2403,6 +2441,11 @@ export default function QuranScreen() {
           and PagerView falls back to I18nManager.isRTL (always false here) when
           the prop is omitted, which would reverse the swipe direction. */}
       <PagerView
+        // Remounts on every programmatic jump (jumpCounter bump) so it mounts
+        // fresh with initialPage already at the target — no child-replacement
+        // race to lose. A real swipe (onPageSelected below) never bumps
+        // jumpCounter, so it never remounts/flashes for normal page-turning.
+        key={`pager-${jumpCounter}`}
         ref={pagerRef}
         style={{ flex: 1 }}
         layoutDirection="rtl"
