@@ -1719,11 +1719,15 @@ export default function QuranScreen() {
           // floor could pick the neighbour page. Mid-drag (clearly between pages),
           // pick by direction so the badge shows the page being swiped TOWARD.
           const nearest = Math.round(exact);
+          const settledIdx = pageToIndex(currentPage);
           let idx: number;
           if (Math.abs(exact - nearest) < 0.01) {
+            // Near a page boundary. If it's the page we STARTED on, don't flash the
+            // outgoing page — wait until the drag moves toward another page. If it's
+            // a different page (settled/overshot onto it), show that one.
+            if (nearest === settledIdx) return;
             idx = nearest;
           } else {
-            const settledIdx = pageToIndex(currentPage);
             idx = exact > settledIdx ? Math.ceil(exact) : Math.floor(exact);
           }
           const page = indexToPage(idx);
