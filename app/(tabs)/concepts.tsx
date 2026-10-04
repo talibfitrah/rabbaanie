@@ -12,6 +12,7 @@ import {
   Dimensions,
   PanResponder,
   Animated as RNAnimated,
+  useWindowDimensions,
 } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useI18n } from "@/lib/i18n";
@@ -19,7 +20,6 @@ import { useColors } from "@/hooks/use-colors";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
-import PagerView from "react-native-pager-view";
 import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
 import {
@@ -39,15 +39,16 @@ const STORAGE_KEY = "quran_last_page";
 const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs/v1/woff2";
 const API_BASE = "https://api.quran.com/api/v4";
 const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
-// Sliding window of pages kept mounted around windowCenter (perf — see
-// generateMushafHTML call site in QuranScreen). Wider than the minimum a
-// swipe needs so the reader can move several pages within it before an
-// edge-triggered re-centre (see onPageSelected) is needed.
-const WINDOW_RADIUS = 4;
-// pageCache (data + base64 font per page) is pruned to this radius around
-// windowCenter — window + a small buffer — so visited-then-left-behind pages
-// don't accumulate in memory for the rest of the session.
-const CACHE_PRUNE_RADIUS = 6;
+// Reversed page order so page 1 sits at the right end and paging progresses
+// right→left like the printed mushaf. No scaleX transform anywhere (that would
+// mirror the Qur'an), so if the swipe direction feels wrong on device this is
+// the single switch to flip. DEVICE-TEST ITEM #1.
+const RTL_PAGING = true;
+const PRELOAD_RADIUS = 2;   // pages each side of currentPage whose data we prefetch
+const CACHE_KEEP_RADIUS = 6; // pageCache pruned beyond this many pages from currentPage
+
+const pageToIndex = (page: number) => (RTL_PAGING ? TOTAL_PAGES - page : page - 1);
+const indexToPage = (index: number) => (RTL_PAGING ? TOTAL_PAGES - index : index + 1);
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -198,8 +199,8 @@ html, body {
   overflow: hidden;
   -webkit-user-select: none;
   user-select: none;
-  /* Let a horizontal drag pass through to the native page-turn (PagerView);
-     only claim vertical panning here. */
+  /* Let a horizontal drag pass through to the native page swipe (FlatList's
+     paging scroll view); only claim vertical panning here. */
   touch-action: pan-y;
 }
 .page-container {
@@ -323,9 +324,9 @@ document.addEventListener('touchend', function() {
 document.addEventListener('touchmove', function() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 });
-// PagerView owns the swipe gesture now, so a swipe delivers touchcancel (not
-// touchend/touchmove) to this WebView — without clearing the timer here too,
-// the 600ms long-press still fires mid-swipe and opens the tafsir modal.
+// The FlatList page swipe owns the gesture now, so a swipe delivers touchcancel
+// (not touchend/touchmove) to this WebView — without clearing the timer here
+// too, the 600ms long-press still fires mid-swipe and opens the tafsir modal.
 document.addEventListener('touchcancel', function() {
   if (longPressTimer) { clearTimeout(longPressTimer); longPressTimer = null; }
 });
@@ -338,12 +339,13 @@ document.addEventListener('pointercancel', function() {
 }
 
 // Renders one window slot's WebView. generateMushafHTML rebuilds a full HTML
-// string (incl. the page's base64 font) for all 5 windowed pages — expensive
-// enough that doing it on every QuranScreen render (e.g. a toolbar toggle)
-// regenerates all 5 for nothing. useMemo needs a real component (a plain
-// function called in a .map() can't use hooks), keyed on exactly what
-// generateMushafHTML's output depends on — a toolbar/settings re-render with
-// the same page/bundle/nightMode/fontSize reuses the cached html untouched.
+// string (incl. the page's base64 font) for the handful of pages FlatList
+// keeps mounted — expensive enough that doing it on every QuranScreen render
+// (e.g. a toolbar toggle) regenerates them all for nothing. useMemo needs a
+// real component (a plain function called in a .map() can't use hooks), keyed
+// on exactly what generateMushafHTML's output depends on — a toolbar/settings
+// re-render with the same page/bundle/nightMode/fontSize reuses the cached
+// html untouched.
 function MushafPageView({
   page,
   bundle,
@@ -549,20 +551,10 @@ export default function QuranScreen() {
   const lang = language as Lang;
   const insets = useSafeAreaInsets();
   const colors = useColors();
+  const { width: screenW } = useWindowDimensions();
 
   // State
   const [currentPage, setCurrentPage] = useState(1);
-  // Edge-triggered window anchor (section C): windowPages is centred on THIS,
-  // not currentPage directly — a normal swipe only moves currentPage, so the
-  // window (and the pager) stays put until the reader nears its edge. Only
-  // then does this move too, re-centring the window on the new page.
-  const [windowCenter, setWindowCenter] = useState(1);
-  // Bumped on every PROGRAMMATIC jump (index/juz tap, AsyncStorage restore, or
-  // an edge-triggered window shift) — part of PagerView's key below, so a
-  // jump remounts it fresh at the target instead of fighting the old
-  // instance's own child-replacement. A normal mid-window swipe never bumps
-  // this (see jumpToPage/onPageSelected) — no remount, no flash.
-  const [jumpCounter, setJumpCounter] = useState(0);
   // Per-page word/ayah/font data, keyed by page number — populated lazily as
   // pages enter the sliding window (section C/D). Replaces the old single
   // pageWords/pageAyahs/loading state, which only ever held the current page.
@@ -573,10 +565,13 @@ export default function QuranScreen() {
   // etc.) — never cached (see the load effect below), so renderPageSlot shows
   // a retry button for these instead of an endless spinner.
   const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
-  // Pages with a retryPage() call currently in flight — guards a second tap
-  // (or the window effect re-firing for the same page) from stacking another
+  // Pages with a loadPage() call currently in flight — guards a second tap
+  // (or the preload effect re-firing for the same page) from stacking another
   // request, and swaps the retry button for a spinner while it's pending.
   const [retryingPages, setRetryingPages] = useState<Set<number>>(new Set());
+  const flatListRef = useRef<FlatList<number>>(null);
+  // RTL_PAGING is a module constant, so empty deps are fine here.
+  const PAGES = useMemo(() => Array.from({ length: TOTAL_PAGES }, (_, i) => indexToPage(i)), []);
   const [showIndex, setShowIndex] = useState(false);
   const [indexTab, setIndexTab] = useState<"surah" | "juz">("surah");
   const [showSettings, setShowSettings] = useState(false);
@@ -594,17 +589,14 @@ export default function QuranScreen() {
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
 
-  // Every PROGRAMMATIC page move (index/juz tap, AsyncStorage restore, or an
-  // edge-triggered window shift from a swipe below) goes through here:
-  // moving windowCenter re-centres windowPages, and bumping jumpCounter
-  // remounts PagerView (see its key prop) fresh at the target page — a fresh
-  // mount's own initialPage is correct by construction, so there's no
-  // child-replacement race to lose, unlike imperatively re-centring an
-  // existing instance.
+  // Every PROGRAMMATIC page move (index/juz tap, or the AsyncStorage restore
+  // below) goes through here: it sets currentPage and scrolls the FlatList to
+  // match. getItemLayout (below) makes scrollToIndex safe for any index, so no
+  // onScrollToIndexFailed handling is needed.
   const jumpToPage = useCallback((page: number) => {
-    setCurrentPage(page);
-    setWindowCenter(page);
-    setJumpCounter((c) => c + 1);
+    const clamped = Math.min(TOTAL_PAGES, Math.max(1, page));
+    setCurrentPage(clamped);
+    flatListRef.current?.scrollToIndex({ index: pageToIndex(clamped), animated: false });
   }, []);
 
   // True once the mount-restore below has resolved (found a saved page or
@@ -631,85 +623,65 @@ export default function QuranScreen() {
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
   }, [currentPage]);
 
-  // Sliding window of mounted pages: windowCenter ± WINDOW_RADIUS, clamped to
-  // [1, TOTAL_PAGES]. Only these get a real WebView (section C perf
-  // requirement); PagerView's children array IS this window. Centred on
-  // windowCenter, NOT currentPage — see onPageSelected for why.
-  const windowPages = useMemo(() => {
-    const pages: number[] = [];
-    for (let p = windowCenter - WINDOW_RADIUS; p <= windowCenter + WINDOW_RADIUS; p++) {
-      if (p >= 1 && p <= TOTAL_PAGES) pages.push(p);
-    }
-    return pages;
-  }, [windowCenter]);
-
-  // Load (cache-or-network) one page: caches any load that produced content —
-  // QCF words, OR the plain-text alquran.cloud fallback (words:[], ayahs:[...])
-  // — so the fallback actually renders instead of a perpetual spinner. A TOTAL
-  // failure (both empty) is tracked in failedPages instead — renderPageSlot
-  // shows a retry button for it rather than caching a blank — so the window
-  // effect below or a manual retry tap can try again. Written unconditionally
-  // so a completed fetch is never thrown away and re-requested.
-  const retryPage = useCallback(
-    (p: number) => {
-      if (retryingPages.has(p)) return; // already in flight — ignore the extra tap
-      setRetryingPages((prev) => new Set(prev).add(p));
-      loadMushafPage(p).then((bundle) => {
-        setRetryingPages((prev) => {
-          if (!prev.has(p)) return prev;
-          const next = new Set(prev);
-          next.delete(p);
-          return next;
-        });
-        if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
-          setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
-          setFailedPages((prev) => {
-            if (!prev.has(p)) return prev;
-            const next = new Set(prev);
-            next.delete(p);
-            return next;
-          });
-        } else {
-          setFailedPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
-        }
+  // Load one page (cache-or-network). In-flight de-dupe lives in the
+  // functional setRetryingPages below, so this callback is stable (no deps)
+  // and can't churn the effect. A successful load (QCF words OR the plain-text
+  // fallback with ayahs) is cached and clears failedPages; a total failure
+  // (both empty) is recorded in failedPages so the auto-load effect leaves it
+  // alone — only the retry button re-attempts it. Written even if the
+  // component moved on, so a completed fetch is never wasted.
+  const loadPage = useCallback((p: number) => {
+    let start = false;
+    setRetryingPages((prev) => {
+      if (prev.has(p)) return prev; // already in flight
+      start = true;
+      return new Set(prev).add(p);
+    });
+    if (!start) return;
+    loadMushafPage(p).then((bundle) => {
+      setRetryingPages((prev) => {
+        if (!prev.has(p)) return prev;
+        const next = new Set(prev); next.delete(p); return next;
       });
-    },
-    [retryingPages],
-  );
+      if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
+        setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+        setFailedPages((prev) => {
+          if (!prev.has(p)) return prev;
+          const next = new Set(prev); next.delete(p); return next;
+        });
+      } else {
+        setFailedPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
+      }
+    });
+  }, []);
 
-  // Load any window page not already in memory this session.
+  // Prefetch the current page + neighbours. Skips pages already cached, failed,
+  // or in flight — a failed page is NOT auto-retried (that was the endless-refetch
+  // loop); only the retry button calls loadPage for it. Depends on the state it
+  // reads so it re-runs as loads resolve, but every path hits a skip → no loop.
   useEffect(() => {
-    for (const p of windowPages) {
-      if (pageCache[p]) continue;
-      // ponytail: no in-flight de-dupe — a rapid back-and-forth swipe can fire
-      // this twice for the same page before the first resolves; the functional
-      // update below just drops the second result, so it's wasted work, not a
-      // bug. Add an in-flight Set if that ever shows up as real jank.
-      retryPage(p);
+    for (let p = currentPage - PRELOAD_RADIUS; p <= currentPage + PRELOAD_RADIUS; p++) {
+      if (p < 1 || p > TOTAL_PAGES) continue;
+      if (pageCache[p] || failedPages.has(p) || retryingPages.has(p)) continue;
+      loadPage(p);
     }
-  }, [windowPages, retryPage]);
+  }, [currentPage, pageCache, failedPages, retryingPages, loadPage]);
 
-  // Prune pageCache to pages near windowCenter (window + buffer) so each
-  // visited page's cached data — including its base64 font — doesn't stay in
-  // memory for the rest of the session. Keyed on windowCenter, not
-  // currentPage: currentPage can drift up to WINDOW_RADIUS away from it
-  // (edge-triggered windowing, see onPageSelected) without that drift evicting
-  // a page that's still actually mounted in the window.
   useEffect(() => {
     setPageCache((prev) => {
       let changed = false;
       const next: typeof prev = {};
       for (const key in prev) {
         const p = Number(key);
-        if (Math.abs(p - windowCenter) <= CACHE_PRUNE_RADIUS) next[p] = prev[p];
+        if (Math.abs(p - currentPage) <= CACHE_KEEP_RADIUS) next[p] = prev[p];
         else changed = true;
       }
       return changed ? next : prev;
     });
-  }, [windowCenter]);
+  }, [currentPage]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
-  // PagerView owns the swipe gesture now (section C) — so each slot just
+  // FlatList strip owns the swipe gesture now (section C) — so each slot just
   // reports taps/longpresses against its OWN ayahs list.
   const handleWebViewMessage = (event: any, ayahs: PageAyah[]) => {
     try {
@@ -895,21 +867,20 @@ export default function QuranScreen() {
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
 
-  // Render ONE window slot (section C): a page not yet loaded shows a loading
+  // Render ONE list item (section C): a page not yet loaded shows a loading
   // spinner, a page that truly failed shows a retry button, a loaded page
   // with CDN words renders via WebView (markers added per section B), and a
   // loaded page with no word data falls back to plain text. Every branch
-  // returns a single plain View sized width/height:'100%' (not flex:1) with
-  // collapsable={false} as PagerView's direct child — react-native-pager-view
-  // requires this (a bare ScrollView or a flex:1 child can report the wrong
-  // size to the native pager).
+  // returns a single plain View sized exactly one screen wide (width: screenW,
+  // height: '100%') — FlatList's horizontal pagingEnabled snapping requires
+  // each item to measure exactly one screen.
   const renderPageSlot = (page: number) => {
     const bundle = pageCache[page];
 
     if (!bundle) {
       if (failedPages.has(page)) {
         return (
-          <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+          <View style={{ width: screenW, height: "100%" }}>
             <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
               <Text style={{ color: textColor, fontSize: 14, textAlign: "center" }}>
                 {tx(lang, "Laden mislukt", "Failed to load", "تعذر تحميل الصفحة")}
@@ -921,7 +892,7 @@ export default function QuranScreen() {
                 />
               ) : (
                 <Pressable
-                  onPress={() => retryPage(page)}
+                  onPress={() => loadPage(page)}
                   style={({ pressed }) => [
                     { marginTop: 12, backgroundColor: headerBg, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
                     pressed && { opacity: 0.7 },
@@ -937,7 +908,7 @@ export default function QuranScreen() {
         );
       }
       return (
-        <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+        <View style={{ width: screenW, height: "100%" }}>
           <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
             <ActivityIndicator
               size="large"
@@ -959,7 +930,7 @@ export default function QuranScreen() {
     // If we have CDN font words, use WebView for high-quality rendering
     if (bundle.words.length > 0) {
       return (
-        <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+        <View style={{ width: screenW, height: "100%" }}>
           <MushafPageView
             page={page}
             bundle={bundle}
@@ -974,7 +945,7 @@ export default function QuranScreen() {
 
     // Fallback: render with text (when API fails)
     return (
-      <View key={String(page)} collapsable={false} style={{ width: "100%", height: "100%" }}>
+      <View style={{ width: screenW, height: "100%" }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: bgColor }}
           contentContainerStyle={{
@@ -1529,39 +1500,29 @@ export default function QuranScreen() {
         </View>
       )}
 
-      {/* Page content — RTL page-turning strip (section C). layoutDirection
-          must be explicit: this app keeps native RTL off globally (lib/i18n.tsx),
-          and PagerView falls back to I18nManager.isRTL (always false here) when
-          the prop is omitted, which would reverse the swipe direction. */}
-      <PagerView
-        // Remounts on every programmatic jump (jumpCounter bump) so it mounts
-        // fresh with initialPage already at the target — no child-replacement
-        // race to lose. A normal mid-window swipe (onPageSelected below) never
-        // bumps jumpCounter, so it never remounts/flashes for normal
-        // page-turning.
-        key={`pager-${jumpCounter}`}
-        style={{ flex: 1 }}
-        layoutDirection="rtl"
-        initialPage={Math.max(0, windowPages.indexOf(currentPage))}
-        offscreenPageLimit={WINDOW_RADIUS}
-        onPageSelected={(e: any) => {
-          const position = e.nativeEvent.position;
-          const selected = windowPages[position];
-          if (!selected || selected === currentPage) return;
-          // Edge-triggered re-centre: a normal swipe deep inside the window
-          // only moves currentPage — no imperative pager call, so there's
-          // nothing for the native side to echo back and no race with a fast
-          // next swipe. Only once the reader is within 1 page of a window
-          // edge does the window actually shift, via the same remount
-          // jumpToPage uses for taps — by construction a fresh mount has no
-          // child-replacement race either.
-          const nearEdge = position <= 1 || position >= windowPages.length - 2;
-          if (nearEdge) jumpToPage(selected);
-          else setCurrentPage(selected);
+      {/* Page content — virtualized RTL page strip. FlatList windows the 604 pages
+          natively (only nearby items mounted), so no manual window/remount. RTL via
+          reversed data (RTL_PAGING), no transform → the Qur'an is never mirrored. */}
+      <FlatList
+        ref={flatListRef}
+        data={PAGES}
+        keyExtractor={(p) => String(p)}
+        renderItem={({ item }) => renderPageSlot(item)}
+        horizontal
+        pagingEnabled
+        showsHorizontalScrollIndicator={false}
+        getItemLayout={(_, index) => ({ length: screenW, offset: screenW * index, index })}
+        initialScrollIndex={pageToIndex(currentPage)}
+        initialNumToRender={1}
+        maxToRenderPerBatch={2}
+        windowSize={5}
+        removeClippedSubviews={false}
+        onMomentumScrollEnd={(e) => {
+          const idx = Math.round(e.nativeEvent.contentOffset.x / screenW);
+          const page = indexToPage(idx);
+          if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
         }}
-      >
-        {windowPages.map((p) => renderPageSlot(p))}
-      </PagerView>
+      />
 
       {/* Modals */}
       {renderIndex()}

@@ -28,7 +28,7 @@ describe("Quran Screen (concepts.tsx)", () => {
   it("should have surah index functionality", () => {
     expect(content).toContain("showIndex");
     // Surah data (incl. Arabic names like الفاتحة) now lives in its own
-    // module, imported here — see lib/surah-list.test coverage via
+    // module, imported here — see the SURAH_LIST import assertions in
     // tests/quran-screen.test.ts for the full list.
     expect(content).toContain("SURAH_LIST");
     const surahListContent = fs.readFileSync(
