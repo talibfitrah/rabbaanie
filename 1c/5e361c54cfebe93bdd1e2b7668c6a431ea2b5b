@@ -1,0 +1,31 @@
+app/(tabs)/concepts.tsx
+  s_132c73e77515ad::t_9019a48c92ce88 820-821,824
+  s_132c73e77515ad::t_054694b465aaf2 1680-1682,1691
+  s_132c73e77515ad::t_b242427df79201 1799-1801,1803-1804,1806-1807,1809,1811-1813
+  s_132c73e77515ad::t_5492ad8e7e8cb7 1736,1740,1742,1745,1747-1749
+  s_132c73e77515ad::t_c00ff575656390 1687-1690,1695-1697,1699,1707-1716,1718-1719
+  s_132c73e77515ad::t_d9306f3e92d2bd 99-103
+  s_132c73e77515ad::t_21db482920c284 636-637
+  s_132c73e77515ad::t_7e0abf6c484167 376-377
+  s_132c73e77515ad::t_7b88b556d173f1 986-1006,1010
+  s_132c73e77515ad::t_0a65f22a4438ef 373-375,378,381
+  s_132c73e77515ad::t_33999e65fe298a 1040-1042
+lib/quran-page-index.ts
+  s_132c73e77515ad::t_3420f789f06cbc 12,16-19,58
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "1c5e361c54cfebe93bdd1e2b7668c6a431ea2b5b",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
