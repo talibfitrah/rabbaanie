@@ -20,6 +20,7 @@ import {
   getCityAR,
   type SavedPrayerLocation,
   type CalcMethod,
+  type PrayerTimesResult,
 } from "@/lib/prayer-data";
 import {
   detectPrayerConflict,
@@ -32,6 +33,17 @@ import { getDayOccasions, type Occasion } from "@/lib/islamic-calendar";
 import { buildMonthGrid, weekDatesFor, monthsOfYear, addDays } from "@/lib/calendar-grid";
 import { loadEvents, addEvent, updateEvent, removeEvent, eventsForDate, type CalendarEvent, type CalendarEntryType } from "@/lib/calendar-events";
 import { rescheduleEventReminders } from "@/lib/event-reminders";
+import {
+  loadProgramItems,
+  addProgramItem,
+  updateProgramItem,
+  deleteProgramItem,
+  resolveItemMinutes,
+  programForDay,
+  type ProgramItem,
+  type ProgramAnchor,
+  type ResolvedProgramItem,
+} from "@/lib/program";
 import { CALENDAR_SOUND_OPTIONS, type CalendarSound, loadCalendarSound, saveCalendarSound, ensureCalendarAlarmChannels, ensureExactAlarmAllowed, openAlarmPermission } from "@/lib/calendar-alarm";
 import { LocationPickerModal } from "@/components/location-picker-modal";
 
@@ -50,7 +62,7 @@ if (Platform.OS !== "web") {
 }
 
 type Lang = "nl" | "en" | "ar";
-type ViewMode = "day" | "week" | "month" | "year";
+type ViewMode = "day" | "week" | "month" | "year" | "program";
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   return lang === "ar" ? ar : lang === "en" ? en : nl;
@@ -159,13 +171,18 @@ const WEEKDAY_FULL_NAMES: Record<Lang, string[]> = {
 // existing date.mon../date.sun i18n dictionary entries.
 const WEEKDAY_KEYS = ["mon", "tue", "wed", "thu", "fri", "sat", "sun"];
 
-const PRAYER_LABELS: Record<"fajr" | "dhuhr" | "asr" | "maghrib" | "isha", Record<Lang, string>> = {
+const PRAYER_LABELS: Record<"fajr" | "sunrise" | "dhuhr" | "asr" | "maghrib" | "isha", Record<Lang, string>> = {
   fajr: { nl: "Fajr", en: "Fajr", ar: "الفجر" },
+  sunrise: { nl: "Zonsopkomst", en: "Sunrise", ar: "الشروق" },
   dhuhr: { nl: "Dhuhr", en: "Dhuhr", ar: "الظهر" },
   asr: { nl: "Asr", en: "Asr", ar: "العصر" },
   maghrib: { nl: "Maghrib", en: "Maghrib", ar: "المغرب" },
   isha: { nl: "Isha", en: "Isha", ar: "العشاء" },
 };
+// The daily timeline shows only the five SALAH as anchor rows (sunrise is a
+// valid anchor to attach a program item to, e.g. "30 min after sunrise" for
+// Duha, but it is not itself a prayer row).
+const DAILY_SALAH = ["fajr", "dhuhr", "asr", "maghrib", "isha"] as const;
 
 const REMINDER_OPTIONS: { value: number | null; label: Record<Lang, string> }[] = [
   { value: null, label: { nl: "Geen", en: "None", ar: "بدون" } },
@@ -187,6 +204,63 @@ const ENTRY_TYPES: { key: CalendarEntryType; icon: string; nl: string; en: strin
 ];
 const ENTRY_COLORS = ["#1B4332", "#C4A35A", "#2563EB", "#C62828", "#5E35B1", "#00897B"];
 
+// ============ PROGRAM («البرنامج», 3180) ============
+// A RECURRING prayer-anchored routine (lib/program.ts), distinct from the
+// one-off CalendarEvent above. See lib/program.ts for the resolve model.
+
+// Anchor picker: the 6 prayers (incl. sunrise) + a fixed clock time.
+const ANCHOR_OPTIONS: { key: ProgramAnchor; nl: string; en: string; ar: string }[] = [
+  { key: "fajr", nl: PRAYER_LABELS.fajr.nl, en: PRAYER_LABELS.fajr.en, ar: PRAYER_LABELS.fajr.ar },
+  { key: "sunrise", nl: PRAYER_LABELS.sunrise.nl, en: PRAYER_LABELS.sunrise.en, ar: PRAYER_LABELS.sunrise.ar },
+  { key: "dhuhr", nl: PRAYER_LABELS.dhuhr.nl, en: PRAYER_LABELS.dhuhr.en, ar: PRAYER_LABELS.dhuhr.ar },
+  { key: "asr", nl: PRAYER_LABELS.asr.nl, en: PRAYER_LABELS.asr.en, ar: PRAYER_LABELS.asr.ar },
+  { key: "maghrib", nl: PRAYER_LABELS.maghrib.nl, en: PRAYER_LABELS.maghrib.en, ar: PRAYER_LABELS.maghrib.ar },
+  { key: "isha", nl: PRAYER_LABELS.isha.nl, en: PRAYER_LABELS.isha.en, ar: PRAYER_LABELS.isha.ar },
+  { key: "fixed", nl: "Vast tijdstip", en: "Fixed time", ar: "وقت ثابت" },
+];
+
+// WEEKDAY_KEYS is Monday-first ("mon".."sun"); ProgramItem.days uses JS
+// Date.getDay() numbering (0=Sun..6=Sat). Index i of WEEKDAY_KEYS is weekday
+// (i+1)%7 -- mon=1 ... sat=6, sun=0. Keeps the day-of-week picker visually
+// Monday-first (matching the rest of roznama) while storing JS weekday numbers.
+const WEEKDAY_NUMS = WEEKDAY_KEYS.map((_, i) => (i + 1) % 7);
+
+// Sentinel for "no saved prayer location": every prayer-anchor lookup inside
+// resolveItemMinutes fails its HH:MM parse against these and is correctly
+// dropped (its documented "malformed -> null" contract), while "fixed" items
+// (which never read `times`) still resolve normally. Lets the daily/weekly
+// program views call the same pure programForDay() either way instead of a
+// parallel no-location code path.
+const NO_TIMES: PrayerTimesResult = { fajr: "", sunrise: "", dhuhr: "", asr: "", maghrib: "", isha: "" };
+
+/** A day row in the merged daily timeline: either a prayer anchor or a resolved program item. */
+type TimelineRow =
+  | { kind: "prayer"; prayer: (typeof DAILY_SALAH)[number]; minutes: number }
+  | { kind: "program"; resolved: ResolvedProgramItem };
+
+/** Merges the day's five prayer times (if known) with its resolved program
+ * items into one morning -> evening list. Pure; UI-local (the lib stays
+ * prayer/program-only, this merge is presentation). */
+function buildDailyTimeline(times: PrayerTimesResult | null, resolved: ResolvedProgramItem[]): TimelineRow[] {
+  const rows: TimelineRow[] = resolved.map((r) => ({ kind: "program" as const, resolved: r }));
+  if (times) {
+    for (const p of DAILY_SALAH) {
+      const [h, m] = times[p].split(":").map(Number);
+      rows.push({ kind: "prayer", prayer: p, minutes: h * 60 + m });
+    }
+  }
+  return rows.sort((a, b) => (a.kind === "prayer" ? a.minutes : a.resolved.minutes) - (b.kind === "prayer" ? b.minutes : b.resolved.minutes));
+}
+
+/** days=[] (or all 7 listed) toggled at one day -> the other 6; collapses
+ * back to [] once all 7 are selected again (itemRecursOn treats both the
+ * same, so this just keeps the stored value canonical). UI-local. */
+function toggleProgDay(current: number[], day: number): number[] {
+  const effective = current.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : current;
+  const next = effective.includes(day) ? effective.filter((d) => d !== day) : [...effective, day].sort((a, b) => a - b);
+  return next.length === 7 ? [] : next;
+}
+
 export default function RoznamaScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
@@ -201,8 +275,13 @@ export default function RoznamaScreen() {
   });
   const [viewMode, setViewMode] = useState<ViewMode>(() => {
     const v = params.view;
-    return v === "day" || v === "week" || v === "month" || v === "year" ? v : "month";
+    return v === "day" || v === "week" || v === "month" || v === "year" || v === "program" ? v : "month";
   });
+  // program's own daily/weekly sub-toggle (3180) -- declared here (not beside
+  // the rest of the program state further down) because rangeLabelGreg/
+  // rangeLabelHijri below close over it and useMemo invokes its factory
+  // synchronously on first render, before a later const would be initialized.
+  const [programSubView, setProgramSubView] = useState<"daily" | "weekly">("daily");
 
   // ---- prayer location/method (mirrors app/(tabs)/prayer-times.tsx) ----
   const [savedLocation, setSavedLocation] = useState<SavedPrayerLocation | null>(null);
@@ -285,8 +364,10 @@ export default function RoznamaScreen() {
   }
   function shift(dir: 1 | -1) {
     setSelectedDate((d) => {
-      if (viewMode === "day") return addDays(d, dir);
-      if (viewMode === "week") return addDays(d, dir * 7);
+      // "program" has its own daily/weekly sub-toggle (programSubView) — the
+      // top nav arrows shift by the same unit that sub-view is showing.
+      if (viewMode === "day" || (viewMode === "program" && programSubView === "daily")) return addDays(d, dir);
+      if (viewMode === "week" || (viewMode === "program" && programSubView === "weekly")) return addDays(d, dir * 7);
       if (viewMode === "month") {
         const n = new Date(d);
         n.setMonth(n.getMonth() + dir, 1);
@@ -329,7 +410,7 @@ export default function RoznamaScreen() {
   const rangeLabelGreg = useMemo(() => {
     if (viewMode === "year") return dig(selectedDate.getFullYear());
     if (viewMode === "month") return `${MONTH_NAMES[lang][selectedDate.getMonth()]} ${dig(selectedDate.getFullYear())}`;
-    if (viewMode === "week") {
+    if (viewMode === "week" || (viewMode === "program" && programSubView === "weekly")) {
       const start = weekDates[0];
       const end = weekDates[6];
       const sameYear = start.getFullYear() === end.getFullYear();
@@ -340,7 +421,7 @@ export default function RoznamaScreen() {
       return `${startLabel} - ${dig(end.getDate())} ${MONTH_NAMES[lang][end.getMonth()]} ${dig(end.getFullYear())}`;
     }
     return `${dig(selectedDate.getDate())} ${MONTH_NAMES[lang][selectedDate.getMonth()]} ${dig(selectedDate.getFullYear())}`;
-  }, [viewMode, selectedDate, weekDates, lang, numeralSystem]);
+  }, [viewMode, programSubView, selectedDate, weekDates, lang, numeralSystem]);
 
   // Hijri range — now the PRIMARY label (2963). A Gregorian month/year spans two
   // Hijri ones, so month/year use the Hijri date of the selected day (approx).
@@ -350,7 +431,7 @@ export default function RoznamaScreen() {
     const hName = (d: { monthName: string; monthNameAR: string }) => (lang === "ar" ? d.monthNameAR : d.monthName);
     if (viewMode === "year") return `${dig(h.year)} ${suffix}`;
     if (viewMode === "month") return `${hName(h)} ${dig(h.year)} ${suffix}`;
-    if (viewMode === "week") {
+    if (viewMode === "week" || (viewMode === "program" && programSubView === "weekly")) {
       const hs = getIslamicDate(weekDates[0], null);
       const he = getIslamicDate(weekDates[6], null);
       const startLabel = hs.month === he.month && hs.year === he.year
@@ -359,7 +440,7 @@ export default function RoznamaScreen() {
       return `${startLabel} - ${dig(he.day)} ${hName(he)} ${dig(he.year)} ${suffix}`;
     }
     return formatHijriDate(h, lang, numeralSystem);
-  }, [viewMode, selectedDate, weekDates, lang, numeralSystem]);
+  }, [viewMode, programSubView, selectedDate, weekDates, lang, numeralSystem]);
 
   // ---- day detail data ----
   const prayerTimesForDay = useMemo(() => {
@@ -434,6 +515,51 @@ export default function RoznamaScreen() {
       // saved and applies on the next reschedule; don't leave an unhandled reject.
     }
   }
+
+  // ---- program items (recurring, prayer-anchored routine — 3180) ----
+  const [programItems, setProgramItems] = useState<ProgramItem[]>([]);
+  useEffect(() => {
+    loadProgramItems().then(setProgramItems);
+  }, []);
+  async function afterProgramMutation() {
+    await loadProgramItems().then(setProgramItems);
+  }
+  // Each day uses ITS OWN prayer times, so a Fajr-anchored item sits at THAT
+  // day's Fajr (3180). Declared after programItems/weekDates/prayerTimesForDay
+  // above -- useMemo invokes its factory synchronously on first render, so it
+  // must not close over a state const that hasn't been declared yet.
+  const weekPrayerTimes = useMemo(
+    () => weekDates.map((d) => (savedLocation ? calculatePrayerTimes(d, savedLocation.lat, savedLocation.lng, selectedMethod, savedLocation.tz) : NO_TIMES)),
+    [weekDates, savedLocation, selectedMethod],
+  );
+  const dailyProgramResolved = useMemo(
+    () => programForDay(programItems, selectedDate.getDay(), prayerTimesForDay ?? NO_TIMES),
+    [programItems, selectedDate, prayerTimesForDay],
+  );
+  const dailyTimeline = useMemo(
+    () => buildDailyTimeline(prayerTimesForDay, dailyProgramResolved),
+    [prayerTimesForDay, dailyProgramResolved],
+  );
+  const weeklyProgramResolved = useMemo(
+    () => weekDates.map((d, i) => programForDay(programItems, d.getDay(), weekPrayerTimes[i])),
+    [programItems, weekDates, weekPrayerTimes],
+  );
+
+  // ---- add/edit program modal ----
+  const [programModalVisible, setProgramModalVisible] = useState(false);
+  const [editingProgramId, setEditingProgramId] = useState<string | null>(null);
+  const [progTitle, setProgTitle] = useState("");
+  const [progAnchor, setProgAnchor] = useState<ProgramAnchor>("fajr");
+  const [progOffset, setProgOffset] = useState(0); // minutes; prayer anchors only — "fixed" uses progFixedTime
+  const [progFixedTime, setProgFixedTime] = useState<Date>(new Date());
+  const [showProgFixedTimePicker, setShowProgFixedTimePicker] = useState(false);
+  const [progHasDuration, setProgHasDuration] = useState(false);
+  const [progDuration, setProgDuration] = useState(30);
+  const [progDays, setProgDays] = useState<number[]>([]); // [] = every day
+  const [progNote, setProgNote] = useState("");
+  const [progColor, setProgColor] = useState<string | null>(null);
+  const [progType, setProgType] = useState<CalendarEntryType>("event");
+  const [progSaving, setProgSaving] = useState(false);
 
   function openAddModal() {
     setEditingId(null);
@@ -666,6 +792,102 @@ export default function RoznamaScreen() {
       });
     } else {
       setShowEndTimePicker((v) => !v);
+    }
+  }
+
+  // ---- program add/edit/delete (mirrors the appointment modal above) ----
+  function openAddProgramModal() {
+    setEditingProgramId(null);
+    setProgTitle("");
+    setProgAnchor("fajr");
+    setProgOffset(0);
+    setProgFixedTime(new Date());
+    setShowProgFixedTimePicker(false);
+    setProgHasDuration(false);
+    setProgDuration(30);
+    setProgDays([]);
+    setProgNote("");
+    setProgColor(null);
+    setProgType("event");
+    setProgSaving(false);
+    setProgramModalVisible(true);
+  }
+  function openEditProgramModal(it: ProgramItem) {
+    setEditingProgramId(it.id);
+    setProgTitle(it.title);
+    setProgAnchor(it.anchor);
+    if (it.anchor === "fixed") {
+      const t = new Date();
+      t.setHours(Math.floor(it.offsetMinutes / 60), it.offsetMinutes % 60, 0, 0);
+      setProgFixedTime(t);
+      setProgOffset(0);
+    } else {
+      setProgOffset(it.offsetMinutes);
+      setProgFixedTime(new Date());
+    }
+    setShowProgFixedTimePicker(false);
+    setProgHasDuration(it.durationMinutes != null);
+    setProgDuration(it.durationMinutes ?? 30);
+    setProgDays([...it.days]);
+    setProgNote(it.note ?? "");
+    setProgColor(it.color ?? null);
+    setProgType(it.type ?? "event");
+    setProgSaving(false);
+    setProgramModalVisible(true);
+  }
+  async function handleSaveProgram() {
+    if (progSaving) return;
+    if (!progTitle.trim()) {
+      Alert.alert(
+        tx(lang, "Titel vereist", "Title required", "العنوان مطلوب"),
+        tx(lang, "Voer een titel in voor de activiteit.", "Enter a title for the activity.", "أدخل عنوانًا للنشاط."),
+      );
+      return;
+    }
+    setProgSaving(true);
+    try {
+      const offsetMinutes = progAnchor === "fixed" ? progFixedTime.getHours() * 60 + progFixedTime.getMinutes() : progOffset;
+      const data = {
+        title: progTitle.trim(),
+        anchor: progAnchor,
+        offsetMinutes,
+        durationMinutes: progHasDuration ? progDuration : undefined,
+        days: [...progDays],
+        note: progNote.trim() || undefined,
+        color: progColor ?? undefined,
+        type: progType,
+      };
+      if (editingProgramId) await updateProgramItem(editingProgramId, data);
+      else await addProgramItem(data);
+      setProgramModalVisible(false);
+      await afterProgramMutation();
+    } catch (e) {
+      const detail = String((e as any)?.message ?? e ?? "").slice(0, 300);
+      Alert.alert(
+        tx(lang, "Opslaan mislukt", "Save failed", "تعذّر الحفظ"),
+        tx(lang, "Probeer het opnieuw.", "Please try again.", "يرجى المحاولة مرة أخرى.") + (detail ? `\n\n[${detail}]` : ""),
+      );
+    } finally {
+      setProgSaving(false);
+    }
+  }
+  async function handleDeleteProgram(id: string) {
+    await deleteProgramItem(id);
+    setProgramModalVisible(false);
+    await afterProgramMutation();
+  }
+  function pickProgFixedTime() {
+    if (Platform.OS === "android" && DateTimePickerAndroid) {
+      DateTimePickerAndroid.open({
+        value: progFixedTime,
+        mode: "time",
+        is24Hour: true,
+        onChange: (_e: any, d?: Date) => {
+          if (d) setProgFixedTime(d);
+        },
+      });
+    } else {
+      setShowProgFixedTimePicker((v) => !v);
     }
   }
 
@@ -931,6 +1153,356 @@ export default function RoznamaScreen() {
           </Pressable>
         ))}
       </View>
+    );
+  }
+
+  // ---- program («البرنامج») views ----
+  function renderPrayerAnchorRow(prayer: (typeof DAILY_SALAH)[number], minutes: number, key: string) {
+    const h = Math.floor(minutes / 60), m = minutes % 60;
+    return (
+      <View key={key} style={[st.prayerAnchorRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+        <Text style={st.prayerAnchorTime}>{dig(String(h).padStart(2, "0"))}:{dig(String(m).padStart(2, "0"))}</Text>
+        <MaterialIcons name="mosque" size={14} color="#C4A35A" />
+        <Text style={st.prayerAnchorText}>{PRAYER_LABELS[prayer][lang]}</Text>
+      </View>
+    );
+  }
+
+  function renderProgramItemRow(r: ResolvedProgramItem, key: string) {
+    const conflict = prayerTimesForDay ? detectPrayerConflict(selectedDate, r.hour, r.minute, prayerTimesForDay, conflictPrefs) : { kind: "none" as const };
+    return (
+      <Pressable
+        key={key}
+        onPress={() => openEditProgramModal(r.item)}
+        style={[
+          st.apptRow,
+          { flexDirection: isRTL ? "row-reverse" : "row" },
+          r.item.color ? (isRTL ? { borderRightWidth: 4, borderRightColor: r.item.color } : { borderLeftWidth: 4, borderLeftColor: r.item.color }) : null,
+        ]}
+      >
+        <Text style={st.apptTime}>{dig(String(r.hour).padStart(2, "0"))}:{dig(String(r.minute).padStart(2, "0"))}</Text>
+        <View style={{ flex: 1 }}>
+          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
+            <MaterialIcons name={r.item.type === "worship" ? "mosque" : r.item.type === "task" ? "task-alt" : "event"} size={14} color="#1B4332" />
+            <Text style={st.apptTitle}>{r.item.title}</Text>
+          </View>
+          {r.item.durationMinutes ? (
+            <Text style={st.apptNote}>{tx(lang, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} دقيقة`)}</Text>
+          ) : null}
+          {r.item.note ? <Text style={st.apptNote}>{r.item.note}</Text> : null}
+          {conflict.kind !== "none" && (
+            <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <MaterialIcons name="error-outline" size={12} color="#B45309" />
+              <Text style={st.conflictWarnText}>{tx(lang, "Botst met gebedstijd", "Collides with prayer time", "يتعارض مع وقت الصلاة")}</Text>
+            </View>
+          )}
+        </View>
+        <MaterialIcons name={isRTL ? "chevron-left" : "chevron-right"} size={18} color="#9CA3AF" />
+      </Pressable>
+    );
+  }
+
+  function renderProgramDaily() {
+    return (
+      <View>
+        <View style={[st.sectionHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Text style={st.sectionTitle}>{tx(lang, "Programma van de dag", "Today's program", "برنامج اليوم")}</Text>
+          <Pressable onPress={openAddProgramModal} style={({ pressed }) => [st.addBtn, pressed && { opacity: 0.7 }]}>
+            <MaterialIcons name="add" size={20} color="#FFFFFF" />
+          </Pressable>
+        </View>
+        {dailyTimeline.length === 0 ? (
+          <Text style={st.hintText}>{tx(lang, "Nog geen activiteiten. Voeg je eerste activiteit toe.", "No activities yet. Add your first activity.", "لا توجد أنشطة بعد. أضف نشاطك الأول.")}</Text>
+        ) : (
+          dailyTimeline.map((row, i) =>
+            row.kind === "prayer"
+              ? renderPrayerAnchorRow(row.prayer, row.minutes, `p-${row.prayer}-${i}`)
+              : renderProgramItemRow(row.resolved, `i-${row.resolved.item.id}-${i}`),
+          )
+        )}
+      </View>
+    );
+  }
+
+  function renderProgramWeekly() {
+    return (
+      <View>
+        <Text style={st.sectionTitle}>{tx(lang, "Week overzicht", "Week overview", "نظرة أسبوعية")}</Text>
+        <Text style={[st.hintText, { marginBottom: 10 }]}>{tx(lang, "Tik op een dag voor het dagprogramma.", "Tap a day for its daily program.", "اضغط على يوم لعرض برنامجه اليومي.")}</Text>
+        {weekDates.map((d, i) => {
+          const resolved = weeklyProgramResolved[i];
+          const times = weekPrayerTimes[i];
+          const isSelected = sameDay(d, selectedDate);
+          return (
+            <Pressable
+              key={i}
+              onPress={() => { setSelectedDate(d); setProgramSubView("daily"); }}
+              style={[st.card, isSelected && { borderColor: "#1B4332" }]}
+            >
+              <Text style={st.cardTitle}>
+                {WEEKDAY_FULL_NAMES[lang][d.getDay()]} · {dig(d.getDate())} {MONTH_NAMES[lang][d.getMonth()]}
+              </Text>
+              {resolved.length === 0 ? (
+                <Text style={st.hintText}>{tx(lang, "Geen activiteiten", "No activities", "لا نشاطات")}</Text>
+              ) : (
+                resolved.map((r, ri) => {
+                  // times === NO_TIMES (reference check) means this day had no
+                  // saved location -- skip the conflict check, nothing to compare.
+                  const conflict = times !== NO_TIMES ? detectPrayerConflict(d, r.hour, r.minute, times, conflictPrefs) : { kind: "none" as const };
+                  return (
+                    <View key={ri} style={[st.weeklyItemRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                      <Text style={st.apptTime}>{dig(String(r.hour).padStart(2, "0"))}:{dig(String(r.minute).padStart(2, "0"))}</Text>
+                      <Text style={[st.apptTitle, { flex: 1 }]} numberOfLines={1}>{r.item.title}</Text>
+                      {conflict.kind !== "none" && <MaterialIcons name="error-outline" size={12} color="#B45309" />}
+                    </View>
+                  );
+                })
+              )}
+            </Pressable>
+          );
+        })}
+      </View>
+    );
+  }
+
+  function renderProgramView() {
+    return (
+      <View>
+        <View style={[st.segmentRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+          <Pressable onPress={() => setProgramSubView("daily")} style={[st.segment, programSubView === "daily" && st.segmentActive]}>
+            <Text style={[st.segmentText, programSubView === "daily" && st.segmentTextActive]}>{tx(lang, "Dagelijks", "Daily", "يومي")}</Text>
+          </Pressable>
+          <Pressable onPress={() => setProgramSubView("weekly")} style={[st.segment, programSubView === "weekly" && st.segmentActive]}>
+            <Text style={[st.segmentText, programSubView === "weekly" && st.segmentTextActive]}>{tx(lang, "Wekelijks", "Weekly", "أسبوعي")}</Text>
+          </Pressable>
+        </View>
+
+        {!savedLocation && (
+          <Text style={[st.hintText, { marginBottom: 10 }]}>
+            {tx(
+              lang,
+              "Stel uw locatie in bij Instellingen om activiteiten rond de gebedstijden te plaatsen.",
+              "Set your location in Settings to anchor activities to prayer times.",
+              "قم بتعيين موقعك في الإعدادات لترتيب الأنشطة حول أوقات الصلاة.",
+            )}
+          </Text>
+        )}
+
+        {programSubView === "daily" ? renderProgramDaily() : renderProgramWeekly()}
+      </View>
+    );
+  }
+
+  function renderProgramModal() {
+    const previewMinutes =
+      progAnchor === "fixed"
+        ? progFixedTime.getHours() * 60 + progFixedTime.getMinutes()
+        : prayerTimesForDay
+        ? resolveItemMinutes({ id: "preview", title: progTitle, anchor: progAnchor, offsetMinutes: progOffset, days: [] }, prayerTimesForDay)
+        : null;
+    const previewConflict =
+      previewMinutes != null && prayerTimesForDay
+        ? detectPrayerConflict(selectedDate, Math.floor(previewMinutes / 60), previewMinutes % 60, prayerTimesForDay, conflictPrefs)
+        : { kind: "none" as const };
+    const anchorLabel = tx(lang, ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.nl ?? "", ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.en ?? "", ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.ar ?? "");
+
+    return (
+      <Modal
+        visible={programModalVisible}
+        transparent
+        animationType="slide"
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
+        onRequestClose={() => setProgramModalVisible(false)}
+      >
+        <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === "ios" ? "padding" : "height"}>
+          <View style={st.modalOverlay}>
+            <View style={st.modalContent}>
+              <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <View style={[st.modalHeaderRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Text style={st.modalTitle}>
+                    {editingProgramId ? tx(lang, "Activiteit bewerken", "Edit activity", "تعديل النشاط") : tx(lang, "Nieuwe activiteit", "New activity", "نشاط جديد")}
+                  </Text>
+                  <Pressable onPress={() => setProgramModalVisible(false)}>
+                    <MaterialIcons name="close" size={24} color="#6B7B72" />
+                  </Pressable>
+                </View>
+
+                <Text style={st.fieldLabel}>{tx(lang, "Titel", "Title", "العنوان")}</Text>
+                <TextInput
+                  value={progTitle}
+                  onChangeText={setProgTitle}
+                  style={[st.textInput, { textAlign: isRTL ? "right" : "left" }]}
+                  placeholder={tx(lang, "Bijv. Koranlezing", "E.g. Qur'an reading", "مثال: قراءة القرآن")}
+                  placeholderTextColor="#9CA3AF"
+                  maxLength={100}
+                />
+
+                <Text style={st.fieldLabel}>{tx(lang, "Ankerpunt", "Anchor", "المرتكز")}</Text>
+                <View style={[st.anchorRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  {ANCHOR_OPTIONS.map((opt) => {
+                    const on = progAnchor === opt.key;
+                    return (
+                      <Pressable key={opt.key} onPress={() => setProgAnchor(opt.key)} style={[st.anchorChip, on && st.anchorChipOn]}>
+                        <Text style={[st.anchorChipText, on && st.anchorChipTextOn]}>{tx(lang, opt.nl, opt.en, opt.ar)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                {progAnchor === "fixed" ? (
+                  <>
+                    <Text style={st.fieldLabel}>{tx(lang, "Tijd", "Time", "الوقت")}</Text>
+                    <Pressable onPress={pickProgFixedTime} style={st.pickerField}>
+                      <Text style={st.pickerFieldText}>
+                        {dig(String(progFixedTime.getHours()).padStart(2, "0"))}:{dig(String(progFixedTime.getMinutes()).padStart(2, "0"))}
+                      </Text>
+                    </Pressable>
+                    {showProgFixedTimePicker && DateTimePicker && (
+                      <DateTimePicker
+                        value={progFixedTime}
+                        mode="time"
+                        display="spinner"
+                        is24Hour
+                        onChange={(_e: any, d?: Date) => { if (d) setProgFixedTime(d); }}
+                      />
+                    )}
+                  </>
+                ) : (
+                  <>
+                    <Text style={st.fieldLabel}>{tx(lang, "Verschuiving", "Offset", "الإزاحة")}</Text>
+                    <View style={{ alignItems: "center", gap: 6 }}>
+                      <MinuteStepper
+                        display={dig(progOffset >= 0 ? `+${progOffset}` : String(progOffset))}
+                        isRTL={isRTL}
+                        onDec={() => setProgOffset((v) => Math.max(-180, v - 5))}
+                        onInc={() => setProgOffset((v) => Math.min(180, v + 5))}
+                      />
+                      <Text style={st.hintText}>
+                        {progOffset === 0
+                          ? tx(lang, `Op het tijdstip van ${anchorLabel}`, `At the time of ${anchorLabel}`, `في وقت ${anchorLabel}`)
+                          : tx(
+                              lang,
+                              `${dig(Math.abs(progOffset))} min ${progOffset < 0 ? "voor" : "na"} ${anchorLabel}`,
+                              `${dig(Math.abs(progOffset))} min ${progOffset < 0 ? "before" : "after"} ${anchorLabel}`,
+                              `${dig(Math.abs(progOffset))} دقيقة ${progOffset < 0 ? "قبل" : "بعد"} ${anchorLabel}`,
+                            )}
+                      </Text>
+                    </View>
+                  </>
+                )}
+
+                {previewMinutes != null && (
+                  <View style={{ marginTop: 10 }}>
+                    <Text style={st.hintText}>
+                      {tx(lang, "Verwachte tijd vandaag: ", "Expected time today: ", "الوقت المتوقع اليوم: ")}
+                      {dig(String(Math.floor(previewMinutes / 60)).padStart(2, "0"))}:{dig(String(previewMinutes % 60).padStart(2, "0"))}
+                    </Text>
+                    {previewConflict.kind !== "none" && (
+                      <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                        <MaterialIcons name="error-outline" size={12} color="#B45309" />
+                        <Text style={st.conflictWarnText}>{tx(lang, "Botst met een gebedstijd", "Collides with a prayer time", "يتعارض مع وقت صلاة")}</Text>
+                      </View>
+                    )}
+                  </View>
+                )}
+
+                <View style={[st.allDayRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Text style={st.allDayLabel}>{tx(lang, "Duur instellen", "Set duration", "تحديد المدة")}</Text>
+                  <Switch value={progHasDuration} onValueChange={setProgHasDuration} trackColor={{ true: "#1B4332" }} />
+                </View>
+                {progHasDuration && (
+                  <View style={{ alignItems: "center", marginTop: 4 }}>
+                    <MinuteStepper
+                      display={tx(lang, `${dig(progDuration)} min`, `${dig(progDuration)} min`, `${dig(progDuration)} د`)}
+                      isRTL={isRTL}
+                      onDec={() => setProgDuration((v) => Math.max(5, v - 5))}
+                      onInc={() => setProgDuration((v) => Math.min(240, v + 5))}
+                    />
+                  </View>
+                )}
+
+                <Text style={st.fieldLabel}>{tx(lang, "Herhaling", "Repeat on", "يتكرر في")}</Text>
+                <View style={[st.dayRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  {WEEKDAY_KEYS.map((k, i) => {
+                    const dayNum = WEEKDAY_NUMS[i];
+                    const on = progDays.length === 0 || progDays.includes(dayNum);
+                    return (
+                      <Pressable key={k} onPress={() => setProgDays((cur) => toggleProgDay(cur, dayNum))} style={[st.dayChip, on && st.dayChipOn]}>
+                        <Text style={[st.dayChipText, on && st.dayChipTextOn]}>{t(`date.${k}`)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+                {progDays.length === 0 && <Text style={st.hintText}>{tx(lang, "Elke dag", "Every day", "كل يوم")}</Text>}
+
+                <Text style={st.fieldLabel}>{tx(lang, "Type", "Type", "النوع")}</Text>
+                <View style={[st.typeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  {ENTRY_TYPES.map((et) => {
+                    const on = progType === et.key;
+                    return (
+                      <Pressable key={et.key} onPress={() => setProgType(et.key)} style={({ pressed }) => [st.typeChip, { flexDirection: isRTL ? "row-reverse" : "row" }, on && st.typeChipOn, pressed && { opacity: 0.8 }]}>
+                        <MaterialIcons name={et.icon as any} size={16} color={on ? "#fff" : "#1B4332"} />
+                        <Text style={[st.typeChipText, on && st.typeChipTextOn]}>{tx(lang, et.nl, et.en, et.ar)}</Text>
+                      </Pressable>
+                    );
+                  })}
+                </View>
+
+                <Text style={st.fieldLabel}>{tx(lang, "Notitie (optioneel)", "Note (optional)", "ملاحظة (اختياري)")}</Text>
+                <TextInput
+                  value={progNote}
+                  onChangeText={setProgNote}
+                  style={[st.textInput, { textAlign: isRTL ? "right" : "left" }]}
+                  placeholder={tx(lang, "Extra details...", "Extra details...", "تفاصيل إضافية...")}
+                  placeholderTextColor="#9CA3AF"
+                  multiline
+                  maxLength={500}
+                />
+
+                <Text style={st.fieldLabel}>{tx(lang, "Kleur (optioneel)", "Color (optional)", "اللون (اختياري)")}</Text>
+                <View style={[st.colorRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                  <Pressable onPress={() => setProgColor(null)} style={[st.colorSwatch, st.colorNone, !progColor && st.colorOn]}>
+                    <MaterialIcons name="block" size={16} color="#9CA3AF" />
+                  </Pressable>
+                  {ENTRY_COLORS.map((c) => (
+                    <Pressable key={c} onPress={() => setProgColor(c)} style={[st.colorSwatch, { backgroundColor: c }, progColor === c && st.colorOn]}>
+                      {progColor === c ? <MaterialIcons name="check" size={16} color="#fff" /> : null}
+                    </Pressable>
+                  ))}
+                </View>
+              </ScrollView>
+
+              <View style={[st.modalFooter, { paddingBottom: insets.bottom + 16 }]}>
+                <Pressable
+                  onPress={handleSaveProgram}
+                  disabled={!progTitle.trim() || progSaving}
+                  style={({ pressed }) => [st.saveBtn, (!progTitle.trim() || progSaving) && { opacity: 0.5 }, pressed && { opacity: 0.85 }]}
+                >
+                  <Text style={st.saveBtnText}>{tx(lang, "Opslaan", "Save", "حفظ")}</Text>
+                </Pressable>
+                {editingProgramId && (
+                  <Pressable
+                    onPress={() => {
+                      if (Platform.OS === "web") { handleDeleteProgram(editingProgramId!); return; }
+                      Alert.alert(
+                        tx(lang, "Activiteit verwijderen?", "Delete activity?", "حذف النشاط؟"),
+                        progTitle,
+                        [
+                          { text: tx(lang, "Annuleren", "Cancel", "إلغاء"), style: "cancel" },
+                          { text: tx(lang, "Verwijderen", "Delete", "حذف"), style: "destructive", onPress: () => handleDeleteProgram(editingProgramId!) },
+                        ],
+                      );
+                    }}
+                    style={({ pressed }) => [st.deleteBtn, pressed && { opacity: 0.85 }]}
+                  >
+                    <Text style={st.deleteBtnText}>{tx(lang, "Verwijderen", "Delete", "حذف")}</Text>
+                  </Pressable>
+                )}
+              </View>
+            </View>
+          </View>
+        </KeyboardAvoidingView>
+      </Modal>
     );
   }
 
@@ -1246,6 +1818,7 @@ export default function RoznamaScreen() {
     { mode: "week", label: tx(lang, "Week", "Week", "أسبوع") },
     { mode: "month", label: tx(lang, "Maand", "Month", "شهر") },
     { mode: "year", label: tx(lang, "Jaar", "Year", "سنة") },
+    { mode: "program", label: tx(lang, "Programma", "Program", "البرنامج") },
   ];
 
   return (
@@ -1291,6 +1864,7 @@ export default function RoznamaScreen() {
         {viewMode === "week" && renderWeekView()}
         {viewMode === "day" && renderDayDetail()}
         {viewMode === "year" && renderYearView()}
+        {viewMode === "program" && renderProgramView()}
       </ScrollView>
 
       {/* Roznama settings: appointment-alarm sound picker */}
@@ -1377,6 +1951,7 @@ export default function RoznamaScreen() {
       </Modal>
 
       {renderModal()}
+      {renderProgramModal()}
     </View>
   );
 }
@@ -1496,4 +2071,22 @@ const st = StyleSheet.create({
   saveBtnText: { color: "#FFFFFF", fontSize: 15, fontWeight: "700" },
   deleteBtn: { borderRadius: 12, paddingVertical: 14, alignItems: "center", marginTop: 10, borderWidth: 1, borderColor: "#C62828" },
   deleteBtnText: { color: "#C62828", fontSize: 14, fontWeight: "700" },
+
+  // ---- program («البرنامج») ----
+  prayerAnchorRow: { alignItems: "center", gap: 10, backgroundColor: "#C4A35A14", borderRadius: 10, borderWidth: 1, borderColor: "#C4A35A40", paddingVertical: 8, paddingHorizontal: 12, marginBottom: 8 },
+  prayerAnchorTime: { fontSize: 13, fontWeight: "700", color: "#8A6A1F", fontVariant: ["tabular-nums"] },
+  prayerAnchorText: { fontSize: 13, fontWeight: "700", color: "#8A6A1F", flex: 1 },
+  conflictWarnRow: { alignItems: "center", gap: 4, marginTop: 4 },
+  conflictWarnText: { fontSize: 10, color: "#B45309", fontWeight: "600" },
+  anchorRow: { flexWrap: "wrap", gap: 8 },
+  anchorChip: { paddingHorizontal: 12, paddingVertical: 8, borderRadius: 10, borderWidth: 1, borderColor: "#E8ECE9", backgroundColor: "#fff" },
+  anchorChipOn: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
+  anchorChipText: { fontSize: 12, fontWeight: "700", color: "#1B4332" },
+  anchorChipTextOn: { color: "#fff" },
+  dayRow: { gap: 6, justifyContent: "space-between" },
+  dayChip: { width: 36, height: 36, borderRadius: 18, alignItems: "center", justifyContent: "center", borderWidth: 1, borderColor: "#E8ECE9", backgroundColor: "#fff" },
+  dayChipOn: { backgroundColor: "#1B4332", borderColor: "#1B4332" },
+  dayChipText: { fontSize: 11, fontWeight: "700", color: "#1B4332" },
+  dayChipTextOn: { color: "#fff" },
+  weeklyItemRow: { alignItems: "center", gap: 8, paddingVertical: 4 },
 });
