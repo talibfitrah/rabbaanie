@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import {
+  Alert,
   View,
   Text,
   FlatList,
@@ -499,6 +500,10 @@ async function fetchJsonWithTimeout(url: string, ms = 15000): Promise<any> {
 // Reciter SELECTION UI is a later increment — this is just a sane default.
 const AUDIO_BASE = "https://verses.quran.com/";
 const RECITER_ID = 7; // Mishari Alafasy, murattal
+// Consecutive ayah load/playback failures before giving up on recitation
+// outright — guards against a dead recitation endpoint silently cascading
+// skip-calls through the entire mushaf.
+const MAX_RECITE_FAILS = 5;
 
 /** Per-ayah audio URL via quran.com's by_ayah recitation endpoint. Returns
  * null (never throws) so the playback engine can just skip an ayah with no
@@ -737,6 +742,13 @@ export default function QuranScreen() {
   const isPlayingRef = useRef(false);
   const soundRef = useRef<Audio.Sound | null>(null);
   const playQueueRef = useRef<{ page: number; ayahs: PageAyah[]; index: number } | null>(null);
+  // Consecutive failures (reset on any success) — failAndAdvance stops
+  // recitation at MAX_RECITE_FAILS instead of cascading through the mushaf.
+  const failCountRef = useRef(0);
+  // Bumped on every pause/play/stop/advance; an in-flight playCurrentQueueItem
+  // that resumes after an await and finds its token stale abandons itself, so
+  // a rapid pause-then-play can't leave two overlapping Sounds.
+  const playTokenRef = useRef(0);
   const pageCacheRef = useRef(pageCache);
   pageCacheRef.current = pageCache;
   const webViewRefsRef = useRef<Map<number, WebView | null>>(new Map());
@@ -799,10 +811,12 @@ export default function QuranScreen() {
   const isFocused = useIsFocused();
 
   // Keep the screen from sleeping while reading: when the keep-awake setting is on,
-  // OR auto-turn is on (hands-free reading is pointless if the screen sleeps) — but
-  // only while the mushaf is focused. Deactivates on blur/unmount.
+  // OR auto-turn is on (hands-free reading is pointless if the screen sleeps), OR
+  // recitation is playing (staysActiveInBackground is false, so a screen timeout
+  // mid-recitation would background the app and stop playback) — but only while
+  // the mushaf is focused. Deactivates on blur/unmount.
   useEffect(() => {
-    if ((keepAwake || autoTurn) && isFocused) {
+    if ((keepAwake || autoTurn || isPlaying) && isFocused) {
       activateKeepAwakeAsync("mushaf").catch(() => {});
     } else {
       deactivateKeepAwake("mushaf").catch(() => {});
@@ -810,7 +824,7 @@ export default function QuranScreen() {
     return () => {
       deactivateKeepAwake("mushaf").catch(() => {});
     };
-  }, [keepAwake, autoTurn, isFocused]);
+  }, [keepAwake, autoTurn, isPlaying, isFocused]);
 
   // Auto page-turn: advances one page every autoTurnSec seconds via the same
   // programmatic jump the surah/juz index uses. Only while the mushaf is FOCUSED
@@ -839,6 +853,7 @@ export default function QuranScreen() {
   // for end-of-mushaf, tab blur, and unmount — NOT for a plain pause (which
   // keeps the queue/sound so resume continues the same ayah).
   const stopRecitation = () => {
+    playTokenRef.current++; // invalidate any in-flight load
     isPlayingRef.current = false;
     playQueueRef.current = null;
     setIsPlaying(false);
@@ -855,19 +870,40 @@ export default function QuranScreen() {
     }
   };
 
+  // Routes a load/playback failure through a consecutive-failure counter: a
+  // transient miss just skips to the next ayah, but MAX_RECITE_FAILS in a row
+  // (e.g. the recitation endpoint is down) stops outright instead of
+  // cascading skip-calls through the entire mushaf.
+  const failAndAdvance = (queue: { page: number; ayahs: PageAyah[]; index: number }) => {
+    failCountRef.current += 1;
+    if (failCountRef.current >= MAX_RECITE_FAILS) {
+      stopRecitation();
+      // Best-effort, non-blocking notice — recitation has already stopped either way.
+      try {
+        Alert.alert(
+          tx(lang, "Recitatie gestopt", "Recitation stopped", "تعذّر تشغيل التلاوة"),
+          tx(lang, "Kon audio niet laden.", "Couldn't load audio.", "تعذّر تحميل الصوت. تحقّق من الاتصال."),
+        );
+      } catch {}
+      return;
+    }
+    advanceToNext(queue);
+  };
+
   // Loads + plays the ayah at playQueueRef.current.index and wires the
   // "advance on finish" status callback. Re-checks isPlayingRef/playQueueRef
   // identity after every await so a pause/stop that lands while a fetch or
   // load is in flight can't resurrect audio the user just silenced.
   const playCurrentQueueItem = async () => {
+    const token = playTokenRef.current;
     const queue = playQueueRef.current;
     if (!queue || !isPlayingRef.current) return;
     const ayah = queue.ayahs[queue.index];
     const verseKey = `${ayah.surahNumber}:${ayah.numberInSurah}`;
     const url = await fetchAyahAudioUrl(verseKey);
-    if (!isPlayingRef.current || playQueueRef.current !== queue) return;
+    if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) return;
     if (!url) {
-      advanceToNext(queue); // no audio for this ayah — skip it
+      failAndAdvance(queue); // no audio for this ayah — skip it
       return;
     }
     try {
@@ -879,7 +915,7 @@ export default function QuranScreen() {
           if (status.isLoaded && status.didJustFinish) advanceToNext(queue);
         },
       );
-      if (!isPlayingRef.current || playQueueRef.current !== queue) {
+      if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) {
         (async () => {
           try {
             await sound.stopAsync();
@@ -890,8 +926,9 @@ export default function QuranScreen() {
       }
       soundRef.current = sound;
       setPlayingVerseKey(verseKey);
+      failCountRef.current = 0; // successful load — reset the failure streak
     } catch {
-      advanceToNext(queue); // failed to load — skip to the next ayah rather than stall forever
+      failAndAdvance(queue); // failed to load — skip to the next ayah rather than stall forever
     }
   };
 
@@ -912,14 +949,17 @@ export default function QuranScreen() {
     const nextIndex = queue.index + 1;
     if (nextIndex < queue.ayahs.length) {
       playQueueRef.current = { ...queue, index: nextIndex };
+      playTokenRef.current++;
       playCurrentQueueItem();
       return;
     }
     // Page exhausted: stop at the end of the mushaf, or if the next page's
     // ayahs aren't loaded yet (ponytail: known limitation — doesn't wait for a
     // slow/not-yet-prefetched page; PRELOAD_RADIUS neighbours are normally
-    // already cached by the time a whole page finishes reciting).
-    const nextPage = currentPageRef.current + 1;
+    // already cached by the time a whole page finishes reciting). Next page is
+    // relative to the RECITED page (queue.page), not wherever the view has
+    // scrolled to — a manual swipe during recitation must not skip or repeat a page.
+    const nextPage = queue.page + 1;
     const nextBundle = nextPage <= TOTAL_PAGES ? pageCacheRef.current[nextPage] : undefined;
     if (!nextBundle || nextBundle.ayahs.length === 0) {
       stopRecitation();
@@ -927,12 +967,14 @@ export default function QuranScreen() {
     }
     jumpToPage(nextPage);
     playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
+    playTokenRef.current++;
     playCurrentQueueItem();
   };
 
   // Toolbar play/pause toggle.
   const toggleRecitation = () => {
     if (isPlayingRef.current) {
+      playTokenRef.current++; // invalidate any in-flight load before pausing
       isPlayingRef.current = false;
       setIsPlaying(false);
       try {
@@ -940,9 +982,10 @@ export default function QuranScreen() {
       } catch {}
       return;
     }
+    playTokenRef.current++; // invalidate any in-flight load left over from before
     isPlayingRef.current = true;
     setIsPlaying(true);
-    if (playQueueRef.current) {
+    if (playQueueRef.current && playQueueRef.current.page === currentPageRef.current) {
       // Resume: a loaded sound just needs playAsync(); mid-fetch (paused
       // before the ayah finished loading) has no sound yet — retry it.
       if (soundRef.current) {
@@ -953,6 +996,21 @@ export default function QuranScreen() {
         playCurrentQueueItem();
       }
       return;
+    }
+    if (playQueueRef.current) {
+      // Reader moved to a different page while paused — discard the stale
+      // sound/queue so the fresh build below starts clean instead of resuming
+      // a page that's no longer on screen.
+      const sound = soundRef.current;
+      soundRef.current = null;
+      playQueueRef.current = null;
+      if (sound) {
+        (async () => {
+          try {
+            await sound.unloadAsync();
+          } catch {}
+        })();
+      }
     }
     // Fresh start: build the queue from the page currently on screen.
     const bundle = pageCacheRef.current[currentPageRef.current];
