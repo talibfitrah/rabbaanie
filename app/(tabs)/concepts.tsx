@@ -36,6 +36,12 @@ import {
 } from "@/lib/quran-page-index";
 import { SURAH_LIST, type Surah } from "@/lib/surah-list";
 import { TOTAL_PAGES, pageToIndex, indexToPage } from "@/lib/mushaf-paging";
+import {
+  analyzeWord,
+  MORPH_LABELS,
+  type MorphSegmentTuple,
+  type WordMorphology,
+} from "@/lib/quran-morphology";
 
 import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
@@ -652,6 +658,47 @@ async function loadPageWordsAndAyahs(
   return { words: [], ayahs: [] };
 }
 
+// ---- Word morphology (content-explorer increment 2, open sources) ---------
+// Per-surah صرف lookup, keyed "<ayah>:<position>" — quran.com's word.position
+// IS the corpus's own word index (verified by comparing Arabic forms word-for-
+// word across 1:1, 2:255 [50 words], 18:1, 36:1, 112:1-4: 81/81 matched, so no
+// text-based fallback is needed). Data is processed offline by
+// scripts/build-morphology-data.mjs from the Quranic Arabic Corpus (GPL —
+// credit corpus.quran.com) and served as a static file, same disk-cache-or-
+// fetch shape as loadPageWordsAndAyahs above.
+const MORPH_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-morphology/`;
+type SurahMorphology = Record<string, MorphSegmentTuple[]>;
+
+async function loadMorphologyForSurah(surah: number): Promise<SurahMorphology | null> {
+  const cachePath = FileSystem.cacheDirectory ? `${MORPH_CACHE_DIR}${surah}.json` : null;
+  if (cachePath) {
+    try {
+      const info = await FileSystem.getInfoAsync(cachePath);
+      if (info.exists) {
+        return JSON.parse(await FileSystem.readAsStringAsync(cachePath));
+      }
+    } catch {
+      // corrupt/unreadable cache entry — fall through to network
+    }
+  }
+  try {
+    const data = await fetchJsonWithTimeout(
+      `https://api.rabbaanie.com/downloads/morphology/${surah}.json`,
+    );
+    if (data && typeof data === "object") {
+      if (cachePath) {
+        ensureDirExists(MORPH_CACHE_DIR)
+          .then(() => FileSystem.writeAsStringAsync(cachePath, JSON.stringify(data)))
+          .catch(() => {});
+      }
+      return data as SurahMorphology;
+    }
+  } catch {
+    // offline / fetch failed — caller shows a small unavailable note
+  }
+  return null;
+}
+
 /** Read-only cache check — never downloads. Keeps a currently-mounted page's
  * HTML from changing out from under the reader (which would reload/flash the
  * WebView); a cold miss is warmed in the background for the NEXT visit via
@@ -847,12 +894,48 @@ export default function QuranScreen() {
     if (lang === "ar" && scienceTab === "translation") setScienceTab("tafsir");
   }, [lang, scienceTab]);
 
-  // Word-tap modal state (content explorer increment 1) — separate from the
-  // science modal above: a word tap needs no fetch (translation/transliteration
-  // are already on the PageWord from the page load), so it's its own small
-  // sheet rather than another scienceTab.
+  // Word-tap modal state — separate from the science modal above: translation/
+  // transliteration are already on the PageWord from the page load (increment
+  // 1), so it's its own small sheet rather than another scienceTab. The صرف
+  // (morphology) analysis below IS fetched on demand (increment 2), per surah.
   const [showWordModal, setShowWordModal] = useState(false);
   const [selectedWord, setSelectedWord] = useState<PageWord | null>(null);
+  const [wordMorphology, setWordMorphology] = useState<WordMorphology | null>(null);
+  const [morphLoading, setMorphLoading] = useState(false);
+  // Loaded-surah morphology, kept across taps/renders (not React state — no
+  // render depends on the whole surah's data, only the one looked-up word).
+  const morphCacheRef = useRef<Record<number, SurahMorphology>>({});
+  // Bumped per tap, same guard pattern as scienceReqRef above: a slow fetch
+  // for a word the user already tapped away from must not clobber the state
+  // of whatever word they're looking at now.
+  const morphReqRef = useRef(0);
+
+  const loadMorphologyForWord = async (word: PageWord) => {
+    const req = ++morphReqRef.current;
+    setWordMorphology(null);
+    setMorphLoading(true);
+    const [surahNum, ayahNum] = (word.verse_key || "").split(":").map(Number);
+    if (!surahNum || !ayahNum || typeof word.position !== "number") {
+      if (morphReqRef.current === req) setMorphLoading(false);
+      return;
+    }
+    let surahData = morphCacheRef.current[surahNum];
+    if (!surahData) {
+      const loaded = await loadMorphologyForSurah(surahNum);
+      // Cache a successful fetch regardless of staleness below — it's still
+      // correct data for the next tap, even if not for THIS one.
+      if (loaded) morphCacheRef.current[surahNum] = loaded;
+      if (morphReqRef.current !== req) return; // a newer tap has since started
+      if (!loaded) {
+        setMorphLoading(false);
+        return;
+      }
+      surahData = loaded;
+    }
+    const segs = surahData[`${ayahNum}:${word.position}`];
+    setWordMorphology(segs ? analyzeWord(segs) : null);
+    setMorphLoading(false);
+  };
 
   // Synchronous mirrors of render state for the async recitation chain
   // (toggleRecitation → playCurrentQueueItem → status callback → advanceToNext →
@@ -1423,19 +1506,25 @@ export default function QuranScreen() {
         setShowToolbar(!showToolbar);
       } else if (msg.type === "wordtap" && typeof msg.wi === "number") {
         const word = words[msg.wi];
-        // Mirrors the two render conditions in renderWordModal (~2334/2340):
-        // popup-shown must equal has-rows, or an "ar" viewer (no real-content
-        // row for that language yet) gets an empty popup instead of the
-        // toolbar toggle a plain tap would have done. Once a real Arabic
-        // word-meaning source (غريب القرآن) lands, add `|| lang === "ar"` here
-        // to re-enable the popup for Arabic.
+        // Mirrors the render conditions in renderWordModal: popup-shown must
+        // equal has-rows, or a viewer gets an empty popup instead of the
+        // toolbar toggle a plain tap would have done. "ar" words effectively
+        // always have a صرف (morphology) analysis — that IS this word's real
+        // Arabic content now (the غريب القرآن word-MEANING source the old
+        // comment here awaited is still unavailable, see the research doc;
+        // morphology ships instead) — so ar always opens the popup, loading
+        // the analysis asynchronously (see loadMorphologyForWord).
+        // lang !== "ar" is implied once the first clause is false — nl/en
+        // both show transliteration, no extra check needed.
         const hasWordContent =
           !!word &&
-          ((lang === "en" && !!word.translation) ||
-            (lang !== "ar" && !!word.transliteration));
-        if (hasWordContent) {
+          (lang === "ar" ||
+            (lang === "en" && !!word.translation) ||
+            !!word.transliteration);
+        if (hasWordContent && word) {
           setSelectedWord(word);
           setShowWordModal(true);
+          loadMorphologyForWord(word);
         } else {
           setShowToolbar(!showToolbar);
         }
@@ -2357,11 +2446,11 @@ export default function QuranScreen() {
     </Modal>
   );
 
-  // WORD popup (content explorer increment 1) — tap a word for its meaning/
-  // transliteration. Deliberately NOT another scienceTab: it needs no fetch
-  // (the data is already on the tapped PageWord) and is a smaller sheet, so it
-  // reuses renderScienceModal's overlay/sheet/close-button styling without its
-  // tabs machinery.
+  // WORD popup — tap a word for its meaning/transliteration (increment 1,
+  // already on the tapped PageWord) and its صرف/morphology (increment 2,
+  // fetched per surah — see loadMorphologyForWord). Deliberately NOT another
+  // scienceTab: reuses renderScienceModal's overlay/sheet/close-button styling
+  // without its tabs machinery.
   const renderWordModal = () => {
     if (!selectedWord) return null;
     const [vkSurahNum, vkAyahNum] = (selectedWord.verse_key || "")
@@ -2372,8 +2461,7 @@ export default function QuranScreen() {
     // quran.com word `translation` is ALWAYS English (no per-word Dutch) and
     // `transliteration` is Latin, so both are gated on viewer language, not
     // just presence — English-under-an-Arabic/Dutch-label would be wrong, and
-    // Latin pronunciation is meaningless to an Arabic reader. Real Arabic
-    // word-meaning awaits a غريب-القرآن source (see the spec's DEFER note).
+    // Latin pronunciation is meaningless to an Arabic reader.
     const fields: { label: string; value: string }[] = [];
     if (lang === "en" && selectedWord.translation) {
       fields.push({
@@ -2410,63 +2498,130 @@ export default function QuranScreen() {
                 ]}
               />
             </View>
-            <Text style={[st.wordGlyph, { color: textColor }]}>
-              {selectedWord.text_uthmani}
-            </Text>
-            {fields.map((f) => (
-              <View
-                key={f.label}
-                style={[
-                  st.wordFieldRow,
-                  { alignItems: isRTL ? "flex-end" : "flex-start" },
-                ]}
-              >
-                <Text
-                  style={[
-                    st.wordFieldLabel,
-                    { color: nightMode ? "#C4A35A" : "#1B4332" },
-                  ]}
-                >
-                  {f.label}
-                </Text>
-                <Text
-                  style={[
-                    st.wordFieldValue,
-                    {
-                      color: textColor,
-                      textAlign: lang === "ar" ? "right" : "left",
-                    },
-                  ]}
-                >
-                  {f.value}
-                </Text>
-              </View>
-            ))}
-            {wordSurah && vkAyahNum > 0 && (
-              <Text
-                style={[
-                  st.wordVerseRef,
-                  { color: nightMode ? "#888" : "#6B7B72" },
-                ]}
-              >
-                {wordSurah.name} : {dig(vkAyahNum)}
+            <ScrollView style={st.scienceContent} contentContainerStyle={{ paddingBottom: 16 }}>
+              <Text style={[st.wordGlyph, { color: textColor }]}>
+                {selectedWord.text_uthmani}
               </Text>
-            )}
-            {/* Deferred: word i'rab/sarf needs the Quranic Arabic Corpus (not
-                an open quran.com field) — see the spec's DEFER note. */}
-            <Text
-              style={[
-                st.wordDeferredNote,
-                { color: nightMode ? "#777" : "#9AA59E" },
-              ]}
-            >
-              {tx(
-                lang,
-                "Grammaticale ontleding (إعراب): binnenkort",
-                "Grammar analysis (i'raab): coming soon",
-                "الإعراب والصرف: قريبًا",
+              {fields.map((f) => (
+                <View
+                  key={f.label}
+                  style={[
+                    st.wordFieldRow,
+                    { alignItems: isRTL ? "flex-end" : "flex-start" },
+                  ]}
+                >
+                  <Text
+                    style={[
+                      st.wordFieldLabel,
+                      { color: nightMode ? "#C4A35A" : "#1B4332" },
+                    ]}
+                  >
+                    {f.label}
+                  </Text>
+                  <Text
+                    style={[
+                      st.wordFieldValue,
+                      {
+                        color: textColor,
+                        textAlign: lang === "ar" ? "right" : "left",
+                      },
+                    ]}
+                  >
+                    {f.value}
+                  </Text>
+                </View>
+              ))}
+              {wordSurah && vkAyahNum > 0 && (
+                <Text
+                  style={[
+                    st.wordVerseRef,
+                    { color: nightMode ? "#888" : "#6B7B72" },
+                  ]}
+                >
+                  {wordSurah.name} : {dig(vkAyahNum)}
+                </Text>
               )}
-            </Text>
+              {/* التحليل الصرفي (morphology) — ar always opens this popup and
+                  always shows this section (loading, then content or a quiet
+                  unavailable note); nl/en get it too as a bonus when it loads
+                  in time, under an Arabic header since it's Arabic grammar. */}
+              {(lang === "ar" || morphLoading || wordMorphology) && (
+                <View style={st.wordMorphSection}>
+                  <Text
+                    style={[
+                      st.wordMorphHeading,
+                      { color: nightMode ? "#C4A35A" : "#1B4332" },
+                    ]}
+                  >
+                    التحليل الصرفي
+                  </Text>
+                  {morphLoading && !wordMorphology ? (
+                    <ActivityIndicator
+                      size="small"
+                      color={nightMode ? "#C4A35A" : "#1B4332"}
+                      style={{ marginVertical: 8 }}
+                    />
+                  ) : wordMorphology ? (
+                    <>
+                      {wordMorphology.segments.map((seg, i) => (
+                        <View key={i} style={st.wordMorphSegRow}>
+                          <Text style={[st.wordMorphSegHead, { color: textColor }]}>
+                            {seg.form} — {seg.kind}
+                          </Text>
+                          {(seg.details.length > 0 || seg.verbForm) && (
+                            <Text
+                              style={[
+                                st.wordMorphSegDetails,
+                                { color: nightMode ? "#AAAAAA" : "#6B7B72" },
+                              ]}
+                            >
+                              {[
+                                ...seg.details,
+                                seg.verbForm ? `${MORPH_LABELS.verbForm}: ${seg.verbForm}` : null,
+                              ]
+                                .filter(Boolean)
+                                .join("  •  ")}
+                            </Text>
+                          )}
+                        </View>
+                      ))}
+                      {(wordMorphology.root || wordMorphology.lemma) && (
+                        <Text
+                          style={[
+                            st.wordMorphSegDetails,
+                            { color: nightMode ? "#AAAAAA" : "#6B7B72" },
+                          ]}
+                        >
+                          {[
+                            wordMorphology.root ? `${MORPH_LABELS.root}: ${wordMorphology.root}` : null,
+                            wordMorphology.lemma ? `${MORPH_LABELS.lemma}: ${wordMorphology.lemma}` : null,
+                          ]
+                            .filter(Boolean)
+                            .join("  •  ")}
+                        </Text>
+                      )}
+                      <Text
+                        style={[
+                          st.wordDeferredNote,
+                          { color: nightMode ? "#777" : "#9AA59E" },
+                        ]}
+                      >
+                        المصدر: corpus.quran.com
+                      </Text>
+                    </>
+                  ) : (
+                    <Text
+                      style={[
+                        st.wordDeferredNote,
+                        { color: nightMode ? "#777" : "#9AA59E" },
+                      ]}
+                    >
+                      لا يتوفر تحليل صرفي لهذه الكلمة حاليًا
+                    </Text>
+                  )}
+                </View>
+              )}
+            </ScrollView>
             <View
               style={[
                 st.scienceBottomBar,
@@ -2913,13 +3068,16 @@ const st = StyleSheet.create({
     justifyContent: "center",
   },
 
-  // Word popup (content explorer increment 1) — smaller bottom sheet, reuses
-  // scienceOverlay/scienceDragHandle/scienceDragBar/scienceBottomBar/
-  // scienceCloseBtn above.
+  // Word popup — bottom sheet, reuses scienceOverlay/scienceDragHandle/
+  // scienceDragBar/scienceContent/scienceBottomBar/scienceCloseBtn above.
+  // maxHeight (added alongside the صرف section, which can run long for a
+  // multi-segment word) matches scienceBox's own cap; the content between the
+  // drag handle and the bottom bar scrolls (see renderWordModal).
   wordBox: {
     borderTopLeftRadius: 24,
     borderTopRightRadius: 24,
     paddingBottom: 4,
+    maxHeight: "80%",
   },
   wordGlyph: {
     fontSize: 32,
@@ -2939,4 +3097,21 @@ const st = StyleSheet.create({
     marginHorizontal: 20,
     marginBottom: 6,
   },
+  // التحليل الصرفي (morphology) section — content explorer increment 2.
+  wordMorphSection: {
+    marginHorizontal: 20,
+    marginBottom: 6,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: "rgba(128,128,128,0.2)",
+  },
+  wordMorphHeading: {
+    fontSize: 13,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 8,
+  },
+  wordMorphSegRow: { marginBottom: 8 },
+  wordMorphSegHead: { fontSize: 15, fontWeight: "600", textAlign: "center" },
+  wordMorphSegDetails: { fontSize: 12, textAlign: "center", marginTop: 2 },
 });
