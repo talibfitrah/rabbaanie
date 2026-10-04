@@ -616,6 +616,16 @@ export default function QuranScreen() {
   // (or the preload effect re-firing for the same page) from stacking another
   // request, and swaps the retry button for a spinner while it's pending.
   const [retryingPages, setRetryingPages] = useState<Set<number>>(new Set());
+  // Transient section badge (option ب): the page whose juz/hizb/sajda to show
+  // while swiping between pages; null = hidden. Driven by the FlatList onScroll,
+  // faded out after the page settles.
+  const [transientPage, setTransientPage] = useState<number | null>(null);
+  const transientOpacity = useRef(new RNAnimated.Value(0)).current;
+  const transientHideTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Only a real finger-swipe shows the badge (not a programmatic juz-jump /
+  // restore / rotation scroll, which fire onScroll but not onScrollBeginDrag).
+  const userDraggingRef = useRef(false);
+  const transientShownForRef = useRef<number | null>(null); // last page set → avoid per-frame setState
   const flatListRef = useRef<FlatList<number>>(null);
   // Pages whose load is in flight — a SYNCHRONOUS in-flight guard. (retryingPages
   // state can't guard control flow: React only runs a state updater eagerly when
@@ -798,6 +808,11 @@ export default function QuranScreen() {
     });
   }, [listWidth]);
 
+  // Clear the transient-badge fade timer on unmount (no setState after unmount).
+  useEffect(() => () => {
+    if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
+  }, []);
+
   // Handle WebView messages. Page-turning is no longer detected here — the
   // FlatList strip owns the swipe gesture now — so each slot just
   // reports taps/longpresses against its OWN ayahs list.
@@ -957,38 +972,33 @@ export default function QuranScreen() {
   };
 
   const currentSurah = getSurahForPage(currentPage);
-  // Header-only ۞/۩ indicators (see generateMushafHTML's comment on why they
-  // aren't placed in the page itself): empty on nearly every page (240 rubs /
-  // 15 sajdas over 604 pages), so these are tiny no-op filters most renders.
-  const currentRubMarks = getRubMarksForPage(currentPage);
-  const currentSajdas = getSajdasForPage(currentPage);
-  // If a rub' (hizb quarter) BEGINS on this page, the header's juz + eighth come
-  // from that rub' — so the juz/eighth, the ۞ label, and (for a juz start) the
-  // juz index's jump target (getJuzStartPage) all agree. At most one rub' starts
-  // per page (RUB_STARTS has no duplicate pages). Otherwise the top-of-page
-  // juz/eighth. The page's first verse may still be the previous juz (Madinah
-  // top-of-page), but the boundary starting here is the significant event.
-  // (Header convention = Daa3iyah's call.)
-  const pageRub = currentRubMarks[0];
-  const currentJuz = pageRub ? pageRub.juz : getJuzForPage(currentPage);
-  const currentEighth = pageRub ? pageRub.eighthOfJuz : getEighthOfJuzForPage(currentPage);
-  // Every 4th rub' is a HIZB start, not a "quarter" — (rub-1)%4 gives the
-  // position within the hizb: 0=start, 1=quarter, 2=half, 3=three-quarters.
-  const currentRubLabel = (() => {
-    if (currentRubMarks.length === 0) return null;
-    const { rub, hizb } = currentRubMarks[0];
-    const n = dig(hizb);
-    switch ((rub - 1) % 4) {
-      case 0:
-        return tx(lang, `Hizb ${n}`, `Hizb ${n}`, `الحزب ${n}`);
-      case 1:
-        return tx(lang, `Kwart hizb ${n}`, `Quarter of Hizb ${n}`, `ربع الحزب ${n}`);
-      case 2:
-        return tx(lang, `Helft hizb ${n}`, `Half of Hizb ${n}`, `نصف الحزب ${n}`);
-      default:
-        return tx(lang, `Driekwart hizb ${n}`, `Three-quarters of Hizb ${n}`, `ثلاثة أرباع الحزب ${n}`);
+  // Section markers (juz · eighth, hizb/rub', sajda) are NOT pinned at the top
+  // (Daa3iyah's call): they surface in a transient badge DURING the page-turn —
+  // see the FlatList onScroll + the transient badge overlay below. This helper
+  // computes the label for whichever page is sliding into view.
+  const sectionLabelForPage = (page: number) => {
+    const rubMarks = getRubMarksForPage(page);
+    const rub = rubMarks[0]; // ≤1 rub' starts per page (RUB_STARTS has no dup pages)
+    // If a rub' begins on this page, juz+eighth come from it (so they agree with
+    // the ۞ label and the juz index's jump target); otherwise the top-of-page
+    // values. The page's first verse may still be the previous juz (Madinah
+    // top-of-page), but the boundary starting here is the significant event.
+    const juz = rub ? rub.juz : getJuzForPage(page);
+    const eighth = rub ? rub.eighthOfJuz : getEighthOfJuzForPage(page);
+    const sajda = getSajdasForPage(page).length > 0;
+    let rubLabel: string | null = null;
+    if (rub) {
+      const n = dig(rub.hizb);
+      // Every 4th rub' is a HIZB start; (rub-1)%4 → 0 start/1 quarter/2 half/3 three-quarters.
+      switch ((rub.rub - 1) % 4) {
+        case 0: rubLabel = tx(lang, `Hizb ${n}`, `Hizb ${n}`, `الحزب ${n}`); break;
+        case 1: rubLabel = tx(lang, `Kwart hizb ${n}`, `Quarter of Hizb ${n}`, `ربع الحزب ${n}`); break;
+        case 2: rubLabel = tx(lang, `Helft hizb ${n}`, `Half of Hizb ${n}`, `نصف الحزب ${n}`); break;
+        default: rubLabel = tx(lang, `Driekwart hizb ${n}`, `Three-quarters of Hizb ${n}`, `ثلاثة أرباع الحزب ${n}`); break;
+      }
     }
-  })();
+    return { juz, eighth, rubLabel, sajda };
+  };
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
@@ -1592,24 +1602,8 @@ export default function QuranScreen() {
                 {tx(lang, "Pagina", "Page", "صفحة")} {dig(currentPage)} /{" "}
                 {dig(TOTAL_PAGES)}
               </Text>
-              <Text style={st.pageInfoJuz}>
-                {tx(lang, "Juz", "Juz", "الجزء")} {dig(currentJuz)} · {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(currentEighth)}/{dig(8)}
-              </Text>
-              {/* Header indicators, not in-page (see generateMushafHTML): a
-                  full-width QCF line has no room beside the text for a glyph
-                  without clipping or overlapping a Qur'an word. */}
-              {currentRubLabel && (
-                <Text style={st.pageInfoJuz}>
-                  {"۞ "}
-                  {currentRubLabel}
-                </Text>
-              )}
-              {currentSajdas.length > 0 && (
-                <Text style={st.pageInfoJuz}>
-                  {"۩ "}
-                  {tx(lang, "Sajda", "Sajda", "سجدة")}
-                </Text>
-              )}
+              {/* Juz/hizb/sajda are NOT shown here (Daa3iyah's call) — they appear
+                  in the transient badge during the page-turn (see transientPage). */}
             </View>
             <Pressable
               onPress={() => setShowSettings(true)}
@@ -1648,12 +1642,84 @@ export default function QuranScreen() {
         maxToRenderPerBatch={2}
         windowSize={5}
         removeClippedSubviews={false}
+        scrollEventThrottle={16}
+        onScrollBeginDrag={() => {
+          userDraggingRef.current = true;
+          if (transientHideTimer.current) {
+            clearTimeout(transientHideTimer.current);
+            transientHideTimer.current = null;
+          }
+        }}
+        onScroll={(e) => {
+          // Option ب: while the user swipes, show the section badge for the page
+          // sliding into view. Guarded to real drags + to page CHANGES only (ref,
+          // not state) so it's not a per-frame setState.
+          if (!userDraggingRef.current || listWidth <= 0) return;
+          const page = indexToPage(Math.round(e.nativeEvent.contentOffset.x / listWidth));
+          if (page < 1 || page > TOTAL_PAGES) return;
+          if (transientShownForRef.current !== page) {
+            transientShownForRef.current = page;
+            setTransientPage(page);
+            transientOpacity.setValue(1);
+          }
+        }}
         onMomentumScrollEnd={(e) => {
+          userDraggingRef.current = false;
           const idx = Math.round(e.nativeEvent.contentOffset.x / listWidth);
           const page = indexToPage(idx);
           if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
+          // Fade the transient badge out shortly after the page settles ("ثمّ تختفي").
+          if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
+          transientHideTimer.current = setTimeout(() => {
+            RNAnimated.timing(transientOpacity, {
+              toValue: 0,
+              duration: 400,
+              useNativeDriver: false,
+            }).start(() => {
+              setTransientPage(null);
+              transientShownForRef.current = null;
+            });
+          }, 500);
         }}
       />
+
+      {/* Transient section badge (option ب): juz/hizb/sajda of the page sliding
+          in, shown between the pages during a swipe, then faded out. pointerEvents
+          none so it never blocks the swipe. */}
+      {transientPage !== null &&
+        (() => {
+          const s = sectionLabelForPage(transientPage);
+          return (
+            <View pointerEvents="none" style={st.transientBadgeWrap}>
+              <RNAnimated.View
+                style={[
+                  st.transientBadge,
+                  {
+                    opacity: transientOpacity,
+                    backgroundColor: nightMode ? "rgba(15,15,31,0.92)" : "rgba(27,67,50,0.92)",
+                  },
+                ]}
+              >
+                <Text style={st.transientBadgeMain}>
+                  {tx(lang, "Juz", "Juz", "الجزء")} {dig(s.juz)} ·{" "}
+                  {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(s.eighth)}/{dig(8)}
+                </Text>
+                {s.rubLabel && (
+                  <Text style={st.transientBadgeSub}>
+                    {"۞ "}
+                    {s.rubLabel}
+                  </Text>
+                )}
+                {s.sajda && (
+                  <Text style={st.transientBadgeSub}>
+                    {"۩ "}
+                    {tx(lang, "Sajda", "Sajda", "سجدة")}
+                  </Text>
+                )}
+              </RNAnimated.View>
+            </View>
+          );
+        })()}
 
       {/* Modals */}
       {renderIndex()}
@@ -1691,7 +1757,20 @@ const st = StyleSheet.create({
   pageInfo: { alignItems: "center" },
   pageInfoSurah: { color: "#FFFFFF", fontSize: 16, fontWeight: "700" },
   pageInfoPage: { color: "#C4E0D4", fontSize: 10, marginTop: 2 },
-  pageInfoJuz: { color: "#C4E0D4", fontSize: 9, marginTop: 1 },
+  transientBadgeWrap: { position: "absolute", top: "20%", left: 0, right: 0, alignItems: "center" },
+  transientBadge: {
+    paddingHorizontal: 20,
+    paddingVertical: 12,
+    borderRadius: 16,
+    alignItems: "center",
+    shadowColor: "#000",
+    shadowOpacity: 0.35,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 5,
+  },
+  transientBadgeMain: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", textAlign: "center" },
+  transientBadgeSub: { color: "#E8D9A8", fontSize: 12, marginTop: 4, textAlign: "center" },
 
   // Mushaf text (fallback)
   mushafText: { textAlign: "justify", writingDirection: "rtl" },
