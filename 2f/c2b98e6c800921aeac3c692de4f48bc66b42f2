@@ -1,0 +1,28 @@
+lib/quran-page-index.ts
+  s_132c73e77515ad::t_04b9cf0c03f1b0 1-8
+lib/quran-page-index.test.ts
+  s_132c73e77515ad::t_97d4697512635d 3-4
+app/(tabs)/concepts.tsx
+  s_132c73e77515ad::t_761e0e453da89c 659-672
+  s_132c73e77515ad::t_9dd080829ff4f0 696
+  s_132c73e77515ad::t_312fb96c72cab8 44-47
+  s_132c73e77515ad::t_6f29e0cb967320 614-616
+  s_132c73e77515ad::t_19044f978c6286 726-728,739,743-746
+  s_132c73e77515ad::t_fe87b80d64fbfa 475-478
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "2fc2b98e6c800921aeac3c692de4f48bc66b42f2",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
