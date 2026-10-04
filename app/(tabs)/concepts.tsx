@@ -485,7 +485,10 @@ function applyHighlight(
 
 // ---- Per-page data + font caching ----------------------------------------
 // expo-file-system/legacy, matching this repo's existing usage (hooks/use-updates.ts).
-const PAGE_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-pages/`;
+// v2: 1.57.1-1.57.3 cached pages lacked translation/transliteration/position word
+// fields — bump the dir so those stale caches are never served; old folder is
+// orphaned and OS-cleared later.
+const PAGE_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-pages-v2/`;
 const FONT_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-fonts/`;
 
 async function ensureDirExists(dir: string) {
@@ -834,6 +837,10 @@ export default function QuranScreen() {
   const [tafsirSource, setTafsirSource] = useState<"saadi" | "kathir">("saadi");
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
+  // Bumped at the start of every science fetch; a response guards its state
+  // writes against this so a slow, stale fetch (tab switched mid-request)
+  // can't overwrite what the user is now looking at.
+  const scienceReqRef = useRef(0);
 
   // Word-tap modal state (content explorer increment 1) — separate from the
   // science modal above: a word tap needs no fetch (translation/transliteration
@@ -851,7 +858,7 @@ export default function QuranScreen() {
   // while a sheet is open" guard below would never fire. Assigned every
   // render, same pattern as pageCacheRef/currentPageRef above.
   const modalOpenRef = useRef(false);
-  modalOpenRef.current = showSettings || showIndex || showScienceModal;
+  modalOpenRef.current = showSettings || showIndex || showScienceModal || showWordModal;
   const langRef = useRef(lang);
   langRef.current = lang;
 
@@ -929,7 +936,7 @@ export default function QuranScreen() {
     if (!autoTurn || !isFocused) return;
     const id = setInterval(() => {
       // Skip a tick (don't stop) while the reader is interacting or a modal is open.
-      if (userDraggingRef.current || showSettings || showIndex || showScienceModal) return;
+      if (userDraggingRef.current || showSettings || showIndex || showScienceModal || showWordModal) return;
       // Reached the end: STOP auto-turn (so keep-awake is released too, not left on).
       if (currentPageRef.current >= TOTAL_PAGES) {
         setAutoTurn(false);
@@ -938,7 +945,7 @@ export default function QuranScreen() {
       jumpToPage(currentPageRef.current + 1);
     }, autoTurnSec * 1000);
     return () => clearInterval(id);
-  }, [autoTurn, isFocused, autoTurnSec, currentPage, jumpToPage, showSettings, showIndex, showScienceModal]);
+  }, [autoTurn, isFocused, autoTurnSec, currentPage, jumpToPage, showSettings, showIndex, showScienceModal, showWordModal]);
 
   // ---- Recitation playback engine ------------------------------------------
   // Stop outright: unloads the sound and clears the queue + highlight. Used
@@ -1025,6 +1032,9 @@ export default function QuranScreen() {
       setPlayingVerseKey(verseKey);
       failCountRef.current = 0; // successful load — reset the failure streak
     } catch {
+      // An abandoned load (user paused + started a new page/session) must not
+      // advance/fail a queue that's no longer current.
+      if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) return;
       failAndAdvance(queue); // failed to load — skip to the next ayah rather than stall forever
     }
   };
@@ -1033,6 +1043,9 @@ export default function QuranScreen() {
   // page is exhausted — to wherever the view currently is (the reader may
   // have swiped ahead manually) one page further, continuing from there.
   const advanceToNext = (queue: { page: number; ayahs: PageAyah[]; index: number }) => {
+    // Superseded check FIRST: a stale queue must not unload the sound a newer
+    // play session just loaded.
+    if (playQueueRef.current !== queue || !isPlayingRef.current) return; // superseded while this ayah was active
     const sound = soundRef.current;
     soundRef.current = null;
     if (sound) {
@@ -1042,7 +1055,6 @@ export default function QuranScreen() {
         } catch {}
       })();
     }
-    if (playQueueRef.current !== queue || !isPlayingRef.current) return; // superseded while this ayah was active
     const nextIndex = queue.index + 1;
     if (nextIndex < queue.ayahs.length) {
       playQueueRef.current = { ...queue, index: nextIndex };
@@ -1399,6 +1411,7 @@ export default function QuranScreen() {
 
   // Fetch tafsir
   const fetchTafsir = async (ayah: PageAyah, source: "saadi" | "kathir") => {
+    const req = ++scienceReqRef.current;
     setScienceLoading(true);
     setScienceContent("");
     setTafsirSource(source);
@@ -1415,6 +1428,7 @@ export default function QuranScreen() {
         .replace(/<[^>]*>/g, "")
         .replace(/&nbsp;/g, " ")
         .trim();
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         text ||
           tx(
@@ -1425,16 +1439,19 @@ export default function QuranScreen() {
           ),
       );
     } catch {
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         tx(lang, "Fout bij laden", "Error loading", "خطأ في التحميل"),
       );
     } finally {
+      if (scienceReqRef.current !== req) return;
       setScienceLoading(false);
     }
   };
 
   // Fetch hidayat via server LLM with timeout
   const fetchHidayat = async (ayah: PageAyah) => {
+    const req = ++scienceReqRef.current;
     setScienceLoading(true);
     setScienceContent("");
     setScienceTab("hidayat");
@@ -1450,6 +1467,7 @@ export default function QuranScreen() {
       });
       clearTimeout(timeoutId);
       const data = await res.json();
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         data?.hidayat ||
           tx(
@@ -1460,6 +1478,7 @@ export default function QuranScreen() {
           ),
       );
     } catch (err: any) {
+      if (scienceReqRef.current !== req) return;
       if (err?.name === "AbortError") {
         setScienceContent(
           tx(
@@ -1475,12 +1494,14 @@ export default function QuranScreen() {
         );
       }
     } finally {
+      if (scienceReqRef.current !== req) return;
       setScienceLoading(false);
     }
   };
 
   // Fetch surah info
   const fetchSurahInfo = async (surahNum: number) => {
+    const req = ++scienceReqRef.current;
     setScienceLoading(true);
     setScienceContent("");
     setScienceTab("surah");
@@ -1495,6 +1516,7 @@ export default function QuranScreen() {
       });
       clearTimeout(timeoutId);
       const data = await res.json();
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         data?.info ||
           tx(
@@ -1505,6 +1527,7 @@ export default function QuranScreen() {
           ),
       );
     } catch (err: any) {
+      if (scienceReqRef.current !== req) return;
       if (err?.name === "AbortError") {
         setScienceContent(
           tx(
@@ -1520,6 +1543,7 @@ export default function QuranScreen() {
         );
       }
     } finally {
+      if (scienceReqRef.current !== req) return;
       setScienceLoading(false);
     }
   };
@@ -1530,6 +1554,7 @@ export default function QuranScreen() {
   // LLM call). Translations also carry <sup foot_note=..> markers tafsir text
   // doesn't, so those are dropped whole (not just unwrapped) first.
   const fetchAyahTranslation = async (ayah: PageAyah) => {
+    const req = ++scienceReqRef.current;
     setScienceLoading(true);
     setScienceContent("");
     setScienceTab("translation");
@@ -1560,6 +1585,7 @@ export default function QuranScreen() {
         .replace(/<[^>]*>/g, "")
         .replace(/&nbsp;/g, " ")
         .trim();
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         text ||
           tx(
@@ -1570,10 +1596,12 @@ export default function QuranScreen() {
           ),
       );
     } catch {
+      if (scienceReqRef.current !== req) return;
       setScienceContent(
         tx(lang, "Fout bij laden", "Error loading", "خطأ في التحميل"),
       );
     } finally {
+      if (scienceReqRef.current !== req) return;
       setScienceLoading(false);
     }
   };
@@ -2297,14 +2325,19 @@ export default function QuranScreen() {
       .map(Number);
     const wordSurah = SURAH_LIST.find((s) => s.number === vkSurahNum);
     // Only fields quran.com actually returned — never render an empty/raw row.
+    // quran.com word `translation` is ALWAYS English (no per-word Dutch) and
+    // `transliteration` is Latin, so both are gated on viewer language, not
+    // just presence — English-under-an-Arabic/Dutch-label would be wrong, and
+    // Latin pronunciation is meaningless to an Arabic reader. Real Arabic
+    // word-meaning awaits a غريب-القرآن source (see the spec's DEFER note).
     const fields: { label: string; value: string }[] = [];
-    if (selectedWord.translation) {
+    if (lang === "en" && selectedWord.translation) {
       fields.push({
         label: tx(lang, "Betekenis", "Meaning", "المعنى"),
         value: selectedWord.translation,
       });
     }
-    if (selectedWord.transliteration) {
+    if (lang !== "ar" && selectedWord.transliteration) {
       fields.push({
         label: tx(lang, "Uitspraak", "Pronunciation", "النطق"),
         value: selectedWord.transliteration,
