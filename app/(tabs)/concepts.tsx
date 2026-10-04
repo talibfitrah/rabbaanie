@@ -657,6 +657,12 @@ export default function QuranScreen() {
   const transientShownForRef = useRef<number | null>(null); // last page set → avoid per-frame setState
   const lastOffsetXRef = useRef(0); // latest FlatList scroll offset, read by the drag-end/momentum-end settle
   const endDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // onScrollEndDrag fallback for a no-momentum release; cancelled by onMomentumScrollBegin if momentum does follow
+  // Safety net: on Android a tap that stops a fling (tap-to-stop) can emit NEITHER
+  // onScrollEndDrag NOR onMomentumScrollEnd, leaving userDraggingRef stuck true
+  // (badge never fades, currentPage never commits, auto-turn stalls). Armed on
+  // drag start, cleared by settlePaging; if nothing settles within the timeout it
+  // force-settles from the last known offset.
+  const settleWatchdogRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const flatListRef = useRef<FlatList<number>>(null);
   // Pages whose load is in flight — a SYNCHRONOUS in-flight guard. (retryingPages
   // state can't guard control flow: React only runs a state updater eagerly when
@@ -792,7 +798,9 @@ export default function QuranScreen() {
           if (saved.theme in MUSHAF_THEMES) setTheme(saved.theme);
           if (typeof saved.fontSize === "number") setFontSize(saved.fontSize);
           if (typeof saved.keepAwake === "boolean") setKeepAwake(saved.keepAwake);
-          if (typeof saved.autoTurn === "boolean") setAutoTurn(saved.autoTurn);
+          // autoTurn (the ON state) is intentionally NOT persisted: silently
+          // resuming hands-free paging on a later visit would drift the saved
+          // bookmark forward with no visible cue. Only the interval is remembered.
           if (typeof saved.autoTurnSec === "number") setAutoTurnSec(saved.autoTurnSec);
         } catch {
           // corrupt settings blob — ignore, defaults stand
@@ -807,9 +815,9 @@ export default function QuranScreen() {
     if (!settingsLoadedRef.current) return;
     AsyncStorage.setItem(
       SETTINGS_KEY,
-      JSON.stringify({ theme, fontSize, keepAwake, autoTurn, autoTurnSec }),
+      JSON.stringify({ theme, fontSize, keepAwake, autoTurnSec }),
     );
-  }, [theme, fontSize, keepAwake, autoTurn, autoTurnSec]);
+  }, [theme, fontSize, keepAwake, autoTurnSec]);
 
   // Load one page (cache-or-network). In-flight de-dupe uses inFlightRef — a
   // synchronous guard, because a state updater's side effect can't drive control
@@ -925,6 +933,7 @@ export default function QuranScreen() {
   useEffect(() => () => {
     if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
     if (endDragTimerRef.current) clearTimeout(endDragTimerRef.current);
+    if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
   }, []);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
@@ -1094,6 +1103,10 @@ export default function QuranScreen() {
   // the new swipe just re-showed.
   const settlePaging = (offsetX: number) => {
     userDraggingRef.current = false;
+    if (settleWatchdogRef.current) {
+      clearTimeout(settleWatchdogRef.current);
+      settleWatchdogRef.current = null;
+    }
     const page = indexToPage(Math.round(offsetX / listWidth));
     if (page >= 1 && page <= TOTAL_PAGES) {
       if (page !== currentPage) setCurrentPage(page);
@@ -1488,8 +1501,10 @@ export default function QuranScreen() {
               </Pressable>
             </View>
           </View>
-          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Text style={[st.settingsLabel, { color: textColor }]}>
+          {/* Theme: label on its own line, then the buttons wrap full-width below
+              (4 buttons + the label won't fit on one row in the settings box). */}
+          <View style={st.themeSection}>
+            <Text style={[st.settingsLabel, { color: textColor, marginBottom: 8, textAlign: isRTL ? "right" : "left" }]}>
               {tx(lang, "Thema", "Theme", "نمط الألوان")}
             </Text>
             <View style={[st.themeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -1858,6 +1873,14 @@ export default function QuranScreen() {
             clearTimeout(endDragTimerRef.current);
             endDragTimerRef.current = null;
           }
+          // Arm the tap-to-stop safety net: if neither end-drag nor momentum-end
+          // fires (Android tap-to-stop), force-settle from the last offset so the
+          // flag/badge/currentPage don't get stuck. settlePaging clears it.
+          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
+          settleWatchdogRef.current = setTimeout(
+            () => settlePaging(lastOffsetXRef.current),
+            1500,
+          );
           // stopAnimation freezes opacity wherever the fade had reached; reset the
           // shown-page ref so the next onScroll always re-runs setValue(1) and the
           // badge returns to full opacity (even if it re-shows the same page).
@@ -2079,6 +2102,7 @@ const st = StyleSheet.create({
     minWidth: 30,
     textAlign: "center",
   },
+  themeSection: { width: "100%", marginVertical: 8 },
   themeRow: { alignItems: "center", flexWrap: "wrap", gap: 6 },
   toggleBtn: {
     paddingHorizontal: 16,
