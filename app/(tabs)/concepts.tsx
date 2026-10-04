@@ -31,24 +31,16 @@ import {
   type SajdaVerse,
 } from "@/lib/quran-page-index";
 import { SURAH_LIST, type Surah } from "@/lib/surah-list";
+import { TOTAL_PAGES, pageToIndex, indexToPage } from "@/lib/mushaf-paging";
 
 import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
-const TOTAL_PAGES = 604;
 const STORAGE_KEY = "quran_last_page";
 const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs/v1/woff2";
 const API_BASE = "https://api.quran.com/api/v4";
 const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
-// Reversed page order so page 1 sits at the right end and paging progresses
-// right→left like the printed mushaf. No scaleX transform anywhere (that would
-// mirror the Qur'an), so if the swipe direction feels wrong on device this is
-// the single switch to flip. DEVICE-TEST ITEM #1.
-const RTL_PAGING = true;
 const PRELOAD_RADIUS = 2;   // pages each side of currentPage whose data we prefetch
 const CACHE_KEEP_RADIUS = 6; // pageCache pruned beyond this many pages from currentPage
-
-const pageToIndex = (page: number) => (RTL_PAGING ? TOTAL_PAGES - page : page - 1);
-const indexToPage = (index: number) => (RTL_PAGING ? TOTAL_PAGES - index : index + 1);
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -658,11 +650,14 @@ export default function QuranScreen() {
   // synchronous guard, because a state updater's side effect can't drive control
   // flow (React runs it eagerly only when the fiber has no pending lanes, so the
   // preload loop would fetch only its first page). retryingPages is updated purely
-  // to drive the slot spinner. A successful load (QCF words OR the plain-text
-  // fallback with ayahs) is cached and clears failedPages; a total failure (both
-  // empty) is recorded in failedPages so the preload effect leaves it alone —
-  // only the retry button (or navigating back) re-attempts it. Written even if
-  // the component moved on, so a completed fetch is never wasted.
+  // to drive the slot spinner. A load with content is cached and clears
+  // failedPages; a total failure (both empty) goes to failedPages so the preload
+  // effect leaves it alone — only the retry button (or navigating back) re-attempts
+  // it. A plain-text fallback (words:[], ayahs filled — quran.com was down) is
+  // cached so the page renders, but it does NOT overwrite an existing QCF entry,
+  // and a later QCF load DOES overwrite it: the nav effect re-attempts such
+  // degraded pages so a transient failure upgrades to the real mushaf layout.
+  // Written even if the component moved on, so a completed fetch is never wasted.
   const loadPage = useCallback((p: number) => {
     if (inFlightRef.current.has(p)) return; // already in flight
     inFlightRef.current.add(p);
@@ -674,7 +669,11 @@ export default function QuranScreen() {
         const next = new Set(prev); next.delete(p); return next;
       });
       if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
-        setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+        // Keep an existing QCF entry; overwrite an absent or degraded (words:[])
+        // one — so a QCF re-fetch upgrades a cached plain-text fallback.
+        setPageCache((prev) =>
+          prev[p] && prev[p].words.length > 0 ? prev : { ...prev, [p]: bundle },
+        );
         setFailedPages((prev) => {
           if (!prev.has(p)) return prev;
           const next = new Set(prev); next.delete(p); return next;
@@ -685,10 +684,13 @@ export default function QuranScreen() {
     });
   }, []);
 
-  // On navigation, give failed pages now in range one more chance (the
-  // connection may have returned). Tied to the discrete currentPage change, not
-  // to a load result, so it can't loop: after a re-fail a page goes back into
-  // failedPages and the preload effect skips it until the next navigation.
+  // On navigation, give in-range pages that aren't fully loaded one more chance
+  // (the connection may have returned): clear failures so the preload effect
+  // reloads them, and re-attempt degraded pages (a cached plain-text fallback,
+  // words:[]) so they upgrade to the QCF mushaf layout. Tied to the discrete
+  // currentPage change, not to a load result, so it can't loop: a re-fail goes
+  // back to failedPages and a still-degraded result stays cached (rendering),
+  // and neither re-triggers this effect.
   useEffect(() => {
     setFailedPages((prev) => {
       if (prev.size === 0) return prev;
@@ -699,6 +701,12 @@ export default function QuranScreen() {
       }
       return changed ? next : prev;
     });
+    for (let p = currentPage - PRELOAD_RADIUS; p <= currentPage + PRELOAD_RADIUS; p++) {
+      if (p < 1 || p > TOTAL_PAGES) continue;
+      const cached = pageCache[p];
+      if (cached && cached.words.length === 0) loadPage(p); // degraded → try QCF
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
 
   // Prefetch the current page + neighbours. Skips pages already cached, failed,

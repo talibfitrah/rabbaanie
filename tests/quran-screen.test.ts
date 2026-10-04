@@ -20,21 +20,25 @@ describe("Quran Screen - Surah List", () => {
     const filePath = path.resolve(__dirname, "../app/(tabs)/concepts.tsx");
     const content = fs.readFileSync(filePath, "utf-8");
     // Real juz + rub'/sajda markers come from lib/quran-page-index; full-page
-    // RTL turning uses a virtualized FlatList.
+    // RTL turning uses a virtualized FlatList whose page math lives in the
+    // testable lib/mushaf-paging (see tests/mushaf-paging.test.ts).
     expect(content).toContain("@/lib/quran-page-index");
-    expect(content).toContain("react-native");
-    expect(content).toContain("FlatList");
+    expect(content).toContain("@/lib/mushaf-paging");
+    // Paging-specific props — present ONLY on the horizontal page FlatList, not
+    // the vertical surah/juz index lists, so this fails if the pager is removed
+    // (unlike a bare toContain("FlatList"), which the index lists also satisfy).
+    expect(content).toContain("pagingEnabled");
+    expect(content).toContain("onMomentumScrollEnd");
+    expect(content).toMatch(/getItemLayout=/);
     // Actual function CALLS (name followed by a real argument) — a bare
     // `toContain("getRubMarksForPage")` would also pass if the name only
     // appeared in a comment.
     expect(content).toMatch(/getRubMarksForPage\([a-zA-Z_]\w*\)/);
     expect(content).toMatch(/getSajdasForPage\([a-zA-Z_]\w*\)/);
-    // Markers are derived from real page-index calls (asserted above) and the
-    // header conditionally renders the glyphs. Assert presence of the gated
-    // expressions + glyphs, not their byte-distance (a reformat must not break this).
-    expect(content).toContain("currentRubLabel");
+    // The header renders both marker glyphs. The gating logic is exercised by the
+    // page-index + paging unit tests; asserting glyph presence here avoids a
+    // byte-distance check that a reformat would break.
     expect(content).toContain("۞");
-    expect(content).toContain("currentSajdas.length > 0");
     expect(content).toContain("۩");
   });
 
