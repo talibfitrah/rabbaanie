@@ -570,6 +570,15 @@ export default function QuranScreen() {
   // request, and swaps the retry button for a spinner while it's pending.
   const [retryingPages, setRetryingPages] = useState<Set<number>>(new Set());
   const flatListRef = useRef<FlatList<number>>(null);
+  // Pages whose load is in flight — a SYNCHRONOUS in-flight guard. (retryingPages
+  // state can't guard control flow: React only runs a state updater eagerly when
+  // the fiber has no pending lanes, so a loop calling loadPage 5x would fetch only
+  // the first and leave the rest stuck.) retryingPages mirrors this for the spinner.
+  const inFlightRef = useRef<Set<number>>(new Set());
+  // Latest currentPage, for the rotation re-scroll effect to read without
+  // re-subscribing (depending on currentPage there would re-scroll every swipe).
+  const currentPageRef = useRef(currentPage);
+  currentPageRef.current = currentPage;
   // RTL_PAGING is a module constant, so empty deps are fine here.
   const PAGES = useMemo(() => Array.from({ length: TOTAL_PAGES }, (_, i) => indexToPage(i)), []);
   const [showIndex, setShowIndex] = useState(false);
@@ -623,22 +632,21 @@ export default function QuranScreen() {
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
   }, [currentPage]);
 
-  // Load one page (cache-or-network). In-flight de-dupe lives in the
-  // functional setRetryingPages below, so this callback is stable (no deps)
-  // and can't churn the effect. A successful load (QCF words OR the plain-text
-  // fallback with ayahs) is cached and clears failedPages; a total failure
-  // (both empty) is recorded in failedPages so the auto-load effect leaves it
-  // alone — only the retry button re-attempts it. Written even if the
-  // component moved on, so a completed fetch is never wasted.
+  // Load one page (cache-or-network). In-flight de-dupe uses inFlightRef — a
+  // synchronous guard, because a state updater's side effect can't drive control
+  // flow (React runs it eagerly only when the fiber has no pending lanes, so the
+  // preload loop would fetch only its first page). retryingPages is updated purely
+  // to drive the slot spinner. A successful load (QCF words OR the plain-text
+  // fallback with ayahs) is cached and clears failedPages; a total failure (both
+  // empty) is recorded in failedPages so the preload effect leaves it alone —
+  // only the retry button (or navigating back) re-attempts it. Written even if
+  // the component moved on, so a completed fetch is never wasted.
   const loadPage = useCallback((p: number) => {
-    let start = false;
-    setRetryingPages((prev) => {
-      if (prev.has(p)) return prev; // already in flight
-      start = true;
-      return new Set(prev).add(p);
-    });
-    if (!start) return;
+    if (inFlightRef.current.has(p)) return; // already in flight
+    inFlightRef.current.add(p);
+    setRetryingPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
     loadMushafPage(p).then((bundle) => {
+      inFlightRef.current.delete(p);
       setRetryingPages((prev) => {
         if (!prev.has(p)) return prev;
         const next = new Set(prev); next.delete(p); return next;
@@ -655,17 +663,34 @@ export default function QuranScreen() {
     });
   }, []);
 
+  // On navigation, give failed pages now in range one more chance (the
+  // connection may have returned). Tied to the discrete currentPage change, not
+  // to a load result, so it can't loop: after a re-fail a page goes back into
+  // failedPages and the preload effect skips it until the next navigation.
+  useEffect(() => {
+    setFailedPages((prev) => {
+      if (prev.size === 0) return prev;
+      let changed = false;
+      const next = new Set(prev);
+      for (let p = currentPage - PRELOAD_RADIUS; p <= currentPage + PRELOAD_RADIUS; p++) {
+        if (next.delete(p)) changed = true;
+      }
+      return changed ? next : prev;
+    });
+  }, [currentPage]);
+
   // Prefetch the current page + neighbours. Skips pages already cached, failed,
-  // or in flight — a failed page is NOT auto-retried (that was the endless-refetch
-  // loop); only the retry button calls loadPage for it. Depends on the state it
-  // reads so it re-runs as loads resolve, but every path hits a skip → no loop.
+  // or in flight (inFlightRef — synchronous) — a failed page is NOT auto-retried
+  // here (that was the endless-refetch loop); the effect above clears failures on
+  // navigation and the retry button clears one on tap. Re-runs as loads resolve
+  // (pageCache/failedPages change), but every path hits a skip → no loop.
   useEffect(() => {
     for (let p = currentPage - PRELOAD_RADIUS; p <= currentPage + PRELOAD_RADIUS; p++) {
       if (p < 1 || p > TOTAL_PAGES) continue;
-      if (pageCache[p] || failedPages.has(p) || retryingPages.has(p)) continue;
+      if (pageCache[p] || failedPages.has(p) || inFlightRef.current.has(p)) continue;
       loadPage(p);
     }
-  }, [currentPage, pageCache, failedPages, retryingPages, loadPage]);
+  }, [currentPage, pageCache, failedPages, loadPage]);
 
   useEffect(() => {
     setPageCache((prev) => {
@@ -679,6 +704,18 @@ export default function QuranScreen() {
       return changed ? next : prev;
     });
   }, [currentPage]);
+
+  // Keep the right page under the viewport when its width changes (rotation):
+  // getItemLayout/onMomentumScrollEnd use the live screenW, but the scroll offset
+  // doesn't move on its own, so without this a rotation lands on a different page.
+  // Reads currentPage via a ref so it fires ONLY on width change — a currentPage
+  // dep would re-scroll on every page turn and fight the native swipe.
+  useEffect(() => {
+    flatListRef.current?.scrollToIndex({
+      index: pageToIndex(currentPageRef.current),
+      animated: false,
+    });
+  }, [screenW]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
   // FlatList strip owns the swipe gesture now (section C) — so each slot just
@@ -839,13 +876,19 @@ export default function QuranScreen() {
   };
 
   const currentSurah = getSurahForPage(currentPage);
-  const currentJuz = getJuzForPage(currentPage);
-  const currentEighth = getEighthOfJuzForPage(currentPage);
   // Header-only ۞/۩ indicators (see generateMushafHTML's comment on why they
   // aren't placed in the page itself): empty on nearly every page (240 rubs /
   // 15 sajdas over 604 pages), so these are tiny no-op filters most renders.
   const currentRubMarks = getRubMarksForPage(currentPage);
   const currentSajdas = getSajdasForPage(currentPage);
+  // If a juz BEGINS on this page (its first rub', eighthOfJuz 1), the header
+  // shows that juz + eighth 1 so it matches the juz index's jump target
+  // (getJuzStartPage): the page's first verse is still the previous juz (Madinah
+  // top-of-page), but the new juz starting is the significant event on the page.
+  // Otherwise the top-of-page juz/eighth. (Header convention = Daa3iyah's call.)
+  const juzStartRub = currentRubMarks.find((r) => r.eighthOfJuz === 1);
+  const currentJuz = juzStartRub ? juzStartRub.juz : getJuzForPage(currentPage);
+  const currentEighth = juzStartRub ? 1 : getEighthOfJuzForPage(currentPage);
   // Every 4th rub' is a HIZB start, not a "quarter" — (rub-1)%4 gives the
   // position within the hizb: 0=start, 1=quarter, 2=half, 3=three-quarters.
   const currentRubLabel = (() => {
