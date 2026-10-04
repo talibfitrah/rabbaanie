@@ -22,6 +22,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
 import * as FileSystem from "expo-file-system/legacy";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
+import { useIsFocused } from "@react-navigation/native";
 import { ReportAiContent } from "@/components/report-ai-content";
 import {
   getJuzForPage,
@@ -734,28 +735,48 @@ export default function QuranScreen() {
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
   }, [currentPage]);
 
-  // Keep the screen from sleeping while reading, when enabled in settings.
+  // `concepts` is a Tabs.Screen — it blurs (not unmounts) when the user switches
+  // tabs, so keep-awake and auto-turn must be gated on FOCUS, not just the setting,
+  // or they'd keep running app-wide / advancing pages off-screen.
+  const isFocused = useIsFocused();
+
+  // Keep the screen from sleeping while reading: when the keep-awake setting is on,
+  // OR auto-turn is on (hands-free reading is pointless if the screen sleeps) — but
+  // only while the mushaf is focused. Deactivates on blur/unmount.
   useEffect(() => {
-    if (keepAwake) activateKeepAwakeAsync("mushaf").catch(() => {});
-    else deactivateKeepAwake("mushaf").catch(() => {});
+    if ((keepAwake || autoTurn) && isFocused) {
+      activateKeepAwakeAsync("mushaf").catch(() => {});
+    } else {
+      deactivateKeepAwake("mushaf").catch(() => {});
+    }
     return () => {
       deactivateKeepAwake("mushaf").catch(() => {});
     };
-  }, [keepAwake]);
+  }, [keepAwake, autoTurn, isFocused]);
 
   // Auto page-turn: advances one page every autoTurnSec seconds via the same
-  // programmatic jump the surah/juz index uses. Reads currentPage via the ref
-  // (not state) so this effect only resubscribes when autoTurn/autoTurnSec
-  // change, not on every page turn; jumpToPage already clamps so this simply
-  // stops advancing once the last page is reached.
+  // programmatic jump the surah/juz index uses. Only while the mushaf is FOCUSED
+  // (never advance pages on another tab). `currentPage` is in the deps so the
+  // countdown RESTARTS on every page change — a manual swipe pushes the next
+  // auto-advance a full interval away. A tick is skipped (not cancelled) while the
+  // user is mid-drag or a modal is open, so it never fights a gesture or flips
+  // pages behind a sheet. jumpToPage clamps, so it stops at the last page.
   useEffect(() => {
-    if (!autoTurn) return;
+    if (!autoTurn || !isFocused) return;
     const id = setInterval(() => {
-      if (currentPageRef.current >= TOTAL_PAGES) return; // stop at the last page
+      if (
+        userDraggingRef.current ||
+        showSettings ||
+        showIndex ||
+        showScienceModal ||
+        currentPageRef.current >= TOTAL_PAGES
+      ) {
+        return;
+      }
       jumpToPage(currentPageRef.current + 1);
     }, autoTurnSec * 1000);
     return () => clearInterval(id);
-  }, [autoTurn, autoTurnSec, jumpToPage]);
+  }, [autoTurn, isFocused, autoTurnSec, currentPage, jumpToPage, showSettings, showIndex, showScienceModal]);
 
   // Settings persistence: same restoredRef-gated load/save shape as the page
   // position above, so the initial save effect doesn't clobber a not-yet-loaded
@@ -1528,7 +1549,7 @@ export default function QuranScreen() {
                   <Text style={st.fontBtnText}>-</Text>
                 </Pressable>
                 <Text style={[st.fontSizeValue, { color: textColor }]}>
-                  {autoTurnSec}
+                  {dig(autoTurnSec)}
                 </Text>
                 <Pressable
                   onPress={() => setAutoTurnSec(Math.min(120, autoTurnSec + 10))}
