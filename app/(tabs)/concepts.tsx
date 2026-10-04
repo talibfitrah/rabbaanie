@@ -1688,15 +1688,26 @@ export default function QuranScreen() {
             clearTimeout(endDragTimerRef.current);
             endDragTimerRef.current = null;
           }
+          // stopAnimation freezes opacity wherever the fade had reached; reset the
+          // shown-page ref so the next onScroll always re-runs setValue(1) and the
+          // badge returns to full opacity (even if it re-shows the same page).
           transientOpacity.stopAnimation();
+          transientShownForRef.current = null;
         }}
         onScroll={(e) => {
           // Option ب: while the user swipes, show the section badge for the page
-          // most in view during the swipe. Guarded to real drags + to page CHANGES
-          // only (ref, not state) so it's not a per-frame setState.
+          // being swiped TOWARD (the incoming page), not the one being left. Pick
+          // by drag direction from the settled index — ceil when moving to a higher
+          // index, floor when lower — so it shows the destination from the start
+          // (Math.round would show the outgoing page until the midpoint). Guarded to
+          // real drags + to page CHANGES only (ref, not state) so it's not a
+          // per-frame setState.
           lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (!userDraggingRef.current || listWidth <= 0) return;
-          const page = indexToPage(Math.round(lastOffsetXRef.current / listWidth));
+          const exact = lastOffsetXRef.current / listWidth;
+          const settledIdx = pageToIndex(currentPage);
+          const idx = exact > settledIdx ? Math.ceil(exact) : Math.floor(exact);
+          const page = indexToPage(idx);
           if (page < 1 || page > TOTAL_PAGES) return;
           if (transientShownForRef.current !== page) {
             transientShownForRef.current = page;
