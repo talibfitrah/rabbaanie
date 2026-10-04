@@ -381,6 +381,7 @@ function MushafPageView({
   bgColor,
   textColor,
   onMessage,
+  onReady,
   webViewRef,
 }: {
   page: number;
@@ -390,6 +391,7 @@ function MushafPageView({
   bgColor: string;
   textColor: string;
   onMessage: (e: any) => void;
+  onReady?: () => void;
   webViewRef?: (ref: WebView | null) => void;
 }) {
   const html = useMemo(
@@ -419,6 +421,7 @@ function MushafPageView({
       style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
       scrollEnabled={false}
       onMessage={onMessage}
+      onLoadEnd={onReady}
       javaScriptEnabled={true}
       originWhitelist={["*"]}
       allowsInlineMediaPlayback={true}
@@ -428,6 +431,29 @@ function MushafPageView({
       showsHorizontalScrollIndicator={false}
     />
   );
+}
+
+// Shared by QuranScreen's [playingVerseKey] effect and its WebView onLoadEnd
+// handler (FIX 3): a WebView reload mid-ayah (theme/font-size change, degraded
+// →QCF upgrade) or a FlatList slot's WebView finishing its first load after
+// the effect already ran leaves .playing unset until the NEXT ayah change —
+// this clears any stale highlight on the given WebView, then sets it only if
+// `page` is the one currently being recited.
+function applyHighlight(
+  webView: WebView,
+  page: number,
+  targetPage: number | undefined,
+  verseKey: string | null,
+) {
+  const setHighlight =
+    page === targetPage && verseKey
+      ? `var t=document.querySelectorAll('[data-vk="${verseKey}"]');for(var i=0;i<t.length;i++)t[i].classList.add('playing');`
+      : "";
+  try {
+    webView.injectJavaScript(
+      `(function(){var p=document.querySelectorAll('[data-vk].playing');for(var i=0;i<p.length;i++)p[i].classList.remove('playing');${setHighlight}})();true;`,
+    );
+  } catch {}
 }
 
 // ---- Per-page data + font caching ----------------------------------------
@@ -751,6 +777,10 @@ export default function QuranScreen() {
   const playTokenRef = useRef(0);
   const pageCacheRef = useRef(pageCache);
   pageCacheRef.current = pageCache;
+  // Mirrors playingVerseKey (below) for the WebView onLoadEnd handler (FIX 3),
+  // which can fire well after the render that set playingVerseKey.
+  const playingVerseKeyRef = useRef<string | null>(null);
+  playingVerseKeyRef.current = playingVerseKey;
   const webViewRefsRef = useRef<Map<number, WebView | null>>(new Map());
 
   // Long press modal state
@@ -762,6 +792,19 @@ export default function QuranScreen() {
   const [tafsirSource, setTafsirSource] = useState<"saadi" | "kathir">("saadi");
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
+
+  // Synchronous mirrors of render state for the async recitation chain
+  // (toggleRecitation → playCurrentQueueItem → status callback → advanceToNext →
+  // advanceToNextPage): that chain keeps calling back into the closures from
+  // the render where PLAY was tapped, so reading showSettings/showIndex/
+  // showScienceModal/lang directly there sees whatever they were at that
+  // moment (all false, since Play is a toolbar button) — the "don't follow
+  // while a sheet is open" guard below would never fire. Assigned every
+  // render, same pattern as pageCacheRef/currentPageRef above.
+  const modalOpenRef = useRef(false);
+  modalOpenRef.current = showSettings || showIndex || showScienceModal;
+  const langRef = useRef(lang);
+  langRef.current = lang;
 
   // Every PROGRAMMATIC page move (index/juz tap, or the AsyncStorage restore
   // below) goes through here: it sets currentPage and scrolls the FlatList to
@@ -882,8 +925,8 @@ export default function QuranScreen() {
       // Best-effort, non-blocking notice — recitation has already stopped either way.
       try {
         Alert.alert(
-          tx(lang, "Recitatie gestopt", "Recitation stopped", "تعذّر تشغيل التلاوة"),
-          tx(lang, "Kon audio niet laden.", "Couldn't load audio.", "تعذّر تحميل الصوت. تحقّق من الاتصال."),
+          tx(langRef.current, "Recitatie gestopt", "Recitation stopped", "تعذّر تشغيل التلاوة"),
+          tx(langRef.current, "Kon audio niet laden.", "Couldn't load audio.", "تعذّر تحميل الصوت. تحقّق من الاتصال."),
         );
       } catch {}
       return;
@@ -913,7 +956,11 @@ export default function QuranScreen() {
         { uri: url },
         { shouldPlay: true },
         (status: any) => {
-          if (status.isLoaded && status.didJustFinish) advanceToNext(queue);
+          if (status.isLoaded && status.didJustFinish) { advanceToNext(queue); return; }
+          // A stream erroring mid-ayah reports { isLoaded: false, error } — without
+          // this, isPlaying/keep-awake/the Pause button all stay stuck "playing"
+          // forever on dead silence.
+          if (!status.isLoaded && status.error) failAndAdvance(queue);
         },
       );
       if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) {
@@ -996,7 +1043,7 @@ export default function QuranScreen() {
       stopRecitation();
       return;
     }
-    if (!userDraggingRef.current && !showSettings && !showIndex && !showScienceModal) {
+    if (!userDraggingRef.current && !modalOpenRef.current) {
       jumpToPage(nextPage);
     }
     playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
@@ -1092,18 +1139,20 @@ export default function QuranScreen() {
   useEffect(() => {
     const targetPage = playQueueRef.current?.page;
     webViewRefsRef.current.forEach((webView, page) => {
-      if (!webView) return;
-      const setHighlight =
-        page === targetPage && playingVerseKey
-          ? `var t=document.querySelectorAll('[data-vk="${playingVerseKey}"]');for(var i=0;i<t.length;i++)t[i].classList.add('playing');`
-          : "";
-      try {
-        webView.injectJavaScript(
-          `(function(){var p=document.querySelectorAll('[data-vk].playing');for(var i=0;i<p.length;i++)p[i].classList.remove('playing');${setHighlight}})();true;`,
-        );
-      } catch {}
+      if (webView) applyHighlight(webView, page, targetPage, playingVerseKey);
     });
   }, [playingVerseKey]);
+  // FIX 3: re-apply when a page's OWN WebView finishes loading — covers a
+  // reload mid-ayah (theme/font-size change, degraded→QCF upgrade) and a
+  // FlatList slot's first load after jumpToPage, both of which can finish
+  // after the effect above already ran and would otherwise show this page's
+  // first ayah unhighlighted until the next ayah change. Reads the refs (not
+  // the `playingVerseKey` render value) since onLoadEnd fires asynchronously,
+  // possibly several renders later.
+  const handleWebViewReady = (page: number) => {
+    const webView = webViewRefsRef.current.get(page);
+    if (webView) applyHighlight(webView, page, playQueueRef.current?.page, playingVerseKeyRef.current);
+  };
 
   // Settings persistence: same restoredRef-gated load/save shape as the page
   // position above, so the initial save effect doesn't clobber a not-yet-loaded
@@ -1555,6 +1604,7 @@ export default function QuranScreen() {
             bgColor={bgColor}
             textColor={textColor}
             onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
+            onReady={() => handleWebViewReady(page)}
             webViewRef={(ref) => {
               if (ref) webViewRefsRef.current.set(page, ref);
               else webViewRefsRef.current.delete(page);
