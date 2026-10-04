@@ -1,8 +1,11 @@
-// AUTO-GENERATED — do not hand-edit.
-// Built by a one-off scratchpad script from api.quran.com/api/v4
-// (/verses/by_page/{1..604}?fields=verse_key,page_number,juz_number,hizb_number,rub_el_hizb_number,sajdah_number),
-// scanned in Qur'an order across all 604 Madinah-mushaf pages. Replaces the old
-// `Math.ceil(page / 20.13)` juz approximation with the real per-page boundaries.
+// HAND-MAINTAINED. Originally seeded by a one-off scratchpad script from
+// api.quran.com/api/v4 (/verses/by_page/{1..604}?fields=verse_key,page_number,
+// juz_number,hizb_number,rub_el_hizb_number,sajdah_number), scanned in Qur'an
+// order across all 604 Madinah-mushaf pages (replacing the old
+// `Math.ceil(page / 20.13)` juz approximation). That seed script is NOT in the
+// repo, and the data has since been edited by hand — the 22:77 sajda (see below)
+// and the helpers at the bottom — so there is no regenerate step: edit in place
+// and keep the 22:77 addition. Do not "regenerate", which would drop it.
 //
 // PAGE_TO_JUZ / PAGE_TO_EIGHTH are indexed by page number (index 0 unused) and
 // hold the juz / eighth-of-juz of each page's FIRST verse — what a reader sees

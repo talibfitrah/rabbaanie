@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { PAGE_TO_JUZ, PAGE_TO_EIGHTH, RUB_STARTS, SAJDAS, getJuzStartPage } from "./quran-page-index";
-
-const TOTAL_PAGES = 604;
+// Single source of truth — don't redeclare 604 here (it could drift from the real one).
+import { TOTAL_PAGES } from "./mushaf-paging";
 
 describe("quran-page-index — PAGE_TO_JUZ", () => {
   it("covers pages 1-604 with a juz number in range 1-30, all 30 present", () => {

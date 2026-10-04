@@ -41,6 +41,10 @@ const API_BASE = "https://api.quran.com/api/v4";
 const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
 const PRELOAD_RADIUS = 2;   // pages each side of currentPage whose data we prefetch
 const CACHE_KEEP_RADIUS = 6; // pageCache pruned beyond this many pages from currentPage
+// A degraded (plain-text fallback) page is re-attempted at most once per this
+// interval, so a sustained quran.com outage can't turn every swipe into a burst
+// of doomed re-fetches; a transient failure still upgrades to QCF soon after.
+const DEGRADED_RETRY_COOLDOWN_MS = 30000;
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -468,7 +472,10 @@ async function loadPageWordsAndAyahs(
       `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
     );
     const data = await res.json();
-    if (data.verses) {
+    // length > 0, not just truthy: an empty `verses: []` would otherwise be
+    // written to disk and then read back forever as an empty (failed) page, which
+    // no retry could escape — it would keep reading the poisoned cache file.
+    if (Array.isArray(data.verses) && data.verses.length > 0) {
       if (cachePath) {
         ensureDirExists(PAGE_CACHE_DIR)
           .then(() => FileSystem.writeAsStringAsync(cachePath, JSON.stringify(data.verses)))
@@ -604,6 +611,9 @@ export default function QuranScreen() {
   // the fiber has no pending lanes, so a loop calling loadPage 5x would fetch only
   // the first and leave the rest stuck.) retryingPages mirrors this for the spinner.
   const inFlightRef = useRef<Set<number>>(new Set());
+  // Last load-attempt time per page (ms), so the degraded re-attempt can back off
+  // (see the nav effect) instead of re-fetching every swipe during an outage.
+  const lastAttemptRef = useRef<Map<number, number>>(new Map());
   // Latest currentPage, for the rotation re-scroll effect to read without
   // re-subscribing (depending on currentPage there would re-scroll every swipe).
   const currentPageRef = useRef(currentPage);
@@ -646,13 +656,20 @@ export default function QuranScreen() {
 
   // Load saved page on mount
   useEffect(() => {
-    AsyncStorage.getItem(STORAGE_KEY).then((val) => {
-      if (val) {
-        const p = parseInt(val, 10);
-        if (p >= 1 && p <= TOTAL_PAGES) jumpToPage(p);
-      }
-      restoredRef.current = true;
-    });
+    AsyncStorage.getItem(STORAGE_KEY)
+      .then((val) => {
+        if (val) {
+          const p = parseInt(val, 10);
+          if (p >= 1 && p <= TOTAL_PAGES) jumpToPage(p);
+        }
+      })
+      // .finally so a REJECTED read still lifts the gate — otherwise the save
+      // effect would return early for the rest of the session and never persist
+      // the reading position. The race protection only needs the flag set once
+      // the restore attempt has settled, either way.
+      .finally(() => {
+        restoredRef.current = true;
+      });
   }, [jumpToPage]);
 
   // Save current page
@@ -676,6 +693,7 @@ export default function QuranScreen() {
   const loadPage = useCallback((p: number) => {
     if (inFlightRef.current.has(p)) return; // already in flight
     inFlightRef.current.add(p);
+    lastAttemptRef.current.set(p, Date.now());
     setRetryingPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
     loadMushafPage(p).then((bundle) => {
       inFlightRef.current.delete(p);
@@ -705,7 +723,9 @@ export default function QuranScreen() {
   // words:[]) so they upgrade to the QCF mushaf layout. Tied to the discrete
   // currentPage change, not to a load result, so it can't loop: a re-fail goes
   // back to failedPages and a still-degraded result stays cached (rendering),
-  // and neither re-triggers this effect.
+  // and neither re-triggers this effect. Degraded re-attempts are rate-limited
+  // (DEGRADED_RETRY_COOLDOWN_MS) so a sustained quran.com outage doesn't make
+  // every swipe fire a burst of doomed re-fetches.
   useEffect(() => {
     setFailedPages((prev) => {
       if (prev.size === 0) return prev;
@@ -716,10 +736,14 @@ export default function QuranScreen() {
       }
       return changed ? next : prev;
     });
+    const now = Date.now();
     for (let p = currentPage - PRELOAD_RADIUS; p <= currentPage + PRELOAD_RADIUS; p++) {
       if (p < 1 || p > TOTAL_PAGES) continue;
       const cached = pageCache[p];
-      if (cached && cached.words.length === 0) loadPage(p); // degraded → try QCF
+      const lastTry = lastAttemptRef.current.get(p) ?? 0;
+      if (cached && cached.words.length === 0 && now - lastTry > DEGRADED_RETRY_COOLDOWN_MS) {
+        loadPage(p); // degraded → try to upgrade to QCF (rate-limited)
+      }
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [currentPage]);
