@@ -441,6 +441,21 @@ function parseByPageVerses(verses: any[]): { words: PageWord[]; ayahs: PageAyah[
 /** Cache-or-fetch one page's word/ayah data. Same quran.com shape + the same
  * alquran.cloud fallback as before Phase 1 — only the on-device cache check
  * (read-through) and cache write (fire-and-forget, non-blocking) are new. */
+// fetch with an abort timeout so a stalled connection (e.g. a network switch)
+// rejects instead of hanging forever. React Native's Android client sets no
+// default read timeout, and a hung page load would sit on the spinner
+// permanently — it never reaches failedPages and the in-flight guard blocks a
+// re-fetch. The caller's catch turns the abort into the normal fallback path.
+async function fetchWithTimeout(url: string, ms = 15000): Promise<Response> {
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), ms);
+  try {
+    return await fetch(url, { signal: controller.signal });
+  } finally {
+    clearTimeout(timer);
+  }
+}
+
 async function loadPageWordsAndAyahs(
   page: number,
 ): Promise<{ words: PageWord[]; ayahs: PageAyah[] }> {
@@ -457,7 +472,7 @@ async function loadPageWordsAndAyahs(
     }
   }
   try {
-    const res = await fetch(
+    const res = await fetchWithTimeout(
       `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
     );
     const data = await res.json();
@@ -473,7 +488,7 @@ async function loadPageWordsAndAyahs(
     // fall through to the alquran.cloud fallback below
   }
   try {
-    const res2 = await fetch(`https://api.alquran.cloud/v1/page/${page}/quran-uthmani`);
+    const res2 = await fetchWithTimeout(`https://api.alquran.cloud/v1/page/${page}/quran-uthmani`);
     const data2 = await res2.json();
     if (data2.code === 200) {
       const ayahs: PageAyah[] = data2.data.ayahs.map((a: any) => ({
@@ -552,6 +567,13 @@ export default function QuranScreen() {
   const insets = useSafeAreaInsets();
   const colors = useColors();
   const { width: screenW } = useWindowDimensions();
+  // The list's OWN measured width (FlatList onLayout below) drives page geometry,
+  // not the window width — the two can differ (Android landscape edge-to-edge
+  // under the nav bar), which would drift pagingEnabled's snap out of step with
+  // getItemLayout and pick the wrong page. Seeded with screenW so the first paint
+  // and initial scroll have a sane width before onLayout measures; onLayout
+  // corrects it and re-fires on rotation (which drives the re-scroll effect).
+  const [listWidth, setListWidth] = useState(screenW);
 
   // State
   const [currentPage, setCurrentPage] = useState(1);
@@ -705,17 +727,18 @@ export default function QuranScreen() {
     });
   }, [currentPage]);
 
-  // Keep the right page under the viewport when its width changes (rotation):
-  // getItemLayout/onMomentumScrollEnd use the live screenW, but the scroll offset
-  // doesn't move on its own, so without this a rotation lands on a different page.
-  // Reads currentPage via a ref so it fires ONLY on width change — a currentPage
+  // Keep the right page under the viewport when the list's width changes
+  // (rotation): getItemLayout/onMomentumScrollEnd use listWidth, but the scroll
+  // offset doesn't move on its own, so without this a rotation lands on a
+  // different page. Keyed on listWidth (set by onLayout after the re-measure) and
+  // reads currentPage via a ref so it fires ONLY on width change — a currentPage
   // dep would re-scroll on every page turn and fight the native swipe.
   useEffect(() => {
     flatListRef.current?.scrollToIndex({
       index: pageToIndex(currentPageRef.current),
       animated: false,
     });
-  }, [screenW]);
+  }, [listWidth]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
   // FlatList strip owns the swipe gesture now (section C) — so each slot just
@@ -881,14 +904,16 @@ export default function QuranScreen() {
   // 15 sajdas over 604 pages), so these are tiny no-op filters most renders.
   const currentRubMarks = getRubMarksForPage(currentPage);
   const currentSajdas = getSajdasForPage(currentPage);
-  // If a juz BEGINS on this page (its first rub', eighthOfJuz 1), the header
-  // shows that juz + eighth 1 so it matches the juz index's jump target
-  // (getJuzStartPage): the page's first verse is still the previous juz (Madinah
-  // top-of-page), but the new juz starting is the significant event on the page.
-  // Otherwise the top-of-page juz/eighth. (Header convention = Daa3iyah's call.)
-  const juzStartRub = currentRubMarks.find((r) => r.eighthOfJuz === 1);
-  const currentJuz = juzStartRub ? juzStartRub.juz : getJuzForPage(currentPage);
-  const currentEighth = juzStartRub ? 1 : getEighthOfJuzForPage(currentPage);
+  // If a rub' (hizb quarter) BEGINS on this page, the header's juz + eighth come
+  // from that rub' — so the juz/eighth, the ۞ label, and (for a juz start) the
+  // juz index's jump target (getJuzStartPage) all agree. At most one rub' starts
+  // per page (RUB_STARTS has no duplicate pages). Otherwise the top-of-page
+  // juz/eighth. The page's first verse may still be the previous juz (Madinah
+  // top-of-page), but the boundary starting here is the significant event.
+  // (Header convention = Daa3iyah's call.)
+  const pageRub = currentRubMarks[0];
+  const currentJuz = pageRub ? pageRub.juz : getJuzForPage(currentPage);
+  const currentEighth = pageRub ? pageRub.eighthOfJuz : getEighthOfJuzForPage(currentPage);
   // Every 4th rub' is a HIZB start, not a "quarter" — (rub-1)%4 gives the
   // position within the hizb: 0=start, 1=quarter, 2=half, 3=three-quarters.
   const currentRubLabel = (() => {
@@ -914,16 +939,16 @@ export default function QuranScreen() {
   // spinner, a page that truly failed shows a retry button, a loaded page
   // with CDN words renders via WebView (markers added per section B), and a
   // loaded page with no word data falls back to plain text. Every branch
-  // returns a single plain View sized exactly one screen wide (width: screenW,
-  // height: '100%') — FlatList's horizontal pagingEnabled snapping requires
-  // each item to measure exactly one screen.
+  // returns a single plain View sized to the list's measured width (width:
+  // listWidth, height: '100%') — FlatList's horizontal pagingEnabled snapping
+  // requires each item to measure exactly the list's own width.
   const renderPageSlot = (page: number) => {
     const bundle = pageCache[page];
 
     if (!bundle) {
       if (failedPages.has(page)) {
         return (
-          <View style={{ width: screenW, height: "100%" }}>
+          <View style={{ width: listWidth, height: "100%" }}>
             <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
               <Text style={{ color: textColor, fontSize: 14, textAlign: "center" }}>
                 {tx(lang, "Laden mislukt", "Failed to load", "تعذر تحميل الصفحة")}
@@ -951,7 +976,7 @@ export default function QuranScreen() {
         );
       }
       return (
-        <View style={{ width: screenW, height: "100%" }}>
+        <View style={{ width: listWidth, height: "100%" }}>
           <View style={[st.loadingContainer, { backgroundColor: bgColor }]}>
             <ActivityIndicator
               size="large"
@@ -973,7 +998,7 @@ export default function QuranScreen() {
     // If we have CDN font words, use WebView for high-quality rendering
     if (bundle.words.length > 0) {
       return (
-        <View style={{ width: screenW, height: "100%" }}>
+        <View style={{ width: listWidth, height: "100%" }}>
           <MushafPageView
             page={page}
             bundle={bundle}
@@ -988,7 +1013,7 @@ export default function QuranScreen() {
 
     // Fallback: render with text (when API fails)
     return (
-      <View style={{ width: screenW, height: "100%" }}>
+      <View style={{ width: listWidth, height: "100%" }}>
         <ScrollView
           style={{ flex: 1, backgroundColor: bgColor }}
           contentContainerStyle={{
@@ -1554,14 +1579,18 @@ export default function QuranScreen() {
         horizontal
         pagingEnabled
         showsHorizontalScrollIndicator={false}
-        getItemLayout={(_, index) => ({ length: screenW, offset: screenW * index, index })}
+        onLayout={(e) => {
+          const w = e.nativeEvent.layout.width;
+          if (w > 0 && w !== listWidth) setListWidth(w);
+        }}
+        getItemLayout={(_, index) => ({ length: listWidth, offset: listWidth * index, index })}
         initialScrollIndex={pageToIndex(currentPage)}
         initialNumToRender={1}
         maxToRenderPerBatch={2}
         windowSize={5}
         removeClippedSubviews={false}
         onMomentumScrollEnd={(e) => {
-          const idx = Math.round(e.nativeEvent.contentOffset.x / screenW);
+          const idx = Math.round(e.nativeEvent.contentOffset.x / listWidth);
           const page = indexToPage(idx);
           if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
         }}
