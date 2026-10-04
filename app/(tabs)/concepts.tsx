@@ -21,6 +21,7 @@ import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
 import * as FileSystem from "expo-file-system/legacy";
+import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
 import { ReportAiContent } from "@/components/report-ai-content";
 import {
   getJuzForPage,
@@ -36,6 +37,7 @@ import { TOTAL_PAGES, pageToIndex, indexToPage } from "@/lib/mushaf-paging";
 import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
 const STORAGE_KEY = "quran_last_page";
+const SETTINGS_KEY = "quran_mushaf_settings";
 const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs/v1/woff2";
 const API_BASE = "https://api.quran.com/api/v4";
 const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
@@ -45,6 +47,21 @@ const CACHE_KEEP_RADIUS = 6; // pageCache pruned beyond this many pages from cur
 // interval, so a sustained quran.com outage can't turn every swipe into a burst
 // of doomed re-fetches; a transient failure still upgrades to QCF soon after.
 const DEGRADED_RETRY_COOLDOWN_MS = 30000;
+
+// Colour themes: replaces the old binary nightMode STATE. nightMode is now
+// DERIVED from theme (see QuranScreen) so the ~50 existing
+// `nightMode ? darkVariant : lightVariant` accent/border ternaries elsewhere
+// in this file keep working unchanged — only bg/text come from the theme map.
+type MushafTheme = "white" | "sepia" | "green" | "dark";
+const MUSHAF_THEMES: Record<
+  MushafTheme,
+  { bg: string; text: string; dark: boolean; label: { nl: string; en: string; ar: string } }
+> = {
+  white: { bg: "#FFFFF5", text: "#1B1B1B", dark: false, label: { nl: "Wit", en: "White", ar: "أبيض" } },
+  sepia: { bg: "#F5ECD8", text: "#3A2E1A", dark: false, label: { nl: "Sepia", en: "Sepia", ar: "بنّي فاتح" } },
+  green: { bg: "#E8F5EC", text: "#14341F", dark: false, label: { nl: "Groen", en: "Green", ar: "أخضر" } },
+  dark: { bg: "#1A1A2E", text: "#E8E8D0", dark: true, label: { nl: "Nacht", en: "Night", ar: "ليلي" } },
+};
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
@@ -81,11 +98,11 @@ function generateMushafHTML(
   words: PageWord[],
   nightMode: boolean,
   fontSize: number,
+  bgColor: string,
+  textColor: string,
   sajdas: SajdaVerse[] = [],
   fontDataUri?: string,
 ): string {
-  const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
-  const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const borderColor = nightMode ? "#C4A35A" : "#1B4332";
   // Cached base64 font (see loadMushafPage/getCachedFontUri below) wins once a
   // page has been opened before; first-ever view falls back to the CDN exactly
@@ -341,14 +358,15 @@ document.addEventListener('pointercancel', function() {
 // (e.g. a toolbar toggle) regenerates them all for nothing. useMemo needs a
 // real component (a plain function called in a .map() can't use hooks), keyed
 // on exactly what generateMushafHTML's output depends on — a toolbar/settings
-// re-render with the same page/bundle/nightMode/fontSize reuses the cached
-// html untouched.
+// re-render with the same page/bundle/nightMode/fontSize/bgColor/textColor
+// reuses the cached html untouched.
 function MushafPageView({
   page,
   bundle,
   nightMode,
   fontSize,
   bgColor,
+  textColor,
   onMessage,
 }: {
   page: number;
@@ -356,6 +374,7 @@ function MushafPageView({
   nightMode: boolean;
   fontSize: number;
   bgColor: string;
+  textColor: string;
   onMessage: (e: any) => void;
 }) {
   const html = useMemo(
@@ -365,10 +384,12 @@ function MushafPageView({
         bundle.words,
         nightMode,
         fontSize,
+        bgColor,
+        textColor,
         getSajdasForPage(page),
         bundle.fontUri,
       ),
-    [page, bundle, nightMode, fontSize],
+    [page, bundle, nightMode, fontSize, bgColor, textColor],
   );
   // Memoized separately from html so the source object's IDENTITY is stable
   // across re-renders that don't change html (e.g. a transient-badge setState
@@ -655,7 +676,12 @@ export default function QuranScreen() {
   const [showSettings, setShowSettings] = useState(false);
   const [showToolbar, setShowToolbar] = useState(true);
   const [fontSize, setFontSize] = useState(28);
-  const [nightMode, setNightMode] = useState(false);
+  const [theme, setTheme] = useState<MushafTheme>("white");
+  // Derived, not state — keeps all existing `nightMode ? ... : ...` reads below working.
+  const nightMode = MUSHAF_THEMES[theme].dark;
+  const [keepAwake, setKeepAwake] = useState(false);
+  const [autoTurn, setAutoTurn] = useState(false);
+  const [autoTurnSec, setAutoTurnSec] = useState(30);
 
   // Long press modal state
   const [showScienceModal, setShowScienceModal] = useState(false);
@@ -707,6 +733,62 @@ export default function QuranScreen() {
     if (!restoredRef.current) return;
     AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
   }, [currentPage]);
+
+  // Keep the screen from sleeping while reading, when enabled in settings.
+  useEffect(() => {
+    if (keepAwake) activateKeepAwakeAsync("mushaf").catch(() => {});
+    else deactivateKeepAwake("mushaf").catch(() => {});
+    return () => {
+      deactivateKeepAwake("mushaf").catch(() => {});
+    };
+  }, [keepAwake]);
+
+  // Auto page-turn: advances one page every autoTurnSec seconds via the same
+  // programmatic jump the surah/juz index uses. Reads currentPage via the ref
+  // (not state) so this effect only resubscribes when autoTurn/autoTurnSec
+  // change, not on every page turn; jumpToPage already clamps so this simply
+  // stops advancing once the last page is reached.
+  useEffect(() => {
+    if (!autoTurn) return;
+    const id = setInterval(() => {
+      if (currentPageRef.current >= TOTAL_PAGES) return; // stop at the last page
+      jumpToPage(currentPageRef.current + 1);
+    }, autoTurnSec * 1000);
+    return () => clearInterval(id);
+  }, [autoTurn, autoTurnSec, jumpToPage]);
+
+  // Settings persistence: same restoredRef-gated load/save shape as the page
+  // position above, so the initial save effect doesn't clobber a not-yet-loaded
+  // saved setting.
+  const settingsLoadedRef = useRef(false);
+
+  useEffect(() => {
+    AsyncStorage.getItem(SETTINGS_KEY)
+      .then((val) => {
+        if (!val) return;
+        try {
+          const saved = JSON.parse(val);
+          if (saved.theme in MUSHAF_THEMES) setTheme(saved.theme);
+          if (typeof saved.fontSize === "number") setFontSize(saved.fontSize);
+          if (typeof saved.keepAwake === "boolean") setKeepAwake(saved.keepAwake);
+          if (typeof saved.autoTurn === "boolean") setAutoTurn(saved.autoTurn);
+          if (typeof saved.autoTurnSec === "number") setAutoTurnSec(saved.autoTurnSec);
+        } catch {
+          // corrupt settings blob — ignore, defaults stand
+        }
+      })
+      .finally(() => {
+        settingsLoadedRef.current = true;
+      });
+  }, []);
+
+  useEffect(() => {
+    if (!settingsLoadedRef.current) return;
+    AsyncStorage.setItem(
+      SETTINGS_KEY,
+      JSON.stringify({ theme, fontSize, keepAwake, autoTurn, autoTurnSec }),
+    );
+  }, [theme, fontSize, keepAwake, autoTurn, autoTurnSec]);
 
   // Load one page (cache-or-network). In-flight de-dupe uses inFlightRef — a
   // synchronous guard, because a state updater's side effect can't drive control
@@ -1040,8 +1122,8 @@ export default function QuranScreen() {
     }
     return { juz, eighth, rubLabel, sajda };
   };
-  const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
-  const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
+  const bgColor = MUSHAF_THEMES[theme].bg;
+  const textColor = MUSHAF_THEMES[theme].text;
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
 
   // Render ONE list item: a page not yet loaded shows a loading spinner, a page
@@ -1115,6 +1197,7 @@ export default function QuranScreen() {
             nightMode={nightMode}
             fontSize={fontSize}
             bgColor={bgColor}
+            textColor={textColor}
             onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
           />
         </View>
@@ -1386,19 +1469,76 @@ export default function QuranScreen() {
           </View>
           <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Text style={[st.settingsLabel, { color: textColor }]}>
-              {tx(lang, "Nachtmodus", "Night Mode", "الوضع الليلي")}
+              {tx(lang, "Thema", "Theme", "نمط الألوان")}
+            </Text>
+            <View style={[st.themeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              {(Object.keys(MUSHAF_THEMES) as MushafTheme[]).map((key) => (
+                <Pressable
+                  key={key}
+                  onPress={() => setTheme(key)}
+                  style={[st.toggleBtn, theme === key && st.toggleBtnActive]}
+                >
+                  <Text style={[st.toggleBtnText, theme === key && { color: "#FFF" }]}>
+                    {tx(lang, MUSHAF_THEMES[key].label.nl, MUSHAF_THEMES[key].label.en, MUSHAF_THEMES[key].label.ar)}
+                  </Text>
+                </Pressable>
+              ))}
+            </View>
+          </View>
+          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={[st.settingsLabel, { color: textColor }]}>
+              {tx(lang, "Scherm aan houden", "Keep screen on", "منع إطفاء الشاشة")}
             </Text>
             <Pressable
-              onPress={() => setNightMode(!nightMode)}
-              style={[st.toggleBtn, nightMode && st.toggleBtnActive]}
+              onPress={() => setKeepAwake(!keepAwake)}
+              style={[st.toggleBtn, keepAwake && st.toggleBtnActive]}
             >
-              <Text style={[st.toggleBtnText, nightMode && { color: "#FFF" }]}>
-                {nightMode
+              <Text style={[st.toggleBtnText, keepAwake && { color: "#FFF" }]}>
+                {keepAwake
                   ? tx(lang, "Aan", "On", "مفعّل")
                   : tx(lang, "Uit", "Off", "معطّل")}
               </Text>
             </Pressable>
           </View>
+          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={[st.settingsLabel, { color: textColor }]}>
+              {tx(lang, "Automatisch doorbladeren", "Auto page-turn", "تصفُّح تلقائي")}
+            </Text>
+            <Pressable
+              onPress={() => setAutoTurn(!autoTurn)}
+              style={[st.toggleBtn, autoTurn && st.toggleBtnActive]}
+            >
+              <Text style={[st.toggleBtnText, autoTurn && { color: "#FFF" }]}>
+                {autoTurn
+                  ? tx(lang, "Aan", "On", "مفعّل")
+                  : tx(lang, "Uit", "Off", "معطّل")}
+              </Text>
+            </Pressable>
+          </View>
+          {autoTurn && (
+            <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+              <Text style={[st.settingsLabel, { color: textColor }]}>
+                {tx(lang, "Seconden per pagina", "Seconds per page", "ثوانٍ لكل صفحة")}
+              </Text>
+              <View style={[st.fontSizeControls, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+                <Pressable
+                  onPress={() => setAutoTurnSec(Math.max(10, autoTurnSec - 10))}
+                  style={st.fontBtn}
+                >
+                  <Text style={st.fontBtnText}>-</Text>
+                </Pressable>
+                <Text style={[st.fontSizeValue, { color: textColor }]}>
+                  {autoTurnSec}
+                </Text>
+                <Pressable
+                  onPress={() => setAutoTurnSec(Math.min(120, autoTurnSec + 10))}
+                  style={st.fontBtn}
+                >
+                  <Text style={st.fontBtnText}>+</Text>
+                </Pressable>
+              </View>
+            </View>
+          )}
           <Pressable
             onPress={() => setShowSettings(false)}
             style={st.settingsCloseBtn}
@@ -1918,6 +2058,7 @@ const st = StyleSheet.create({
     minWidth: 30,
     textAlign: "center",
   },
+  themeRow: { alignItems: "center", flexWrap: "wrap", gap: 6 },
   toggleBtn: {
     paddingHorizontal: 16,
     paddingVertical: 6,
