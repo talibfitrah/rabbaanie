@@ -739,7 +739,7 @@ export default function QuranScreen() {
   // Save current page
   useEffect(() => {
     if (!restoredRef.current) return;
-    AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
+    AsyncStorage.setItem(STORAGE_KEY, String(currentPage)).catch(() => {}); // ignore storage failure
   }, [currentPage]);
 
   // `concepts` is a Tabs.Screen — it blurs (not unmounts) when the user switches
@@ -816,7 +816,7 @@ export default function QuranScreen() {
     AsyncStorage.setItem(
       SETTINGS_KEY,
       JSON.stringify({ theme, fontSize, keepAwake, autoTurnSec }),
-    );
+    ).catch(() => {}); // storage full/quota — ignore (no unhandled rejection)
   }, [theme, fontSize, keepAwake, autoTurnSec]);
 
   // Load one page (cache-or-network). In-flight de-dupe uses inFlightRef — a
@@ -1873,13 +1873,15 @@ export default function QuranScreen() {
             clearTimeout(endDragTimerRef.current);
             endDragTimerRef.current = null;
           }
-          // Clear any stale tap-to-stop watchdog from a previous gesture (it's armed
-          // on RELEASE in onScrollEndDrag, not here — arming on drag-start would fire
-          // mid-gesture during a slow/paused drag).
-          if (settleWatchdogRef.current) {
-            clearTimeout(settleWatchdogRef.current);
-            settleWatchdogRef.current = null;
-          }
+          // Tap-to-stop safety net: armed here and RE-ARMED on every onScroll sample
+          // (see onScroll), so it fires only ~1.5s after scrolling actually STOPS.
+          // That covers a gesture that never emits end-drag/momentum-end (tap-to-stop,
+          // cancelled touch) without firing during an active drag. settlePaging clears it.
+          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
+          settleWatchdogRef.current = setTimeout(
+            () => settlePaging(lastOffsetXRef.current),
+            1500,
+          );
           // stopAnimation freezes opacity wherever the fade had reached; reset the
           // shown-page ref so the next onScroll always re-runs setValue(1) and the
           // badge returns to full opacity (even if it re-shows the same page).
@@ -1896,6 +1898,13 @@ export default function QuranScreen() {
           // per-frame setState.
           lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (!userDraggingRef.current || listWidth <= 0) return;
+          // Push the tap-to-stop watchdog forward while scrolling is live; it fires
+          // ~1.5s after the last sample, i.e. only once scrolling has actually stopped.
+          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
+          settleWatchdogRef.current = setTimeout(
+            () => settlePaging(lastOffsetXRef.current),
+            1500,
+          );
           const exact = lastOffsetXRef.current / listWidth;
           // At rest the ratio isn't exactly integer (Android dp/float rounding), so
           // snap to the nearest index when we're within ~1% of it — otherwise ceil/
@@ -1927,15 +1936,8 @@ export default function QuranScreen() {
           lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (endDragTimerRef.current) clearTimeout(endDragTimerRef.current);
           endDragTimerRef.current = setTimeout(() => settlePaging(lastOffsetXRef.current), 140);
-          // Tap-to-stop safety net (armed on RELEASE, so it never fires mid-drag):
-          // if the user taps to halt the fling, Android emits no onMomentumScrollEnd
-          // (and the endDrag fallback above was cancelled by onMomentumScrollBegin),
-          // leaving the flag/badge/currentPage stuck — force-settle after 1.5s.
-          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
-          settleWatchdogRef.current = setTimeout(
-            () => settlePaging(lastOffsetXRef.current),
-            1500,
-          );
+          // (The tap-to-stop watchdog is armed on begin-drag + re-armed on each
+          // onScroll, so it already covers the post-release momentum/tap-to-stop case.)
         }}
         onMomentumScrollBegin={() => {
           if (endDragTimerRef.current) { clearTimeout(endDragTimerRef.current); endDragTimerRef.current = null; }
