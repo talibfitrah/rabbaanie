@@ -76,6 +76,21 @@ describe("quran-morphology — analyzeWord", () => {
     expect(seg.verbForm).toBe("فَعْلَلَ"); // verb_forms_quad[0], not tri[0]
   });
 
+  it("keeps a SECOND subtype/tense token as a detail instead of dropping it", () => {
+    // PN|ACT_PCPL (e.g. مُسْلِمِينَ): head PN sets kind «علم»; ACT_PCPL must survive.
+    const pcpl = analyzeWord([
+      ["مُسْلِمِينَ", "N", "PN|ACT_PCPL|ROOT:سلم|LEM:مُسْلِم|MP|GEN"],
+    ]).segments[0];
+    expect(pcpl.kind).toBe("علم");
+    expect(pcpl.details).toContain("اسم فاعل");
+    // NV|IMPV (e.g. هَلُمَّ): head NV sets kind «اسم فعل»; trailing IMPV must read as
+    // the tense «أمر» (verb_tenses), NOT «لام الامر» (the particle sense).
+    const nv = analyzeWord([["هَلُمَّ", "N", "NV|IMPV|LEM:هَلُمّ"]]).segments[0];
+    expect(nv.kind).toBe("اسم فعل");
+    expect(nv.details).toContain("أمر");
+    expect(nv.details).not.toContain("لام الامر");
+  });
+
   it("surfaces ADJ/INDEF/PASS attrs and never leaks a raw/unknown code", () => {
     const seg = analyzeWord([["x", "N", "TOTALLY_UNKNOWN|ROOT:xyz|ADJ|INDEF"]]).segments[0];
     expect(seg.kind).toBe("اسم"); // unknown head token: falls back to the plain noun kind

@@ -352,10 +352,11 @@ html, body {
 <script>
 document.addEventListener('click', function(e) {
   var el = e.target;
-  // Gesture split: a short tap on a real WORD (has data-wi) opens the word popup;
-  // a tap ANYWHERE ELSE (ayah-end marker, empty line, margin) toggles the toolbar,
-  // preserving the old tap-anywhere-to-toggle behaviour. Mutually exclusive, so a
-  // word tap never also toggles the toolbar.
+  // Gesture split: a short tap on a real WORD (has data-wi) opens the word popup
+  // (when that word has content for the viewer — always true for Arabic, which has
+  // صرف); a tap ANYWHERE ELSE (ayah-end marker, empty line, margin) toggles the
+  // toolbar. Since word taps no longer toggle the toolbar, the toolbarPeek tab
+  // (rendered when the toolbar is hidden) is the reliable way to bring it back.
   var wi = (el && el.getAttribute) ? el.getAttribute('data-wi') : null;
   if (wi !== null) {
     window.ReactNativeWebView.postMessage(JSON.stringify({type:'wordtap', wi: parseInt(wi, 10)}));
@@ -2714,6 +2715,21 @@ export default function QuranScreen() {
         </View>
       )}
 
+      {/* Reliable way back to the toolbar when it's hidden. Needed because on a
+          full-width QCF page the words cover almost everything, and tapping a word
+          now opens its analysis instead of toggling the toolbar (esp. for Arabic,
+          where every word has صرف content) — so the tap-a-blank-spot toggle is easy
+          to miss. This little tab is always reachable. */}
+      {!showToolbar && (
+        <Pressable
+          onPress={() => setShowToolbar(true)}
+          hitSlop={12}
+          style={[st.toolbarPeek, { top: insets.top, backgroundColor: headerBg }]}
+        >
+          <MaterialIcons name="expand-more" size={22} color="#FFFFFF" />
+        </Pressable>
+      )}
+
       {/* Page content — virtualized RTL page strip. FlatList windows the 604 pages
           natively (only nearby items mounted), so no manual window/remount. RTL via
           reversed data (RTL_PAGING), no transform → the Qur'an is never mirrored. */}
@@ -2887,6 +2903,16 @@ const st = StyleSheet.create({
 
   // Toolbar
   toolbar: { paddingHorizontal: 12, paddingVertical: 8 },
+  toolbarPeek: {
+    position: "absolute",
+    alignSelf: "center",
+    zIndex: 10,
+    opacity: 0.9,
+    paddingHorizontal: 18,
+    paddingVertical: 1,
+    borderBottomLeftRadius: 14,
+    borderBottomRightRadius: 14,
+  },
   toolbarRow: {
     alignItems: "center",
     justifyContent: "space-between",

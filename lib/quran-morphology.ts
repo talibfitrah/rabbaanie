@@ -180,6 +180,12 @@ function analyzeSegment([form, tag, featuresStr]: MorphSegmentTuple): WordSegmen
       return;
     }
     if (FUSED_PGN.test(token)) { decodeFusedPgn(token, details); return; }
+    // A SECOND subtype/tense token (only the first could set `kind`): keep it as a
+    // detail rather than dropping it, e.g. PN|ACT_PCPL, NV|IMPF, LOC|ACT_PCPL. Try
+    // verb_tenses before SUBTYPE_LABELS so a trailing IMPV reads «أمر» (tense), not
+    // «لام الامر» (the particle sense, which only applies as a head token).
+    const extra = TERMS.verb_tenses[token] || SUBTYPE_LABELS[token];
+    if (extra) { details.push(extra); return; }
     // Unknown code: skip silently — never show a raw code to the user.
   });
 

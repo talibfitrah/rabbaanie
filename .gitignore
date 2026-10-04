@@ -106,3 +106,8 @@ reg-prompt.png
 
 # Isolated worktrees for agent-driven implementation
 .worktrees/
+
+# Quranic morphology data-prep (scripts/build-morphology-data.mjs): the cloned GPL
+# source and the generated per-surah output are served from the VM, never committed.
+quran-morphology/
+morphology-out/
