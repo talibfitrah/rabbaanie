@@ -1092,10 +1092,8 @@ export default function QuranScreen() {
   // Moves recitation onto the next page. Fetches that page's ayahs if the reader
   // has browsed away from the recited page (so recitation doesn't stop silently
   // just because the page left the cache window), and only pulls the VIEW to
-  // follow when the reader isn't mid-interaction (drag / open modal) AND is
-  // still on the page that was just recited (hasn't browsed away) — mirroring
-  // the auto-turn guards so it never yanks the page out from under a gesture
-  // or snaps a reader who swiped ahead back to the recited page.
+  // follow when the reader isn't mid-interaction (drag / open modal) — mirroring
+  // the auto-turn guards so it never yanks the page out from under a gesture.
   const advanceToNextPage = async (
     prevQueue: { page: number; ayahs: PageAyah[]; index: number },
     nextPage: number,
@@ -1123,12 +1121,7 @@ export default function QuranScreen() {
       stopRecitation();
       return;
     }
-    // Only pull the view forward if it's still on the page that was just
-    // recited (prevQueue.page) — i.e. the reader was following along. A
-    // reader who has browsed ahead/away keeps their own position; the queue
-    // still advances underneath, and the highlight reappears when they swipe
-    // back to wherever recitation currently is.
-    if (!userDraggingRef.current && !modalOpenRef.current && currentPageRef.current === prevQueue.page) {
+    if (!userDraggingRef.current && !modalOpenRef.current) {
       jumpToPage(nextPage);
     }
     playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
@@ -1624,10 +1617,9 @@ export default function QuranScreen() {
     }
     try {
       const verseKey = `${ayah.surahNumber}:${ayah.numberInSurah}`;
-      const res = await fetch(
+      const data = await fetchJsonWithTimeout(
         `${API_BASE}/verses/by_key/${verseKey}?translations=${translationId}`,
       );
-      const data = await res.json();
       let text = data?.verse?.translations?.[0]?.text || "";
       text = text
         .replace(/<sup[^>]*>.*?<\/sup>/g, "")
