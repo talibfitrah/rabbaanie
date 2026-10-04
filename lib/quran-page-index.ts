@@ -9,13 +9,14 @@
 //
 // PAGE_TO_JUZ / PAGE_TO_EIGHTH are indexed by page number (index 0 unused) and
 // hold the juz / eighth-of-juz of each page's FIRST verse — what a reader sees
-// at the top of that page, which is what the page header displays.
+// at the top of that page, now shown in the transient page-turn badge.
 //
 // RUB_STARTS holds the verse that begins each of the 240 rub' al-hizb (8 per
 // juz x 30 juz = 240; 4 rubs per hizb x 60 hizb = 240) in Qur'an order — used to
-// show the \u06DE rub' indicator + hizb/juz label in the page HEADER (NOT inside
-// the page: a full-width QCF line has no room beside the text without clipping a
-// Qur'an word \u2014 see concepts.tsx). The QCF v1 glyph stream does not include it.
+// show the \u06DE rub' indicator + hizb/juz label in the transient page-turn
+// badge (NOT inside the page: a full-width QCF line has no room beside the
+// text without clipping a Qur'an word \u2014 see concepts.tsx). The QCF v1
+// glyph stream does not include it.
 //
 // SAJDAS holds the 15 sajdah verses in Qur'an order. The API's own sajdah_number
 // field marks only 14 (Hanafi convention: one prostration in Surah Al-Hajj); the
@@ -54,7 +55,7 @@ export function getJuzForPage(page: number): number {
   return PAGE_TO_JUZ[page] ?? 1;
 }
 
-/** Which eighth (1-8) of its juz a page's first verse falls in, for the page header. */
+/** Which eighth (1-8) of its juz a page's first verse falls in, now shown in the transient page-turn badge. */
 export function getEighthOfJuzForPage(page: number): number {
   return PAGE_TO_EIGHTH[page] ?? 1;
 }

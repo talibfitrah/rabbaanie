@@ -96,10 +96,11 @@ function generateMushafHTML(
   // for an inline ۞ (a gutter shrinks the line and clips it; zero-width marks
   // still visually overlap the neighbouring glyph). An exact in-page ۞ at the
   // rub' position (like the Madinah print) would need image-based pages; the
-  // font-based approximation here shows ۞/۩ in the page HEADER instead (see
-  // the toolbar's juz/eighth line in QuranScreen) — rubMarks isn't used for
-  // in-page placement any more. The sajda overline below is still per-word
-  // (text-decoration adds no width, so it's safe in the text run).
+  // font-based approximation here shows juz/hizb/sajda in the transient
+  // page-turn badge instead (see sectionLabelForPage + the badge JSX in
+  // QuranScreen) — rubMarks isn't used for in-page placement any more. The
+  // sajda overline below is still per-word (text-decoration adds no width, so
+  // it's safe in the text run).
   const sajdaVerseKeys = new Set(sajdas.map((s) => s.verseKey));
 
   // Group words by line
@@ -369,9 +370,15 @@ function MushafPageView({
       ),
     [page, bundle, nightMode, fontSize],
   );
+  // Memoized separately from html so the source object's IDENTITY is stable
+  // across re-renders that don't change html (e.g. a transient-badge setState
+  // during a swipe). WebView re-navigates whenever source is a NEW object —
+  // even with byte-identical html — so passing a freshly-built { html }
+  // object inline on every render would reload the page mid-swipe.
+  const source = useMemo(() => ({ html }), [html]);
   return (
     <WebView
-      source={{ html }}
+      source={source}
       style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
       scrollEnabled={false}
       onMessage={onMessage}
@@ -626,6 +633,8 @@ export default function QuranScreen() {
   // restore / rotation scroll, which fire onScroll but not onScrollBeginDrag).
   const userDraggingRef = useRef(false);
   const transientShownForRef = useRef<number | null>(null); // last page set → avoid per-frame setState
+  const lastOffsetXRef = useRef(0); // latest FlatList scroll offset, read by the drag-end/momentum-end settle
+  const endDragTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null); // onScrollEndDrag fallback for a no-momentum release; cancelled by onMomentumScrollBegin if momentum does follow
   const flatListRef = useRef<FlatList<number>>(null);
   // Pages whose load is in flight — a SYNCHRONOUS in-flight guard. (retryingPages
   // state can't guard control flow: React only runs a state updater eagerly when
@@ -808,9 +817,11 @@ export default function QuranScreen() {
     });
   }, [listWidth]);
 
-  // Clear the transient-badge fade timer on unmount (no setState after unmount).
+  // Clear the transient-badge fade timer and the drag-end settle fallback on
+  // unmount (no setState after unmount).
   useEffect(() => () => {
     if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
+    if (endDragTimerRef.current) clearTimeout(endDragTimerRef.current);
   }, []);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
@@ -972,10 +983,31 @@ export default function QuranScreen() {
   };
 
   const currentSurah = getSurahForPage(currentPage);
+  // Shared by onScrollEndDrag's no-momentum fallback and onMomentumScrollEnd:
+  // resolves the page the list settled on and fades the transient badge out.
+  // The `finished` guard matters — a new swipe starting during the fade calls
+  // transientOpacity.setValue(1), which cancels this .timing() and fires the
+  // callback with finished:false; without the guard that would hide the badge
+  // the new swipe just re-showed.
+  const settlePaging = (offsetX: number) => {
+    userDraggingRef.current = false;
+    const page = indexToPage(Math.round(offsetX / listWidth));
+    if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
+    if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
+    transientHideTimer.current = setTimeout(() => {
+      RNAnimated.timing(transientOpacity, { toValue: 0, duration: 400, useNativeDriver: false })
+        .start(({ finished }) => {
+          if (!finished) return;
+          setTransientPage(null);
+          transientShownForRef.current = null;
+        });
+    }, 500);
+  };
+
   // Section markers (juz · eighth, hizb/rub', sajda) are NOT pinned at the top
   // (Daa3iyah's call): they surface in a transient badge DURING the page-turn —
   // see the FlatList onScroll + the transient badge overlay below. This helper
-  // computes the label for whichever page is sliding into view.
+  // computes the label for whichever page is most in view during the swipe.
   const sectionLabelForPage = (page: number) => {
     const rubMarks = getRubMarksForPage(page);
     const rub = rubMarks[0]; // ≤1 rub' starts per page (RUB_STARTS has no dup pages)
@@ -1005,9 +1037,9 @@ export default function QuranScreen() {
 
   // Render ONE list item: a page not yet loaded shows a loading spinner, a page
   // that truly failed shows a retry button, a loaded page with CDN words renders
-  // the QCF mushaf via WebView (juz/hizb/sajda markers are in the page HEADER,
-  // not in the page), and a loaded page with no word data falls back to plain
-  // text. Every branch
+  // the QCF mushaf via WebView (juz/hizb/sajda markers now appear in the
+  // transient page-turn badge, not the header, not in-page), and a loaded page
+  // with no word data falls back to plain text. Every branch
   // returns a single plain View sized to the list's measured width (width:
   // listWidth, height: '100%') — FlatList's horizontal pagingEnabled snapping
   // requires each item to measure exactly the list's own width.
@@ -1645,17 +1677,26 @@ export default function QuranScreen() {
         scrollEventThrottle={16}
         onScrollBeginDrag={() => {
           userDraggingRef.current = true;
+          // Cancel a pending/running fade-out so a swipe during the fade doesn't
+          // fight setValue(1) below (clearing the timer alone won't stop an
+          // already-started Animated.timing).
           if (transientHideTimer.current) {
             clearTimeout(transientHideTimer.current);
             transientHideTimer.current = null;
           }
+          if (endDragTimerRef.current) {
+            clearTimeout(endDragTimerRef.current);
+            endDragTimerRef.current = null;
+          }
+          transientOpacity.stopAnimation();
         }}
         onScroll={(e) => {
           // Option ب: while the user swipes, show the section badge for the page
-          // sliding into view. Guarded to real drags + to page CHANGES only (ref,
-          // not state) so it's not a per-frame setState.
+          // most in view during the swipe. Guarded to real drags + to page CHANGES
+          // only (ref, not state) so it's not a per-frame setState.
+          lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (!userDraggingRef.current || listWidth <= 0) return;
-          const page = indexToPage(Math.round(e.nativeEvent.contentOffset.x / listWidth));
+          const page = indexToPage(Math.round(lastOffsetXRef.current / listWidth));
           if (page < 1 || page > TOTAL_PAGES) return;
           if (transientShownForRef.current !== page) {
             transientShownForRef.current = page;
@@ -1663,23 +1704,19 @@ export default function QuranScreen() {
             transientOpacity.setValue(1);
           }
         }}
+        onScrollEndDrag={(e) => {
+          // Fallback for a no-momentum release (iOS). If momentum follows,
+          // onMomentumScrollBegin cancels this before it fires.
+          lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
+          if (endDragTimerRef.current) clearTimeout(endDragTimerRef.current);
+          endDragTimerRef.current = setTimeout(() => settlePaging(lastOffsetXRef.current), 140);
+        }}
+        onMomentumScrollBegin={() => {
+          if (endDragTimerRef.current) { clearTimeout(endDragTimerRef.current); endDragTimerRef.current = null; }
+        }}
         onMomentumScrollEnd={(e) => {
-          userDraggingRef.current = false;
-          const idx = Math.round(e.nativeEvent.contentOffset.x / listWidth);
-          const page = indexToPage(idx);
-          if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
-          // Fade the transient badge out shortly after the page settles ("ثمّ تختفي").
-          if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
-          transientHideTimer.current = setTimeout(() => {
-            RNAnimated.timing(transientOpacity, {
-              toValue: 0,
-              duration: 400,
-              useNativeDriver: false,
-            }).start(() => {
-              setTransientPage(null);
-              transientShownForRef.current = null;
-            });
-          }, 500);
+          if (endDragTimerRef.current) { clearTimeout(endDragTimerRef.current); endDragTimerRef.current = null; }
+          settlePaging(e.nativeEvent.contentOffset.x);
         }}
       />
 
@@ -1696,20 +1733,20 @@ export default function QuranScreen() {
                   st.transientBadge,
                   {
                     opacity: transientOpacity,
-                    backgroundColor: nightMode ? "rgba(15,15,31,0.92)" : "rgba(27,67,50,0.92)",
+                    backgroundColor: nightMode ? "rgba(15,15,31,0.95)" : "rgba(27,67,50,0.95)",
                   },
                 ]}
               >
+                <Text style={st.transientBadgeGlyph}>۞</Text>
                 <Text style={st.transientBadgeMain}>
-                  {tx(lang, "Juz", "Juz", "الجزء")} {dig(s.juz)} ·{" "}
-                  {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(s.eighth)}/{dig(8)}
+                  {tx(lang, "Juz", "Juz", "الجزء")} {dig(s.juz)}
                 </Text>
                 {s.rubLabel && (
-                  <Text style={st.transientBadgeSub}>
-                    {"۞ "}
-                    {s.rubLabel}
-                  </Text>
+                  <Text style={st.transientBadgeSub}>{s.rubLabel}</Text>
                 )}
+                <Text style={st.transientBadgeSub}>
+                  {tx(lang, "Achtste", "Eighth", "الثُّمن")} {dig(s.eighth)}/{dig(8)}
+                </Text>
                 {s.sajda && (
                   <Text style={st.transientBadgeSub}>
                     {"۩ "}
@@ -1759,18 +1796,21 @@ const st = StyleSheet.create({
   pageInfoPage: { color: "#C4E0D4", fontSize: 10, marginTop: 2 },
   transientBadgeWrap: { position: "absolute", top: "20%", left: 0, right: 0, alignItems: "center" },
   transientBadge: {
-    paddingHorizontal: 20,
-    paddingVertical: 12,
-    borderRadius: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 16,
+    borderRadius: 18,
     alignItems: "center",
+    borderWidth: 2,
+    borderColor: "#C4A35A",
     shadowColor: "#000",
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
     shadowOffset: { width: 0, height: 3 },
-    elevation: 5,
+    elevation: 6,
   },
-  transientBadgeMain: { color: "#FFFFFF", fontSize: 16, fontWeight: "700", textAlign: "center" },
-  transientBadgeSub: { color: "#E8D9A8", fontSize: 12, marginTop: 4, textAlign: "center" },
+  transientBadgeGlyph: { color: "#E8C877", fontSize: 30, marginBottom: 2 },
+  transientBadgeMain: { color: "#FFFFFF", fontSize: 18, fontWeight: "700", textAlign: "center" },
+  transientBadgeSub: { color: "#E8D9A8", fontSize: 13, marginTop: 3, textAlign: "center" },
 
   // Mushaf text (fallback)
   mushafText: { textAlign: "justify", writingDirection: "rtl" },
