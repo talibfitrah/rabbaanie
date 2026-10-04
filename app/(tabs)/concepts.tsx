@@ -841,6 +841,14 @@ export default function QuranScreen() {
   // writes against this so a slow, stale fetch (tab switched mid-request)
   // can't overwrite what the user is now looking at.
   const scienceReqRef = useRef(0);
+  // The translation tab is hidden for ar viewers (it's a dead-end there — see
+  // the tabs filter in renderScienceModal). `concepts` only BLURS on tab
+  // switch (doesn't unmount), so a live language change elsewhere in the app
+  // while this modal is still open on "translation" would otherwise strand it
+  // on a tab with no visible button; fall back to tafsir instead.
+  useEffect(() => {
+    if (lang === "ar" && scienceTab === "translation") setScienceTab("tafsir");
+  }, [lang, scienceTab]);
 
   // Word-tap modal state (content explorer increment 1) — separate from the
   // science modal above: a word tap needs no fetch (translation/transliteration
@@ -881,6 +889,10 @@ export default function QuranScreen() {
 
   // Load saved page on mount
   useEffect(() => {
+    // One-time sweep of the orphaned pre-v2 page cache dir (see PAGE_CACHE_DIR's
+    // comment above) — fire-and-forget, never throws, runs once per mount (not
+    // per page).
+    FileSystem.deleteAsync(`${FileSystem.cacheDirectory ?? ""}quran-pages/`, { idempotent: true }).catch(() => {});
     AsyncStorage.getItem(STORAGE_KEY)
       .then((val) => {
         if (val) {
@@ -1015,8 +1027,13 @@ export default function QuranScreen() {
           if (status.isLoaded && status.didJustFinish) { advanceToNext(queue); return; }
           // A stream erroring mid-ayah reports { isLoaded: false, error } — without
           // this, isPlaying/keep-awake/the Pause button all stay stuck "playing"
-          // forever on dead silence.
-          if (!status.isLoaded && status.error) failAndAdvance(queue);
+          // forever on dead silence. Same staleness guard as the createAsync catch
+          // below: an error on a session the user has since paused/advanced/stopped
+          // must not bump failCount or call stopRecitation.
+          if (!status.isLoaded && status.error) {
+            if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) return;
+            failAndAdvance(queue);
+          }
         },
       );
       if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) {
@@ -1075,8 +1092,10 @@ export default function QuranScreen() {
   // Moves recitation onto the next page. Fetches that page's ayahs if the reader
   // has browsed away from the recited page (so recitation doesn't stop silently
   // just because the page left the cache window), and only pulls the VIEW to
-  // follow when the reader isn't mid-interaction (drag / open modal) — mirroring
-  // the auto-turn guards so it never yanks the page out from under a gesture.
+  // follow when the reader isn't mid-interaction (drag / open modal) AND is
+  // still on the page that was just recited (hasn't browsed away) — mirroring
+  // the auto-turn guards so it never yanks the page out from under a gesture
+  // or snaps a reader who swiped ahead back to the recited page.
   const advanceToNextPage = async (
     prevQueue: { page: number; ayahs: PageAyah[]; index: number },
     nextPage: number,
@@ -1104,7 +1123,12 @@ export default function QuranScreen() {
       stopRecitation();
       return;
     }
-    if (!userDraggingRef.current && !modalOpenRef.current) {
+    // Only pull the view forward if it's still on the page that was just
+    // recited (prevQueue.page) — i.e. the reader was following along. A
+    // reader who has browsed ahead/away keeps their own position; the queue
+    // still advances underneath, and the highlight reappears when they swipe
+    // back to wherever recitation currently is.
+    if (!userDraggingRef.current && !modalOpenRef.current && currentPageRef.current === prevQueue.page) {
       jumpToPage(nextPage);
     }
     playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
@@ -1130,9 +1154,22 @@ export default function QuranScreen() {
       // Resume: a loaded sound just needs playAsync(); mid-fetch (paused
       // before the ayah finished loading) has no sound yet — retry it.
       if (soundRef.current) {
+        const sound = soundRef.current;
+        // A sound that errored while paused (see the status-update guard above)
+        // is left in soundRef untouched; resuming calls playAsync() on it and
+        // the promise rejects — without this, isPlaying/keep-awake/the Pause
+        // button all stay stuck "playing" over silence forever. Recover by
+        // discarding the dead sound and reloading the ayah fresh.
+        const recoverDeadSound = () => {
+          if (soundRef.current === sound) soundRef.current = null;
+          sound.unloadAsync().catch(() => {});
+          playCurrentQueueItem();
+        };
         try {
-          soundRef.current.playAsync().catch(() => {});
-        } catch {}
+          sound.playAsync().catch(recoverDeadSound);
+        } catch {
+          recoverDeadSound();
+        }
       } else {
         playCurrentQueueItem();
       }
@@ -1392,9 +1429,21 @@ export default function QuranScreen() {
         setShowToolbar(!showToolbar);
       } else if (msg.type === "wordtap" && typeof msg.wi === "number") {
         const word = words[msg.wi];
-        if (word) {
+        // Mirrors the two render conditions in renderWordModal (~2334/2340):
+        // popup-shown must equal has-rows, or an "ar" viewer (no real-content
+        // row for that language yet) gets an empty popup instead of the
+        // toolbar toggle a plain tap would have done. Once a real Arabic
+        // word-meaning source (غريب القرآن) lands, add `|| lang === "ar"` here
+        // to re-enable the popup for Arabic.
+        const hasWordContent =
+          !!word &&
+          ((lang === "en" && !!word.translation) ||
+            (lang !== "ar" && !!word.transliteration));
+        if (hasWordContent) {
           setSelectedWord(word);
           setShowWordModal(true);
+        } else {
+          setShowToolbar(!showToolbar);
         }
       }
     } catch {}
@@ -2139,7 +2188,9 @@ export default function QuranScreen() {
               { borderBottomColor: nightMode ? "#333" : "#E8EDE9" },
             ]}
           >
-            {(["surah", "tafsir", "translation", "hidayat"] as const).map((tab) => (
+            {(["surah", "tafsir", "translation", "hidayat"] as const)
+              .filter((tab) => tab !== "translation" || lang !== "ar")
+              .map((tab) => (
               <Pressable
                 key={tab}
                 onPress={() => {
