@@ -1221,7 +1221,7 @@ export default function RoznamaScreen() {
             <Text style={st.apptNote}>{tx(lang, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} دقيقة`)}</Text>
           ) : null}
           {r.item.note ? <Text style={st.apptNote}>{r.item.note}</Text> : null}
-          {conflict.kind !== "none" && conflict.prayer !== r.item.anchor && (
+          {conflict.kind !== "none" && !(conflict.kind === "daily" && conflict.prayer === r.item.anchor) && (
             <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="error-outline" size={12} color="#B45309" />
               <Text style={st.conflictWarnText}>{tx(lang, "Botst met gebedstijd", "Collides with prayer time", "يتعارض مع وقت الصلاة")}</Text>
@@ -1287,7 +1287,7 @@ export default function RoznamaScreen() {
                       <Text style={st.apptTime}>{dig(String(r.hour).padStart(2, "0"))}:{dig(String(r.minute).padStart(2, "0"))}</Text>
                       {offsetLabel && <Text style={st.dayOffsetTag}>{offsetLabel}</Text>}
                       <Text style={[st.apptTitle, { flex: 1 }]} numberOfLines={1}>{r.item.title}</Text>
-                      {conflict.kind !== "none" && conflict.prayer !== r.item.anchor && <MaterialIcons name="error-outline" size={12} color="#B45309" />}
+                      {conflict.kind !== "none" && !(conflict.kind === "daily" && conflict.prayer === r.item.anchor) && <MaterialIcons name="error-outline" size={12} color="#B45309" />}
                     </View>
                   );
                 })
@@ -1441,7 +1441,7 @@ export default function RoznamaScreen() {
                       {dig(String(Math.floor(previewWrapped / 60)).padStart(2, "0"))}:{dig(String(previewWrapped % 60).padStart(2, "0"))}
                       {previewOffsetLabel ? ` ${previewOffsetLabel}` : ""}
                     </Text>
-                    {previewConflict.kind !== "none" && previewConflict.prayer !== progAnchor && (
+                    {previewConflict.kind !== "none" && !(previewConflict.kind === "daily" && previewConflict.prayer === progAnchor) && (
                       <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                         <MaterialIcons name="error-outline" size={12} color="#B45309" />
                         <Text style={st.conflictWarnText}>{tx(lang, "Botst met een gebedstijd", "Collides with a prayer time", "يتعارض مع وقت صلاة")}</Text>
