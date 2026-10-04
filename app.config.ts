@@ -1091,8 +1091,9 @@ const config: ExpoConfig = {
     // each seed NSMicrophoneUsageDescription. Nothing in this app records —
     // a repo-wide search for recording APIs returns nothing, and every expo-av
     // call is Audio.Sound playback (app/(tabs)/settings.tsx,
-    // app/(tabs)/notification-settings.tsx). This is the iOS mirror of
-    // RECORD_AUDIO sitting in android.blockedPermissions for the same reason.
+    // app/(tabs)/notification-settings.tsx, app/(tabs)/concepts.tsx — mushaf
+    // recitation). This is the iOS mirror of RECORD_AUDIO sitting in
+    // android.blockedPermissions for the same reason.
     //
     // Deliberately NOT passed here: cameraPermission: false on
     // expo-image-picker. It reads as the matching cleanup, but the plugin also

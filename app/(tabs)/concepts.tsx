@@ -22,6 +22,10 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import WebView from "react-native-webview";
 import * as FileSystem from "expo-file-system/legacy";
 import { activateKeepAwakeAsync, deactivateKeepAwake } from "expo-keep-awake";
+// Type-only: erased at compile time, so it carries none of the runtime cost/
+// risk a real import would — the actual module is loaded lazily via require()
+// at the call sites below, matching settings.tsx's existing expo-av pattern.
+import type { Audio } from "expo-av";
 import { useIsFocused } from "@react-navigation/native";
 import { ReportAiContent } from "@/components/report-ai-content";
 import {
@@ -293,6 +297,13 @@ html, body {
   text-decoration-thickness: 1.5px;
   text-underline-offset: 2px;
 }
+/* Read-along highlight for the ayah currently being recited (toggled at
+   runtime via injectJavaScript — see the playingVerseKey effect in
+   QuranScreen). background-color only: no padding/border, so it can never
+   shift this page's pixel-precise QCF word spacing. */
+.playing {
+  background-color: ${nightMode ? "rgba(196, 163, 90, 0.35)" : "rgba(45, 106, 79, 0.18)"};
+}
 .loading {
   display: flex;
   align-items: center;
@@ -369,6 +380,7 @@ function MushafPageView({
   bgColor,
   textColor,
   onMessage,
+  webViewRef,
 }: {
   page: number;
   bundle: { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string };
@@ -377,6 +389,7 @@ function MushafPageView({
   bgColor: string;
   textColor: string;
   onMessage: (e: any) => void;
+  webViewRef?: (ref: WebView | null) => void;
 }) {
   const html = useMemo(
     () =>
@@ -400,6 +413,7 @@ function MushafPageView({
   const source = useMemo(() => ({ html }), [html]);
   return (
     <WebView
+      ref={webViewRef}
       source={source}
       style={{ flex: 1, backgroundColor: bgColor, margin: 0, padding: 0 }}
       scrollEnabled={false}
@@ -478,6 +492,26 @@ async function fetchJsonWithTimeout(url: string, ms = 15000): Promise<any> {
     return await res.json();
   } finally {
     clearTimeout(timer);
+  }
+}
+
+// ---- Recitation audio (expo-av) -------------------------------------------
+// Reciter SELECTION UI is a later increment — this is just a sane default.
+const AUDIO_BASE = "https://verses.quran.com/";
+const RECITER_ID = 7; // Mishari Alafasy, murattal
+
+/** Per-ayah audio URL via quran.com's by_ayah recitation endpoint. Returns
+ * null (never throws) so the playback engine can just skip an ayah with no
+ * audio instead of needing its own try/catch at every call site. */
+async function fetchAyahAudioUrl(verseKey: string): Promise<string | null> {
+  try {
+    const data = await fetchJsonWithTimeout(
+      `${API_BASE}/recitations/${RECITER_ID}/by_ayah/${verseKey}`,
+    );
+    const relPath = data?.audio_files?.[0]?.url;
+    return relPath ? AUDIO_BASE + relPath : null;
+  } catch {
+    return null;
   }
 }
 
@@ -690,6 +724,23 @@ export default function QuranScreen() {
   const [autoTurn, setAutoTurn] = useState(false);
   const [autoTurnSec, setAutoTurnSec] = useState(30);
 
+  // Recitation audio (play/pause, read-along). isPlaying/playingVerseKey are
+  // the UI-facing state; isPlayingRef is the SYNCHRONOUS source of truth the
+  // async play chain checks after every await (a state setter's effect isn't
+  // visible until the next render — same reason inFlightRef exists above —
+  // so without it a pause during an in-flight fetch couldn't stop a sound
+  // that hasn't loaded yet). playQueueRef holds the page+ayahs being read
+  // through and which ayah is next; webViewRefsRef maps page→its mounted
+  // WebView so the highlight effect below can inject into the right one.
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [playingVerseKey, setPlayingVerseKey] = useState<string | null>(null);
+  const isPlayingRef = useRef(false);
+  const soundRef = useRef<Audio.Sound | null>(null);
+  const playQueueRef = useRef<{ page: number; ayahs: PageAyah[]; index: number } | null>(null);
+  const pageCacheRef = useRef(pageCache);
+  pageCacheRef.current = pageCache;
+  const webViewRefsRef = useRef<Map<number, WebView | null>>(new Map());
+
   // Long press modal state
   const [showScienceModal, setShowScienceModal] = useState(false);
   const [selectedAyah, setSelectedAyah] = useState<PageAyah | null>(null);
@@ -782,6 +833,185 @@ export default function QuranScreen() {
     }, autoTurnSec * 1000);
     return () => clearInterval(id);
   }, [autoTurn, isFocused, autoTurnSec, currentPage, jumpToPage, showSettings, showIndex, showScienceModal]);
+
+  // ---- Recitation playback engine ------------------------------------------
+  // Stop outright: unloads the sound and clears the queue + highlight. Used
+  // for end-of-mushaf, tab blur, and unmount — NOT for a plain pause (which
+  // keeps the queue/sound so resume continues the same ayah).
+  const stopRecitation = () => {
+    isPlayingRef.current = false;
+    playQueueRef.current = null;
+    setIsPlaying(false);
+    setPlayingVerseKey(null);
+    const sound = soundRef.current;
+    soundRef.current = null;
+    if (sound) {
+      (async () => {
+        try {
+          await sound.stopAsync();
+          await sound.unloadAsync();
+        } catch {}
+      })();
+    }
+  };
+
+  // Loads + plays the ayah at playQueueRef.current.index and wires the
+  // "advance on finish" status callback. Re-checks isPlayingRef/playQueueRef
+  // identity after every await so a pause/stop that lands while a fetch or
+  // load is in flight can't resurrect audio the user just silenced.
+  const playCurrentQueueItem = async () => {
+    const queue = playQueueRef.current;
+    if (!queue || !isPlayingRef.current) return;
+    const ayah = queue.ayahs[queue.index];
+    const verseKey = `${ayah.surahNumber}:${ayah.numberInSurah}`;
+    const url = await fetchAyahAudioUrl(verseKey);
+    if (!isPlayingRef.current || playQueueRef.current !== queue) return;
+    if (!url) {
+      advanceToNext(queue); // no audio for this ayah — skip it
+      return;
+    }
+    try {
+      const { Audio } = require("expo-av");
+      const { sound } = await Audio.Sound.createAsync(
+        { uri: url },
+        { shouldPlay: true },
+        (status: any) => {
+          if (status.isLoaded && status.didJustFinish) advanceToNext(queue);
+        },
+      );
+      if (!isPlayingRef.current || playQueueRef.current !== queue) {
+        (async () => {
+          try {
+            await sound.stopAsync();
+            await sound.unloadAsync();
+          } catch {}
+        })();
+        return;
+      }
+      soundRef.current = sound;
+      setPlayingVerseKey(verseKey);
+    } catch {
+      advanceToNext(queue); // failed to load — skip to the next ayah rather than stall forever
+    }
+  };
+
+  // Unloads the just-finished sound, then moves to the next ayah, or — if the
+  // page is exhausted — to wherever the view currently is (the reader may
+  // have swiped ahead manually) one page further, continuing from there.
+  const advanceToNext = (queue: { page: number; ayahs: PageAyah[]; index: number }) => {
+    const sound = soundRef.current;
+    soundRef.current = null;
+    if (sound) {
+      (async () => {
+        try {
+          await sound.unloadAsync();
+        } catch {}
+      })();
+    }
+    if (playQueueRef.current !== queue || !isPlayingRef.current) return; // superseded while this ayah was active
+    const nextIndex = queue.index + 1;
+    if (nextIndex < queue.ayahs.length) {
+      playQueueRef.current = { ...queue, index: nextIndex };
+      playCurrentQueueItem();
+      return;
+    }
+    // Page exhausted: stop at the end of the mushaf, or if the next page's
+    // ayahs aren't loaded yet (ponytail: known limitation — doesn't wait for a
+    // slow/not-yet-prefetched page; PRELOAD_RADIUS neighbours are normally
+    // already cached by the time a whole page finishes reciting).
+    const nextPage = currentPageRef.current + 1;
+    const nextBundle = nextPage <= TOTAL_PAGES ? pageCacheRef.current[nextPage] : undefined;
+    if (!nextBundle || nextBundle.ayahs.length === 0) {
+      stopRecitation();
+      return;
+    }
+    jumpToPage(nextPage);
+    playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
+    playCurrentQueueItem();
+  };
+
+  // Toolbar play/pause toggle.
+  const toggleRecitation = () => {
+    if (isPlayingRef.current) {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      try {
+        soundRef.current?.pauseAsync().catch(() => {});
+      } catch {}
+      return;
+    }
+    isPlayingRef.current = true;
+    setIsPlaying(true);
+    if (playQueueRef.current) {
+      // Resume: a loaded sound just needs playAsync(); mid-fetch (paused
+      // before the ayah finished loading) has no sound yet — retry it.
+      if (soundRef.current) {
+        try {
+          soundRef.current.playAsync().catch(() => {});
+        } catch {}
+      } else {
+        playCurrentQueueItem();
+      }
+      return;
+    }
+    // Fresh start: build the queue from the page currently on screen.
+    const bundle = pageCacheRef.current[currentPageRef.current];
+    if (!bundle || bundle.ayahs.length === 0) {
+      isPlayingRef.current = false;
+      setIsPlaying(false);
+      return;
+    }
+    (async () => {
+      try {
+        const { Audio } = require("expo-av");
+        // shouldDuckAndroid/playThroughEarpieceAndroid matter, not just the iOS/
+        // background flags: without them expo-av can route through the earpiece
+        // (inaudible) on Android — see the identical setAudioModeAsync call in
+        // settings.tsx's playPreviewSound, which hit exactly that.
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+          staysActiveInBackground: false,
+          shouldDuckAndroid: true,
+          playThroughEarpieceAndroid: false,
+        });
+      } catch {}
+      // Queue is built (and playback started) only after the mode is set, so
+      // the very first ayah isn't a race against it.
+      playQueueRef.current = { page: currentPageRef.current, ayahs: bundle.ayahs, index: 0 };
+      playCurrentQueueItem();
+    })();
+  };
+
+  // Recitation must stop when the mushaf loses focus (the screen BLURS on tab
+  // switch, it doesn't unmount) and on unmount — mirrors the keep-awake gating
+  // above, or audio would keep playing after the reader has left the tab.
+  useEffect(() => {
+    if (!isFocused) stopRecitation();
+    return () => stopRecitation();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isFocused]);
+
+  // Read-along highlight: toggled via injectJavaScript, never by regenerating
+  // the page's HTML (that would reload the WebView mid-recitation — see
+  // generateMushafHTML's .playing rule). Clears .playing on every currently
+  // mounted page first (a page that stays in the FlatList's window after the
+  // queue moves on would otherwise keep a stale highlight), then sets it only
+  // on the page actually holding the verse.
+  useEffect(() => {
+    const targetPage = playQueueRef.current?.page;
+    webViewRefsRef.current.forEach((webView, page) => {
+      if (!webView) return;
+      const setHighlight =
+        page === targetPage && playingVerseKey
+          ? `var t=document.querySelectorAll('[data-vk="${playingVerseKey}"]');for(var i=0;i<t.length;i++)t[i].classList.add('playing');`
+          : "";
+      try {
+        webView.injectJavaScript(
+          `(function(){var p=document.querySelectorAll('[data-vk].playing');for(var i=0;i<p.length;i++)p[i].classList.remove('playing');${setHighlight}})();true;`,
+        );
+      } catch {}
+    });
+  }, [playingVerseKey]);
 
   // Settings persistence: same restoredRef-gated load/save shape as the page
   // position above, so the initial save effect doesn't clobber a not-yet-loaded
@@ -1233,6 +1463,10 @@ export default function QuranScreen() {
             bgColor={bgColor}
             textColor={textColor}
             onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
+            webViewRef={(ref) => {
+              if (ref) webViewRefsRef.current.set(page, ref);
+              else webViewRefsRef.current.delete(page);
+            }}
           />
         </View>
       );
@@ -1801,18 +2035,34 @@ export default function QuranScreen() {
       {showToolbar && (
         <View style={[st.toolbar, { backgroundColor: headerBg }]}>
           <View style={[st.toolbarRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
-            <Pressable
-              onPress={() => setShowIndex(true)}
-              style={({ pressed }) => [
-                st.toolbarBtn,
-                pressed && { opacity: 0.7 },
-              ]}
-            >
-              <MaterialIcons name="list" size={20} color="#FFFFFF" />
-              <Text style={st.toolbarBtnText}>
-                {tx(lang, "Index", "Index", "فهرس")}
-              </Text>
-            </Pressable>
+            <View style={{ flexDirection: isRTL ? "row-reverse" : "row" }}>
+              <Pressable
+                onPress={() => setShowIndex(true)}
+                style={({ pressed }) => [
+                  st.toolbarBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <MaterialIcons name="list" size={20} color="#FFFFFF" />
+                <Text style={st.toolbarBtnText}>
+                  {tx(lang, "Index", "Index", "فهرس")}
+                </Text>
+              </Pressable>
+              <Pressable
+                onPress={toggleRecitation}
+                style={({ pressed }) => [
+                  st.toolbarBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={20} color="#FFFFFF" />
+                <Text style={st.toolbarBtnText}>
+                  {isPlaying
+                    ? tx(lang, "Pauze", "Pause", "إيقاف")
+                    : tx(lang, "Luister", "Listen", "استماع")}
+                </Text>
+              </Pressable>
+            </View>
             <View style={st.pageInfo}>
               <Text style={st.pageInfoSurah}>{currentSurah.name}</Text>
               <Text style={st.pageInfoPage}>
