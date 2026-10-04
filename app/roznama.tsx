@@ -893,9 +893,17 @@ export default function RoznamaScreen() {
     }
   }
   async function handleDeleteProgram(id: string) {
-    await deleteProgramItem(id);
-    setProgramModalVisible(false);
-    await afterProgramMutation();
+    try {
+      await deleteProgramItem(id);
+      setProgramModalVisible(false);
+      await afterProgramMutation();
+    } catch (e) {
+      const detail = String((e as any)?.message ?? e ?? "").slice(0, 300);
+      Alert.alert(
+        tx(lang, "Verwijderen mislukt", "Delete failed", "تعذّر الحذف"),
+        tx(lang, "Probeer het opnieuw.", "Please try again.", "يرجى المحاولة مرة أخرى.") + (detail ? `\n\n[${detail}]` : ""),
+      );
+    }
   }
   function pickProgFixedTime() {
     if (Platform.OS === "android" && DateTimePickerAndroid) {
@@ -1234,9 +1242,11 @@ export default function RoznamaScreen() {
             <MaterialIcons name="add" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
-        {dailyProgramResolved.length === 0 && (
+        {programItems.length === 0 ? (
           <Text style={st.hintText}>{tx(lang, "Nog geen activiteiten. Voeg je eerste activiteit toe.", "No activities yet. Add your first activity.", "لا توجد أنشطة بعد. أضف نشاطك الأول.")}</Text>
-        )}
+        ) : dailyProgramResolved.length === 0 ? (
+          <Text style={st.hintText}>{tx(lang, "Niets gepland voor deze dag.", "Nothing planned for this day.", "لا شيء مُقرَّر في هذا اليوم.")}</Text>
+        ) : null}
         {dailyTimeline.map((row, i) =>
           row.kind === "prayer"
             ? renderPrayerAnchorRow(row.prayer, row.minutes, `p-${row.prayer}-${i}`)
