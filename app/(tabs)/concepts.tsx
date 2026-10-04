@@ -8,10 +8,7 @@ import {
   StyleSheet,
   ActivityIndicator,
   ScrollView,
-  Platform,
   Modal,
-  Dimensions,
-  PanResponder,
   Animated as RNAnimated,
   useWindowDimensions,
 } from "react-native";
@@ -1027,11 +1024,15 @@ export default function QuranScreen() {
           if (status.isLoaded && status.didJustFinish) { advanceToNext(queue); return; }
           // A stream erroring mid-ayah reports { isLoaded: false, error } — without
           // this, isPlaying/keep-awake/the Pause button all stay stuck "playing"
-          // forever on dead silence. Same staleness guard as the createAsync catch
-          // below: an error on a session the user has since paused/advanced/stopped
-          // must not bump failCount or call stopRecitation.
+          // forever on dead silence. Staleness is checked by SOUND IDENTITY, not
+          // the token: pause and resume both bump playTokenRef and resume's
+          // playAsync never re-captures it, so a token check would treat this
+          // still-active sound as stale after one pause/resume and swallow a real
+          // error (the stuck state this branch exists to prevent). An error on a
+          // session the user has since paused/advanced/stopped — where soundRef no
+          // longer points at this sound — must not bump failCount or stopRecitation.
           if (!status.isLoaded && status.error) {
-            if (!isPlayingRef.current || playQueueRef.current !== queue || playTokenRef.current !== token) return;
+            if (!isPlayingRef.current || playQueueRef.current !== queue || soundRef.current !== sound) return;
             failAndAdvance(queue);
           }
         },
