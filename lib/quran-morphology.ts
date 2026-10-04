@@ -106,6 +106,7 @@ export interface WordSegmentAnalysis {
   root?: string;
   lemma?: string;
   verbForm?: string;
+  isAffix?: boolean; // a PREF/SUFF segment (و, بـ, ـه…) — not the word's stem
 }
 
 export interface WordMorphology {
@@ -190,14 +191,19 @@ function analyzeSegment([form, tag, featuresStr]: MorphSegmentTuple): WordSegmen
   });
 
   const verbForm = vfRaw ? verbFormLabel(vfRaw, root) : undefined;
-  return { form, kind, details, root, lemma, verbForm };
+  const isAffix = tokens.includes("PREF") || tokens.includes("SUFF");
+  return { form, kind, details, root, lemma, verbForm, isAffix };
 }
 
 /** Analyze one word's ordered segments (as grouped in the built per-surah
  * JSON) into a theme-agnostic Arabic صرف structure for the word popup. */
 export function analyzeWord(segmentTuples: MorphSegmentTuple[]): WordMorphology {
   const segments = segmentTuples.map(analyzeSegment);
+  // Root/lemma describe the word's STEM. Take them from the content-bearing
+  // (non-affix) segment — a prefix like و/بـ carries its own LEM (و, ب) that must
+  // NOT become the whole word's الصيغة (e.g. وَٱلَّذِينَ, بِمَآ). Root only ever sits
+  // on the stem anyway; lemma needed the affix guard.
+  const stem = segments.find((s) => !s.isAffix);
   const withRoot = segments.find((s) => s.root);
-  const withLemma = withRoot ?? segments.find((s) => s.lemma);
-  return { segments, root: withRoot?.root, lemma: withLemma?.lemma };
+  return { segments, root: withRoot?.root, lemma: stem?.lemma ?? withRoot?.lemma };
 }

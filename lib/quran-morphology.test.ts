@@ -76,6 +76,23 @@ describe("quran-morphology — analyzeWord", () => {
     expect(seg.verbForm).toBe("فَعْلَلَ"); // verb_forms_quad[0], not tri[0]
   });
 
+  it("word-level lemma comes from the stem, never a prefix (root-less words)", () => {
+    // وَٱلَّذِينَ = و (CONJ prefix, LEM:و) + الذين (REL, no root, LEM:الَّذِين). The
+    // word's الصيغة must be the stem's lemma, not the conjunction's.
+    const result = analyzeWord([
+      ["وَ", "P", "CONJ|PREF|LEM:و"],
+      ["ٱلَّذِينَ", "N", "REL|LEM:الَّذِين|MP"],
+    ]);
+    expect(result.lemma).toBe("الَّذِين");
+    expect(result.lemma).not.toBe("و");
+    // بِمَآ = بـ (prefix, LEM:ب) + ما — the preposition must not become الصيغة.
+    const bima = analyzeWord([
+      ["بِ", "P", "P|PREF|LEM:ب"],
+      ["مَآ", "N", "REL|LEM:ما"],
+    ]);
+    expect(bima.lemma).toBe("ما");
+  });
+
   it("keeps a SECOND subtype/tense token as a detail instead of dropping it", () => {
     // PN|ACT_PCPL (e.g. مُسْلِمِينَ): head PN sets kind «علم»; ACT_PCPL must survive.
     const pcpl = analyzeWord([
