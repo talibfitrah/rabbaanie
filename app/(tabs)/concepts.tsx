@@ -674,13 +674,23 @@ async function loadPageWordsAndAyahs(
 const MORPH_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-morphology-v1/`;
 type SurahMorphology = Record<string, MorphSegmentTuple[]>;
 
+// A valid surah morphology payload is a non-empty plain object. Used on BOTH the
+// cache read and write so a {} / array / captive-portal body is never served or
+// persisted as a surah (which would wedge the popup at «لا يتوفر» for that surah).
+const isNonEmptyObject = (x: any): boolean =>
+  !!x && typeof x === "object" && !Array.isArray(x) && Object.keys(x).length > 0;
+
 async function loadMorphologyForSurah(surah: number): Promise<SurahMorphology | null> {
   const cachePath = FileSystem.cacheDirectory ? `${MORPH_CACHE_DIR}${surah}.json` : null;
   if (cachePath) {
     try {
       const info = await FileSystem.getInfoAsync(cachePath);
       if (info.exists) {
-        return JSON.parse(await FileSystem.readAsStringAsync(cachePath));
+        const cached = JSON.parse(await FileSystem.readAsStringAsync(cachePath));
+        if (isNonEmptyObject(cached)) return cached as SurahMorphology;
+        // bad/empty entry (cached by a build before the write-check, or a
+        // captive-portal body) — drop it and refetch rather than serve it forever.
+        await FileSystem.deleteAsync(cachePath, { idempotent: true });
       }
     } catch {
       // corrupt/unreadable cache entry — fall through to network
@@ -694,7 +704,7 @@ async function loadMorphologyForSurah(surah: number): Promise<SurahMorphology | 
     // unparseable surah, or a captive portal answering 200 with other JSON, must not
     // be persisted forever as that surah's data (same reason the page cache refuses
     // empty verses). A bad/empty response → return null → caller shows "unavailable".
-    if (data && typeof data === "object" && !Array.isArray(data) && Object.keys(data).length > 0) {
+    if (isNonEmptyObject(data)) {
       if (cachePath) {
         ensureDirExists(MORPH_CACHE_DIR)
           .then(() => FileSystem.writeAsStringAsync(cachePath, JSON.stringify(data)))
@@ -904,9 +914,12 @@ export default function QuranScreen() {
     if (lang === "ar" && scienceTab === "translation") {
       // Drop the now-wrong translation text (and invalidate any in-flight
       // translation fetch) so it doesn't linger under the «تفسير» label; the
-      // tafsir tab then loads fresh when tapped.
+      // tafsir tab then loads fresh when tapped. setScienceLoading(false) is
+      // required because invalidating the in-flight fetch makes its finally skip
+      // the loading reset, which would otherwise leave the spinner stuck forever.
       scienceReqRef.current++;
       setScienceContent("");
+      setScienceLoading(false);
       setScienceTab("tafsir");
     }
   }, [lang, scienceTab]);
@@ -2210,9 +2223,10 @@ export default function QuranScreen() {
               onPress={() => {
                 const next = !hideListen;
                 setHideListen(next);
-                // Hiding the button mid-playback would strand the audio with no
-                // pause control — stop it so there's never orphaned recitation.
-                if (next && isPlayingRef.current) stopRecitation();
+                // Hiding the button while playing OR paused would strand audio /
+                // a loaded sound / the ayah highlight with no control — stop it
+                // (playQueueRef covers the paused case, isPlayingRef the playing).
+                if (next && (isPlayingRef.current || playQueueRef.current)) stopRecitation();
               }}
               style={[st.toggleBtn, hideListen && st.toggleBtnActive]}
             >
