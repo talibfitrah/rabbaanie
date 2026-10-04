@@ -386,7 +386,7 @@ function MushafPageView({
   );
 }
 
-// ---- Per-page data + font caching (section D) ----------------------------
+// ---- Per-page data + font caching ----------------------------------------
 // expo-file-system/legacy, matching this repo's existing usage (hooks/use-updates.ts).
 const PAGE_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-pages/`;
 const FONT_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-fonts/`;
@@ -464,17 +464,17 @@ async function loadPageWordsAndAyahs(
       const info = await FileSystem.getInfoAsync(cachePath);
       if (info.exists) {
         const text = await FileSystem.readAsStringAsync(cachePath);
-        const parsed = parseByPageVerses(JSON.parse(text));
-        // A cached QCF page (code_v1 PUA glyphs) needs its font to render; if the
-        // font isn't cached too (its background download failed or didn't finish),
-        // those glyphs draw as boxes offline. Downgrade to the plain-text path
-        // (readable text_uthmani from the SAME cache) instead of boxes; the nav
-        // effect re-attempts the QCF+font upgrade when back online. The first
-        // online view isn't cached yet, so it still renders QCF via the CDN font.
-        if (parsed.words.length > 0 && !(await isFontCached(page))) {
-          return { words: [], ayahs: parsed.ayahs };
-        }
-        return parsed;
+        // ponytail: KNOWN LIMITATION (deferred) — if the text cached but the font
+        // didn't (background download failed, or the OS evicted the font), this
+        // page renders QCF via the CDN font: correct online (the common case),
+        // but PUA boxes offline. A render-time plain-text fallback (detect the
+        // QCF @font-face failing in the WebView and swap to text_uthmani) is the
+        // proper fix, as is image-based pages — both are a reviewed follow-up,
+        // not a blind patch (an earlier "always downgrade to plain text" tried
+        // here instead degraded the common online case to plain text). Offline
+        // viewing of a specifically-font-missing page is rare and won't bite a
+        // normal (online) session.
+        return parseByPageVerses(JSON.parse(text));
       }
     } catch {
       // corrupt/unreadable cache entry — fall through to network
@@ -514,19 +514,6 @@ async function loadPageWordsAndAyahs(
     // ignore — caller gets the empty-page fallback below
   }
   return { words: [], ayahs: [] };
-}
-
-/** Cheap existence check for a page's cached font (a stat, no base64 read) —
- * used to decide whether a cached QCF page can render offline or must fall back
- * to plain text. */
-async function isFontCached(page: number): Promise<boolean> {
-  if (!FileSystem.cacheDirectory) return false;
-  try {
-    const info = await FileSystem.getInfoAsync(`${FONT_CACHE_DIR}p${page}.woff2`);
-    return info.exists;
-  } catch {
-    return false;
-  }
 }
 
 /** Read-only cache check — never downloads. Keeps a currently-mounted page's
@@ -616,7 +603,7 @@ export default function QuranScreen() {
   // State
   const [currentPage, setCurrentPage] = useState(1);
   // Per-page word/ayah/font data, keyed by page number — populated lazily as
-  // pages enter the sliding window (section C/D). Replaces the old single
+  // the reader nears each page (see the prefetch effect). Replaces the old single
   // pageWords/pageAyahs/loading state, which only ever held the current page.
   const [pageCache, setPageCache] = useState<
     Record<number, { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string }>
@@ -812,7 +799,7 @@ export default function QuranScreen() {
   }, [listWidth]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
-  // FlatList strip owns the swipe gesture now (section C) — so each slot just
+  // FlatList strip owns the swipe gesture now — so each slot just
   // reports taps/longpresses against its OWN ayahs list.
   const handleWebViewMessage = (event: any, ayahs: PageAyah[]) => {
     try {
@@ -1006,10 +993,11 @@ export default function QuranScreen() {
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
 
-  // Render ONE list item (section C): a page not yet loaded shows a loading
-  // spinner, a page that truly failed shows a retry button, a loaded page
-  // with CDN words renders via WebView (markers added per section B), and a
-  // loaded page with no word data falls back to plain text. Every branch
+  // Render ONE list item: a page not yet loaded shows a loading spinner, a page
+  // that truly failed shows a retry button, a loaded page with CDN words renders
+  // the QCF mushaf via WebView (juz/hizb/sajda markers are in the page HEADER,
+  // not in the page), and a loaded page with no word data falls back to plain
+  // text. Every branch
   // returns a single plain View sized to the list's measured width (width:
   // listWidth, height: '100%') — FlatList's horizontal pagingEnabled snapping
   // requires each item to measure exactly the list's own width.

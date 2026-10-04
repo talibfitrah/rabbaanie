@@ -35,11 +35,11 @@ describe("Quran Screen - Surah List", () => {
     // appeared in a comment.
     expect(content).toMatch(/getRubMarksForPage\([a-zA-Z_]\w*\)/);
     expect(content).toMatch(/getSajdasForPage\([a-zA-Z_]\w*\)/);
-    // The header renders both marker glyphs. The gating logic is exercised by the
-    // page-index + paging unit tests; asserting glyph presence here avoids a
-    // byte-distance check that a reformat would break.
-    expect(content).toContain("۞");
-    expect(content).toContain("۩");
+    // The header renders both marker glyphs as JSX string literals ({"۞ "} /
+    // {"۩ "}) — match those, not a bare toContain the file's comments also
+    // satisfy. The gating logic is exercised by the page-index + paging tests.
+    expect(content).toMatch(/\{"۞ "\}/);
+    expect(content).toMatch(/\{"۩ "\}/);
   });
 
   it("should use quran.com CDN fonts for mushaf rendering", async () => {
