@@ -279,7 +279,11 @@ html, body {
 }
 .line {
   font-family: 'QCF_P${pageNum}', serif;
-  font-size: ${fontSize}px;
+  /* Cap the font so ~15 lines (×1.6 line-height) + headers fit the frame height:
+     in portrait 100vh is tall so min() keeps the user's size; in landscape (short
+     height, esp. on a phone) it shrinks to fit instead of clipping the bottom lines
+     under .page-frame's overflow:hidden. Pure responsive CSS — no device logic. */
+  font-size: min(${fontSize}px, calc((100vh - 56px) / 27));
   line-height: 1.6;
   color: ${textColor};
   text-align: center;
@@ -292,7 +296,7 @@ html, body {
 }
 .surah-header {
   font-family: 'Amiri', 'Traditional Arabic', serif;
-  font-size: ${Math.round(fontSize * 0.7)}px;
+  font-size: min(${Math.round(fontSize * 0.7)}px, calc((100vh - 56px) / 27 * 0.7));
   color: ${nightMode ? "#C4A35A" : "#1B4332"};
   background: ${nightMode ? "#2A2A4A" : "#E8F5EC"};
   border-radius: 8px;
@@ -304,7 +308,7 @@ html, body {
 }
 .bismillah {
   font-family: 'Amiri', 'Traditional Arabic', serif;
-  font-size: ${Math.round(fontSize * 0.65)}px;
+  font-size: min(${Math.round(fontSize * 0.65)}px, calc((100vh - 56px) / 27 * 0.65));
   color: ${nightMode ? "#E8E8D0" : "#2D6A4F"};
   letter-spacing: 1px;
   word-spacing: 4px;
