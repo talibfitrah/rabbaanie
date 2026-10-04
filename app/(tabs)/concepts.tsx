@@ -726,6 +726,7 @@ export default function QuranScreen() {
           if (p >= 1 && p <= TOTAL_PAGES) jumpToPage(p);
         }
       })
+      .catch(() => {}) // swallow a rejected read (no unhandled rejection)
       // .finally so a REJECTED read still lifts the gate — otherwise the save
       // effect would return early for the rest of the session and never persist
       // the reading position. The race protection only needs the flag set once
@@ -770,13 +771,11 @@ export default function QuranScreen() {
   useEffect(() => {
     if (!autoTurn || !isFocused) return;
     const id = setInterval(() => {
-      if (
-        userDraggingRef.current ||
-        showSettings ||
-        showIndex ||
-        showScienceModal ||
-        currentPageRef.current >= TOTAL_PAGES
-      ) {
+      // Skip a tick (don't stop) while the reader is interacting or a modal is open.
+      if (userDraggingRef.current || showSettings || showIndex || showScienceModal) return;
+      // Reached the end: STOP auto-turn (so keep-awake is released too, not left on).
+      if (currentPageRef.current >= TOTAL_PAGES) {
+        setAutoTurn(false);
         return;
       }
       jumpToPage(currentPageRef.current + 1);
@@ -806,6 +805,7 @@ export default function QuranScreen() {
           // corrupt settings blob — ignore, defaults stand
         }
       })
+      .catch(() => {}) // swallow a rejected read (no unhandled rejection)
       .finally(() => {
         settingsLoadedRef.current = true;
       });
@@ -1873,14 +1873,13 @@ export default function QuranScreen() {
             clearTimeout(endDragTimerRef.current);
             endDragTimerRef.current = null;
           }
-          // Arm the tap-to-stop safety net: if neither end-drag nor momentum-end
-          // fires (Android tap-to-stop), force-settle from the last offset so the
-          // flag/badge/currentPage don't get stuck. settlePaging clears it.
-          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
-          settleWatchdogRef.current = setTimeout(
-            () => settlePaging(lastOffsetXRef.current),
-            1500,
-          );
+          // Clear any stale tap-to-stop watchdog from a previous gesture (it's armed
+          // on RELEASE in onScrollEndDrag, not here — arming on drag-start would fire
+          // mid-gesture during a slow/paused drag).
+          if (settleWatchdogRef.current) {
+            clearTimeout(settleWatchdogRef.current);
+            settleWatchdogRef.current = null;
+          }
           // stopAnimation freezes opacity wherever the fade had reached; reset the
           // shown-page ref so the next onScroll always re-runs setValue(1) and the
           // badge returns to full opacity (even if it re-shows the same page).
@@ -1928,6 +1927,15 @@ export default function QuranScreen() {
           lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (endDragTimerRef.current) clearTimeout(endDragTimerRef.current);
           endDragTimerRef.current = setTimeout(() => settlePaging(lastOffsetXRef.current), 140);
+          // Tap-to-stop safety net (armed on RELEASE, so it never fires mid-drag):
+          // if the user taps to halt the fling, Android emits no onMomentumScrollEnd
+          // (and the endDrag fallback above was cancelled by onMomentumScrollBegin),
+          // leaving the flag/badge/currentPage stuck — force-settle after 1.5s.
+          if (settleWatchdogRef.current) clearTimeout(settleWatchdogRef.current);
+          settleWatchdogRef.current = setTimeout(
+            () => settlePaging(lastOffsetXRef.current),
+            1500,
+          );
         }}
         onMomentumScrollBegin={() => {
           if (endDragTimerRef.current) { clearTimeout(endDragTimerRef.current); endDragTimerRef.current = null; }
