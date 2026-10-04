@@ -555,6 +555,9 @@ async function fetchJsonWithTimeout(url: string, ms = 15000): Promise<any> {
   const timer = setTimeout(() => controller.abort(), ms);
   try {
     const res = await fetch(url, { signal: controller.signal });
+    // Never parse a non-2xx body as data (e.g. a JSON error payload would
+    // otherwise be returned — and, for morphology, cached — as if it were real).
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     return await res.json();
   } finally {
     clearTimeout(timer);
@@ -666,7 +669,8 @@ async function loadPageWordsAndAyahs(
 // scripts/build-morphology-data.mjs from the Quranic Arabic Corpus (GPL —
 // credit corpus.quran.com) and served as a static file, same disk-cache-or-
 // fetch shape as loadPageWordsAndAyahs above.
-const MORPH_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-morphology/`;
+// -v1 so a later data rebuild can bump the suffix and bypass stale disk caches.
+const MORPH_CACHE_DIR = `${FileSystem.cacheDirectory ?? ""}quran-morphology-v1/`;
 type SurahMorphology = Record<string, MorphSegmentTuple[]>;
 
 async function loadMorphologyForSurah(surah: number): Promise<SurahMorphology | null> {
@@ -2480,6 +2484,7 @@ export default function QuranScreen() {
         visible={showWordModal}
         animationType="slide"
         transparent
+        onRequestClose={() => setShowWordModal(false)}
         supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
       >
         <View style={st.scienceOverlay}>
@@ -3078,6 +3083,9 @@ const st = StyleSheet.create({
     borderTopRightRadius: 24,
     paddingBottom: 4,
     maxHeight: "80%",
+    // Mirrors scienceBox: the inner flex:1 ScrollView collapses to zero height
+    // inside a content-sized sheet without a minHeight, hiding all popup content.
+    minHeight: "50%",
   },
   wordGlyph: {
     fontSize: 32,

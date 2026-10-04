@@ -5,15 +5,26 @@
 // api.rabbaanie.com/downloads/morphology/{surah}.json and parsed client-side by
 // lib/quran-morphology.ts. Pure offline read of the already-cloned source file —
 // no network. See local-docs/arabic-word-content-research.md for the format.
+//
+// Reproduce: get the source once, then run from the repo root —
+//   git clone --depth 1 https://github.com/mustafa0x/quran-morphology
+//   node scripts/build-morphology-data.mjs quran-morphology/quran-morphology.txt morphology-out
+// Upload morphology-out/*.json to api.rabbaanie.com/downloads/morphology/.
+// Args override the two repo-relative defaults below.
 import fs from "node:fs";
 import path from "node:path";
 
-const SRC =
-  process.argv[2] ||
-  "/tmp/claude-1000/-home-msa-Development-rabbaanie/1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9/scratchpad/clone-mustafa0x-quran-morphology/quran-morphology.txt";
-const OUT_DIR =
-  process.argv[3] ||
-  "/tmp/claude-1000/-home-msa-Development-rabbaanie/1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9/scratchpad/morphology-out";
+const SRC = process.argv[2] || "quran-morphology/quran-morphology.txt";
+const OUT_DIR = process.argv[3] || "morphology-out";
+
+if (!fs.existsSync(SRC)) {
+  console.error(
+    `Source not found: ${SRC}\n` +
+      "Clone it first: git clone --depth 1 https://github.com/mustafa0x/quran-morphology\n" +
+      "Then: node scripts/build-morphology-data.mjs <path-to>/quran-morphology.txt <out-dir>",
+  );
+  process.exit(1);
+}
 
 const lines = fs.readFileSync(SRC, "utf8").split("\n").filter(Boolean);
 
