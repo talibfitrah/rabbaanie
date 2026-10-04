@@ -1,0 +1,39 @@
+tests/quran-screen.test.ts
+  s_132c73e77515ad::t_dcb26010956db5 23,25-26,32-38
+  s_132c73e77515ad::t_877629481125a8 113
+tests/phase8-features.test.ts
+  s_132c73e77515ad::t_54c4a697e439e3 31
+app/(tabs)/concepts.tsx
+  s_132c73e77515ad::t_a4c25c0e93331e 568-569,572-574
+  s_132c73e77515ad::t_ee9fa892b519a2 626-648,650,652-656
+  s_132c73e77515ad::t_bdbfc7cc198a2c 870,874-876
+  s_132c73e77515ad::t_43bb1a798a4c34 1503-1523,1525
+  s_132c73e77515ad::t_581deff70d8500 676,681
+  s_132c73e77515ad::t_f2c2311a37a5fd 342-348
+  s_132c73e77515ad::t_623959017683c7 42-51
+  s_132c73e77515ad::t_7baad381a8a8aa 883,911,933,948
+  s_132c73e77515ad::t_0c53634f09a4e1 658-661,663-666,668
+  s_132c73e77515ad::t_937456f5b4e4f1 327-329
+  s_132c73e77515ad::t_714fb1d8f06a4a 895
+  s_132c73e77515ad::t_c0b53de1efd0d2 202-203
+  s_132c73e77515ad::t_fe19c43c9cd15b 15
+  s_132c73e77515ad::t_45f5a45f547caf 554
+  s_132c73e77515ad::t_b599b8550dab95 592-595,597-599
+  s_132c73e77515ad::t_1216f56cf744c9 684
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "8c30e16edec0a64f8c75f0e86fe00574f37b414e",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
