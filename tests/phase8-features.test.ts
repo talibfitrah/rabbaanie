@@ -22,7 +22,11 @@ describe("Quran Screen (concepts.tsx)", () => {
   });
 
   it("should use page-based display (604 pages)", () => {
-    expect(content).toContain("604");
+    // 604 (TOTAL_PAGES) moved to lib/mushaf-paging (its own test checks the
+    // value); here assert the screen pages off that module, since "604" now
+    // appears in concepts.tsx only inside comments.
+    expect(content).toContain("@/lib/mushaf-paging");
+    expect(content).toMatch(/TOTAL_PAGES/);
   });
 
   it("should have surah index functionality", () => {

@@ -16,9 +16,13 @@ describe("Phase 9: Quran screen improvements", () => {
     expect(quranFile).toContain("code_v1");
   });
 
-  it("should have swipe gesture navigation via WebView messages", () => {
-    expect(quranFile).toContain("swipe");
-    expect(quranFile).toContain("direction");
+  it("should page full-page via a horizontal FlatList (not WebView-message swipes)", () => {
+    // Paging moved from WebView swipe messages to a virtualized FlatList; assert
+    // the real paging props + the paging-math module, not "swipe"/"direction"
+    // which now match only comments and the CSS `direction: rtl`.
+    expect(quranFile).toContain("pagingEnabled");
+    expect(quranFile).toContain("onMomentumScrollEnd");
+    expect(quranFile).toContain("@/lib/mushaf-paging");
   });
 
   it("should save last page to AsyncStorage", () => {

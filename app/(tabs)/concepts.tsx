@@ -434,16 +434,19 @@ function parseByPageVerses(verses: any[]): { words: PageWord[]; ayahs: PageAyah[
   return { words, ayahs };
 }
 
-// fetch with an abort timeout so a stalled connection (e.g. a network switch)
-// rejects instead of hanging forever. React Native's Android client sets no
-// default read timeout, and a hung page load would sit on the spinner
-// permanently — it never reaches failedPages and the in-flight guard blocks a
-// re-fetch. The caller's catch turns the abort into the normal fallback path.
-async function fetchWithTimeout(url: string, ms = 15000): Promise<Response> {
+// fetch + parse JSON under ONE abort timeout so a stalled connection rejects
+// instead of hanging forever. Crucially the timer also covers res.json(): RN's
+// Android client has no read timeout, so a stall AFTER the headers arrive (during
+// the body read) would hang just as badly — and a hung page load sits on the
+// spinner permanently (it never reaches failedPages and the in-flight guard
+// blocks a re-fetch). Aborting the controller rejects the in-progress body read
+// too; the caller's catch turns any reject/abort into the normal fallback path.
+async function fetchJsonWithTimeout(url: string, ms = 15000): Promise<any> {
   const controller = new AbortController();
   const timer = setTimeout(() => controller.abort(), ms);
   try {
-    return await fetch(url, { signal: controller.signal });
+    const res = await fetch(url, { signal: controller.signal });
+    return await res.json();
   } finally {
     clearTimeout(timer);
   }
@@ -468,10 +471,9 @@ async function loadPageWordsAndAyahs(
     }
   }
   try {
-    const res = await fetchWithTimeout(
+    const data = await fetchJsonWithTimeout(
       `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
     );
-    const data = await res.json();
     // length > 0, not just truthy: an empty `verses: []` would otherwise be
     // written to disk and then read back forever as an empty (failed) page, which
     // no retry could escape — it would keep reading the poisoned cache file.
@@ -487,8 +489,7 @@ async function loadPageWordsAndAyahs(
     // fall through to the alquran.cloud fallback below
   }
   try {
-    const res2 = await fetchWithTimeout(`https://api.alquran.cloud/v1/page/${page}/quran-uthmani`);
-    const data2 = await res2.json();
+    const data2 = await fetchJsonWithTimeout(`https://api.alquran.cloud/v1/page/${page}/quran-uthmani`);
     if (data2.code === 200) {
       const ayahs: PageAyah[] = data2.data.ayahs.map((a: any) => ({
         number: a.number,
