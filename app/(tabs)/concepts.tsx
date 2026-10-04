@@ -30,6 +30,7 @@ import {
   getJuzStartPage,
   type SajdaVerse,
 } from "@/lib/quran-page-index";
+import { SURAH_LIST, type Surah } from "@/lib/surah-list";
 
 import { authedFetch } from "@/lib/authed-fetch";
 type Lang = "nl" | "en" | "ar";
@@ -38,36 +39,20 @@ const STORAGE_KEY = "quran_last_page";
 const FONT_CDN = "https://static.qurancdn.com/fonts/quran/hafs/v1/woff2";
 const API_BASE = "https://api.quran.com/api/v4";
 const JUZ_NUMBERS = Array.from({ length: 30 }, (_, i) => i + 1);
-// Sliding window of pages kept mounted around the current one (perf — see
-// generateMushafHTML call site in QuranScreen).
-const WINDOW_RADIUS = 2;
+// Sliding window of pages kept mounted around windowCenter (perf — see
+// generateMushafHTML call site in QuranScreen). Wider than the minimum a
+// swipe needs so the reader can move several pages within it before an
+// edge-triggered re-centre (see onPageSelected) is needed.
+const WINDOW_RADIUS = 4;
 // pageCache (data + base64 font per page) is pruned to this radius around
-// currentPage — window + a small buffer — so visited-then-left-behind pages
+// windowCenter — window + a small buffer — so visited-then-left-behind pages
 // don't accumulate in memory for the rest of the session.
 const CACHE_PRUNE_RADIUS = 6;
-
-/** Index `page` will sit at within the windowed-pages array THAT page centers
- * (i.e. `computeWindowPages(page).indexOf(page)`, without building the array)
- * — always WINDOW_RADIUS except near the book's very start, where clamping
- * to page 1 shifts it down. Used to jump straight to the right PagerView
- * index on a remount, instead of discovering it from the (stale) old window. */
-function windowIndexFor(page: number): number {
-  return page - Math.max(1, page - WINDOW_RADIUS);
-}
 
 function tx(lang: Lang, nl: string, en: string, ar: string): string {
   if (lang === "en") return en;
   if (lang === "ar") return ar;
   return nl;
-}
-
-interface Surah {
-  number: number;
-  name: string;
-  englishName: string;
-  startPage: number;
-  numberOfAyahs: number;
-  revelationType: string;
 }
 
 interface PageWord {
@@ -85,922 +70,6 @@ interface PageAyah {
   surahNumber: number;
   surahName: string;
 }
-
-// Surah list with start pages (Mushaf Madina)
-const SURAH_LIST: Surah[] = [
-  {
-    number: 1,
-    name: "الفاتحة",
-    englishName: "Al-Faatiha",
-    startPage: 1,
-    numberOfAyahs: 7,
-    revelationType: "Meccan",
-  },
-  {
-    number: 2,
-    name: "البقرة",
-    englishName: "Al-Baqara",
-    startPage: 2,
-    numberOfAyahs: 286,
-    revelationType: "Medinan",
-  },
-  {
-    number: 3,
-    name: "آل عمران",
-    englishName: "Aal-i-Imraan",
-    startPage: 50,
-    numberOfAyahs: 200,
-    revelationType: "Medinan",
-  },
-  {
-    number: 4,
-    name: "النساء",
-    englishName: "An-Nisaa",
-    startPage: 77,
-    numberOfAyahs: 176,
-    revelationType: "Medinan",
-  },
-  {
-    number: 5,
-    name: "المائدة",
-    englishName: "Al-Maaida",
-    startPage: 106,
-    numberOfAyahs: 120,
-    revelationType: "Medinan",
-  },
-  {
-    number: 6,
-    name: "الأنعام",
-    englishName: "Al-An'aam",
-    startPage: 128,
-    numberOfAyahs: 165,
-    revelationType: "Meccan",
-  },
-  {
-    number: 7,
-    name: "الأعراف",
-    englishName: "Al-A'raaf",
-    startPage: 151,
-    numberOfAyahs: 206,
-    revelationType: "Meccan",
-  },
-  {
-    number: 8,
-    name: "الأنفال",
-    englishName: "Al-Anfaal",
-    startPage: 177,
-    numberOfAyahs: 75,
-    revelationType: "Medinan",
-  },
-  {
-    number: 9,
-    name: "التوبة",
-    englishName: "At-Tawba",
-    startPage: 187,
-    numberOfAyahs: 129,
-    revelationType: "Medinan",
-  },
-  {
-    number: 10,
-    name: "يونس",
-    englishName: "Yunus",
-    startPage: 208,
-    numberOfAyahs: 109,
-    revelationType: "Meccan",
-  },
-  {
-    number: 11,
-    name: "هود",
-    englishName: "Hud",
-    startPage: 221,
-    numberOfAyahs: 123,
-    revelationType: "Meccan",
-  },
-  {
-    number: 12,
-    name: "يوسف",
-    englishName: "Yusuf",
-    startPage: 235,
-    numberOfAyahs: 111,
-    revelationType: "Meccan",
-  },
-  {
-    number: 13,
-    name: "الرعد",
-    englishName: "Ar-Ra'd",
-    startPage: 249,
-    numberOfAyahs: 43,
-    revelationType: "Medinan",
-  },
-  {
-    number: 14,
-    name: "إبراهيم",
-    englishName: "Ibrahim",
-    startPage: 255,
-    numberOfAyahs: 52,
-    revelationType: "Meccan",
-  },
-  {
-    number: 15,
-    name: "الحجر",
-    englishName: "Al-Hijr",
-    startPage: 262,
-    numberOfAyahs: 99,
-    revelationType: "Meccan",
-  },
-  {
-    number: 16,
-    name: "النحل",
-    englishName: "An-Nahl",
-    startPage: 267,
-    numberOfAyahs: 128,
-    revelationType: "Meccan",
-  },
-  {
-    number: 17,
-    name: "الإسراء",
-    englishName: "Al-Israa",
-    startPage: 282,
-    numberOfAyahs: 111,
-    revelationType: "Meccan",
-  },
-  {
-    number: 18,
-    name: "الكهف",
-    englishName: "Al-Kahf",
-    startPage: 293,
-    numberOfAyahs: 110,
-    revelationType: "Meccan",
-  },
-  {
-    number: 19,
-    name: "مريم",
-    englishName: "Maryam",
-    startPage: 305,
-    numberOfAyahs: 98,
-    revelationType: "Meccan",
-  },
-  {
-    number: 20,
-    name: "طه",
-    englishName: "Taa-Haa",
-    startPage: 312,
-    numberOfAyahs: 135,
-    revelationType: "Meccan",
-  },
-  {
-    number: 21,
-    name: "الأنبياء",
-    englishName: "Al-Anbiyaa",
-    startPage: 322,
-    numberOfAyahs: 112,
-    revelationType: "Meccan",
-  },
-  {
-    number: 22,
-    name: "الحج",
-    englishName: "Al-Hajj",
-    startPage: 332,
-    numberOfAyahs: 78,
-    revelationType: "Medinan",
-  },
-  {
-    number: 23,
-    name: "المؤمنون",
-    englishName: "Al-Mu'minoon",
-    startPage: 342,
-    numberOfAyahs: 118,
-    revelationType: "Meccan",
-  },
-  {
-    number: 24,
-    name: "النور",
-    englishName: "An-Noor",
-    startPage: 350,
-    numberOfAyahs: 64,
-    revelationType: "Medinan",
-  },
-  {
-    number: 25,
-    name: "الفرقان",
-    englishName: "Al-Furqaan",
-    startPage: 359,
-    numberOfAyahs: 77,
-    revelationType: "Meccan",
-  },
-  {
-    number: 26,
-    name: "الشعراء",
-    englishName: "Ash-Shu'araa",
-    startPage: 367,
-    numberOfAyahs: 227,
-    revelationType: "Meccan",
-  },
-  {
-    number: 27,
-    name: "النمل",
-    englishName: "An-Naml",
-    startPage: 377,
-    numberOfAyahs: 93,
-    revelationType: "Meccan",
-  },
-  {
-    number: 28,
-    name: "القصص",
-    englishName: "Al-Qasas",
-    startPage: 385,
-    numberOfAyahs: 88,
-    revelationType: "Meccan",
-  },
-  {
-    number: 29,
-    name: "العنكبوت",
-    englishName: "Al-Ankaboot",
-    startPage: 396,
-    numberOfAyahs: 69,
-    revelationType: "Meccan",
-  },
-  {
-    number: 30,
-    name: "الروم",
-    englishName: "Ar-Room",
-    startPage: 404,
-    numberOfAyahs: 60,
-    revelationType: "Meccan",
-  },
-  {
-    number: 31,
-    name: "لقمان",
-    englishName: "Luqman",
-    startPage: 411,
-    numberOfAyahs: 34,
-    revelationType: "Meccan",
-  },
-  {
-    number: 32,
-    name: "السجدة",
-    englishName: "As-Sajda",
-    startPage: 415,
-    numberOfAyahs: 30,
-    revelationType: "Meccan",
-  },
-  {
-    number: 33,
-    name: "الأحزاب",
-    englishName: "Al-Ahzaab",
-    startPage: 418,
-    numberOfAyahs: 73,
-    revelationType: "Medinan",
-  },
-  {
-    number: 34,
-    name: "سبأ",
-    englishName: "Saba",
-    startPage: 428,
-    numberOfAyahs: 54,
-    revelationType: "Meccan",
-  },
-  {
-    number: 35,
-    name: "فاطر",
-    englishName: "Faatir",
-    startPage: 434,
-    numberOfAyahs: 45,
-    revelationType: "Meccan",
-  },
-  {
-    number: 36,
-    name: "يس",
-    englishName: "Yaseen",
-    startPage: 440,
-    numberOfAyahs: 83,
-    revelationType: "Meccan",
-  },
-  {
-    number: 37,
-    name: "الصافات",
-    englishName: "As-Saaffaat",
-    startPage: 446,
-    numberOfAyahs: 182,
-    revelationType: "Meccan",
-  },
-  {
-    number: 38,
-    name: "ص",
-    englishName: "Saad",
-    startPage: 453,
-    numberOfAyahs: 88,
-    revelationType: "Meccan",
-  },
-  {
-    number: 39,
-    name: "الزمر",
-    englishName: "Az-Zumar",
-    startPage: 458,
-    numberOfAyahs: 75,
-    revelationType: "Meccan",
-  },
-  {
-    number: 40,
-    name: "غافر",
-    englishName: "Ghaafir",
-    startPage: 467,
-    numberOfAyahs: 85,
-    revelationType: "Meccan",
-  },
-  {
-    number: 41,
-    name: "فصلت",
-    englishName: "Fussilat",
-    startPage: 477,
-    numberOfAyahs: 54,
-    revelationType: "Meccan",
-  },
-  {
-    number: 42,
-    name: "الشورى",
-    englishName: "Ash-Shooraa",
-    startPage: 483,
-    numberOfAyahs: 53,
-    revelationType: "Meccan",
-  },
-  {
-    number: 43,
-    name: "الزخرف",
-    englishName: "Az-Zukhruf",
-    startPage: 489,
-    numberOfAyahs: 89,
-    revelationType: "Meccan",
-  },
-  {
-    number: 44,
-    name: "الدخان",
-    englishName: "Ad-Dukhaan",
-    startPage: 496,
-    numberOfAyahs: 59,
-    revelationType: "Meccan",
-  },
-  {
-    number: 45,
-    name: "الجاثية",
-    englishName: "Al-Jaathiya",
-    startPage: 499,
-    numberOfAyahs: 37,
-    revelationType: "Meccan",
-  },
-  {
-    number: 46,
-    name: "الأحقاف",
-    englishName: "Al-Ahqaaf",
-    startPage: 502,
-    numberOfAyahs: 35,
-    revelationType: "Meccan",
-  },
-  {
-    number: 47,
-    name: "محمد",
-    englishName: "Muhammad",
-    startPage: 507,
-    numberOfAyahs: 38,
-    revelationType: "Medinan",
-  },
-  {
-    number: 48,
-    name: "الفتح",
-    englishName: "Al-Fath",
-    startPage: 511,
-    numberOfAyahs: 29,
-    revelationType: "Medinan",
-  },
-  {
-    number: 49,
-    name: "الحجرات",
-    englishName: "Al-Hujuraat",
-    startPage: 515,
-    numberOfAyahs: 18,
-    revelationType: "Medinan",
-  },
-  {
-    number: 50,
-    name: "ق",
-    englishName: "Qaaf",
-    startPage: 518,
-    numberOfAyahs: 45,
-    revelationType: "Meccan",
-  },
-  {
-    number: 51,
-    name: "الذاريات",
-    englishName: "Adh-Dhaariyat",
-    startPage: 520,
-    numberOfAyahs: 60,
-    revelationType: "Meccan",
-  },
-  {
-    number: 52,
-    name: "الطور",
-    englishName: "At-Toor",
-    startPage: 523,
-    numberOfAyahs: 49,
-    revelationType: "Meccan",
-  },
-  {
-    number: 53,
-    name: "النجم",
-    englishName: "An-Najm",
-    startPage: 526,
-    numberOfAyahs: 62,
-    revelationType: "Meccan",
-  },
-  {
-    number: 54,
-    name: "القمر",
-    englishName: "Al-Qamar",
-    startPage: 528,
-    numberOfAyahs: 55,
-    revelationType: "Meccan",
-  },
-  {
-    number: 55,
-    name: "الرحمن",
-    englishName: "Ar-Rahmaan",
-    startPage: 531,
-    numberOfAyahs: 78,
-    revelationType: "Medinan",
-  },
-  {
-    number: 56,
-    name: "الواقعة",
-    englishName: "Al-Waaqia",
-    startPage: 534,
-    numberOfAyahs: 96,
-    revelationType: "Meccan",
-  },
-  {
-    number: 57,
-    name: "الحديد",
-    englishName: "Al-Hadid",
-    startPage: 537,
-    numberOfAyahs: 29,
-    revelationType: "Medinan",
-  },
-  {
-    number: 58,
-    name: "المجادلة",
-    englishName: "Al-Mujaadila",
-    startPage: 542,
-    numberOfAyahs: 22,
-    revelationType: "Medinan",
-  },
-  {
-    number: 59,
-    name: "الحشر",
-    englishName: "Al-Hashr",
-    startPage: 545,
-    numberOfAyahs: 24,
-    revelationType: "Medinan",
-  },
-  {
-    number: 60,
-    name: "الممتحنة",
-    englishName: "Al-Mumtahana",
-    startPage: 549,
-    numberOfAyahs: 13,
-    revelationType: "Medinan",
-  },
-  {
-    number: 61,
-    name: "الصف",
-    englishName: "As-Saff",
-    startPage: 551,
-    numberOfAyahs: 14,
-    revelationType: "Medinan",
-  },
-  {
-    number: 62,
-    name: "الجمعة",
-    englishName: "Al-Jumu'a",
-    startPage: 553,
-    numberOfAyahs: 11,
-    revelationType: "Medinan",
-  },
-  {
-    number: 63,
-    name: "المنافقون",
-    englishName: "Al-Munaafiqoon",
-    startPage: 554,
-    numberOfAyahs: 11,
-    revelationType: "Medinan",
-  },
-  {
-    number: 64,
-    name: "التغابن",
-    englishName: "At-Taghaabun",
-    startPage: 556,
-    numberOfAyahs: 18,
-    revelationType: "Medinan",
-  },
-  {
-    number: 65,
-    name: "الطلاق",
-    englishName: "At-Talaaq",
-    startPage: 558,
-    numberOfAyahs: 12,
-    revelationType: "Medinan",
-  },
-  {
-    number: 66,
-    name: "التحريم",
-    englishName: "At-Tahrim",
-    startPage: 560,
-    numberOfAyahs: 12,
-    revelationType: "Medinan",
-  },
-  {
-    number: 67,
-    name: "الملك",
-    englishName: "Al-Mulk",
-    startPage: 562,
-    numberOfAyahs: 30,
-    revelationType: "Meccan",
-  },
-  {
-    number: 68,
-    name: "القلم",
-    englishName: "Al-Qalam",
-    startPage: 564,
-    numberOfAyahs: 52,
-    revelationType: "Meccan",
-  },
-  {
-    number: 69,
-    name: "الحاقة",
-    englishName: "Al-Haaqqa",
-    startPage: 566,
-    numberOfAyahs: 52,
-    revelationType: "Meccan",
-  },
-  {
-    number: 70,
-    name: "المعارج",
-    englishName: "Al-Ma'aarij",
-    startPage: 568,
-    numberOfAyahs: 44,
-    revelationType: "Meccan",
-  },
-  {
-    number: 71,
-    name: "نوح",
-    englishName: "Nooh",
-    startPage: 570,
-    numberOfAyahs: 28,
-    revelationType: "Meccan",
-  },
-  {
-    number: 72,
-    name: "الجن",
-    englishName: "Al-Jinn",
-    startPage: 572,
-    numberOfAyahs: 28,
-    revelationType: "Meccan",
-  },
-  {
-    number: 73,
-    name: "المزمل",
-    englishName: "Al-Muzzammil",
-    startPage: 574,
-    numberOfAyahs: 20,
-    revelationType: "Meccan",
-  },
-  {
-    number: 74,
-    name: "المدثر",
-    englishName: "Al-Muddaththir",
-    startPage: 575,
-    numberOfAyahs: 56,
-    revelationType: "Meccan",
-  },
-  {
-    number: 75,
-    name: "القيامة",
-    englishName: "Al-Qiyaama",
-    startPage: 577,
-    numberOfAyahs: 40,
-    revelationType: "Meccan",
-  },
-  {
-    number: 76,
-    name: "الإنسان",
-    englishName: "Al-Insaan",
-    startPage: 578,
-    numberOfAyahs: 31,
-    revelationType: "Medinan",
-  },
-  {
-    number: 77,
-    name: "المرسلات",
-    englishName: "Al-Mursalaat",
-    startPage: 580,
-    numberOfAyahs: 50,
-    revelationType: "Meccan",
-  },
-  {
-    number: 78,
-    name: "النبأ",
-    englishName: "An-Naba",
-    startPage: 582,
-    numberOfAyahs: 40,
-    revelationType: "Meccan",
-  },
-  {
-    number: 79,
-    name: "النازعات",
-    englishName: "An-Naazi'aat",
-    startPage: 583,
-    numberOfAyahs: 46,
-    revelationType: "Meccan",
-  },
-  {
-    number: 80,
-    name: "عبس",
-    englishName: "Abasa",
-    startPage: 585,
-    numberOfAyahs: 42,
-    revelationType: "Meccan",
-  },
-  {
-    number: 81,
-    name: "التكوير",
-    englishName: "At-Takwir",
-    startPage: 586,
-    numberOfAyahs: 29,
-    revelationType: "Meccan",
-  },
-  {
-    number: 82,
-    name: "الانفطار",
-    englishName: "Al-Infitaar",
-    startPage: 587,
-    numberOfAyahs: 19,
-    revelationType: "Meccan",
-  },
-  {
-    number: 83,
-    name: "المطففين",
-    englishName: "Al-Mutaffifin",
-    startPage: 587,
-    numberOfAyahs: 36,
-    revelationType: "Meccan",
-  },
-  {
-    number: 84,
-    name: "الانشقاق",
-    englishName: "Al-Inshiqaaq",
-    startPage: 589,
-    numberOfAyahs: 25,
-    revelationType: "Meccan",
-  },
-  {
-    number: 85,
-    name: "البروج",
-    englishName: "Al-Burooj",
-    startPage: 590,
-    numberOfAyahs: 22,
-    revelationType: "Meccan",
-  },
-  {
-    number: 86,
-    name: "الطارق",
-    englishName: "At-Taariq",
-    startPage: 591,
-    numberOfAyahs: 17,
-    revelationType: "Meccan",
-  },
-  {
-    number: 87,
-    name: "الأعلى",
-    englishName: "Al-A'laa",
-    startPage: 591,
-    numberOfAyahs: 19,
-    revelationType: "Meccan",
-  },
-  {
-    number: 88,
-    name: "الغاشية",
-    englishName: "Al-Ghaashiya",
-    startPage: 592,
-    numberOfAyahs: 26,
-    revelationType: "Meccan",
-  },
-  {
-    number: 89,
-    name: "الفجر",
-    englishName: "Al-Fajr",
-    startPage: 593,
-    numberOfAyahs: 30,
-    revelationType: "Meccan",
-  },
-  {
-    number: 90,
-    name: "البلد",
-    englishName: "Al-Balad",
-    startPage: 594,
-    numberOfAyahs: 20,
-    revelationType: "Meccan",
-  },
-  {
-    number: 91,
-    name: "الشمس",
-    englishName: "Ash-Shams",
-    startPage: 595,
-    numberOfAyahs: 15,
-    revelationType: "Meccan",
-  },
-  {
-    number: 92,
-    name: "الليل",
-    englishName: "Al-Lail",
-    startPage: 595,
-    numberOfAyahs: 21,
-    revelationType: "Meccan",
-  },
-  {
-    number: 93,
-    name: "الضحى",
-    englishName: "Ad-Dhuhaa",
-    startPage: 596,
-    numberOfAyahs: 11,
-    revelationType: "Meccan",
-  },
-  {
-    number: 94,
-    name: "الشرح",
-    englishName: "Ash-Sharh",
-    startPage: 596,
-    numberOfAyahs: 8,
-    revelationType: "Meccan",
-  },
-  {
-    number: 95,
-    name: "التين",
-    englishName: "At-Tin",
-    startPage: 597,
-    numberOfAyahs: 8,
-    revelationType: "Meccan",
-  },
-  {
-    number: 96,
-    name: "العلق",
-    englishName: "Al-Alaq",
-    startPage: 597,
-    numberOfAyahs: 19,
-    revelationType: "Meccan",
-  },
-  {
-    number: 97,
-    name: "القدر",
-    englishName: "Al-Qadr",
-    startPage: 598,
-    numberOfAyahs: 5,
-    revelationType: "Meccan",
-  },
-  {
-    number: 98,
-    name: "البينة",
-    englishName: "Al-Bayyina",
-    startPage: 598,
-    numberOfAyahs: 8,
-    revelationType: "Medinan",
-  },
-  {
-    number: 99,
-    name: "الزلزلة",
-    englishName: "Az-Zalzala",
-    startPage: 599,
-    numberOfAyahs: 8,
-    revelationType: "Medinan",
-  },
-  {
-    number: 100,
-    name: "العاديات",
-    englishName: "Al-Aadiyaat",
-    startPage: 599,
-    numberOfAyahs: 11,
-    revelationType: "Meccan",
-  },
-  {
-    number: 101,
-    name: "القارعة",
-    englishName: "Al-Qaari'a",
-    startPage: 600,
-    numberOfAyahs: 11,
-    revelationType: "Meccan",
-  },
-  {
-    number: 102,
-    name: "التكاثر",
-    englishName: "At-Takaathur",
-    startPage: 600,
-    numberOfAyahs: 8,
-    revelationType: "Meccan",
-  },
-  {
-    number: 103,
-    name: "العصر",
-    englishName: "Al-Asr",
-    startPage: 601,
-    numberOfAyahs: 3,
-    revelationType: "Meccan",
-  },
-  {
-    number: 104,
-    name: "الهمزة",
-    englishName: "Al-Humaza",
-    startPage: 601,
-    numberOfAyahs: 9,
-    revelationType: "Meccan",
-  },
-  {
-    number: 105,
-    name: "الفيل",
-    englishName: "Al-Fil",
-    startPage: 601,
-    numberOfAyahs: 5,
-    revelationType: "Meccan",
-  },
-  {
-    number: 106,
-    name: "قريش",
-    englishName: "Quraish",
-    startPage: 602,
-    numberOfAyahs: 4,
-    revelationType: "Meccan",
-  },
-  {
-    number: 107,
-    name: "الماعون",
-    englishName: "Al-Maa'oon",
-    startPage: 602,
-    numberOfAyahs: 7,
-    revelationType: "Meccan",
-  },
-  {
-    number: 108,
-    name: "الكوثر",
-    englishName: "Al-Kawthar",
-    startPage: 602,
-    numberOfAyahs: 3,
-    revelationType: "Meccan",
-  },
-  {
-    number: 109,
-    name: "الكافرون",
-    englishName: "Al-Kaafiroon",
-    startPage: 603,
-    numberOfAyahs: 6,
-    revelationType: "Meccan",
-  },
-  {
-    number: 110,
-    name: "النصر",
-    englishName: "An-Nasr",
-    startPage: 603,
-    numberOfAyahs: 3,
-    revelationType: "Medinan",
-  },
-  {
-    number: 111,
-    name: "المسد",
-    englishName: "Al-Masad",
-    startPage: 603,
-    numberOfAyahs: 5,
-    revelationType: "Meccan",
-  },
-  {
-    number: 112,
-    name: "الإخلاص",
-    englishName: "Al-Ikhlaas",
-    startPage: 604,
-    numberOfAyahs: 4,
-    revelationType: "Meccan",
-  },
-  {
-    number: 113,
-    name: "الفلق",
-    englishName: "Al-Falaq",
-    startPage: 604,
-    numberOfAyahs: 5,
-    revelationType: "Meccan",
-  },
-  {
-    number: 114,
-    name: "الناس",
-    englishName: "An-Naas",
-    startPage: 604,
-    numberOfAyahs: 6,
-    revelationType: "Meccan",
-  },
-];
 
 function getSurahForPage(page: number): Surah {
   for (let i = SURAH_LIST.length - 1; i >= 0; i--) {
@@ -1483,10 +552,16 @@ export default function QuranScreen() {
 
   // State
   const [currentPage, setCurrentPage] = useState(1);
-  // Bumped on every PROGRAMMATIC jump (index/juz tap, AsyncStorage restore) —
-  // part of PagerView's key below, so a jump remounts it fresh at the target
-  // instead of racing ViewPager2's child-replacement against the old
-  // instance's re-centre. A real swipe never bumps this (see jumpToPage).
+  // Edge-triggered window anchor (section C): windowPages is centred on THIS,
+  // not currentPage directly — a normal swipe only moves currentPage, so the
+  // window (and the pager) stays put until the reader nears its edge. Only
+  // then does this move too, re-centring the window on the new page.
+  const [windowCenter, setWindowCenter] = useState(1);
+  // Bumped on every PROGRAMMATIC jump (index/juz tap, AsyncStorage restore, or
+  // an edge-triggered window shift) — part of PagerView's key below, so a
+  // jump remounts it fresh at the target instead of fighting the old
+  // instance's own child-replacement. A normal mid-window swipe never bumps
+  // this (see jumpToPage/onPageSelected) — no remount, no flash.
   const [jumpCounter, setJumpCounter] = useState(0);
   // Per-page word/ayah/font data, keyed by page number — populated lazily as
   // pages enter the sliding window (section C/D). Replaces the old single
@@ -1498,6 +573,10 @@ export default function QuranScreen() {
   // etc.) — never cached (see the load effect below), so renderPageSlot shows
   // a retry button for these instead of an endless spinner.
   const [failedPages, setFailedPages] = useState<Set<number>>(new Set());
+  // Pages with a retryPage() call currently in flight — guards a second tap
+  // (or the window effect re-firing for the same page) from stacking another
+  // request, and swaps the retry button for a spinner while it's pending.
+  const [retryingPages, setRetryingPages] = useState<Set<number>>(new Set());
   const [showIndex, setShowIndex] = useState(false);
   const [indexTab, setIndexTab] = useState<"surah" | "juz">("surah");
   const [showSettings, setShowSettings] = useState(false);
@@ -1515,51 +594,25 @@ export default function QuranScreen() {
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
 
-  const pagerRef = useRef<PagerView>(null);
-  // True while a programmatic page move (index/juz jump, AsyncStorage restore,
-  // or the window re-centre below) is in flight — replacing all 5 windowed
-  // children makes the pager recompute its current item and can fire a
-  // spurious onPageSelected for a neighbouring page before that move's own
-  // setPageWithoutAnimation effect has run. onPageSelected ignores events
-  // while this is true so only a genuine user swipe ever changes currentPage.
-  const programmaticMove = useRef(false);
-
-  // Save current page
-  useEffect(() => {
-    AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
-  }, [currentPage]);
-
-  // Sliding window of mounted pages: current page ± WINDOW_RADIUS, clamped to
-  // [1, TOTAL_PAGES]. Only these get a real WebView (section C perf
-  // requirement); PagerView's children array IS this window.
-  const windowPages = useMemo(() => {
-    const pages: number[] = [];
-    for (let p = currentPage - WINDOW_RADIUS; p <= currentPage + WINDOW_RADIUS; p++) {
-      if (p >= 1 && p <= TOTAL_PAGES) pages.push(p);
-    }
-    return pages;
-  }, [currentPage]);
-
-  // What index the native pager is actually showing right now — updated by
-  // every onPageSelected (real swipe or a programmatic move's own echo) and
-  // compared against in the re-centre effect below, so a re-centre that
-  // wouldn't change the native index is skipped entirely (nothing to absorb)
-  // instead of racing a timeout against an event that may never arrive.
-  // Matches PagerView's own initialPage={windowPages.indexOf(currentPage)}.
-  const nativePagerIndex = useRef(Math.max(0, windowPages.indexOf(currentPage)));
-
-  // Every PROGRAMMATIC page move (index/juz tap, AsyncStorage restore) goes
-  // through here: bumping jumpCounter remounts PagerView (see its key prop)
-  // fresh at the target page, which sidesteps the child-replacement race
-  // entirely instead of trying to out-race it from the old instance. Also
-  // pre-syncs nativePagerIndex to the fresh mount's own initialPage, so the
-  // swipe re-centre effect (unchanged, still keyed off that ref) can't later
-  // mistake the new instance's starting position for a stale one.
+  // Every PROGRAMMATIC page move (index/juz tap, AsyncStorage restore, or an
+  // edge-triggered window shift from a swipe below) goes through here:
+  // moving windowCenter re-centres windowPages, and bumping jumpCounter
+  // remounts PagerView (see its key prop) fresh at the target page — a fresh
+  // mount's own initialPage is correct by construction, so there's no
+  // child-replacement race to lose, unlike imperatively re-centring an
+  // existing instance.
   const jumpToPage = useCallback((page: number) => {
-    nativePagerIndex.current = windowIndexFor(page);
     setCurrentPage(page);
+    setWindowCenter(page);
     setJumpCounter((c) => c + 1);
   }, []);
+
+  // True once the mount-restore below has resolved (found a saved page or
+  // not) — "save current page" must not run before this, or its initial
+  // setItem("1") (currentPage's default) can race ahead of the restore's own
+  // getItem and the reader always reopens at page 1 instead of where they
+  // left off.
+  const restoredRef = useRef(false);
 
   // Load saved page on mount
   useEffect(() => {
@@ -1568,8 +621,27 @@ export default function QuranScreen() {
         const p = parseInt(val, 10);
         if (p >= 1 && p <= TOTAL_PAGES) jumpToPage(p);
       }
+      restoredRef.current = true;
     });
   }, [jumpToPage]);
+
+  // Save current page
+  useEffect(() => {
+    if (!restoredRef.current) return;
+    AsyncStorage.setItem(STORAGE_KEY, String(currentPage));
+  }, [currentPage]);
+
+  // Sliding window of mounted pages: windowCenter ± WINDOW_RADIUS, clamped to
+  // [1, TOTAL_PAGES]. Only these get a real WebView (section C perf
+  // requirement); PagerView's children array IS this window. Centred on
+  // windowCenter, NOT currentPage — see onPageSelected for why.
+  const windowPages = useMemo(() => {
+    const pages: number[] = [];
+    for (let p = windowCenter - WINDOW_RADIUS; p <= windowCenter + WINDOW_RADIUS; p++) {
+      if (p >= 1 && p <= TOTAL_PAGES) pages.push(p);
+    }
+    return pages;
+  }, [windowCenter]);
 
   // Load (cache-or-network) one page: caches any load that produced content —
   // QCF words, OR the plain-text alquran.cloud fallback (words:[], ayahs:[...])
@@ -1578,21 +650,32 @@ export default function QuranScreen() {
   // shows a retry button for it rather than caching a blank — so the window
   // effect below or a manual retry tap can try again. Written unconditionally
   // so a completed fetch is never thrown away and re-requested.
-  const retryPage = useCallback((p: number) => {
-    loadMushafPage(p).then((bundle) => {
-      if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
-        setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
-        setFailedPages((prev) => {
+  const retryPage = useCallback(
+    (p: number) => {
+      if (retryingPages.has(p)) return; // already in flight — ignore the extra tap
+      setRetryingPages((prev) => new Set(prev).add(p));
+      loadMushafPage(p).then((bundle) => {
+        setRetryingPages((prev) => {
           if (!prev.has(p)) return prev;
           const next = new Set(prev);
           next.delete(p);
           return next;
         });
-      } else {
-        setFailedPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
-      }
-    });
-  }, []);
+        if (bundle.words.length > 0 || bundle.ayahs.length > 0) {
+          setPageCache((prev) => (prev[p] ? prev : { ...prev, [p]: bundle }));
+          setFailedPages((prev) => {
+            if (!prev.has(p)) return prev;
+            const next = new Set(prev);
+            next.delete(p);
+            return next;
+          });
+        } else {
+          setFailedPages((prev) => (prev.has(p) ? prev : new Set(prev).add(p)));
+        }
+      });
+    },
+    [retryingPages],
+  );
 
   // Load any window page not already in memory this session.
   useEffect(() => {
@@ -1606,37 +689,24 @@ export default function QuranScreen() {
     }
   }, [windowPages, retryPage]);
 
-  // Prune pageCache to pages near currentPage (window + buffer) so each
+  // Prune pageCache to pages near windowCenter (window + buffer) so each
   // visited page's cached data — including its base64 font — doesn't stay in
-  // memory for the rest of the session.
+  // memory for the rest of the session. Keyed on windowCenter, not
+  // currentPage: currentPage can drift up to WINDOW_RADIUS away from it
+  // (edge-triggered windowing, see onPageSelected) without that drift evicting
+  // a page that's still actually mounted in the window.
   useEffect(() => {
     setPageCache((prev) => {
       let changed = false;
       const next: typeof prev = {};
       for (const key in prev) {
         const p = Number(key);
-        if (Math.abs(p - currentPage) <= CACHE_PRUNE_RADIUS) next[p] = prev[p];
+        if (Math.abs(p - windowCenter) <= CACHE_PRUNE_RADIUS) next[p] = prev[p];
         else changed = true;
       }
       return changed ? next : prev;
     });
-  }, [currentPage]);
-
-  // Keep the native pager silently aligned on currentPage whenever the window
-  // re-centers — a swipe settle (position already matches) or an index/juz
-  // jump (same page, new slot index). If the target index is already what the
-  // native pager is showing, replacing the windowed children is enough on its
-  // own (React swaps the WebView/View at that index; the pager's own "current
-  // index" doesn't need to move, so there's nothing for it to echo back) —
-  // skip the call entirely rather than racing a timeout against an
-  // onPageSelected that would never arrive for a true no-op move.
-  useEffect(() => {
-    const idx = windowPages.indexOf(currentPage);
-    if (idx < 0 || idx === nativePagerIndex.current) return;
-    programmaticMove.current = true;
-    nativePagerIndex.current = idx;
-    pagerRef.current?.setPageWithoutAnimation(idx);
-  }, [currentPage, windowPages]);
+  }, [windowCenter]);
 
   // Handle WebView messages. Page-turning is no longer detected here — the
   // PagerView owns the swipe gesture now (section C) — so each slot just
@@ -1804,6 +874,23 @@ export default function QuranScreen() {
   // 15 sajdas over 604 pages), so these are tiny no-op filters most renders.
   const currentRubMarks = getRubMarksForPage(currentPage);
   const currentSajdas = getSajdasForPage(currentPage);
+  // Every 4th rub' is a HIZB start, not a "quarter" — (rub-1)%4 gives the
+  // position within the hizb: 0=start, 1=quarter, 2=half, 3=three-quarters.
+  const currentRubLabel = (() => {
+    if (currentRubMarks.length === 0) return null;
+    const { rub, hizb } = currentRubMarks[0];
+    const n = dig(hizb);
+    switch ((rub - 1) % 4) {
+      case 0:
+        return tx(lang, `Hizb ${n}`, `Hizb ${n}`, `الحزب ${n}`);
+      case 1:
+        return tx(lang, `Kwart hizb ${n}`, `Quarter of Hizb ${n}`, `ربع الحزب ${n}`);
+      case 2:
+        return tx(lang, `Helft hizb ${n}`, `Half of Hizb ${n}`, `نصف الحزب ${n}`);
+      default:
+        return tx(lang, `Driekwart hizb ${n}`, `Three-quarters of Hizb ${n}`, `ثلاثة أرباع الحزب ${n}`);
+    }
+  })();
   const bgColor = nightMode ? "#1A1A2E" : "#FFFFF5";
   const textColor = nightMode ? "#E8E8D0" : "#1B1B1B";
   const headerBg = nightMode ? "#0F0F1F" : "#1B4332";
@@ -1827,17 +914,24 @@ export default function QuranScreen() {
               <Text style={{ color: textColor, fontSize: 14, textAlign: "center" }}>
                 {tx(lang, "Laden mislukt", "Failed to load", "تعذر تحميل الصفحة")}
               </Text>
-              <Pressable
-                onPress={() => retryPage(page)}
-                style={({ pressed }) => [
-                  { marginTop: 12, backgroundColor: headerBg, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
-                  {tx(lang, "Opnieuw proberen", "Retry", "إعادة المحاولة")}
-                </Text>
-              </Pressable>
+              {retryingPages.has(page) ? (
+                <ActivityIndicator
+                  style={{ marginTop: 12 }}
+                  color={nightMode ? "#C4A35A" : "#1B4332"}
+                />
+              ) : (
+                <Pressable
+                  onPress={() => retryPage(page)}
+                  style={({ pressed }) => [
+                    { marginTop: 12, backgroundColor: headerBg, borderRadius: 8, paddingHorizontal: 16, paddingVertical: 8 },
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <Text style={{ color: "#FFFFFF", fontSize: 14, fontWeight: "600" }}>
+                    {tx(lang, "Opnieuw proberen", "Retry", "إعادة المحاولة")}
+                  </Text>
+                </Pressable>
+              )}
             </View>
           </View>
         );
@@ -2406,11 +1500,10 @@ export default function QuranScreen() {
               {/* Header indicators, not in-page (see generateMushafHTML): a
                   full-width QCF line has no room beside the text for a glyph
                   without clipping or overlapping a Qur'an word. */}
-              {currentRubMarks.length > 0 && (
+              {currentRubLabel && (
                 <Text style={st.pageInfoJuz}>
                   {"۞ "}
-                  {tx(lang, "Hizb", "Hizb", "الحزب")} {dig(currentRubMarks[0].hizb)} ·{" "}
-                  {tx(lang, "kwart", "quarter", "الربع")}
+                  {currentRubLabel}
                 </Text>
               )}
               {currentSajdas.length > 0 && (
@@ -2443,22 +1536,28 @@ export default function QuranScreen() {
       <PagerView
         // Remounts on every programmatic jump (jumpCounter bump) so it mounts
         // fresh with initialPage already at the target — no child-replacement
-        // race to lose. A real swipe (onPageSelected below) never bumps
-        // jumpCounter, so it never remounts/flashes for normal page-turning.
+        // race to lose. A normal mid-window swipe (onPageSelected below) never
+        // bumps jumpCounter, so it never remounts/flashes for normal
+        // page-turning.
         key={`pager-${jumpCounter}`}
-        ref={pagerRef}
         style={{ flex: 1 }}
         layoutDirection="rtl"
         initialPage={Math.max(0, windowPages.indexOf(currentPage))}
         offscreenPageLimit={WINDOW_RADIUS}
         onPageSelected={(e: any) => {
-          nativePagerIndex.current = e.nativeEvent.position;
-          if (programmaticMove.current) {
-            programmaticMove.current = false;
-            return;
-          }
-          const selected = windowPages[e.nativeEvent.position];
-          if (selected && selected !== currentPage) setCurrentPage(selected);
+          const position = e.nativeEvent.position;
+          const selected = windowPages[position];
+          if (!selected || selected === currentPage) return;
+          // Edge-triggered re-centre: a normal swipe deep inside the window
+          // only moves currentPage — no imperative pager call, so there's
+          // nothing for the native side to echo back and no race with a fast
+          // next swipe. Only once the reader is within 1 page of a window
+          // edge does the window actually shift, via the same remount
+          // jumpToPage uses for taps — by construction a fresh mount has no
+          // child-replacement race either.
+          const nearEdge = position <= 1 || position >= windowPages.length - 2;
+          if (nearEdge) jumpToPage(selected);
+          else setCurrentPage(selected);
         }}
       >
         {windowPages.map((p) => renderPageSlot(p))}
