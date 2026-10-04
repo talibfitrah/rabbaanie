@@ -1,0 +1,35 @@
+tests/quran-screen.test.ts
+  s_132c73e77515ad::t_a1666a5c3f186d 2,5-14,17,23,26-34
+lib/surah-list.ts
+  s_132c73e77515ad::t_1425b98b070343 1-927
+app/(tabs)/concepts.tsx
+  s_132c73e77515ad::t_2a56b730be5222 1539-1541,1548-1560
+  s_132c73e77515ad::t_a67bec41b56854 42-46,48
+  s_132c73e77515ad::t_3e3d357538663b 877-893
+  s_132c73e77515ad::t_3a8ebef68e4fa5 692,694-697,704,709
+  s_132c73e77515ad::t_c558a204a9d5d2 1503,1506
+  s_132c73e77515ad::t_ce57df2cc32114 33
+  s_132c73e77515ad::t_7ae99dcdcfffc6 555-564
+  s_132c73e77515ad::t_ff2c86772898fe 576-579
+  s_132c73e77515ad::t_de2289a5d922bd 597-603,606,610-616,624,628-644
+  s_132c73e77515ad::t_88f0be3431a90b 653-658,664-678
+  s_132c73e77515ad::t_dd907e9691ac99 917-934
+tests/phase8-features.test.ts
+  s_132c73e77515ad::t_08594bcb254780 30-38
+---
+{
+  "schema_version": "authorship/3.0.0",
+  "git_ai_version": "1.5.2",
+  "base_commit_sha": "08db5358d39d3ba1d8114e885ebaba8c28aaab26",
+  "prompts": {},
+  "sessions": {
+    "s_132c73e77515ad": {
+      "agent_id": {
+        "tool": "claude",
+        "id": "1eba7455-7c2f-4ee2-9afd-19b5d8a11eb9",
+        "model": "claude-opus-4-8"
+      },
+      "human_author": "talibfitrah <fitrahtvnl@gmail.com>"
+    }
+  }
+}
