@@ -854,6 +854,7 @@ export default function QuranScreen() {
   // keeps the queue/sound so resume continues the same ayah).
   const stopRecitation = () => {
     playTokenRef.current++; // invalidate any in-flight load
+    failCountRef.current = 0; // the MAX_RECITE_FAILS limit is per play session
     isPlayingRef.current = false;
     playQueueRef.current = null;
     setIsPlaying(false);
@@ -953,19 +954,51 @@ export default function QuranScreen() {
       playCurrentQueueItem();
       return;
     }
-    // Page exhausted: stop at the end of the mushaf, or if the next page's
-    // ayahs aren't loaded yet (ponytail: known limitation — doesn't wait for a
-    // slow/not-yet-prefetched page; PRELOAD_RADIUS neighbours are normally
-    // already cached by the time a whole page finishes reciting). Next page is
-    // relative to the RECITED page (queue.page), not wherever the view has
-    // scrolled to — a manual swipe during recitation must not skip or repeat a page.
+    // Page exhausted → continue onto the RECITED page + 1 (queue.page, not the
+    // viewed page: a manual swipe during recitation must not skip or repeat).
     const nextPage = queue.page + 1;
-    const nextBundle = nextPage <= TOTAL_PAGES ? pageCacheRef.current[nextPage] : undefined;
+    if (nextPage > TOTAL_PAGES) {
+      stopRecitation();
+      return;
+    }
+    advanceToNextPage(queue, nextPage);
+  };
+
+  // Moves recitation onto the next page. Fetches that page's ayahs if the reader
+  // has browsed away from the recited page (so recitation doesn't stop silently
+  // just because the page left the cache window), and only pulls the VIEW to
+  // follow when the reader isn't mid-interaction (drag / open modal) — mirroring
+  // the auto-turn guards so it never yanks the page out from under a gesture.
+  const advanceToNextPage = async (
+    prevQueue: { page: number; ayahs: PageAyah[]; index: number },
+    nextPage: number,
+  ) => {
+    const token = playTokenRef.current;
+    let nextBundle:
+      | { words: PageWord[]; ayahs: PageAyah[]; fontUri?: string }
+      | undefined = pageCacheRef.current[nextPage];
+    if (!nextBundle || nextBundle.ayahs.length === 0) {
+      try {
+        nextBundle = await loadMushafPage(nextPage);
+      } catch {
+        nextBundle = undefined;
+      }
+    }
+    // Superseded while fetching (paused/stopped/fresh start)?
+    if (
+      !isPlayingRef.current ||
+      playQueueRef.current !== prevQueue ||
+      playTokenRef.current !== token
+    ) {
+      return;
+    }
     if (!nextBundle || nextBundle.ayahs.length === 0) {
       stopRecitation();
       return;
     }
-    jumpToPage(nextPage);
+    if (!userDraggingRef.current && !showSettings && !showIndex && !showScienceModal) {
+      jumpToPage(nextPage);
+    }
     playQueueRef.current = { page: nextPage, ayahs: nextBundle.ayahs, index: 0 };
     playTokenRef.current++;
     playCurrentQueueItem();
@@ -1013,6 +1046,7 @@ export default function QuranScreen() {
       }
     }
     // Fresh start: build the queue from the page currently on screen.
+    failCountRef.current = 0; // per-session failure limit starts clean
     const bundle = pageCacheRef.current[currentPageRef.current];
     if (!bundle || bundle.ayahs.length === 0) {
       isPlayingRef.current = false;
