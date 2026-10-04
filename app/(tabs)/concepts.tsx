@@ -992,7 +992,16 @@ export default function QuranScreen() {
   const settlePaging = (offsetX: number) => {
     userDraggingRef.current = false;
     const page = indexToPage(Math.round(offsetX / listWidth));
-    if (page >= 1 && page <= TOTAL_PAGES && page !== currentPage) setCurrentPage(page);
+    if (page >= 1 && page <= TOTAL_PAGES) {
+      if (page !== currentPage) setCurrentPage(page);
+      // Authoritative correction: make the badge show the actually-settled page
+      // before it fades (onScroll's last sample can be a hair off at rest). Only
+      // when the badge is currently showing (a user swipe just happened).
+      if (transientShownForRef.current !== null && transientShownForRef.current !== page) {
+        transientShownForRef.current = page;
+        setTransientPage(page);
+      }
+    }
     if (transientHideTimer.current) clearTimeout(transientHideTimer.current);
     transientHideTimer.current = setTimeout(() => {
       RNAnimated.timing(transientOpacity, { toValue: 0, duration: 400, useNativeDriver: false })
@@ -1705,8 +1714,18 @@ export default function QuranScreen() {
           lastOffsetXRef.current = e.nativeEvent.contentOffset.x;
           if (!userDraggingRef.current || listWidth <= 0) return;
           const exact = lastOffsetXRef.current / listWidth;
-          const settledIdx = pageToIndex(currentPage);
-          const idx = exact > settledIdx ? Math.ceil(exact) : Math.floor(exact);
+          // At rest the ratio isn't exactly integer (Android dp/float rounding), so
+          // snap to the nearest index when we're within ~1% of it — otherwise ceil/
+          // floor could pick the neighbour page. Mid-drag (clearly between pages),
+          // pick by direction so the badge shows the page being swiped TOWARD.
+          const nearest = Math.round(exact);
+          let idx: number;
+          if (Math.abs(exact - nearest) < 0.01) {
+            idx = nearest;
+          } else {
+            const settledIdx = pageToIndex(currentPage);
+            idx = exact > settledIdx ? Math.ceil(exact) : Math.floor(exact);
+          }
           const page = indexToPage(idx);
           if (page < 1 || page > TOTAL_PAGES) return;
           if (transientShownForRef.current !== page) {
@@ -1748,7 +1767,9 @@ export default function QuranScreen() {
                   },
                 ]}
               >
-                <Text style={st.transientBadgeGlyph}>۞</Text>
+                {/* ۞ marks a rub' al-hizb boundary specifically (printed-mushaf
+                    convention) — only when a rub' starts on this page. */}
+                {s.rubLabel && <Text style={st.transientBadgeGlyph}>۞</Text>}
                 <Text style={st.transientBadgeMain}>
                   {tx(lang, "Juz", "Juz", "الجزء")} {dig(s.juz)}
                 </Text>
