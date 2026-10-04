@@ -178,9 +178,9 @@ describe("resolveItemMinutes — pure, no I/O", () => {
     }
   });
 
-  it("clamps below 0 and above 1439 instead of going out of range", () => {
-    expect(resolveItemMinutes(item({ anchor: "fajr", offsetMinutes: -400 }), TIMES)).toBe(0);
-    expect(resolveItemMinutes(item({ anchor: "isha", offsetMinutes: 300 }), TIMES)).toBe(1439);
+  it("returns raw minutes below 0 / above 1439 instead of clamping (P2-154)", () => {
+    expect(resolveItemMinutes(item({ anchor: "fajr", offsetMinutes: -400 }), TIMES)).toBe(312 - 400); // -88
+    expect(resolveItemMinutes(item({ anchor: "isha", offsetMinutes: 300 }), TIMES)).toBe(1235 + 300); // 1535
   });
 });
 
@@ -225,5 +225,38 @@ describe("programForDay — resolve + recurrence filter + sort", () => {
     const badTimes = { ...TIMES, fajr: "bad" };
     const out = programForDay(items, 1, badTimes);
     expect(out.map((r) => r.item.title)).toEqual(["Breakfast", "Reading"]); // qiyam (fajr-anchored) dropped
+  });
+
+  it("a same-day item (no wrap) has dayOffset 0", () => {
+    const [r] = programForDay([qiyam], 1, TIMES); // Fajr 05:12 - 30 = 04:42, same day
+    expect(r.dayOffset).toBe(0);
+  });
+});
+
+describe("programForDay — raw minutes + dayOffset for before-dawn/after-midnight items (P2-154, no clamping)", () => {
+  it("Isha 20:35 + 300 lands after midnight: raw 1535, wraps to 01:35, dayOffset +1", () => {
+    const lateNight = item({ id: "late", anchor: "isha", offsetMinutes: 300, days: [] });
+    const [r] = programForDay([lateNight], 1, TIMES);
+    expect(r.minutes).toBe(1235 + 300); // raw, unclamped (old behaviour clamped to 1439)
+    expect(r.hour).toBe(1);
+    expect(r.minute).toBe(35);
+    expect(r.dayOffset).toBe(1);
+  });
+
+  it("Fajr 05:12 - 400 lands before dawn: raw -88, wraps to 22:32 (previous day), dayOffset -1", () => {
+    const beforeDawn = item({ id: "early", anchor: "fajr", offsetMinutes: -400, days: [] });
+    const [r] = programForDay([beforeDawn], 1, TIMES);
+    expect(r.minutes).toBe(312 - 400); // raw, unclamped (old behaviour clamped to 0)
+    expect(r.hour).toBe(22);
+    expect(r.minute).toBe(32);
+    expect(r.dayOffset).toBe(-1);
+  });
+
+  it("an after-midnight item sorts LAST and a before-dawn item sorts FIRST, by raw minutes", () => {
+    const lateNight = item({ id: "late", anchor: "isha", offsetMinutes: 300, days: [] });
+    const beforeDawn = item({ id: "early", anchor: "fajr", offsetMinutes: -400, days: [] });
+    const normal = item({ id: "mid", anchor: "dhuhr", offsetMinutes: 0, days: [] });
+    const out = programForDay([lateNight, normal, beforeDawn], 1, TIMES);
+    expect(out.map((r) => r.item.id)).toEqual(["early", "mid", "late"]);
   });
 });

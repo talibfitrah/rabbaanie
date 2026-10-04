@@ -249,16 +249,37 @@ function buildDailyTimeline(times: PrayerTimesResult | null, resolved: ResolvedP
       rows.push({ kind: "prayer", prayer: p, minutes: h * 60 + m });
     }
   }
-  return rows.sort((a, b) => (a.kind === "prayer" ? a.minutes : a.resolved.minutes) - (b.kind === "prayer" ? b.minutes : b.resolved.minutes));
+  return rows.sort((a, b) => {
+    const am = a.kind === "prayer" ? a.minutes : a.resolved.minutes;
+    const bm = b.kind === "prayer" ? b.minutes : b.resolved.minutes;
+    if (am !== bm) return am - bm;
+    // Tie at the same minute: the prayer row comes first (P3-109) -- an item
+    // anchored at offset 0 belongs at/after its anchor, not above it.
+    return (a.kind === "prayer" ? 0 : 1) - (b.kind === "prayer" ? 0 : 1);
+  });
 }
 
-/** days=[] (or all 7 listed) toggled at one day -> the other 6; collapses
- * back to [] once all 7 are selected again (itemRecursOn treats both the
- * same, so this just keeps the stored value canonical). UI-local. */
+/** Small "+1/-1 day" marker for a resolved item whose time landed before dawn
+ * or after midnight (ResolvedProgramItem.dayOffset !== 0, P2-154) -- these are
+ * no longer clamped/hidden at 23:59, so the UI must say which day the shown
+ * wrapped clock time belongs to. null when dayOffset === 0 (nothing to show). */
+function dayOffsetLabel(lang: Lang, dayOffset: number): string | null {
+  if (dayOffset > 0) return tx(lang, "+ volgende dag", "+ next day", "+ اليوم التالي");
+  if (dayOffset < 0) return tx(lang, "− vorige dag", "− previous day", "− اليوم السابق");
+  return null;
+}
+
+/** days=[] (legacy "every day" encoding, still read by itemRecursOn) expands
+ * to all 7 before toggling. Never returns an empty array: toggling off the
+ * last remaining day is a no-op, since an item must recur on >=1 day (P2-115
+ * -- a Monday-only item's days used to reach [] when the user turned Monday
+ * off, which itemRecursOn reads as "every day", the opposite of what they
+ * did). UI-local; the model's days.length===0 "every day" contract is
+ * unchanged, this just stops the UI from ever WRITING that empty form. */
 function toggleProgDay(current: number[], day: number): number[] {
   const effective = current.length === 0 ? [0, 1, 2, 3, 4, 5, 6] : current;
-  const next = effective.includes(day) ? effective.filter((d) => d !== day) : [...effective, day].sort((a, b) => a - b);
-  return next.length === 7 ? [] : next;
+  if (effective.length === 1 && effective.includes(day)) return effective; // last day: keep it on
+  return effective.includes(day) ? effective.filter((d) => d !== day) : [...effective, day].sort((a, b) => a - b);
 }
 
 export default function RoznamaScreen() {
@@ -805,7 +826,7 @@ export default function RoznamaScreen() {
     setShowProgFixedTimePicker(false);
     setProgHasDuration(false);
     setProgDuration(30);
-    setProgDays([]);
+    setProgDays([0, 1, 2, 3, 4, 5, 6]); // a new item defaults to every day (P2-115)
     setProgNote("");
     setProgColor(null);
     setProgType("event");
@@ -1170,6 +1191,7 @@ export default function RoznamaScreen() {
 
   function renderProgramItemRow(r: ResolvedProgramItem, key: string) {
     const conflict = prayerTimesForDay ? detectPrayerConflict(selectedDate, r.hour, r.minute, prayerTimesForDay, conflictPrefs) : { kind: "none" as const };
+    const offsetLabel = dayOffsetLabel(lang, r.dayOffset);
     return (
       <Pressable
         key={key}
@@ -1181,6 +1203,7 @@ export default function RoznamaScreen() {
         ]}
       >
         <Text style={st.apptTime}>{dig(String(r.hour).padStart(2, "0"))}:{dig(String(r.minute).padStart(2, "0"))}</Text>
+        {offsetLabel && <Text style={st.dayOffsetTag}>{offsetLabel}</Text>}
         <View style={{ flex: 1 }}>
           <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6 }}>
             <MaterialIcons name={r.item.type === "worship" ? "mosque" : r.item.type === "task" ? "task-alt" : "event"} size={14} color="#1B4332" />
@@ -1190,7 +1213,7 @@ export default function RoznamaScreen() {
             <Text style={st.apptNote}>{tx(lang, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} min`, `${dig(r.item.durationMinutes)} دقيقة`)}</Text>
           ) : null}
           {r.item.note ? <Text style={st.apptNote}>{r.item.note}</Text> : null}
-          {conflict.kind !== "none" && (
+          {conflict.kind !== "none" && conflict.prayer !== r.item.anchor && (
             <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
               <MaterialIcons name="error-outline" size={12} color="#B45309" />
               <Text style={st.conflictWarnText}>{tx(lang, "Botst met gebedstijd", "Collides with prayer time", "يتعارض مع وقت الصلاة")}</Text>
@@ -1211,14 +1234,13 @@ export default function RoznamaScreen() {
             <MaterialIcons name="add" size={20} color="#FFFFFF" />
           </Pressable>
         </View>
-        {dailyTimeline.length === 0 ? (
+        {dailyProgramResolved.length === 0 && (
           <Text style={st.hintText}>{tx(lang, "Nog geen activiteiten. Voeg je eerste activiteit toe.", "No activities yet. Add your first activity.", "لا توجد أنشطة بعد. أضف نشاطك الأول.")}</Text>
-        ) : (
-          dailyTimeline.map((row, i) =>
-            row.kind === "prayer"
-              ? renderPrayerAnchorRow(row.prayer, row.minutes, `p-${row.prayer}-${i}`)
-              : renderProgramItemRow(row.resolved, `i-${row.resolved.item.id}-${i}`),
-          )
+        )}
+        {dailyTimeline.map((row, i) =>
+          row.kind === "prayer"
+            ? renderPrayerAnchorRow(row.prayer, row.minutes, `p-${row.prayer}-${i}`)
+            : renderProgramItemRow(row.resolved, `i-${row.resolved.item.id}-${i}`),
         )}
       </View>
     );
@@ -1249,11 +1271,13 @@ export default function RoznamaScreen() {
                   // times === NO_TIMES (reference check) means this day had no
                   // saved location -- skip the conflict check, nothing to compare.
                   const conflict = times !== NO_TIMES ? detectPrayerConflict(d, r.hour, r.minute, times, conflictPrefs) : { kind: "none" as const };
+                  const offsetLabel = dayOffsetLabel(lang, r.dayOffset);
                   return (
                     <View key={ri} style={[st.weeklyItemRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                       <Text style={st.apptTime}>{dig(String(r.hour).padStart(2, "0"))}:{dig(String(r.minute).padStart(2, "0"))}</Text>
+                      {offsetLabel && <Text style={st.dayOffsetTag}>{offsetLabel}</Text>}
                       <Text style={[st.apptTitle, { flex: 1 }]} numberOfLines={1}>{r.item.title}</Text>
-                      {conflict.kind !== "none" && <MaterialIcons name="error-outline" size={12} color="#B45309" />}
+                      {conflict.kind !== "none" && conflict.prayer !== r.item.anchor && <MaterialIcons name="error-outline" size={12} color="#B45309" />}
                     </View>
                   );
                 })
@@ -1300,10 +1324,19 @@ export default function RoznamaScreen() {
         : prayerTimesForDay
         ? resolveItemMinutes({ id: "preview", title: progTitle, anchor: progAnchor, offsetMinutes: progOffset, days: [] }, prayerTimesForDay)
         : null;
+    // Raw preview minutes can now be <0/>=1440 (P2-154) -- wrap for display/
+    // conflict-checking the same way programForDay does, and keep the day
+    // offset so the UI can flag it instead of showing e.g. "25:00".
+    const previewWrapped = previewMinutes != null ? ((previewMinutes % 1440) + 1440) % 1440 : null;
+    const previewDayOffset = previewMinutes != null ? Math.floor(previewMinutes / 1440) : 0;
+    const previewOffsetLabel = dayOffsetLabel(lang, previewDayOffset);
     const previewConflict =
-      previewMinutes != null && prayerTimesForDay
-        ? detectPrayerConflict(selectedDate, Math.floor(previewMinutes / 60), previewMinutes % 60, prayerTimesForDay, conflictPrefs)
+      previewWrapped != null && prayerTimesForDay
+        ? detectPrayerConflict(selectedDate, Math.floor(previewWrapped / 60), previewWrapped % 60, prayerTimesForDay, conflictPrefs)
         : { kind: "none" as const };
+    // P3-1316: the preview is for `selectedDate`'s weekday, not necessarily
+    // today -- and not necessarily a day this item even recurs on.
+    const previewRecursSelectedDay = progDays.length === 0 || progDays.includes(selectedDate.getDay());
     const anchorLabel = tx(lang, ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.nl ?? "", ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.en ?? "", ANCHOR_OPTIONS.find((a) => a.key === progAnchor)?.ar ?? "");
 
     return (
@@ -1391,17 +1424,21 @@ export default function RoznamaScreen() {
                   </>
                 )}
 
-                {previewMinutes != null && (
+                {previewWrapped != null && (
                   <View style={{ marginTop: 10 }}>
                     <Text style={st.hintText}>
-                      {tx(lang, "Verwachte tijd vandaag: ", "Expected time today: ", "الوقت المتوقع اليوم: ")}
-                      {dig(String(Math.floor(previewMinutes / 60)).padStart(2, "0"))}:{dig(String(previewMinutes % 60).padStart(2, "0"))}
+                      {tx(lang, "Verwachte tijd: ", "Expected time: ", "الوقت المتوقَّع: ")}
+                      {dig(String(Math.floor(previewWrapped / 60)).padStart(2, "0"))}:{dig(String(previewWrapped % 60).padStart(2, "0"))}
+                      {previewOffsetLabel ? ` ${previewOffsetLabel}` : ""}
                     </Text>
-                    {previewConflict.kind !== "none" && (
+                    {previewConflict.kind !== "none" && previewConflict.prayer !== progAnchor && (
                       <View style={[st.conflictWarnRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
                         <MaterialIcons name="error-outline" size={12} color="#B45309" />
                         <Text style={st.conflictWarnText}>{tx(lang, "Botst met een gebedstijd", "Collides with a prayer time", "يتعارض مع وقت صلاة")}</Text>
                       </View>
+                    )}
+                    {!previewRecursSelectedDay && (
+                      <Text style={st.hintText}>{tx(lang, "Komt niet voor op de geselecteerde dag.", "Doesn't occur on the selected day.", "لا يتكرر في اليوم المحدّد.")}</Text>
                     )}
                   </View>
                 )}
@@ -1433,7 +1470,7 @@ export default function RoznamaScreen() {
                     );
                   })}
                 </View>
-                {progDays.length === 0 && <Text style={st.hintText}>{tx(lang, "Elke dag", "Every day", "كل يوم")}</Text>}
+                {(progDays.length === 0 || progDays.length === 7) && <Text style={st.hintText}>{tx(lang, "Elke dag", "Every day", "كل يوم")}</Text>}
 
                 <Text style={st.fieldLabel}>{tx(lang, "Type", "Type", "النوع")}</Text>
                 <View style={[st.typeRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
@@ -2026,6 +2063,7 @@ const st = StyleSheet.create({
   apptTime: { fontSize: 13, fontWeight: "700", color: "#1B4332", fontVariant: ["tabular-nums"] },
   apptTitle: { fontSize: 13, fontWeight: "700", color: "#1F2937" },
   apptNote: { fontSize: 11, color: "#6B7B72", marginTop: 2 },
+  dayOffsetTag: { fontSize: 10, color: "#6B7B72", fontWeight: "600" },
   apptLocation: { fontSize: 11, color: "#1B4332", fontWeight: "600", textDecorationLine: "underline" },
   apptIconBtn: { padding: 4 },
 

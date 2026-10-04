@@ -140,21 +140,23 @@ function parseHHMM(hhmm: string): number | null {
   return Number(m[1]) * 60 + Number(m[2]);
 }
 
-function clampMinutes(n: number): number {
-  return Math.min(1439, Math.max(0, n));
-}
-
 /**
  * Minutes-from-midnight an item lands at on a day with the given prayer
  * times. "fixed" uses offsetMinutes directly; any prayer anchor looks up
  * `times[anchor]` and adds offsetMinutes (negative = before). Returns null
  * only when the anchor's "HH:MM" is malformed — the caller drops it.
+ *
+ * RAW, unclamped (P2-154): can be <0 (before dawn) or >=1440 (after midnight)
+ * — e.g. "Isha + 120" past midnight. Clamping used to pile every such item at
+ * 23:59; programForDay instead sorts by this raw value and wraps it for
+ * display, so late/early items land in their correct relative order instead
+ * of stacking.
  */
 export function resolveItemMinutes(item: ProgramItem, times: PrayerTimesResult): number | null {
-  if (item.anchor === "fixed") return clampMinutes(item.offsetMinutes);
+  if (item.anchor === "fixed") return item.offsetMinutes;
   const anchorMinutes = parseHHMM(times[item.anchor]);
   if (anchorMinutes === null) return null;
-  return clampMinutes(anchorMinutes + item.offsetMinutes);
+  return anchorMinutes + item.offsetMinutes;
 }
 
 /** [] or all 7 weekdays listed both mean "every day" — the latter falls out
@@ -165,13 +167,15 @@ export function itemRecursOn(item: ProgramItem, weekday: number): boolean {
 
 export interface ResolvedProgramItem {
   item: ProgramItem;
-  minutes: number;
-  hour: number;
-  minute: number;
+  minutes: number; // RAW (unwrapped) minutes-from-midnight -- what sorting uses
+  hour: number; // WRAPPED clock hour (0-23) -- what display uses
+  minute: number; // WRAPPED clock minute (0-59) -- what display uses
+  dayOffset: number; // -1 before dawn, +1 after midnight, 0 same day
 }
 
 /** The items that recur on `weekday`, resolved against `times` and sorted
- * morning -> evening. Items that don't recur today or whose anchor time is
+ * morning -> evening (before-dawn items first, after-midnight items last, by
+ * raw minutes). Items that don't recur today or whose anchor time is
  * malformed (resolveItemMinutes -> null) are dropped. */
 export function programForDay(
   items: ProgramItem[],
@@ -183,7 +187,14 @@ export function programForDay(
     if (!itemRecursOn(item, weekday)) continue;
     const minutes = resolveItemMinutes(item, times);
     if (minutes === null) continue;
-    out.push({ item, minutes, hour: Math.floor(minutes / 60), minute: minutes % 60 });
+    const wrapped = ((minutes % 1440) + 1440) % 1440;
+    out.push({
+      item,
+      minutes,
+      hour: Math.floor(wrapped / 60),
+      minute: wrapped % 60,
+      dayOffset: Math.floor(minutes / 1440),
+    });
   }
   return out.sort((a, b) => a.minutes - b.minutes);
 }

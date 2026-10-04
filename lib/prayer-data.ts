@@ -558,9 +558,13 @@ export interface PrayerTimesResult {
   isha: string;
 }
 
-function formatTime(hours: number): string {
-  const h = Math.floor(hours) % 24;
-  const m = Math.round((hours - Math.floor(hours)) * 60);
+export function formatTime(hours: number): string {
+  let h = Math.floor(hours) % 24;
+  let m = Math.round((hours - Math.floor(hours)) * 60);
+  if (m === 60) {
+    m = 0;
+    h = (h + 1) % 24;
+  }
   return `${h.toString().padStart(2, "0")}:${m.toString().padStart(2, "0")}`;
 }
 
