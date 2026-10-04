@@ -81,6 +81,16 @@ interface PageWord {
   line_number: number;
   char_type_name: string;
   verse_key: string;
+  // Content-explorer increment 1 (open sources — quran.com word_fields):
+  // translation is English, transliteration is universal Latin script — the
+  // by_page endpoint has no per-viewer-language word gloss. Absent on some
+  // words (e.g. transliteration is null on ayah-end markers) — optional and
+  // guarded wherever rendered.
+  translation?: string;
+  transliteration?: string;
+  // Word's 1-based position within its verse (quran.com "position") — stable
+  // identifier independent of this file's render order, pairs with verse_key.
+  position?: number;
 }
 
 interface PageAyah {
@@ -164,6 +174,14 @@ function generateMushafHTML(
 
   // Detect mid-page surah boundaries (gaps in line numbers indicate surah separators)
   let prevLine = sortedLines.length > 0 ? sortedLines[0] - 1 : 0;
+  // Flat counter across the whole page, incremented once per rendered word
+  // span (below) — reproduces this word's index into the `words` array passed
+  // in: `lines` buckets `words` by line_number via a stable partition (insertion
+  // order kept per bucket), and `words` is already non-decreasing in
+  // line_number (a page reads top-to-bottom), so visiting the buckets in
+  // ascending line order and counting spans reconstructs the original words[]
+  // index exactly. Used by data-wi below for the word-tap → PageWord lookup.
+  let wi = 0;
   for (const ln of sortedLines) {
     // If there's a gap of 2+ lines, it's a surah separator (header + bismillah)
     if (ln - prevLine >= 3 && prevLine > 0) {
@@ -195,7 +213,12 @@ function generateMushafHTML(
         // verse it falls in. text-decoration adds no width, so this is safe
         // inside the full-width nowrap line (unlike a glyph span — see above).
         if (sajdaVerseKeys.has(vk)) cls.push("sajda-line");
-        return `<span class="${cls.join(" ")}" data-vk="${vk}">${w.code_v1}</span>`;
+        // data-wi: only real words get the word-tap popup (char_type_name
+        // "word") — ayah-end markers etc. keep the old tap-to-toggle-toolbar
+        // behavior untouched (see the click handler below).
+        const idx = wi++;
+        const wiAttr = w.char_type_name === "word" ? ` data-wi="${idx}"` : "";
+        return `<span class="${cls.join(" ")}" data-vk="${vk}"${wiAttr}>${w.code_v1}</span>`;
       })
       .join("");
     linesHTML += `<div class="line">${wordsHTML}</div>\n`;
@@ -326,11 +349,15 @@ html, body {
 <script>
 document.addEventListener('click', function(e) {
   var el = e.target;
-  if (el.classList.contains('word') || el.classList.contains('end-marker')) {
-    var vk = el.getAttribute('data-vk');
-    if (vk) {
-      window.ReactNativeWebView.postMessage(JSON.stringify({type:'tap', verseKey: vk}));
-    }
+  // Gesture split: a short tap on a real WORD (has data-wi) opens the word popup;
+  // a tap ANYWHERE ELSE (ayah-end marker, empty line, margin) toggles the toolbar,
+  // preserving the old tap-anywhere-to-toggle behaviour. Mutually exclusive, so a
+  // word tap never also toggles the toolbar.
+  var wi = (el && el.getAttribute) ? el.getAttribute('data-wi') : null;
+  if (wi !== null) {
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'wordtap', wi: parseInt(wi, 10)}));
+  } else {
+    window.ReactNativeWebView.postMessage(JSON.stringify({type:'tap'}));
   }
 });
 var longPressTimer = null;
@@ -498,6 +525,12 @@ function parseByPageVerses(verses: any[]): { words: PageWord[]; ayahs: PageAyah[
         line_number: w.line_number || 0,
         char_type_name: w.char_type_name || "word",
         verse_key: v.verse_key,
+        // quran.com nests these as {text, language_name}; text is sometimes
+        // explicitly null (e.g. transliteration on ayah-end markers) —
+        // `|| undefined` folds both missing-key and null into "absent".
+        translation: w.translation?.text || undefined,
+        transliteration: w.transliteration?.text || undefined,
+        position: typeof w.position === "number" ? w.position : undefined,
       });
     }
   }
@@ -530,6 +563,15 @@ const RECITER_ID = 7; // Mishari Alafasy, murattal
 // outright — guards against a dead recitation endpoint silently cascading
 // skip-calls through the entire mushaf.
 const MAX_RECITE_FAILS = 5;
+
+// ---- Ayah translation (content-explorer increment 1, open sources) --------
+// quran.com resource ids for verses/by_key?translations=<id> — verified live
+// against /resources/translations (the number this screen's spec draft named,
+// 131, does not exist there; 20 is the real Saheeh International id). No
+// Arabic id: the Qur'an's own text IS Arabic, so there's nothing to translate
+// to — the translation tab shows a "use Tafsir instead" line for ar viewers.
+const TRANSLATION_ID_EN = 20; // Saheeh International
+const TRANSLATION_ID_NL = 235; // Malak Faris Abdalsalaam
 
 /** Per-ayah audio URL via quran.com's by_ayah recitation endpoint. Returns
  * null (never throws) so the playback engine can just skip an ayah with no
@@ -576,7 +618,7 @@ async function loadPageWordsAndAyahs(
   }
   try {
     const data = await fetchJsonWithTimeout(
-      `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number&per_page=50`,
+      `${API_BASE}/verses/by_page/${page}?words=true&word_fields=code_v1,text_uthmani,line_number,translation,transliteration,position&per_page=50`,
     );
     // length > 0, not just truthy: an empty `verses: []` would otherwise be
     // written to disk and then read back forever as an empty (failed) page, which
@@ -786,12 +828,19 @@ export default function QuranScreen() {
   // Long press modal state
   const [showScienceModal, setShowScienceModal] = useState(false);
   const [selectedAyah, setSelectedAyah] = useState<PageAyah | null>(null);
-  const [scienceTab, setScienceTab] = useState<"tafsir" | "hidayat" | "surah">(
-    "tafsir",
-  );
+  const [scienceTab, setScienceTab] = useState<
+    "tafsir" | "hidayat" | "surah" | "translation"
+  >("tafsir");
   const [tafsirSource, setTafsirSource] = useState<"saadi" | "kathir">("saadi");
   const [scienceContent, setScienceContent] = useState("");
   const [scienceLoading, setScienceLoading] = useState(false);
+
+  // Word-tap modal state (content explorer increment 1) — separate from the
+  // science modal above: a word tap needs no fetch (translation/transliteration
+  // are already on the PageWord from the page load), so it's its own small
+  // sheet rather than another scienceTab.
+  const [showWordModal, setShowWordModal] = useState(false);
+  const [selectedWord, setSelectedWord] = useState<PageWord | null>(null);
 
   // Synchronous mirrors of render state for the async recitation chain
   // (toggleRecitation → playCurrentQueueItem → status callback → advanceToNext →
@@ -1310,7 +1359,11 @@ export default function QuranScreen() {
   // Handle WebView messages. Page-turning is no longer detected here — the
   // FlatList strip owns the swipe gesture now — so each slot just
   // reports taps/longpresses against its OWN ayahs list.
-  const handleWebViewMessage = (event: any, ayahs: PageAyah[]) => {
+  const handleWebViewMessage = (
+    event: any,
+    ayahs: PageAyah[],
+    words: PageWord[],
+  ) => {
     try {
       const msg = JSON.parse(event.nativeEvent.data);
       if (msg.type === "longpress" && msg.verseKey) {
@@ -1325,6 +1378,12 @@ export default function QuranScreen() {
         }
       } else if (msg.type === "tap") {
         setShowToolbar(!showToolbar);
+      } else if (msg.type === "wordtap" && typeof msg.wi === "number") {
+        const word = words[msg.wi];
+        if (word) {
+          setSelectedWord(word);
+          setShowWordModal(true);
+        }
       }
     } catch {}
   };
@@ -1460,6 +1519,60 @@ export default function QuranScreen() {
           tx(lang, "Fout bij laden", "Error loading", "خطأ في التحميل"),
         );
       }
+    } finally {
+      setScienceLoading(false);
+    }
+  };
+
+  // Fetch ayah translation (quran.com verses/by_key) — content explorer
+  // increment 1. Same direct-fetch + HTML-strip approach as fetchTafsir above
+  // (no server round-trip: this is a static scholarly translation, not an
+  // LLM call). Translations also carry <sup foot_note=..> markers tafsir text
+  // doesn't, so those are dropped whole (not just unwrapped) first.
+  const fetchAyahTranslation = async (ayah: PageAyah) => {
+    setScienceLoading(true);
+    setScienceContent("");
+    setScienceTab("translation");
+    const translationId =
+      lang === "nl" ? TRANSLATION_ID_NL : lang === "en" ? TRANSLATION_ID_EN : null;
+    if (!translationId) {
+      // ar: the Qur'an's own text already IS Arabic — nothing to translate to.
+      setScienceContent(
+        tx(
+          lang,
+          "Geen vertaling nodig — gebruik Tafsir",
+          "No translation needed — use Tafsir",
+          "النص بالعربية أصلًا، استخدم تبويب «تفسير» لشرح المعنى",
+        ),
+      );
+      setScienceLoading(false);
+      return;
+    }
+    try {
+      const verseKey = `${ayah.surahNumber}:${ayah.numberInSurah}`;
+      const res = await fetch(
+        `${API_BASE}/verses/by_key/${verseKey}?translations=${translationId}`,
+      );
+      const data = await res.json();
+      let text = data?.verse?.translations?.[0]?.text || "";
+      text = text
+        .replace(/<sup[^>]*>.*?<\/sup>/g, "")
+        .replace(/<[^>]*>/g, "")
+        .replace(/&nbsp;/g, " ")
+        .trim();
+      setScienceContent(
+        text ||
+          tx(
+            lang,
+            "Geen vertaling beschikbaar",
+            "No translation available",
+            "لا توجد ترجمة متاحة",
+          ),
+      );
+    } catch {
+      setScienceContent(
+        tx(lang, "Fout bij laden", "Error loading", "خطأ في التحميل"),
+      );
     } finally {
       setScienceLoading(false);
     }
@@ -1603,7 +1716,7 @@ export default function QuranScreen() {
             fontSize={fontSize}
             bgColor={bgColor}
             textColor={textColor}
-            onMessage={(e) => handleWebViewMessage(e, bundle.ayahs)}
+            onMessage={(e) => handleWebViewMessage(e, bundle.ayahs, bundle.words)}
             onReady={() => handleWebViewReady(page)}
             webViewRef={(ref) => {
               if (ref) webViewRefsRef.current.set(page, ref);
@@ -1998,12 +2111,14 @@ export default function QuranScreen() {
               { borderBottomColor: nightMode ? "#333" : "#E8EDE9" },
             ]}
           >
-            {(["surah", "tafsir", "hidayat"] as const).map((tab) => (
+            {(["surah", "tafsir", "translation", "hidayat"] as const).map((tab) => (
               <Pressable
                 key={tab}
                 onPress={() => {
                   if (tab === "tafsir" && selectedAyah)
                     fetchTafsir(selectedAyah, tafsirSource);
+                  else if (tab === "translation" && selectedAyah)
+                    fetchAyahTranslation(selectedAyah);
                   else if (tab === "hidayat" && selectedAyah)
                     fetchHidayat(selectedAyah);
                   else if (tab === "surah" && selectedAyah)
@@ -2032,7 +2147,9 @@ export default function QuranScreen() {
                     ? tx(lang, "Soera-info", "Surah Info", "علوم السورة")
                     : tab === "tafsir"
                       ? tx(lang, "Tafsir", "Tafsir", "تفسير")
-                      : tx(lang, "Hidaayaat", "Guidance", "هدايات")}
+                      : tab === "translation"
+                        ? tx(lang, "Vertaling", "Translation", "الترجمة")
+                        : tx(lang, "Hidaayaat", "Guidance", "هدايات")}
                 </Text>
               </Pressable>
             ))}
@@ -2132,7 +2249,9 @@ export default function QuranScreen() {
                     .replace(/[★◆❖✦✧⭐\*]{1,}/g, "")
                     .replace(/^\s*[\-•]\s*/gm, "")}
                 </Text>
-                {scienceContent && scienceTab !== "tafsir" && (
+                {scienceContent &&
+                  scienceTab !== "tafsir" &&
+                  scienceTab !== "translation" && (
                   <ReportAiContent
                     content={scienceContent}
                     surface={`quran-${scienceTab}`}
@@ -2165,6 +2284,134 @@ export default function QuranScreen() {
       </View>
     </Modal>
   );
+
+  // WORD popup (content explorer increment 1) — tap a word for its meaning/
+  // transliteration. Deliberately NOT another scienceTab: it needs no fetch
+  // (the data is already on the tapped PageWord) and is a smaller sheet, so it
+  // reuses renderScienceModal's overlay/sheet/close-button styling without its
+  // tabs machinery.
+  const renderWordModal = () => {
+    if (!selectedWord) return null;
+    const [vkSurahNum, vkAyahNum] = (selectedWord.verse_key || "")
+      .split(":")
+      .map(Number);
+    const wordSurah = SURAH_LIST.find((s) => s.number === vkSurahNum);
+    // Only fields quran.com actually returned — never render an empty/raw row.
+    const fields: { label: string; value: string }[] = [];
+    if (selectedWord.translation) {
+      fields.push({
+        label: tx(lang, "Betekenis", "Meaning", "المعنى"),
+        value: selectedWord.translation,
+      });
+    }
+    if (selectedWord.transliteration) {
+      fields.push({
+        label: tx(lang, "Uitspraak", "Pronunciation", "النطق"),
+        value: selectedWord.transliteration,
+      });
+    }
+    return (
+      <Modal
+        visible={showWordModal}
+        animationType="slide"
+        transparent
+        supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}
+      >
+        <View style={st.scienceOverlay}>
+          <Pressable style={{ flex: 1 }} onPress={() => setShowWordModal(false)} />
+          <View
+            style={[
+              st.wordBox,
+              { backgroundColor: nightMode ? "#1A1A2E" : "#FAFDF7" },
+            ]}
+          >
+            <View style={st.scienceDragHandle}>
+              <View
+                style={[
+                  st.scienceDragBar,
+                  { backgroundColor: nightMode ? "#555" : "#CCC" },
+                ]}
+              />
+            </View>
+            <Text style={[st.wordGlyph, { color: textColor }]}>
+              {selectedWord.text_uthmani}
+            </Text>
+            {fields.map((f) => (
+              <View
+                key={f.label}
+                style={[
+                  st.wordFieldRow,
+                  { alignItems: isRTL ? "flex-end" : "flex-start" },
+                ]}
+              >
+                <Text
+                  style={[
+                    st.wordFieldLabel,
+                    { color: nightMode ? "#C4A35A" : "#1B4332" },
+                  ]}
+                >
+                  {f.label}
+                </Text>
+                <Text
+                  style={[
+                    st.wordFieldValue,
+                    {
+                      color: textColor,
+                      textAlign: lang === "ar" ? "right" : "left",
+                    },
+                  ]}
+                >
+                  {f.value}
+                </Text>
+              </View>
+            ))}
+            {wordSurah && vkAyahNum > 0 && (
+              <Text
+                style={[
+                  st.wordVerseRef,
+                  { color: nightMode ? "#888" : "#6B7B72" },
+                ]}
+              >
+                {wordSurah.name} : {dig(vkAyahNum)}
+              </Text>
+            )}
+            {/* Deferred: word i'rab/sarf needs the Quranic Arabic Corpus (not
+                an open quran.com field) — see the spec's DEFER note. */}
+            <Text
+              style={[
+                st.wordDeferredNote,
+                { color: nightMode ? "#777" : "#9AA59E" },
+              ]}
+            >
+              {tx(
+                lang,
+                "Grammaticale ontleding (إعراب): binnenkort",
+                "Grammar analysis (i'raab): coming soon",
+                "الإعراب والصرف: قريبًا",
+              )}
+            </Text>
+            <View
+              style={[
+                st.scienceBottomBar,
+                { flexDirection: isRTL ? "row-reverse" : "row" },
+                { borderTopColor: nightMode ? "#333" : "#E8EDE9" },
+              ]}
+            >
+              <Pressable
+                onPress={() => setShowWordModal(false)}
+                style={({ pressed }) => [
+                  st.scienceCloseBtn,
+                  pressed && { opacity: 0.7 },
+                ]}
+              >
+                <MaterialIcons name="close" size={20} color="#666" />
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+    );
+  };
 
   return (
     <View
@@ -2384,6 +2631,7 @@ export default function QuranScreen() {
       {renderIndex()}
       {renderSettings()}
       {renderScienceModal()}
+      {renderWordModal()}
     </View>
   );
 }
@@ -2586,5 +2834,32 @@ const st = StyleSheet.create({
     backgroundColor: "#F0F0F0",
     alignItems: "center",
     justifyContent: "center",
+  },
+
+  // Word popup (content explorer increment 1) — smaller bottom sheet, reuses
+  // scienceOverlay/scienceDragHandle/scienceDragBar/scienceBottomBar/
+  // scienceCloseBtn above.
+  wordBox: {
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingBottom: 4,
+  },
+  wordGlyph: {
+    fontSize: 32,
+    fontWeight: "700",
+    textAlign: "center",
+    marginBottom: 14,
+    fontFamily: "serif",
+  },
+  wordFieldRow: { paddingHorizontal: 20, marginBottom: 10 },
+  wordFieldLabel: { fontSize: 12, fontWeight: "700", marginBottom: 2 },
+  wordFieldValue: { fontSize: 15, lineHeight: 22 },
+  wordVerseRef: { fontSize: 13, textAlign: "center", marginBottom: 10 },
+  wordDeferredNote: {
+    fontSize: 12,
+    textAlign: "center",
+    fontStyle: "italic",
+    marginHorizontal: 20,
+    marginBottom: 6,
   },
 });
