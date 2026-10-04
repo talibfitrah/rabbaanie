@@ -464,7 +464,17 @@ async function loadPageWordsAndAyahs(
       const info = await FileSystem.getInfoAsync(cachePath);
       if (info.exists) {
         const text = await FileSystem.readAsStringAsync(cachePath);
-        return parseByPageVerses(JSON.parse(text));
+        const parsed = parseByPageVerses(JSON.parse(text));
+        // A cached QCF page (code_v1 PUA glyphs) needs its font to render; if the
+        // font isn't cached too (its background download failed or didn't finish),
+        // those glyphs draw as boxes offline. Downgrade to the plain-text path
+        // (readable text_uthmani from the SAME cache) instead of boxes; the nav
+        // effect re-attempts the QCF+font upgrade when back online. The first
+        // online view isn't cached yet, so it still renders QCF via the CDN font.
+        if (parsed.words.length > 0 && !(await isFontCached(page))) {
+          return { words: [], ayahs: parsed.ayahs };
+        }
+        return parsed;
       }
     } catch {
       // corrupt/unreadable cache entry — fall through to network
@@ -504,6 +514,19 @@ async function loadPageWordsAndAyahs(
     // ignore — caller gets the empty-page fallback below
   }
   return { words: [], ayahs: [] };
+}
+
+/** Cheap existence check for a page's cached font (a stat, no base64 read) —
+ * used to decide whether a cached QCF page can render offline or must fall back
+ * to plain text. */
+async function isFontCached(page: number): Promise<boolean> {
+  if (!FileSystem.cacheDirectory) return false;
+  try {
+    const info = await FileSystem.getInfoAsync(`${FONT_CACHE_DIR}p${page}.woff2`);
+    return info.exists;
+  } catch {
+    return false;
+  }
 }
 
 /** Read-only cache check — never downloads. Keeps a currently-mounted page's
