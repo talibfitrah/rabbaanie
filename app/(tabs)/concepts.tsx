@@ -1058,7 +1058,10 @@ export default function QuranScreen() {
     if (!autoTurn || !isFocused) return;
     const id = setInterval(() => {
       // Skip a tick (don't stop) while the reader is interacting or a modal is open.
-      if (userDraggingRef.current || showSettings || showIndex || showScienceModal || showWordModal) return;
+      // Skip while recitation is playing too: it drives its own page-advance, and
+      // letting auto-turn move the view independently makes the two fight (the
+      // recited page's end would then jump the reader backward).
+      if (isPlayingRef.current || userDraggingRef.current || showSettings || showIndex || showScienceModal || showWordModal) return;
       // Reached the end: STOP auto-turn (so keep-awake is released too, not left on).
       if (currentPageRef.current >= TOTAL_PAGES) {
         setAutoTurn(false);
@@ -2147,9 +2150,11 @@ export default function QuranScreen() {
   // Render settings modal
   const renderSettings = () => (
     <Modal visible={showSettings} animationType="slide" transparent
+      onRequestClose={() => setShowSettings(false)}
       supportedOrientations={["portrait", "portrait-upside-down", "landscape"]}>
-      <View style={st.settingsOverlay}>
-        <View
+      <Pressable style={st.settingsOverlay} onPress={() => setShowSettings(false)}>
+        <Pressable
+          onPress={() => {}}
           style={[
             st.settingsBox,
             { backgroundColor: nightMode ? "#1A1A2E" : "#FFFFFF" },
@@ -2158,6 +2163,9 @@ export default function QuranScreen() {
           <Text style={[st.settingsTitle, { color: textColor }]}>
             {tx(lang, "Instellingen", "Settings", "الإعدادات")}
           </Text>
+          {/* Scroll the rows: in landscape the box would otherwise clip and hide
+              the close button (the modal grew to several rows). */}
+          <ScrollView style={{ flexShrink: 1 }} showsVerticalScrollIndicator={false}>
           <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Text style={[st.settingsLabel, { color: textColor }]}>
               {tx(lang, "Lettergrootte", "Font Size", "حجم الخط")}
@@ -2276,6 +2284,7 @@ export default function QuranScreen() {
               </View>
             </View>
           )}
+          </ScrollView>
           <Pressable
             onPress={() => setShowSettings(false)}
             style={st.settingsCloseBtn}
@@ -2284,8 +2293,8 @@ export default function QuranScreen() {
               {tx(lang, "Sluiten", "Close", "إغلاق")}
             </Text>
           </Pressable>
-        </View>
-      </View>
+        </Pressable>
+      </Pressable>
     </Modal>
   );
 
@@ -3010,7 +3019,7 @@ const st = StyleSheet.create({
     justifyContent: "center",
     alignItems: "center",
   },
-  settingsBox: { width: "85%", borderRadius: 16, padding: 20 },
+  settingsBox: { width: "85%", maxHeight: "88%", borderRadius: 16, padding: 20 },
   settingsTitle: {
     fontSize: 18,
     fontWeight: "700",
