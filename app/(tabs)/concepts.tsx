@@ -690,7 +690,11 @@ async function loadMorphologyForSurah(surah: number): Promise<SurahMorphology | 
     const data = await fetchJsonWithTimeout(
       `https://api.rabbaanie.com/downloads/morphology/${surah}.json`,
     );
-    if (data && typeof data === "object") {
+    // Require a NON-EMPTY plain object before caching: a build that wrote {} for an
+    // unparseable surah, or a captive portal answering 200 with other JSON, must not
+    // be persisted forever as that surah's data (same reason the page cache refuses
+    // empty verses). A bad/empty response → return null → caller shows "unavailable".
+    if (data && typeof data === "object" && !Array.isArray(data) && Object.keys(data).length > 0) {
       if (cachePath) {
         ensureDirExists(MORPH_CACHE_DIR)
           .then(() => FileSystem.writeAsStringAsync(cachePath, JSON.stringify(data)))
@@ -848,6 +852,7 @@ export default function QuranScreen() {
   const [keepAwake, setKeepAwake] = useState(false);
   const [autoTurn, setAutoTurn] = useState(false);
   const [autoTurnSec, setAutoTurnSec] = useState(30);
+  const [hideListen, setHideListen] = useState(false);
 
   // Recitation audio (play/pause, read-along). isPlaying/playingVerseKey are
   // the UI-facing state; isPlayingRef is the SYNCHRONOUS source of truth the
@@ -896,7 +901,14 @@ export default function QuranScreen() {
   // while this modal is still open on "translation" would otherwise strand it
   // on a tab with no visible button; fall back to tafsir instead.
   useEffect(() => {
-    if (lang === "ar" && scienceTab === "translation") setScienceTab("tafsir");
+    if (lang === "ar" && scienceTab === "translation") {
+      // Drop the now-wrong translation text (and invalidate any in-flight
+      // translation fetch) so it doesn't linger under the «تفسير» label; the
+      // tafsir tab then loads fresh when tapped.
+      scienceReqRef.current++;
+      setScienceContent("");
+      setScienceTab("tafsir");
+    }
   }, [lang, scienceTab]);
 
   // Word-tap modal state — separate from the science modal above: translation/
@@ -1348,6 +1360,7 @@ export default function QuranScreen() {
           if (saved.theme in MUSHAF_THEMES) setTheme(saved.theme);
           if (typeof saved.fontSize === "number") setFontSize(saved.fontSize);
           if (typeof saved.keepAwake === "boolean") setKeepAwake(saved.keepAwake);
+          if (typeof saved.hideListen === "boolean") setHideListen(saved.hideListen);
           // autoTurn (the ON state) is intentionally NOT persisted: silently
           // resuming hands-free paging on a later visit would drift the saved
           // bookmark forward with no visible cue. Only the interval is remembered.
@@ -1366,9 +1379,9 @@ export default function QuranScreen() {
     if (!settingsLoadedRef.current) return;
     AsyncStorage.setItem(
       SETTINGS_KEY,
-      JSON.stringify({ theme, fontSize, keepAwake, autoTurnSec }),
+      JSON.stringify({ theme, fontSize, keepAwake, autoTurnSec, hideListen }),
     ).catch(() => {}); // storage full/quota — ignore (no unhandled rejection)
-  }, [theme, fontSize, keepAwake, autoTurnSec]);
+  }, [theme, fontSize, keepAwake, autoTurnSec, hideListen]);
 
   // Load one page (cache-or-network). In-flight de-dupe uses inFlightRef — a
   // synchronous guard, because a state updater's side effect can't drive control
@@ -2191,6 +2204,27 @@ export default function QuranScreen() {
           </View>
           <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
             <Text style={[st.settingsLabel, { color: textColor }]}>
+              {tx(lang, "Luisterknop verbergen", "Hide listen button", "إخفاء زرّ التسميع")}
+            </Text>
+            <Pressable
+              onPress={() => {
+                const next = !hideListen;
+                setHideListen(next);
+                // Hiding the button mid-playback would strand the audio with no
+                // pause control — stop it so there's never orphaned recitation.
+                if (next && isPlayingRef.current) stopRecitation();
+              }}
+              style={[st.toggleBtn, hideListen && st.toggleBtnActive]}
+            >
+              <Text style={[st.toggleBtnText, hideListen && { color: "#FFF" }]}>
+                {hideListen
+                  ? tx(lang, "Aan", "On", "مفعّل")
+                  : tx(lang, "Uit", "Off", "معطّل")}
+              </Text>
+            </Pressable>
+          </View>
+          <View style={[st.settingsRow, { flexDirection: isRTL ? "row-reverse" : "row" }]}>
+            <Text style={[st.settingsLabel, { color: textColor }]}>
               {tx(lang, "Automatisch doorbladeren", "Auto page-turn", "تصفُّح تلقائي")}
             </Text>
             <Pressable
@@ -2675,20 +2709,22 @@ export default function QuranScreen() {
                   {tx(lang, "Index", "Index", "فهرس")}
                 </Text>
               </Pressable>
-              <Pressable
-                onPress={toggleRecitation}
-                style={({ pressed }) => [
-                  st.toolbarBtn,
-                  pressed && { opacity: 0.7 },
-                ]}
-              >
-                <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={20} color="#FFFFFF" />
-                <Text style={st.toolbarBtnText}>
-                  {isPlaying
-                    ? tx(lang, "Pauze", "Pause", "إيقاف")
-                    : tx(lang, "Luister", "Listen", "استماع")}
-                </Text>
-              </Pressable>
+              {!hideListen && (
+                <Pressable
+                  onPress={toggleRecitation}
+                  style={({ pressed }) => [
+                    st.toolbarBtn,
+                    pressed && { opacity: 0.7 },
+                  ]}
+                >
+                  <MaterialIcons name={isPlaying ? "pause" : "play-arrow"} size={20} color="#FFFFFF" />
+                  <Text style={st.toolbarBtnText}>
+                    {isPlaying
+                      ? tx(lang, "Pauze", "Pause", "إيقاف")
+                      : tx(lang, "Luister", "Listen", "استماع")}
+                  </Text>
+                </Pressable>
+              )}
             </View>
             <View style={st.pageInfo}>
               <Text style={st.pageInfoSurah}>{currentSurah.name}</Text>
