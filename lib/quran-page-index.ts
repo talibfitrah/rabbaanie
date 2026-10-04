@@ -10,8 +10,9 @@
 //
 // RUB_STARTS holds the verse that begins each of the 240 rub' al-hizb (8 per
 // juz x 30 juz = 240; 4 rubs per hizb x 60 hizb = 240) in Qur'an order — used to
-// place the \u06DE overlay marker, since the QCF v1 glyph stream does not
-// include it (verified against the API's own word-level code_v1 data).
+// show the \u06DE rub' indicator + hizb/juz label in the page HEADER (NOT inside
+// the page: a full-width QCF line has no room beside the text without clipping a
+// Qur'an word \u2014 see concepts.tsx). The QCF v1 glyph stream does not include it.
 //
 // SAJDAS holds the 15 sajdah verses in Qur'an order. The API's own sajdah_number
 // field marks only 14 (Hanafi convention: one prostration in Surah Al-Hajj); the

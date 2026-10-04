@@ -430,9 +430,6 @@ function parseByPageVerses(verses: any[]): { words: PageWord[]; ayahs: PageAyah[
   return { words, ayahs };
 }
 
-/** Cache-or-fetch one page's word/ayah data. Same quran.com shape + the same
- * alquran.cloud fallback as before Phase 1 — only the on-device cache check
- * (read-through) and cache write (fire-and-forget, non-blocking) are new. */
 // fetch with an abort timeout so a stalled connection (e.g. a network switch)
 // rejects instead of hanging forever. React Native's Android client sets no
 // default read timeout, and a hung page load would sit on the spinner
@@ -448,6 +445,9 @@ async function fetchWithTimeout(url: string, ms = 15000): Promise<Response> {
   }
 }
 
+/** Cache-or-fetch one page's word/ayah data. Same quran.com shape + the same
+ * alquran.cloud fallback as before Phase 1 — only the on-device cache check
+ * (read-through) and cache write (fire-and-forget, non-blocking) are new. */
 async function loadPageWordsAndAyahs(
   page: number,
 ): Promise<{ words: PageWord[]; ayahs: PageAyah[] }> {
@@ -517,11 +517,12 @@ async function getCachedFontUri(page: number): Promise<string | undefined> {
 
 /** Fire-and-forget: download this page's QCF font to disk for next time.
  * Never touches React state, so it cannot reload a page the user is reading.
- * ATOMIC: downloads to a unique temp file and only moves it into place on a
- * clean 200. A killed/partial/failed download leaves only the temp (which is
- * deleted), never a truncated p{page}.woff2 — a truncated font would make the
- * QCF @font-face silently fail and render the Qur'an as tofu/garbled boxes,
- * trusted forever (getCachedFontUri only checks existence, not integrity). */
+ * ATOMIC + VALIDATED: downloads to a unique temp file and only moves it into
+ * place on a clean 200 whose first bytes are the woff2 magic ("wOF2"). This
+ * guards against BOTH a truncated download AND a wrong 200 — e.g. a captive
+ * portal / Wi-Fi login page served as HTML, which would otherwise be cached as
+ * p{page}.woff2 and, since getCachedFontUri only checks existence, make the QCF
+ * @font-face silently fail and render the Qur'an as tofu/garbled boxes forever. */
 function warmFontCache(page: number) {
   if (!FileSystem.cacheDirectory) return;
   const path = `${FONT_CACHE_DIR}p${page}.woff2`;
@@ -531,7 +532,21 @@ function warmFontCache(page: number) {
     .then(async (info) => {
       if (info.exists) return;
       const res = await FileSystem.downloadAsync(`${FONT_CDN}/p${page}.woff2`, tmp);
-      if (res.status === 200) await FileSystem.moveAsync({ from: tmp, to: path });
+      // woff2 magic number is "wOF2" (0x774F4632); its base64 is "d09GMg...".
+      let isWoff2 = false;
+      if (res.status === 200) {
+        try {
+          const head = await FileSystem.readAsStringAsync(tmp, {
+            encoding: "base64",
+            position: 0,
+            length: 4,
+          });
+          isWoff2 = head.startsWith("d09GMg");
+        } catch {
+          isWoff2 = false;
+        }
+      }
+      if (isWoff2) await FileSystem.moveAsync({ from: tmp, to: path });
       else await FileSystem.deleteAsync(tmp, { idempotent: true });
     })
     .catch(() => {
