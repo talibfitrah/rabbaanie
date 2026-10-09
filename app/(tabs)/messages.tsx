@@ -386,7 +386,11 @@ function MessagesScreenInner() {
                   <View style={{ alignItems: "center", marginVertical: 8 }}>
                     <View style={{ backgroundColor: colors.warning + "20", borderRadius: 10, paddingVertical: 8, paddingHorizontal: 14, maxWidth: "85%" }}>
                       <Text style={{ fontSize: 12, color: colors.warning, textAlign: "center" }}>
-                        {item.content}
+                        {/* The server stores a link request's text once, in the RECIPIENT's
+                            language and addressed to them — never show that to the sender. */}
+                        {isLinkRequest
+                          ? tx(lang, "Koppelverzoek verstuurd.", "Link request sent.", "تم إرسال طلب الربط.")
+                          : item.content}
                       </Text>
                     </View>
                   </View>
