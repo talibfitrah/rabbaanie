@@ -5,7 +5,7 @@ import { View, Text, Pressable, ScrollView, Alert, Platform, ActivityIndicator, 
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import * as IntentLauncher from "expo-intent-launcher";
 import * as Haptics from "expo-haptics";
-import { useRouter } from "expo-router";
+import { useRouter, useLocalSearchParams } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
@@ -166,12 +166,15 @@ function AddressEditor({ language, isRTL, colors }: { language: string; isRTL: b
 }
 
 // Collapsible section wrapper for settings
-function SettingsCollapsible({ title, icon, iconColor, children, colors, isRTL, defaultOpen = false }: {
-  title: string; icon: string; iconColor?: string; children: React.ReactNode; colors: any; isRTL: boolean; defaultOpen?: boolean;
+function SettingsCollapsible({ title, icon, iconColor, children, colors, isRTL, defaultOpen = false, forceOpen = false, onLayout }: {
+  title: string; icon: string; iconColor?: string; children: React.ReactNode; colors: any; isRTL: boolean; defaultOpen?: boolean; forceOpen?: boolean; onLayout?: (e: any) => void;
 }) {
   const [open, setOpen] = useState(defaultOpen);
+  // Settings is a tab and stays mounted, so useState reads defaultOpen once:
+  // a deep link ("Wijzig" on Gebedstijden) must open the section explicitly.
+  useEffect(() => { if (forceOpen) setOpen(true); }, [forceOpen]);
   return (
-    <View className="rounded-2xl mb-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.border, overflow: "hidden" }}>
+    <View onLayout={onLayout} className="rounded-2xl mb-4 border" style={{ backgroundColor: colors.surface, borderColor: colors.border, overflow: "hidden" }}>
       <Pressable
         onPress={() => setOpen(!open)}
         style={({ pressed }) => [{
@@ -197,6 +200,24 @@ export default function SettingsScreen() {
   const colors = useColors();
   const insets = useSafeAreaInsets();
   const router = useRouter();
+  // "Wijzig" on Gebedstijden opens Settings at the prayer section.
+  const { section } = useLocalSearchParams<{ section?: string }>();
+  const scrollRef = useRef<ScrollView>(null);
+  const prayerSectionY = useRef(0);
+  const pendingPrayerScroll = useRef(false);
+  // Scroll once the section's position is known: right away when Settings is
+  // already laid out, otherwise from the section's first onLayout.
+  const scrollToPrayer = () => {
+    if (!pendingPrayerScroll.current || !prayerSectionY.current || !scrollRef.current) return;
+    pendingPrayerScroll.current = false;
+    scrollRef.current.scrollTo({ y: prayerSectionY.current, animated: true });
+    router.setParams({ section: undefined } as any); // so the next "Wijzig" fires again
+  };
+  useEffect(() => {
+    if (section !== "prayer") return;
+    pendingPrayerScroll.current = true;
+    scrollToPrayer();
+  }, [section]);
   const { t, language, setLanguage, isRTL, numeralSystem, setNumeralSystem } = useI18n();
   const isEn = language === "en";
   const remoteCfg = useRemoteConfig();
@@ -1280,7 +1301,7 @@ export default function SettingsScreen() {
                     </View>
                   )}
                 </View>
-                <Text style={{ fontSize: 10, color: colors.muted, marginTop: 4, fontStyle: "italic" }}>{item.region}</Text>
+                <Text style={{ fontSize: 10, color: colors.muted, marginTop: 4, fontStyle: "italic" }}>{language === "ar" ? item.regionAr : language === "en" ? item.region : item.regionNl}</Text>
               </Pressable>
             );
           }}
@@ -1295,6 +1316,7 @@ export default function SettingsScreen() {
         <DateTimeHeader />
       </View>
       <ScrollView
+        ref={scrollRef}
         className="flex-1"
         keyboardShouldPersistTaps="handled"
         contentContainerStyle={{
@@ -1535,7 +1557,8 @@ export default function SettingsScreen() {
       </Pressable>
 
       {/* Prayer time settings */}
-      <SettingsCollapsible title={language === "ar" ? "إعدادات الصلاة" : isEn ? "Prayer Settings" : "Gebedsinstellingen"} icon="access-time" colors={colors} isRTL={isRTL}>
+      <SettingsCollapsible title={language === "ar" ? "إعدادات الصلاة" : isEn ? "Prayer Settings" : "Gebedsinstellingen"} icon="access-time" colors={colors} isRTL={isRTL}
+        forceOpen={section === "prayer"} onLayout={(e) => { prayerSectionY.current = e.nativeEvent.layout.y; scrollToPrayer(); }}>
 
         {/* Current location */}
         <Text style={{ fontSize: 12, color: colors.muted, marginBottom: 4 }}>{t("settings.current_location")}</Text>

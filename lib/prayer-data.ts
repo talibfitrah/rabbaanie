@@ -21,6 +21,8 @@ export interface CalcMethod {
   ishaMinutes?: number;
   asrFactor: number;
   region: string;
+  regionNl: string;
+  regionAr: string;
 }
 
 export interface SavedPrayerLocation {
@@ -37,22 +39,22 @@ export const PRAYER_METHOD_KEY = "@prayer_method";
 // ============ CALCULATION METHODS ============
 
 export const CALC_METHODS: CalcMethod[] = [
-  { id: "uoif", name: "UOIF (France)", nameAr: "اتحاد المنظمات الإسلامية فرنسا", fajrAngle: 12, ishaAngle: 12, asrFactor: 1, region: "France, West Europe" },
-  { id: "mwl", name: "Muslim World League", nameAr: "رابطة العالم الإسلامي", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Europe, Far East, parts of US" },
-  { id: "isna", name: "ISNA (North America)", nameAr: "الجمعية الإسلامية لأمريكا الشمالية", fajrAngle: 15, ishaAngle: 15, asrFactor: 1, region: "North America" },
-  { id: "egypt", name: "Egyptian General Authority", nameAr: "الهيئة المصرية العامة للمساحة", fajrAngle: 19.5, ishaAngle: 17.5, asrFactor: 1, region: "Africa, Syria, Lebanon, Malaysia" },
-  { id: "makkah", name: "Umm al-Qura (Makkah)", nameAr: "أم القرى", fajrAngle: 18.5, ishaAngle: 0, ishaMinutes: 90, asrFactor: 1, region: "Arabian Peninsula" },
-  { id: "karachi", name: "University of Islamic Sciences, Karachi", nameAr: "جامعة العلوم الإسلامية كراتشي", fajrAngle: 18, ishaAngle: 18, asrFactor: 1, region: "Pakistan, Bangladesh, India, Afghanistan" },
-  { id: "tehran", name: "Institute of Geophysics, Tehran", nameAr: "مؤسسة الجيوفيزياء طهران", fajrAngle: 17.7, ishaAngle: 14, asrFactor: 1, region: "Iran, Some Shia communities" },
-  { id: "jafari", name: "Shia Ithna-Ashari (Jafari)", nameAr: "الشيعة الإثنا عشرية", fajrAngle: 16, ishaAngle: 14, asrFactor: 1, region: "Shia communities worldwide" },
-  { id: "diyanet", name: "Diyanet (Turkey)", nameAr: "رئاسة الشؤون الدينية التركية", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Turkey, Turkish communities" },
-  { id: "morocco", name: "Ministry of Habous, Morocco", nameAr: "وزارة الأوقاف المغربية", fajrAngle: 19, ishaAngle: 17, asrFactor: 1, region: "Morocco" },
-  { id: "algeria", name: "Ministry of Religious Affairs, Algeria", nameAr: "وزارة الشؤون الدينية الجزائرية", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Algeria" },
-  { id: "tunisia", name: "Ministry of Religious Affairs, Tunisia", nameAr: "وزارة الشؤون الدينية التونسية", fajrAngle: 18, ishaAngle: 18, asrFactor: 1, region: "Tunisia" },
-  { id: "qatar", name: "Qatar Calendar House", nameAr: "دار التقويم القطري", fajrAngle: 18, ishaAngle: 0, ishaMinutes: 90, asrFactor: 1, region: "Qatar" },
-  { id: "kuwait", name: "Ministry of Awqaf, Kuwait", nameAr: "وزارة الأوقاف الكويتية", fajrAngle: 18, ishaAngle: 17.5, asrFactor: 1, region: "Kuwait" },
-  { id: "singapore", name: "MUIS (Singapore)", nameAr: "مجلس الشؤون الدينية سنغافورة", fajrAngle: 20, ishaAngle: 18, asrFactor: 1, region: "Singapore, Malaysia, Indonesia" },
-  { id: "hanafi", name: "Hanafi Asr (with MWL)", nameAr: "العصر الحنفي (مع رابطة العالم)", fajrAngle: 18, ishaAngle: 17, asrFactor: 2, region: "Hanafi communities" },
+  { id: "uoif", name: "UOIF (France)", nameAr: "اتحاد المنظمات الإسلامية فرنسا", fajrAngle: 12, ishaAngle: 12, asrFactor: 1, region: "France, West Europe", regionNl: "Frankrijk, West-Europa", regionAr: "فرنسا، غرب أوروبا" },
+  { id: "mwl", name: "Muslim World League", nameAr: "رابطة العالم الإسلامي", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Europe, Far East, parts of US", regionNl: "Europa, Verre Oosten, delen van de VS", regionAr: "أوروبا، الشرق الأقصى، أجزاء من أمريكا" },
+  { id: "isna", name: "ISNA (North America)", nameAr: "الجمعية الإسلامية لأمريكا الشمالية", fajrAngle: 15, ishaAngle: 15, asrFactor: 1, region: "North America", regionNl: "Noord-Amerika", regionAr: "أمريكا الشمالية" },
+  { id: "egypt", name: "Egyptian General Authority", nameAr: "الهيئة المصرية العامة للمساحة", fajrAngle: 19.5, ishaAngle: 17.5, asrFactor: 1, region: "Africa, Syria, Lebanon, Malaysia", regionNl: "Afrika, Syrië, Libanon, Maleisië", regionAr: "أفريقيا، سوريا، لبنان، ماليزيا" },
+  { id: "makkah", name: "Umm al-Qura (Makkah)", nameAr: "أم القرى", fajrAngle: 18.5, ishaAngle: 0, ishaMinutes: 90, asrFactor: 1, region: "Arabian Peninsula", regionNl: "Arabisch Schiereiland", regionAr: "شبه الجزيرة العربية" },
+  { id: "karachi", name: "University of Islamic Sciences, Karachi", nameAr: "جامعة العلوم الإسلامية كراتشي", fajrAngle: 18, ishaAngle: 18, asrFactor: 1, region: "Pakistan, Bangladesh, India, Afghanistan", regionNl: "Pakistan, Bangladesh, India, Afghanistan", regionAr: "باكستان، بنغلاديش، الهند، أفغانستان" },
+  { id: "tehran", name: "Institute of Geophysics, Tehran", nameAr: "مؤسسة الجيوفيزياء طهران", fajrAngle: 17.7, ishaAngle: 14, asrFactor: 1, region: "Iran, Some Shia communities", regionNl: "Iran, sommige sjiitische gemeenschappen", regionAr: "إيران، بعض المجتمعات الشيعية" },
+  { id: "jafari", name: "Shia Ithna-Ashari (Jafari)", nameAr: "الشيعة الإثنا عشرية", fajrAngle: 16, ishaAngle: 14, asrFactor: 1, region: "Shia communities worldwide", regionNl: "Sjiitische gemeenschappen wereldwijd", regionAr: "المجتمعات الشيعية حول العالم" },
+  { id: "diyanet", name: "Diyanet (Turkey)", nameAr: "رئاسة الشؤون الدينية التركية", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Turkey, Turkish communities", regionNl: "Turkije, Turkse gemeenschappen", regionAr: "تركيا، المجتمعات التركية" },
+  { id: "morocco", name: "Ministry of Habous, Morocco", nameAr: "وزارة الأوقاف المغربية", fajrAngle: 19, ishaAngle: 17, asrFactor: 1, region: "Morocco", regionNl: "Marokko", regionAr: "المغرب" },
+  { id: "algeria", name: "Ministry of Religious Affairs, Algeria", nameAr: "وزارة الشؤون الدينية الجزائرية", fajrAngle: 18, ishaAngle: 17, asrFactor: 1, region: "Algeria", regionNl: "Algerije", regionAr: "الجزائر" },
+  { id: "tunisia", name: "Ministry of Religious Affairs, Tunisia", nameAr: "وزارة الشؤون الدينية التونسية", fajrAngle: 18, ishaAngle: 18, asrFactor: 1, region: "Tunisia", regionNl: "Tunesië", regionAr: "تونس" },
+  { id: "qatar", name: "Qatar Calendar House", nameAr: "دار التقويم القطري", fajrAngle: 18, ishaAngle: 0, ishaMinutes: 90, asrFactor: 1, region: "Qatar", regionNl: "Qatar", regionAr: "قطر" },
+  { id: "kuwait", name: "Ministry of Awqaf, Kuwait", nameAr: "وزارة الأوقاف الكويتية", fajrAngle: 18, ishaAngle: 17.5, asrFactor: 1, region: "Kuwait", regionNl: "Koeweit", regionAr: "الكويت" },
+  { id: "singapore", name: "MUIS (Singapore)", nameAr: "مجلس الشؤون الدينية سنغافورة", fajrAngle: 20, ishaAngle: 18, asrFactor: 1, region: "Singapore, Malaysia, Indonesia", regionNl: "Singapore, Maleisië, Indonesië", regionAr: "سنغافورة، ماليزيا، إندونيسيا" },
+  { id: "hanafi", name: "Hanafi Asr (with MWL)", nameAr: "العصر الحنفي (مع رابطة العالم)", fajrAngle: 18, ishaAngle: 17, asrFactor: 2, region: "Hanafi communities", regionNl: "Hanafitische gemeenschappen", regionAr: "المجتمعات الحنفية" },
 ];
 
 // ============ COUNTRIES DATABASE ============

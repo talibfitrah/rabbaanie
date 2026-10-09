@@ -202,7 +202,7 @@ export default function PrayerTimesScreen() {
             {t("prayer.no_location")}
           </Text>
           <Pressable
-            onPress={() => router.push("/(tabs)/settings")}
+            onPress={() => router.push({ pathname: "/(tabs)/settings", params: { section: "prayer" } })}
             style={({ pressed }) => [{
               backgroundColor: pressed ? colors.primary + "CC" : colors.primary,
               borderRadius: 12,
@@ -241,7 +241,7 @@ export default function PrayerTimesScreen() {
 
         {/* Location bar */}
         <Pressable
-          onPress={() => router.push("/(tabs)/settings")}
+          onPress={() => router.push({ pathname: "/(tabs)/settings", params: { section: "prayer" } })}
           style={({ pressed }) => [{
             backgroundColor: pressed ? colors.primary + "20" : colors.primary + "10",
             borderRadius: 10,
