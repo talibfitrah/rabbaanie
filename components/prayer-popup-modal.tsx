@@ -67,7 +67,7 @@ export function PrayerPopupModal({
     let cancelled = false;
     readStoredLanguage().then((lang) => {
       if (!cancelled) setLanguage(lang);
-    }).catch(() => {});
+    }).catch(() => { if (!cancelled) setLanguage("nl"); }); // never leave the buttons blank
     // C15: reset synchronously, before the async read starts — otherwise a
     // just-switched-to man briefly (or, if the read then fails, forever)
     // sees the previous woman account's "أنا حائض" button while this
@@ -122,6 +122,9 @@ export function PrayerPopupModal({
   const rulingBgColor = RULING_BG_COLORS[notification.ruling] || "#ECFDF5";
   // Outside I18nProvider (see above), so the gate comes from the stored language.
   const isRTL = language === "ar";
+  // Blank until the stored language is read — same as the ruling badge — so a
+  // Dutch/English popup never flashes Arabic.
+  const L = (nl: string, en: string, ar: string) => (language === "ar" ? ar : language === "en" ? en : language === "nl" ? nl : "");
   const rowDir = { flexDirection: isRTL ? "row-reverse" : "row" } as const;
 
   const handleDoNow = () => {
@@ -198,7 +201,7 @@ export function PrayerPopupModal({
           {isFollowUp && (
             <View style={[st.followUpBanner, rowDir]}>
               <MaterialIcons name="help-outline" size={18} color="#92400E" />
-              <Text style={st.followUpText}>هل فعلت ذلك؟</Text>
+              <Text style={st.followUpText}>{L("Heeft u het gedaan?", "Did you do it?", "هل فعلت ذلك؟")}</Text>
             </View>
           )}
 
@@ -211,14 +214,14 @@ export function PrayerPopupModal({
                   style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check-circle" size={20} color="#FFFFFF" />
-                  <Text style={st.primaryButtonText}>نعم، الحمد لله</Text>
+                  <Text style={st.primaryButtonText}>{L("Ja, alhamdulillaah", "Yes, alhamdulillaah", "نعم، الحمد لله")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
                   style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="refresh" size={18} color="#4B5563" />
-                  <Text style={st.secondaryButtonText}>ذكرني مرة أخرى</Text>
+                  <Text style={st.secondaryButtonText}>{L("Herinner me opnieuw", "Remind me again", "ذكرني مرة أخرى")}</Text>
                 </Pressable>
                 {isWoman && (
                   <Pressable
@@ -226,7 +229,7 @@ export function PrayerPopupModal({
                     style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
-                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                    <Text style={st.secondaryButtonText}>{L("Ik heb menstruatie", "I'm on my period", "أنا حائض")}</Text>
                   </Pressable>
                 )}
               </>
@@ -237,14 +240,14 @@ export function PrayerPopupModal({
                   style={({ pressed }) => [st.primaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="check" size={20} color="#FFFFFF" />
-                  <Text style={st.primaryButtonText}>أفعل الآن إن شاء الله</Text>
+                  <Text style={st.primaryButtonText}>{L("Ik doe het nu, in shaa Allaah", "I'll do it now, in shaa Allaah", "أفعل الآن إن شاء الله")}</Text>
                 </Pressable>
                 <Pressable
                   onPress={handleRemindLater}
                   style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85, transform: [{ scale: 0.97 }] }]}
                 >
                   <MaterialIcons name="access-time" size={18} color="#4B5563" />
-                  <Text style={st.secondaryButtonText}>أعد تذكيري بعد 10 دقائق</Text>
+                  <Text style={st.secondaryButtonText}>{L("Herinner me over 10 minuten", "Remind me in 10 minutes", "أعد تذكيري بعد 10 دقائق")}</Text>
                 </Pressable>
                 {isWoman && (
                   <Pressable
@@ -252,7 +255,7 @@ export function PrayerPopupModal({
                     style={({ pressed }) => [st.secondaryButton, rowDir, pressed && { opacity: 0.85 }]}
                   >
                     <MaterialIcons name="favorite-border" size={18} color="#4B5563" />
-                    <Text style={st.secondaryButtonText}>أنا حائض</Text>
+                    <Text style={st.secondaryButtonText}>{L("Ik heb menstruatie", "I'm on my period", "أنا حائض")}</Text>
                   </Pressable>
                 )}
               </>
