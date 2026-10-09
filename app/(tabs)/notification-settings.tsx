@@ -493,15 +493,15 @@ export default function NotificationSettingsScreen() {
         <Pressable
           onPress={handleMasterToggle}
           style={({ pressed }) => [{
-            flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between",
+            flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", justifyContent: "space-between", gap: 12,
             backgroundColor: notifPrefs.enabled ? colors.primary + "15" : colors.surface,
             borderRadius: 16, padding: 16, marginBottom: 16, borderWidth: 1.5,
             borderColor: notifPrefs.enabled ? colors.primary + "40" : colors.border, opacity: pressed ? 0.8 : 1,
           }]}
         >
-          <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
+          <View style={{ flex: 1, flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 12 }}>
             <MaterialIcons name="notifications-active" size={24} color={notifPrefs.enabled ? colors.primary : colors.muted} />
-            <View>
+            <View style={{ flex: 1 }}>
               <Text style={{ fontSize: 16, fontWeight: "700", color: colors.foreground, textAlign: isRTL ? "right" : "left" }}>
                 {t("notif.master_toggle")}
               </Text>
