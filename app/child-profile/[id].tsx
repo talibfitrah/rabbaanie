@@ -7,7 +7,8 @@ import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
 import { TreatmentPlanRenderer } from "@/components/treatment-plan-renderer";
 import { cleanTreatmentText } from "@/lib/plan-text";
-import { calculateAgeInWeeks } from "@/lib/store";
+import { calendarAge } from "@/lib/store";
+import { getEnvQuestions } from "@/lib/environment-questions";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 
 type Lang = "nl" | "en" | "ar";
@@ -263,7 +264,7 @@ export default function ChildProfileScreen() {
     );
   }
 
-  const age = child.birthDate ? calculateAgeInWeeks(child.birthDate) : null;
+  const age = child.birthDate ? calendarAge(child.birthDate) : null;
   const genderLabel =
     child.gender === "jongen"
       ? tx(lang, "Jongen", "Boy", "ولد")
@@ -271,6 +272,11 @@ export default function ChildProfileScreen() {
         ? tx(lang, "Meisje", "Girl", "بنت")
         : tx(lang, "Onbekend", "Unknown", "غير محدد");
   const sections = getEnvironmentSections(lang);
+  // Hybrid answers are stored as an option code (e.g. "warm_hecht") or free
+  // text; show the option's label, keyed per question ("afwezig" differs).
+  const optionLabel = new Map(
+    getEnvQuestions(lang).flatMap((q) => (q.options ?? []).map((o) => [`${q.key}:${o.value}`, o.label] as const)),
+  );
 
   return (
     <View style={{ flex: 1, backgroundColor: colors.background }}>
@@ -525,7 +531,7 @@ export default function ChildProfileScreen() {
                           textAlign: isRTL ? "right" : "left",
                         }}
                       >
-                        {(env as any)[field.key]}
+                        {optionLabel.get(`${field.key}:${(env as any)[field.key]}`) ?? (env as any)[field.key]}
                       </Text>
                     </View>
                   ))}

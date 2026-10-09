@@ -32,6 +32,7 @@ import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
 import {
   calculateAgeInWeeks,
+  calendarAge,
   getYearKey,
   getWeekInYear,
   Issue,
@@ -271,6 +272,8 @@ export default function ChildDetailScreen() {
   const age = child.birthDate ? calculateAgeInWeeks(child.birthDate) : null;
   const yearKey = age ? getYearKey(age.years) : null;
   const weekInYear = age ? getWeekInYear(age.totalWeeks, age.years) : null;
+  // Display age: calendar-correct. `age` (52-week years) stays the curriculum key.
+  const calAge = child.birthDate ? calendarAge(child.birthDate) : null;
 
   // Step 1: Generate analytical questions based on the issue description
   const MAX_QUESTIONS = 10; // Maximum diagnostic questions before forcing plan generation
@@ -298,9 +301,9 @@ export default function ChildDetailScreen() {
           childAge: age
             ? tx(
                 lang,
-                `${age.years} jaar en ${age.months} maanden`,
-                `${age.years} years and ${age.months} months`,
-                `${age.years} سنة و${age.months} أشهر`,
+                `${calAge!.years} jaar en ${calAge!.months} maanden`,
+                `${calAge!.years} years and ${calAge!.months} months`,
+                `${calAge!.years} سنة و${calAge!.months} أشهر`,
               )
             : tx(lang, "onbekend", "unknown", "غير معروف"),
           childGender:
@@ -371,9 +374,9 @@ export default function ChildDetailScreen() {
           childAge: age
             ? tx(
                 lang,
-                `${age.years} jaar en ${age.months} maanden`,
-                `${age.years} years and ${age.months} months`,
-                `${age.years} سنة و${age.months} أشهر`,
+                `${calAge!.years} jaar en ${calAge!.months} maanden`,
+                `${calAge!.years} years and ${calAge!.months} months`,
+                `${calAge!.years} سنة و${calAge!.months} أشهر`,
               )
             : tx(lang, "onbekend", "unknown", "غير معروف"),
           childGender:
@@ -687,9 +690,9 @@ export default function ChildDetailScreen() {
                   >
                     {tx(
                       lang,
-                      `${age.years} jaar, ${age.months} maanden`,
-                      `${age.years} years, ${age.months} months`,
-                      `${age.years} سنة، ${age.months} أشهر`,
+                      `${calAge!.years} jaar, ${calAge!.months} maanden`,
+                      `${calAge!.years} years, ${calAge!.months} months`,
+                      `${calAge!.years} سنة، ${calAge!.months} أشهر`,
                     )}
                   </Text>
                 </View>
@@ -791,9 +794,9 @@ export default function ChildDetailScreen() {
                 >
                   {tx(
                     lang,
-                    `${age.years} jaar, ${age.months} maanden \u2014 Week ${weekInYear} van ${yearKey}`,
-                    `${age.years} years, ${age.months} months \u2014 Week ${weekInYear} of ${yearKey}`,
-                    `${age.years} سنة، ${age.months} أشهر \u2014 الأسبوع ${weekInYear} من ${yearKey}`,
+                    `${calAge!.years} jaar, ${calAge!.months} maanden \u2014 programma: week ${weekInYear} van ${yearKey}`,
+                    `${calAge!.years} years, ${calAge!.months} months \u2014 programme: week ${weekInYear} of ${yearKey}`,
+                    `${calAge!.years} سنة، ${calAge!.months} أشهر \u2014 البرنامج: الأسبوع ${weekInYear} من ${yearKey}`,
                   )}
                 </Text>
               )}
@@ -1026,15 +1029,13 @@ export default function ChildDetailScreen() {
                 {tx(lang, "Tasfiyah", "Tasfiyah", "التصفية")}
               </Text>{" "}
               ({tx(lang, "verstand vormen", "forming the mind", "تصفية العقل")})
-              — 4 {tx(lang, "doelen", "goals", "أهداف")}
             </Text>
             <Text className="text-sm mb-1" style={{ color: colors.foreground }}>
               {"\u2022"}{" "}
               <Text className="font-bold">
                 {tx(lang, "Tazkiyah", "Tazkiyah", "التزكية")}
               </Text>{" "}
-              ({tx(lang, "hart vormen", "forming the heart", "تزكية القلب")}) —
-              5 {tx(lang, "doelen", "goals", "أهداف")}
+              ({tx(lang, "hart vormen", "forming the heart", "تزكية القلب")})
             </Text>
             <Text className="text-sm mb-1" style={{ color: colors.foreground }}>
               {"\u2022"}{" "}
@@ -1042,7 +1043,6 @@ export default function ChildDetailScreen() {
                 {tx(lang, "Tarbiyah", "Tarbiyah", "التربية")}
               </Text>{" "}
               ({tx(lang, "gedrag vormen", "forming behavior", "تربية السلوك")})
-              — 6 {tx(lang, "doelen", "goals", "أهداف")}
             </Text>
           </View>
 
@@ -1822,9 +1822,9 @@ export default function ChildDetailScreen() {
                                   childAge: age
                                     ? tx(
                                         lang,
-                                        `${age.years} jaar en ${age.months} maanden`,
-                                        `${age.years} years and ${age.months} months`,
-                                        `${age.years} سنة و${age.months} أشهر`,
+                                        `${calAge!.years} jaar en ${calAge!.months} maanden`,
+                                        `${calAge!.years} years and ${calAge!.months} months`,
+                                        `${calAge!.years} سنة و${calAge!.months} أشهر`,
                                       )
                                     : tx(
                                         lang,
