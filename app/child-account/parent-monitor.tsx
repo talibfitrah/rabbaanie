@@ -225,6 +225,13 @@ export default function ParentMonitorScreen() {
     onSuccess: () => {
       accountListQuery.refetch();
     },
+    // Without this a refused create looked like a dead button.
+    onError: (e) => {
+      Alert.alert(
+        language === "ar" ? "تعذّر إنشاء الحساب" : language === "nl" ? "Aanmaken mislukt" : "Could not create account",
+        e.message,
+      );
+    },
   });
 
   const renderTab = (tab: TabType) => (
