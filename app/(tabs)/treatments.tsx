@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, isProfileComplete } from "@/lib/store";
+import { calendarAge, isProfileComplete } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
@@ -188,7 +188,7 @@ export default function TreatmentsScreen() {
           const childIssues = allIssues.filter((i) => i.childId === child.id);
           const childOpenIssues = childIssues.filter((i) => !i.resolved);
           const age = child.birthDate
-            ? calculateAgeInWeeks(child.birthDate)
+            ? calendarAge(child.birthDate)
             : null;
 
           return (

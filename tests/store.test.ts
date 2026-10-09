@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   calculateAgeInWeeks,
+  calendarAge,
   getYearKey,
   getWeekInYear,
   pruneEmptyPlaceholderChildren,
@@ -39,6 +40,22 @@ describe("calculateAgeInWeeks", () => {
     const result = calculateAgeInWeeks(fiveYearsAgo.toISOString());
     expect(result.years).toBe(5);
     expect(result.totalWeeks).toBeGreaterThanOrEqual(260);
+  });
+});
+
+describe("calendarAge", () => {
+  // Fout 15: Kindprofiel said "7 jaar 0 maanden" for a child born 2019-10-12
+  // on 2026-10-04 (52-week years run ahead); Persoonlijk advies said 6y11m.
+  it("is 6 years 11 months nine days before the 7th birthday", () => {
+    expect(calendarAge("2019-10-12", new Date(2026, 9, 4))).toEqual({ years: 6, months: 11 });
+  });
+
+  it("turns 7 years 0 months on the birthday itself", () => {
+    expect(calendarAge("2019-10-12", new Date(2026, 9, 12))).toEqual({ years: 7, months: 0 });
+  });
+
+  it("is 0 for a birth date in the future", () => {
+    expect(calendarAge("2030-01-01", new Date(2026, 9, 4))).toEqual({ years: 0, months: 0 });
   });
 });
 

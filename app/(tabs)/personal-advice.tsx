@@ -39,7 +39,7 @@ import {
 import { ReportAiContent } from "@/components/report-ai-content";
 import { PremiumGate } from "@/components/premium-notice";
 import { useAuthContext } from "@/lib/auth-context";
-import { ownChildrenForViewer } from "@/lib/store";
+import { calendarAge, ownChildrenForViewer } from "@/lib/store";
 
 type Lang = "nl" | "en" | "ar";
 
@@ -83,17 +83,7 @@ function gregorianToHijri(gDate: Date): {
 }
 
 function calculateExactAge(birthDate: string, lang: Lang): string {
-  const birth = new Date(birthDate);
-  const now = new Date();
-  let years = now.getFullYear() - birth.getFullYear();
-  let months = now.getMonth() - birth.getMonth();
-  if (months < 0 || (months === 0 && now.getDate() < birth.getDate())) {
-    years--;
-    months += 12;
-  }
-  if (now.getDate() < birth.getDate()) {
-    months--;
-  }
+  const { years, months } = calendarAge(birthDate);
   if (years === 0) {
     return `${months} ${tx(lang, "maanden", "months", "شهر")}`;
   }

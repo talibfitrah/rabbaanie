@@ -755,6 +755,18 @@ export function calculateAgeInWeeks(birthDate: string): { years: number; months:
   return { years, months, weeks, totalWeeks };
 }
 
+/** Calendar age (years + whole months), for display. calculateAgeInWeeks counts
+ *  52-week years and drifts ~1.25 days/year — keep it for curriculum keys only. */
+export function calendarAge(birthDate: string, now: Date = new Date()): { years: number; months: number } {
+  // Read Y-M-D as written: new Date("2019-10-12") is UTC midnight, which local
+  // getters shift to the 11th west of UTC.
+  const [by, bm, bd] = birthDate.slice(0, 10).split("-").map(Number);
+  let m = (now.getFullYear() - by) * 12 + (now.getMonth() + 1 - bm);
+  if (now.getDate() < bd) m--;
+  m = Math.max(0, m);
+  return { years: Math.floor(m / 12), months: m % 12 };
+}
+
 export function getYearKey(years: number): string {
   if (years < -1) return "Jaar -1";
   if (years > 18) return "Jaar 18"; // Cap at 18

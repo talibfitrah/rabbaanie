@@ -17,7 +17,7 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
 import { useI18n } from "@/lib/i18n";
-import { calculateAgeInWeeks, getYearKey, getWeekInYear } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge, getYearKey, getWeekInYear } from "@/lib/store";
 import { ReportAiContent } from "@/components/report-ai-content";
 
 import { authedFetch } from "@/lib/authed-fetch";
@@ -545,6 +545,8 @@ export default function WeekplanScreen() {
 
   async function fetchWeekPlan() {
     if (!child || !age) return;
+    // Calendar age for the AI; `age` stays the curriculum key.
+    const cal = calendarAge(child.birthDate);
     try {
       const response = await authedFetch(`/api/advice/weekplan`, {
         method: "POST",
@@ -553,9 +555,9 @@ export default function WeekplanScreen() {
           childName: child.name,
           childAge: tx(
             lang,
-            `${age.years} jaar en ${age.months} maanden`,
-            `${age.years} years and ${age.months} months`,
-            `${age.years} سنة و${age.months} أشهر`,
+            `${cal.years} jaar en ${cal.months} maanden`,
+            `${cal.years} years and ${cal.months} months`,
+            `${cal.years} سنة و${cal.months} أشهر`,
           ),
           childGender:
             child.gender || tx(lang, "onbekend", "unknown", "غير معروف"),

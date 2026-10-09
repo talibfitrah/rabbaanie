@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
 import { formatDigits, type NumeralSystem } from "@/lib/prayer-data";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
@@ -3860,6 +3860,8 @@ export default function FamilyScreen() {
             const age = child.birthDate
               ? calculateAgeInWeeks(child.birthDate)
               : null;
+            // Displayed age is calendar-correct; `age` stays the curriculum key.
+            const calAge = child.birthDate ? calendarAge(child.birthDate) : null;
             const env = state.environments.find((e) => e.childId === child.id);
             // Calculate weekly progress for this child
             const yearKey = age ? `Jaar ${age.years}` : "Jaar 0";
@@ -3948,7 +3950,7 @@ export default function FamilyScreen() {
                             )}{" "}
                       —{" "}
                       {age
-                        ? `${formatDigits(age.years, numeralSystem)}${tx(lang, "j", "y", "س")} ${formatDigits(age.months, numeralSystem)}${tx(lang, "m", "m", "ش")}`
+                        ? `${formatDigits(calAge!.years, numeralSystem)}${tx(lang, "j", "y", "س")} ${formatDigits(calAge!.months, numeralSystem)}${tx(lang, "m", "m", "ش")}`
                         : tx(
                             lang,
                             "geen geboortedatum",
