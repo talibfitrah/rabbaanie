@@ -62,7 +62,7 @@ import { useAppState } from "@/lib/app-context";
 import { trpc } from "@/lib/trpc";
 import type { PartnerListEntry } from "@/lib/partner-types";
 import { useAuth } from "@/hooks/use-auth";
-import { calculateAgeInWeeks } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge } from "@/lib/store";
 import * as Sharing from "expo-sharing";
 import * as FileSystem from "expo-file-system/legacy";
 import { ReportAiContent } from "@/components/report-ai-content";
@@ -287,8 +287,7 @@ function AIChatScreenInner() {
   // Compute child age from birthDate
   const getChildAge = (child: any): string => {
     if (child.birthDate) {
-      const { years } = calculateAgeInWeeks(child.birthDate);
-      return String(years);
+      return String(calendarAge(child.birthDate).years);
     }
     return "5";
   };
@@ -474,7 +473,8 @@ function AIChatScreenInner() {
             setCurrentDbId(dbId);
             setMessages(conv.messages || []);
             if (conv.childId && conv.childName) {
-              setSelectedChild({ id: conv.childId, name: conv.childName, age: "5" });
+              const restored = appState.children.find((c: any) => c.id === conv.childId);
+              setSelectedChild({ id: conv.childId, name: conv.childName, age: restored ? getChildAge(restored) : "" });
             }
             if (conv.consultationType) {
               setConsultationType(conv.consultationType as any);
@@ -500,7 +500,8 @@ function AIChatScreenInner() {
         setConversationId(conv.id);
         setMessages(conv.messages || []);
         if (conv.childId && conv.childName) {
-          setSelectedChild({ id: conv.childId, name: conv.childName, age: conv.childAge || "5" });
+          const restored = appState.children.find((c: any) => c.id === conv.childId);
+          setSelectedChild({ id: conv.childId, name: conv.childName, age: restored ? getChildAge(restored) : conv.childAge || "" });
         }
         if (conv.consultationType) {
           setConsultationType(conv.consultationType);
@@ -1395,7 +1396,15 @@ function AIChatScreenInner() {
   // (not "male"), so the old `gender === "male"` check always fell through to
   // "husband" — fixed here (3010).
   const isMaleViewer = appState.parentProfile?.gender === "man" || appState.parentProfile?.gender === "male"; // codebase has both values
-  const spouseLabel = language === "ar" ? (isMaleViewer ? "زوجتي" : "زوجي") : language === "en" ? (isMaleViewer ? "My wife" : "My husband") : (isMaleViewer ? "Mijn vrouw" : "Mijn man");
+  // Gender can be missing locally (it may live only in the server's users.gender
+  // column — see messages.tsx): say neither "husband" nor "wife" then.
+  const isFemaleViewer = appState.parentProfile?.gender === "vrouw" || appState.parentProfile?.gender === "female";
+  const spouseLabel = isMaleViewer
+    ? (language === "ar" ? "زوجتي" : language === "en" ? "My wife" : "Mijn vrouw")
+    : isFemaleViewer
+      ? (language === "ar" ? "زوجي" : language === "en" ? "My husband" : "Mijn man")
+      : (language === "ar" ? "الزوج/الزوجة" : language === "en" ? "My spouse" : "Mijn partner");
+  const generalLabel = language === "ar" ? "سؤال عام" : language === "en" ? "General" : "Algemeen";
 
   return (
     <ScreenContainer edges={["top", "left", "right"]}>
@@ -1550,7 +1559,7 @@ function AIChatScreenInner() {
                           {item.consultationType === "spouse" ? "💑" : item.consultationType === "general" ? "✨" : "👶"}
                         </Text>
                         <Text style={{ color: colors.foreground, fontSize: 14, fontWeight: "600", flex: 1 }} numberOfLines={1}>
-                          {item.childName || (language === "ar" ? "سؤال عام" : "General")}
+                          {item.consultationType === "general" || !item.childName ? generalLabel : item.childName}
                         </Text>
                       </View>
                       <Text style={{ color: colors.muted, fontSize: 11 }}>
@@ -1863,7 +1872,8 @@ function AIChatScreenInner() {
                   <View style={{ flexDirection: isRTL ? "row-reverse" : "row", alignItems: "center", gap: 6, backgroundColor: colors.primary + "15", paddingHorizontal: 12, paddingVertical: 6, borderRadius: 16 }}>
                     <IconSymbol name="person.fill" size={14} color={colors.primary} />
                     <Text style={{ color: colors.primary, fontSize: 12, fontWeight: "600" }}>
-                      {selectedChild.name} ({selectedChild.age})
+                      {selectedChild.id === "general" ? generalLabel : selectedChild.name}
+                      {selectedChild.id !== "general" && selectedChild.id !== "spouse" && selectedChild.age ? ` (${selectedChild.age})` : ""}
                     </Text>
                   </View>
                   <Pressable
