@@ -382,6 +382,38 @@ describe("mergeServerState (hydrate's background-sync decision)", () => {
       }),
     ).toBe(false);
   });
+
+  it("adopts a partner's new name from the server (the wife kept seeing his old account name)", () => {
+    const localState = {
+      ...defaultAppState,
+      onboardingCompleted: true,
+      parentProfile: { ...completeServerProfile, partnerName: "Test Account", partnerId: "42" },
+      children: serverState.children,
+    };
+    const server = { ...serverState, parentProfile: { ...completeServerProfile, partnerName: "Test Vader", partnerId: "42" } };
+
+    const { state, changed } = mergeServerState(localState, server);
+
+    expect(changed).toBe(true);
+    expect(state.parentProfile.partnerName).toBe("Test Vader");
+  });
+
+  it("adopts parentProfileCompleted from the server (Behandeling stayed gated)", () => {
+    const localState = { ...serverState, parentProfileCompleted: false };
+    const server = { ...serverState, parentProfileCompleted: true };
+
+    const { state, changed } = mergeServerState(localState, server);
+
+    expect(changed).toBe(true);
+    expect(state.parentProfileCompleted).toBe(true);
+  });
+
+  it("never turns a local parentProfileCompleted back to false", () => {
+    const localState = { ...serverState, parentProfileCompleted: true };
+    const server = { ...serverState, parentProfileCompleted: false };
+
+    expect(mergeServerState(localState, server).state.parentProfileCompleted).toBe(true);
+  });
 });
 
 /**

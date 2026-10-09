@@ -683,9 +683,11 @@ export function mergeServerState(
     const localPartnerId = updatedState.parentProfile?.partnerId || "";
     const serverPartnerName = serverState.parentProfile?.partnerName || "";
     const serverPartnerId = serverState.parentProfile?.partnerId || "";
+    // Server wins on a difference, not only into an empty field: a partner
+    // who renames themselves must not stay under the old name on this device.
     if (
-      (!localPartnerName && serverPartnerName) ||
-      (!localPartnerId && serverPartnerId)
+      (serverPartnerName && serverPartnerName !== localPartnerName) ||
+      (serverPartnerId && serverPartnerId !== localPartnerId)
     ) {
       updatedState = {
         ...updatedState,
@@ -700,6 +702,14 @@ export function mergeServerState(
         `[CloudSync] Merged partner info from server: ${serverPartnerName}`,
       );
     }
+  }
+
+  // parentProfileCompleted only ever goes false→true (completeParentProfile).
+  // Adopt the server's true, or this device keeps gating Behandeling/Gezin
+  // ("Vul eerst uw profiel in") and its next profile.save pushes false back.
+  if (serverState.parentProfileCompleted && !updatedState.parentProfileCompleted) {
+    updatedState = { ...updatedState, parentProfileCompleted: true };
+    changed = true;
   }
 
   return { state: updatedState, changed };
