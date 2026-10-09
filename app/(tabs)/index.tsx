@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity,
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, formatHijriDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
@@ -611,7 +611,7 @@ export default function AlgemeenScreen() {
               <View style={{ flex: 1 }}>
                 <Text style={s.childName} numberOfLines={1}>{(() => { const n = child.name; const m = n.match(/^(Kind|Child|طفل)\s*(\d+)$/i); if (m) { return lang === "ar" ? `طفل ${m[2]}` : lang === "en" ? `Child ${m[2]}` : `Kind ${m[2]}`; } return n; })()}</Text>
                 <Text style={s.childAge}>
-                  {age ? `${age.years} ${tx(lang, "jaar", "years", "سنة")}` : tx(lang, "Leeftijd onbekend", "Age unknown", "العمر غير معروف")}
+                  {age ? `${calendarAge(child.birthDate).years} ${tx(lang, "jaar", "years", "سنة")}` : tx(lang, "Leeftijd onbekend", "Age unknown", "العمر غير معروف")}
                 </Text>
               </View>
             </View>
@@ -641,7 +641,7 @@ export default function AlgemeenScreen() {
               style={({ pressed }) => [s.childActionBtn, { flexDirection: isRTL ? "row-reverse" : "row" }, pressed && { opacity: 0.7 }]}
             >
               <MaterialIcons name="checklist" size={12} color="#1B4332" />
-              <Text style={s.childActionText}>{tx(lang, "خطة الأسبوع", "Week plan", "خطة الأسبوع")}</Text>
+              <Text style={s.childActionText}>{tx(lang, "Weekplan", "Week plan", "خطة الأسبوع")}</Text>
             </Pressable>
           </Pressable>
         ))}
