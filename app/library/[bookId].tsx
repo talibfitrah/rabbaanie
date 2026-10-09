@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from "react";
 import { View, Text, FlatList, Pressable } from "react-native";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import { Image } from "expo-image";
+import { BookCover } from "@/components/book-cover";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import { ScreenContainer } from "@/components/screen-container";
@@ -141,11 +141,7 @@ export default function BookDetailScreen() {
           borderBottomWidth: 0.5,
           borderBottomColor: colors.border,
         }}>
-          <Image
-            source={{ uri: coverUrl }}
-            style={{ width: 90, height: 120, borderRadius: 10 }}
-            contentFit="cover"
-          />
+          <BookCover uri={coverUrl} style={{ width: 90, height: 120, borderRadius: 10 }} />
           <View style={{ flex: 1, justifyContent: "center" }}>
             <Text style={{
               fontSize: 18,

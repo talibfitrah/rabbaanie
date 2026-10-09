@@ -2,11 +2,11 @@ import { useState, useMemo, useEffect } from "react";
 import { View, Text, SectionList, Pressable, useWindowDimensions } from "react-native";
 import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
-import { Image } from "expo-image";
 import { useColors } from "@/hooks/use-colors";
 import { useI18n } from "@/lib/i18n";
 import MaterialIcons from "@expo/vector-icons/MaterialIcons";
 import { ScreenContainer } from "@/components/screen-container";
+import { BookCover } from "@/components/book-cover";
 import libraryIndex from "@/assets/data/library/index.json";
 import coverUrls from "@/assets/data/library/cover_urls.json";
 import { fetchServerBookIndex } from "@/lib/server-books";
@@ -130,10 +130,9 @@ export default function LibraryScreen() {
         shadowOpacity: 0.1,
         shadowRadius: 4,
       }}>
-        <Image
-          source={{ uri: item.coverUrl }}
+        <BookCover
+          uri={item.coverUrl}
           style={{ width: "100%", height: CARD_WIDTH * 1.3, borderTopLeftRadius: 12, borderTopRightRadius: 12 }}
-          contentFit="cover"
         />
         <View style={{ padding: 10 }}>
           <Text
@@ -256,10 +255,9 @@ export default function LibraryScreen() {
               borderColor: colors.primary + "30",
             }}>
               <View style={{ flexDirection: isRTL ? "row-reverse" : "row", padding: 12, gap: 12 }}>
-                <Image
-                  source={{ uri: featuredBook.coverUrl }}
+                <BookCover
+                  uri={featuredBook.coverUrl}
                   style={{ width: 80, height: 110, borderRadius: 8 }}
-                  contentFit="cover"
                 />
                 <View style={{ flex: 1, justifyContent: "center" }}>
                   <Text style={{
