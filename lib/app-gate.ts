@@ -18,6 +18,8 @@ export type PendingRedirectInput = {
   profileDone: boolean;
   permissionsSetupDone: boolean;
   inSetup: boolean;
+  /** A first-run user picks the app language before onboarding (language-select → /onboarding). */
+  languageSelected: boolean;
 };
 
 export function resolvePendingRedirect(input: PendingRedirectInput): string | null {
@@ -31,12 +33,13 @@ export function resolvePendingRedirect(input: PendingRedirectInput): string | nu
     profileDone,
     permissionsSetupDone,
     inSetup,
+    languageSelected,
   } = input;
 
   const authResolved = !ageLoading && !(loading && !timedOut);
   const eligible = !gateRedirect && authResolved && ageStatus === "adult" && isAuthenticated && !inSetup;
 
-  if (eligible && !profileDone) return "/onboarding";
+  if (eligible && !profileDone) return languageSelected ? "/onboarding" : "/language-select";
   if (eligible && profileDone && !permissionsSetupDone) return "/permissions-setup";
   return gateRedirect;
 }

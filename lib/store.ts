@@ -489,6 +489,16 @@ export function isProfileComplete(state: { parentProfile?: ParentProfile; childr
   return getFirstIncompleteOnboardingStep(state) === null;
 }
 
+/**
+ * The one "may this user use the app" rule (AuthGate's profileDone): a user
+ * who completed onboarding is never sent back, even if a profile field reads
+ * empty for a moment during a sync. AuthGate alone redirects to /onboarding;
+ * screens use this only to decide whether to render.
+ */
+export function isOnboardingDone(state: { parentProfile?: ParentProfile; children?: ChildProfile[]; onboardingCompleted?: boolean }): boolean {
+  return isProfileComplete(state) || !!state.onboardingCompleted;
+}
+
 // Onboarding used to spawn N empty "Kind N"/"Child N"/"طفل N" children per
 // signup (~52 users / 136 placeholders in production — see handleChildrenSubmit
 // fix). mergeServerState is union-only and never deletes, so cleanup has to

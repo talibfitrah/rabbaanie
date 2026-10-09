@@ -18,7 +18,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, calendarAge, getWeekInYear, getYearKey, isProfileComplete, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge, getWeekInYear, getYearKey, isOnboardingDone, groupChildrenByMother, getChildNasabLabel, childrenSharedWithCoParent } from "@/lib/store";
 import { formatDigits, type NumeralSystem } from "@/lib/prayer-data";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
@@ -2037,8 +2037,8 @@ export default function FamilyScreen() {
       </View>
     );
   }
-  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
-    setTimeout(() => router.replace("/onboarding"), 0);
+  // AuthGate owns the /onboarding redirect (see app/(tabs)/index.tsx).
+  if (!isOnboardingDone(state)) {
     return (
       <View
         className="flex-1 items-center justify-center"

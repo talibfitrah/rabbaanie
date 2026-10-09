@@ -10,7 +10,7 @@ import { useRouter } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useColors } from "@/hooks/use-colors";
 import { useAppState } from "@/lib/app-context";
-import { calendarAge, isProfileComplete } from "@/lib/store";
+import { calendarAge, isOnboardingDone } from "@/lib/store";
 import { DateTimeHeader } from "@/components/date-time-header";
 import { useI18n } from "@/lib/i18n";
 import { ReportAiContent } from "@/components/report-ai-content";
@@ -40,8 +40,8 @@ export default function TreatmentsScreen() {
     );
   }
 
-  if (!isProfileComplete({ parentProfile: state.parentProfile, children: state.children })) {
-    setTimeout(() => router.replace("/onboarding"), 0);
+  // AuthGate owns the /onboarding redirect (see app/(tabs)/index.tsx).
+  if (!isOnboardingDone(state)) {
     return (
       <View
         className="flex-1 items-center justify-center"

@@ -3,7 +3,7 @@ import { View, Text, ScrollView, ActivityIndicator, Pressable, TouchableOpacity,
 import { useRouter, useFocusEffect } from "expo-router";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 import { useAppState } from "@/lib/app-context";
-import { calculateAgeInWeeks, calendarAge, getYearKey, getWeekInYear, isProfileComplete } from "@/lib/store";
+import { calculateAgeInWeeks, calendarAge, getYearKey, getWeekInYear, isOnboardingDone } from "@/lib/store";
 import { useI18n } from "@/lib/i18n";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { PRAYER_LOCATION_KEY, PRAYER_METHOD_KEY, CALC_METHODS, calculatePrayerTimes, getNextPrayer, getCurrentMinutesInTimezone, getIslamicDate, formatHijriDate, getCityAR, type SavedPrayerLocation, type CalcMethod, type PrayerTimesResult } from "@/lib/prayer-data";
@@ -83,7 +83,7 @@ export default function AlgemeenScreen() {
   const insets = useSafeAreaInsets();
   const router = useRouter();
   const { state, loading, rehydrateFromServer } = useAppState();
-  const { t, language, isRTL, languageSelected, numeralSystem, dig } = useI18n();
+  const { t, language, isRTL, numeralSystem, dig } = useI18n();
   const lang = language as Lang;
   const [currentTime, setCurrentTime] = useState(new Date());
   const [prayerLocation, setPrayerLocation] = useState<SavedPrayerLocation | null>(null);
@@ -358,14 +358,11 @@ export default function AlgemeenScreen() {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
 
-  const profileComplete = isProfileComplete({ parentProfile: state.parentProfile, children: state.children });
-  if (!profileComplete) {
-    // If language not yet selected, go to language selection first
-    if (!languageSelected) {
-      setTimeout(() => router.replace("/language-select"), 0);
-    } else {
-      setTimeout(() => router.replace("/onboarding"), 0);
-    }
+  // AuthGate (app/_layout.tsx) owns the /language-select and /onboarding
+  // redirects. This tab stays mounted under /onboarding and re-renders every
+  // 30 s, so replacing to it from here remounted the onboarding screen
+  // mid-flow (step and form reset) and threw users out of the AI chat.
+  if (!isOnboardingDone(state)) {
     return <View style={s.loadingWrap}><ActivityIndicator size="large" color="#1B4332" /></View>;
   }
 

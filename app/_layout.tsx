@@ -29,7 +29,7 @@ import {
   subscribeSafeAreaInsets,
 } from "@/lib/_core/manus-runtime";
 import { AppProvider, useAppState } from "@/lib/app-context";
-import { isProfileComplete } from "@/lib/store";
+import { isOnboardingDone } from "@/lib/store";
 import { I18nProvider, useI18n } from "@/lib/i18n";
 import { useUpdates } from "@/hooks/use-updates";
 import { UpdateProgressOverlay } from "@/components/UpdateProgressOverlay";
@@ -193,6 +193,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
   const { status: ageStatus, loading: ageLoading } = useAgeGate();
   const { state: appState, loading: appLoading } = useAppState();
   const router = useRouter();
+  const { languageSelected } = useI18n();
   const segments = useSegments();
   const pathname = usePathname();
 
@@ -278,10 +279,11 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     // دوامة (Daa3iyah, 3 reports; two field-specific fixes didn't close it). A
     // completed user with a genuinely-missing field can fill it in Settings; a
     // total lockout loop is far worse. New users (flag false) still onboard.
-    : isProfileComplete({
+    : isOnboardingDone({
         parentProfile: appState?.parentProfile,
         children: appState?.children,
-      }) || !!appState?.onboardingCompleted;
+        onboardingCompleted: appState?.onboardingCompleted,
+      });
   // permissionsSetupCompleted lives on AppState (lib/store.ts), not a
   // separate AsyncStorage key read once on AuthGate's mount — that was tried
   // first and needed a new special-cased re-read trigger for every path that
@@ -306,6 +308,7 @@ function AuthGate({ children }: { children: React.ReactNode }) {
     profileDone,
     permissionsSetupDone,
     inSetup,
+    languageSelected,
   });
 
   useEffect(() => {

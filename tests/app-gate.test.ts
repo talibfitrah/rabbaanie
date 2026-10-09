@@ -1,5 +1,8 @@
 import { describe, expect, it } from "vitest";
+import fs from "node:fs";
+import path from "node:path";
 import { isSetupRoute, resolvePendingRedirect, type PendingRedirectInput } from "../lib/app-gate";
+import { defaultAppState, isOnboardingDone } from "../lib/store";
 
 const base: PendingRedirectInput = {
   gateRedirect: null,
@@ -11,6 +14,7 @@ const base: PendingRedirectInput = {
   profileDone: true,
   permissionsSetupDone: true,
   inSetup: false,
+  languageSelected: true,
 };
 
 describe("resolvePendingRedirect", () => {
@@ -64,5 +68,47 @@ describe("isSetupRoute", () => {
     expect(isSetupRoute("(tabs)")).toBe(false);
     expect(isSetupRoute("login")).toBe(false);
     expect(isSetupRoute(undefined)).toBe(false);
+  });
+});
+
+describe("onboarding redirect ownership (onboarding loop: gender → kinderen → back to gender)", () => {
+  const complete = {
+    parentProfile: {
+      ...defaultAppState.parentProfile,
+      firstName: "A", lastName: "B", birthDate: "1985-01-01", country: "Nederland", city: "Utrecht",
+      street: "Straat", houseNumber: "1", phoneNumber: "0600000000", gender: "man", maritalStatus: "getrouwd",
+    },
+    children: [{ id: "c1", name: "Testkind", birthDate: "2019-10-12", gender: "jongen" as const, profileCompleted: false, laterInvullen: true }],
+  };
+
+  it("a completed user stays done while a field reads empty mid-sync", () => {
+    const blankGender = { ...complete, parentProfile: { ...complete.parentProfile, gender: "" } };
+    expect(isOnboardingDone({ ...blankGender, onboardingCompleted: true })).toBe(true);
+  });
+
+  it("a first-run user without a chosen language is sent to language-select first (it then continues to /onboarding)", () => {
+    expect(resolvePendingRedirect({ ...base, profileDone: false, languageSelected: false })).toBe("/language-select");
+    // …but never pulled out of a setup screen, and never once onboarding is done.
+    expect(resolvePendingRedirect({ ...base, profileDone: false, languageSelected: false, inSetup: true })).toBeNull();
+    expect(resolvePendingRedirect({ ...base, languageSelected: false })).toBeNull();
+  });
+
+  it("a new user with an incomplete profile is not done (AuthGate still onboards them)", () => {
+    const fresh = { ...complete, parentProfile: { ...complete.parentProfile, gender: "" }, onboardingCompleted: false };
+    expect(isOnboardingDone(fresh)).toBe(false);
+    expect(resolvePendingRedirect({ ...base, profileDone: isOnboardingDone(fresh) })).toBe("/onboarding");
+  });
+
+  it("no tab screen routes to /onboarding itself — they stay mounted under it and re-render", () => {
+    const tabsDir = path.join(__dirname, "..", "app", "(tabs)");
+    // Any route literal that is exactly /onboarding or /language-select (push,
+    // replace, href, Redirect…). settings.tsx keeps one: after "reset all data".
+    const allowed: Record<string, number> = { "settings.tsx": 1 };
+    const offenders = fs.readdirSync(tabsDir)
+      .filter((f) => f.endsWith(".tsx"))
+      .filter((f) => (fs.readFileSync(path.join(tabsDir, f), "utf8").match(/["'`]\/(onboarding|language-select)["'`]/g) ?? []).length > (allowed[f] ?? 0));
+    expect(offenders).toEqual([]);
+    // …and AuthGate does use the shared rule.
+    expect(fs.readFileSync(path.join(__dirname, "..", "app", "_layout.tsx"), "utf8")).toContain("isOnboardingDone(");
   });
 });
